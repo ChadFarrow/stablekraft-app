@@ -81,32 +81,72 @@
 
 @layer components {
   .podcast-card {
-    @apply bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden;
+    @apply bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden;
     border: 1px solid rgba(78, 205, 196, 0.2);
+    transform: translateY(0);
+  }
+  
+  .podcast-card:hover {
+    transform: translateY(-2px);
   }
   
   .episode-card {
-    @apply bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-4 border border-gray-100;
+    @apply bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-4 border border-gray-100;
+    transform: translateY(0);
+  }
+  
+  .episode-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(78, 205, 196, 0.3);
+  }
+  
+  /* Enhanced interactive elements */
+  .interactive-element {
+    @apply transition-all duration-200 cursor-pointer;
+    transform: translateY(0) scale(1);
+  }
+  
+  .interactive-element:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+  
+  .interactive-element:active {
+    transform: translateY(0) scale(0.98);
   }
   
   .btn-primary {
     background-color: var(--stablekraft-teal);
-    @apply hover:bg-stablekraft-orange text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-md;
+    transform: translateY(0);
   }
   
   .btn-primary:hover {
     background-color: var(--stablekraft-orange);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(78, 205, 196, 0.3);
+  }
+  
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.2);
   }
   
   .btn-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-100 text-gray-800 font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm;
     border: 1px solid rgba(78, 205, 196, 0.3);
+    transform: translateY(0);
   }
   
   .btn-secondary:hover {
     background-color: var(--stablekraft-teal);
     color: white;
     border-color: var(--stablekraft-teal);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(78, 205, 196, 0.25);
+  }
+  
+  .btn-secondary:active {
+    transform: translateY(0);
   }
 
   /* Scrollbar utilities */
@@ -179,6 +219,22 @@
   /* Add extra padding on top of safe area for better spacing */
   .pt-safe-plus {
     padding-top: calc(1rem + env(safe-area-inset-top));
+  }
+  
+  /* Extra large top safe area padding for more spacing */
+  .pt-safe-xl {
+    padding-top: calc(2rem + env(safe-area-inset-top));
+  }
+  
+  /* iOS specific utilities */
+  .pt-ios {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* Enhanced content overlay utilities */
+  .backdrop-blur-content {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 }
 
