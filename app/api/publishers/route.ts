@@ -148,6 +148,33 @@ export async function GET() {
       publisher.itemCount = publisher.albums.length;
     });
     
+    // Get actual album counts for all publishers in one query
+    const publisherNames = Array.from(publishersMap.keys()).map(key => publishersMap.get(key)!.title);
+    const actualAlbumCounts = await prisma.feed.groupBy({
+      by: ['artist'],
+      where: {
+        status: 'active',
+        artist: { in: publisherNames },
+        tracks: {
+          some: {
+            audioUrl: { not: '' }
+          }
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+    
+    // Update publisher item counts with actual database counts
+    actualAlbumCounts.forEach(count => {
+      const publisherKey = generateAlbumSlug(count.artist);
+      const publisher = publishersMap.get(publisherKey);
+      if (publisher) {
+        publisher.itemCount = count._count.id;
+      }
+    });
+    
     let publishers = Array.from(publishersMap.values()).sort((a, b) => 
       a.title.toLowerCase().localeCompare(b.title.toLowerCase())
     );
