@@ -429,7 +429,7 @@ export default function HomePage() {
             albumCount: 50, // Estimated
             totalTracks: 50,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/UpBEATs-playlist-art.webp',
+            coverArt: '/api/placeholder/300/300',
             tracks: []
           },
           {
@@ -442,7 +442,7 @@ export default function HomePage() {
             albumCount: 100, // Exactly 100
             totalTracks: 100,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/top100-playlist-art.webp',
+            coverArt: '/api/placeholder/300/300',
             tracks: []
           },
           {
@@ -455,7 +455,7 @@ export default function HomePage() {
             albumCount: 150, // Estimated
             totalTracks: 150,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://podcastindex-org.github.io/art/podcast-index-logo.png',
+            coverArt: '/api/placeholder/300/300',
             tracks: []
           },
           {
