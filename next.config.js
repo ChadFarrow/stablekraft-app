@@ -3,22 +3,43 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: false,
-  // Simplified exclusions to prevent build issues
+  // Comprehensive exclusions to prevent API and RSC caching issues
   exclude: [
+    // Next.js internals
     /_next\/static\/.*\/_buildManifest\.js$/,
     /_next\/static\/.*\/_ssgManifest\.js$/,
     /_next\/static\/.*\/_app-build-manifest\.json$/,
     /_next\/webpack-hmr/,
+    
+    // API routes - exclude all to prevent caching issues
+    /^\/api\/.*/,
+    
+    // RSC (React Server Components) routes
+    /\?_rsc=/,
+    /.*\?_rsc=.*/,
+    
+    // Dynamic routes that cause issues
+    /album\/.*\?_rsc=/,
+    /publisher\/.*\?_rsc=/,
+    
+    // Test and debug pages
     /test-mobile-images/,
+    /test-jdog/,
+    /test-errors/,
+    /admin/,
+    
+    // Image proxying
     /api\/proxy-image/,
     /api\/optimized-images/,
+    
+    // Data endpoints
     /api\/albums/,
     /api\/parsed-feeds/,
     /api\/feeds/,
-    /\?_rsc=/,
-    /album\/.*\?_rsc=/,
+    /api\/publishers/,
+    /api\/playlist/,
   ],
-  // Simplified runtime caching to prevent build errors
+  // Enhanced runtime caching with better API exclusions
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -42,7 +63,50 @@ const withPWA = require('next-pwa')({
         },
       },
     },
+    {
+      // Cache static assets
+      urlPattern: /^https?.*\.(png|jpg|jpeg|svg|gif|webp|ico)$/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'static-images-cache',
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+    {
+      // Cache CSS and JS files
+      urlPattern: /^https?.*\.(css|js)$/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'static-resources-cache',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+        },
+      },
+    },
+    {
+      // Network first for pages (but exclude API and RSC)
+      urlPattern: /^https?:\/\/[^/]*\/(?!api\/)(?!.*\?_rsc=).*$/,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'pages-cache',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 60 * 60 * 24, // 1 day
+        },
+        networkTimeoutSeconds: 3,
+      },
+    },
   ],
+  // PWA fallback configuration
+  fallbacks: {
+    document: '/offline', // Offline page for HTML documents
+  },
+  cacheOnFrontEndNav: true,
+  reloadOnOnline: true,
 });
 
 /** @type {import('next').NextConfig} */

@@ -44,8 +44,9 @@ export async function GET(request: Request) {
             audioUrl: { not: '' }
           },
           orderBy: [
-            { publishedAt: 'desc' },
-            { createdAt: 'desc' }
+            { trackOrder: 'asc' },
+            { publishedAt: 'asc' },
+            { createdAt: 'asc' }
           ],
           take: 50 // Limit tracks per feed for performance
         }

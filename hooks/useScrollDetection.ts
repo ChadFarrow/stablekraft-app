@@ -36,8 +36,8 @@ export function useScrollDetection(): UseScrollDetectionResult {
     const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
     const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
     
-    // If moved more than 10px, consider it scrolling
-    if (deltaX > 10 || deltaY > 10) {
+    // If moved more than 20px, consider it scrolling (increased sensitivity)
+    if (deltaX > 20 || deltaY > 20) {
       setIsScrolling(true);
       
       // Clear existing timeout
@@ -45,22 +45,22 @@ export function useScrollDetection(): UseScrollDetectionResult {
         clearTimeout(scrollTimeoutRef.current);
       }
       
-      // Reset scrolling state after 150ms of no movement
+      // Reset scrolling state after 300ms of no movement (increased timeout)
       scrollTimeoutRef.current = setTimeout(() => {
         setIsScrolling(false);
-      }, 150);
+      }, 300);
     }
   };
 
   const handleTouchEnd = () => {
-    // Keep scrolling state for a short time to prevent immediate clicks
+    // Keep scrolling state for a longer time to prevent immediate clicks after scrolling
     if (isScrolling) {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
       scrollTimeoutRef.current = setTimeout(() => {
         setIsScrolling(false);
-      }, 100);
+      }, 250);
     }
     touchStartRef.current = null;
   };
@@ -69,8 +69,8 @@ export function useScrollDetection(): UseScrollDetectionResult {
     if (!touchStartRef.current) return false;
     
     const timeSinceStart = Date.now() - touchStartRef.current.time;
-    // Prevent clicks that happen too quickly (likely accidental taps)
-    return isScrolling || timeSinceStart < 100;
+    // Prevent clicks that happen too quickly (likely accidental taps) - increased threshold
+    return isScrolling || timeSinceStart < 200;
   };
 
   // Global scroll detection
@@ -82,7 +82,7 @@ export function useScrollDetection(): UseScrollDetectionResult {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         setIsScrolling(false);
-      }, 150);
+      }, 300);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });

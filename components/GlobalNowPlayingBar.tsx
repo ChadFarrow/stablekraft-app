@@ -12,6 +12,8 @@ const GlobalNowPlayingBar: React.FC = () => {
     currentTime,
     duration,
     isShuffleMode,
+    isFullscreenMode,
+    setFullscreenMode,
     pause,
     resume,
     seek,
@@ -23,8 +25,8 @@ const GlobalNowPlayingBar: React.FC = () => {
 
   const [volume, setVolume] = useState(0.6);
 
-  // Don't render if nothing is playing
-  if (!currentPlayingAlbum) {
+  // Don't render if nothing is playing or if fullscreen mode is active
+  if (!currentPlayingAlbum || isFullscreenMode) {
     return null;
   }
 
@@ -47,6 +49,10 @@ const GlobalNowPlayingBar: React.FC = () => {
 
   const handleClose = () => {
     stop();
+  };
+
+  const handleOpenFullscreen = () => {
+    setFullscreenMode(true);
   };
 
   // Create track object for NowPlaying component
@@ -97,6 +103,7 @@ const GlobalNowPlayingBar: React.FC = () => {
         onVolumeChange={handleVolumeChange}
         onClose={handleClose}
         onToggleShuffle={toggleShuffle}
+        onOpenFullscreen={handleOpenFullscreen}
       />
     </div>
   );

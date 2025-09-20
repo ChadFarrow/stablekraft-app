@@ -1,7 +1,7 @@
 {
-  "name": "Project StableKraft",
-  "short_name": "Project StableKraft",
-  "description": "Music and podcast hub from the Doerfel family and friends",
+  "name": "FUCKIT - Music & Podcast Hub",
+  "short_name": "FUCKIT",
+  "description": "Discover and listen to music and podcasts with offline support",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1f2937",

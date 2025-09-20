@@ -20,6 +20,10 @@ interface AudioContextType {
   // Shuffle state
   isShuffleMode: boolean;
   
+  // UI state
+  isFullscreenMode: boolean;
+  setFullscreenMode: (fullscreen: boolean) => void;
+  
   // Audio controls
   playAlbum: (album: RSSAlbum, trackIndex?: number) => Promise<boolean>;
   playTrack: (audioUrl: string, startTime?: number, endTime?: number) => Promise<boolean>;
@@ -72,6 +76,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     track: any;
   }>>([]);
   const [currentShuffleIndex, setCurrentShuffleIndex] = useState(0);
+  
+  // UI state
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1061,6 +1068,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     duration,
     isVideoMode,
     isShuffleMode,
+    isFullscreenMode,
+    setFullscreenMode: setIsFullscreenMode,
     playAlbum,
     playTrack,
     playShuffledTrack,

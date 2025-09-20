@@ -896,13 +896,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             />
           </div>
           <div className="space-y-2">
-            {album.tracks.map((track, index) => (
+            {album.tracks.map((track, displayIndex) => (
               <div 
-                key={index} 
+                key={displayIndex} 
                 className={`flex items-center justify-between p-4 hover:bg-white/10 rounded-lg transition-colors group cursor-pointer ${
-                  globalTrackIndex === index && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
+                  globalTrackIndex === displayIndex && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
                 }`}
-                onClick={() => playTrack(index)}
+                onClick={() => playTrack(displayIndex)}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0 overflow-hidden rounded">
@@ -913,8 +913,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       width={48}
                       height={48}
                       className="w-full h-full object-cover"
-                      priority={index < 5} // Priority for first 5 tracks
-                      loading={index < 5 ? 'eager' : 'lazy'}
+                      priority={displayIndex < 5} // Priority for first 5 tracks
+                      loading={displayIndex < 5 ? 'eager' : 'lazy'}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = getPlaceholderImageUrl('thumbnail');
@@ -927,10 +927,10 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         className="bg-white text-black rounded-full p-1 transform hover:scale-110 transition-all duration-200 shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
-                          playTrack(index);
+                          playTrack(displayIndex);
                         }}
                       >
-                        {globalTrackIndex === index && globalIsPlaying && currentPlayingAlbum?.title === album?.title ? (
+                        {globalTrackIndex === displayIndex && globalIsPlaying && currentPlayingAlbum?.title === album?.title ? (
                           <Pause className="h-3 w-3" />
                         ) : (
                           <Play className="h-3 w-3" />

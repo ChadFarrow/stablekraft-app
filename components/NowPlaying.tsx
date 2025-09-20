@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import CDNImage from '@/components/CDNImage';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 
@@ -26,6 +25,7 @@ interface NowPlayingProps {
   onVolumeChange: (volume: number) => void;
   onClose: () => void;
   onToggleShuffle?: () => void;
+  onOpenFullscreen?: () => void;
 }
 
 const NowPlaying: React.FC<NowPlayingProps> = ({
@@ -40,7 +40,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
   onSeek,
   onVolumeChange,
   onClose,
-  onToggleShuffle
+  onToggleShuffle,
+  onOpenFullscreen
 }) => {
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
@@ -79,15 +80,12 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
     setHoverPosition(null);
   };
 
-  const generateAlbumUrl = (albumTitle: string): string => {
-    return `/album/${encodeURIComponent(albumTitle)}`;
-  };
 
   return (
     <div className="container mx-auto flex items-center gap-4">
       {/* Album Info - Left Side */}
-      <Link
-        href={generateAlbumUrl(track.albumTitle)}
+      <div
+        onClick={onOpenFullscreen}
         className="flex items-center gap-3 min-w-0 flex-1 hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors cursor-pointer"
       >
         <CDNImage 
@@ -107,7 +105,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             {track.artist}
           </p>
         </div>
-      </Link>
+      </div>
       
       {/* Playback Controls - Perfectly Centered */}
       <div className="flex items-center justify-center gap-3 flex-1">

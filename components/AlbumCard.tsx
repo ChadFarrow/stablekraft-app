@@ -184,12 +184,12 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
               const button = e.currentTarget as HTMLElement;
               if (button.dataset.touched === 'true') {
                 delete button.dataset.touched;
-                // Small delay to ensure it's a deliberate tap, not accidental during scroll
+                // Increased delay to ensure it's a deliberate tap, not accidental during scroll
                 setTimeout(() => {
                   if (!shouldPreventClick()) {
                     onPlay(album, e);
                   }
-                }, 100);
+                }, 150);
               }
             }}
             className="w-16 h-16 md:w-12 md:h-12 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 touch-manipulation pointer-events-auto border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
+import { extractDominantColor, adjustColorBrightness } from '@/lib/color-utils';
 
 interface NowPlayingScreenProps {
   isOpen: boolean;
@@ -35,19 +36,28 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   // Get current track info
   const currentTrack = currentPlayingAlbum?.tracks?.[currentTrackIndex];
-  const albumArt = currentPlayingAlbum?.coverArt 
+  
+  // Prioritize track image, fallback to album coverArt
+  const albumArt = currentTrack?.image 
+    ? getAlbumArtworkUrl(currentTrack.image, 'xl')
+    : currentPlayingAlbum?.coverArt 
     ? getAlbumArtworkUrl(currentPlayingAlbum.coverArt, 'xl')
     : '/api/placeholder/400/400';
 
-  // Extract dominant color from album art (simplified version)
+  // Extract dominant color from album art
   useEffect(() => {
     if (albumArt && !albumArt.includes('/api/placeholder/')) {
-      // For now, use a gradient based on the StableKraft colors
-      setDominantColor('#4ECDC4');
+      extractDominantColor(albumArt)
+        .then(color => {
+          setDominantColor(color);
+        })
+        .catch(() => {
+          setDominantColor('#1A252F');
+        });
     } else {
       setDominantColor('#1A252F');
     }
-  }, [albumArt]);
+  }, [albumArt, currentTrackIndex]);
 
   // Handle progress bar interaction
   const handleProgressClick = (e: React.MouseEvent) => {
@@ -74,19 +84,22 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Animated Background */}
+      {/* Solid Color Background - ITDV Style */}
       <div 
         className="absolute inset-0 transition-all duration-1000"
         style={{
-          background: `linear-gradient(135deg, ${dominantColor}20 0%, ${dominantColor}40 50%, #000000 100%)`
+          backgroundColor: dominantColor,
+          background: `linear-gradient(180deg, ${dominantColor} 0%, ${adjustColorBrightness(dominantColor, -20)} 100%)`
         }}
       />
       
-      {/* Backdrop Blur */}
-      <div className="absolute inset-0 backdrop-blur-xl bg-black/30" />
-      
       {/* Content */}
-      <div className="relative flex flex-col h-full text-white p-safe-plus">
+      <div className="relative flex flex-col h-full text-white" style={{
+        paddingTop: 'max(env(safe-area-inset-top), 40px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 20px)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
           <button
@@ -96,9 +109,34 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             <ChevronDown className="w-6 h-6" />
           </button>
           
-          <div className="flex-1 text-center">
-            <p className="text-sm opacity-80">Playing from</p>
-            <p className="text-sm font-medium truncate">{currentPlayingAlbum.title}</p>
+          <div 
+            className="flex-1 text-center rounded-lg py-2 px-4"
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)'
+            }}
+          >
+            <p 
+              className="text-sm font-medium"
+              style={{
+                color: 'white',
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                fontWeight: '500'
+              }}
+            >
+              Playing from
+            </p>
+            <p 
+              className="text-sm font-semibold truncate"
+              style={{
+                color: 'white',
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                fontWeight: '600'
+              }}
+            >
+              {currentPlayingAlbum.title}
+            </p>
           </div>
           
           <div className="w-10" /> {/* Spacer for center alignment */}
@@ -140,22 +178,21 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         <div className="px-8 pb-6">
           <div
             ref={progressRef}
-            className="relative h-1 bg-white/20 rounded-full cursor-pointer"
+            className="relative h-1 bg-white/30 rounded-full cursor-pointer"
             onClick={handleProgressClick}
           >
             <div
-              className="absolute h-full rounded-full transition-all duration-100"
+              className="absolute h-full bg-white rounded-full transition-all duration-100"
               style={{
                 width: `${progress}%`,
-                background: `linear-gradient(90deg, ${dominantColor} 0%, #FFD700 100%)`
               }}
             />
             <div
-              className="absolute w-4 h-4 bg-white rounded-full shadow-lg transform -translate-y-1/2 transition-all duration-100"
+              className="absolute w-3 h-3 bg-white rounded-full shadow-lg transform -translate-y-1/2 transition-all duration-100"
               style={{
                 left: `${progress}%`,
                 transform: `translateX(-50%) translateY(-50%)`,
-                boxShadow: `0 4px 12px ${dominantColor}40`
+                boxShadow: `0 4px 12px rgba(0,0,0,0.3)`
               }}
             />
           </div>
@@ -168,15 +205,15 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Controls */}
-        <div className="px-8 pb-safe-plus">
+        <div className="px-8 pb-8">
           {/* Secondary Controls */}
           <div className="flex items-center justify-center gap-8 mb-6">
             <button
               onClick={toggleShuffle}
               className={`p-2 rounded-full transition-all duration-200 ${
                 isShuffleMode 
-                  ? `bg-${dominantColor.replace('#', '')}/30 text-white` 
-                  : 'bg-white/10 text-white/60 hover:text-white'
+                  ? 'bg-white/30 text-white' 
+                  : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
               }`}
             >
               <Shuffle className="w-5 h-5" />
@@ -186,8 +223,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               onClick={() => setIsRepeatMode(!isRepeatMode)}
               className={`p-2 rounded-full transition-all duration-200 ${
                 isRepeatMode 
-                  ? `bg-${dominantColor.replace('#', '')}/30 text-white` 
-                  : 'bg-white/10 text-white/60 hover:text-white'
+                  ? 'bg-white/30 text-white' 
+                  : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
               }`}
             >
               <Repeat className="w-5 h-5" />
@@ -198,31 +235,30 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <div className="flex items-center justify-center gap-6">
             <button
               onClick={playPreviousTrack}
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 hover:scale-105 active:scale-95"
             >
-              <SkipBack className="w-6 h-6" />
+              <SkipBack className="w-6 h-6 text-white" />
             </button>
             
             <button
               onClick={isPlaying ? pause : resume}
-              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+              className="p-4 rounded-full bg-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
               style={{
-                background: `linear-gradient(135deg, ${dominantColor} 0%, #FFD700 100%)`,
-                boxShadow: `0 8px 25px ${dominantColor}40`
+                boxShadow: `0 8px 25px rgba(0,0,0,0.3)`
               }}
             >
               {isPlaying ? (
-                <Pause className="w-8 h-8 text-white" />
+                <Pause className="w-8 h-8" style={{ color: dominantColor }} />
               ) : (
-                <Play className="w-8 h-8 text-white ml-1" />
+                <Play className="w-8 h-8 ml-1" style={{ color: dominantColor }} />
               )}
             </button>
             
             <button
               onClick={playNextTrack}
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 hover:scale-105 active:scale-95"
             >
-              <SkipForward className="w-6 h-6" />
+              <SkipForward className="w-6 h-6 text-white" />
             </button>
           </div>
         </div>

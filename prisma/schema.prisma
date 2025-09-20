@@ -45,6 +45,7 @@ model Track {
   explicit         Boolean   @default(false)
   image            String?
   publishedAt      DateTime?
+  trackOrder       Int?      // Track sequence within album/feed
   itunesAuthor     String?
   itunesSummary    String?
   itunesImage      String?
@@ -63,6 +64,7 @@ model Track {
 
   @@index([feedId])
   @@index([publishedAt])
+  @@index([trackOrder])
   @@index([artist])
   @@index([album])
   @@index([title])

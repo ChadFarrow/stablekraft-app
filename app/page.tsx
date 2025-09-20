@@ -105,7 +105,8 @@ export default function HomePage() {
   const [isCriticalLoaded, setIsCriticalLoaded] = useState(false);
   const [isEnhancedLoaded, setIsEnhancedLoaded] = useState(false);
   const [publisherStats, setPublisherStats] = useState<{ name: string; feedGuid: string; albumCount: number }[]>([]);
-  const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
+  // Removed local nowPlayingOpen state - now managed in AudioContext
+  const { isFullscreenMode, setFullscreenMode } = useAudio();
   
   // Performance optimization: Limit rendered albums for better scrolling
   const [visibleAlbumCount, setVisibleAlbumCount] = useState(50);
@@ -767,7 +768,7 @@ export default function HomePage() {
       if (success) {
         console.log('✅ Successfully started playback');
         // Open the fullscreen now playing screen
-        setNowPlayingOpen(true);
+        setFullscreenMode(true);
       } else {
         throw new Error('Failed to start album playback');
       }
@@ -1447,8 +1448,8 @@ export default function HomePage() {
       
       {/* Fullscreen Now Playing Screen */}
       <NowPlayingScreen
-        isOpen={nowPlayingOpen}
-        onClose={() => setNowPlayingOpen(false)}
+        isOpen={isFullscreenMode}
+        onClose={() => setFullscreenMode(false)}
       />
     </div>
   );

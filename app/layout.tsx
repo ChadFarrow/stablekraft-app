@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-// import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration' // Disabled to fix API issues
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ClientErrorBoundary from '@/components/ClientErrorBoundary'
 import { ToastContainer } from '@/components/Toast'
@@ -141,6 +141,7 @@ export default function RootLayout({
                 </div>
                 <GlobalNowPlayingBar />
                 <ToastContainer />
+                <ServiceWorkerRegistration />
               </AudioProvider>
             </ScrollDetectionProvider>
           </ErrorBoundary>

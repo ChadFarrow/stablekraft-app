@@ -7,39 +7,9 @@ export default function ServiceWorkerRegistration() {
   const [newVersion, setNewVersion] = useState('');
 
   useEffect(() => {
-    // Completely disable Service Worker registration to fix API issues
-    console.log('🚫 Service Worker registration completely disabled to fix API issues');
+    // Re-enabled Service Worker with improved API exclusions
+    console.log('🔧 Service Worker registration enabled with improved API exclusions');
     
-    // Clear any existing service worker caches to prevent decoding issues
-    if (typeof window !== 'undefined' && 'caches' in window) {
-      caches.keys().then(cacheNames => {
-        cacheNames.forEach(cacheName => {
-          if (cacheName.includes('next-js-files') || 
-              cacheName.includes('start-url') || 
-              cacheName.includes('api-') ||
-              cacheName.includes('sw-') ||
-              cacheName.includes('service-worker')) {
-            caches.delete(cacheName).then(() => {
-              console.log(`🗑️ Cleared service worker cache: ${cacheName}`);
-            });
-          }
-        });
-      });
-    }
-
-    // Unregister any existing service workers
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(registration => {
-          registration.unregister().then(() => {
-            console.log('🗑️ Unregistered existing service worker');
-          });
-        });
-      });
-    }
-    
-    // TODO: Re-enable service worker when API issues are resolved
-    /*
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       let registration: ServiceWorkerRegistration;
 
@@ -57,12 +27,12 @@ export default function ServiceWorkerRegistration() {
           // Check for updates immediately
           reg.update();
           
-          // Check for updates every 30 seconds when app is active
+          // Check for updates every 60 seconds when app is active (less frequent)
           const updateInterval = setInterval(() => {
             if (document.visibilityState === 'visible') {
               reg.update();
             }
-          }, 30000);
+          }, 60000);
 
           // Clean up interval
           return () => clearInterval(updateInterval);
@@ -86,25 +56,24 @@ export default function ServiceWorkerRegistration() {
           setNewVersion(event.data.version);
           setUpdateReady(true);
           
-          // Auto-reload after a short delay if no user interaction
-          setTimeout(() => {
-            console.log('🔄 Auto-reloading for update...');
-            window.location.reload();
-          }, 3000);
+          // Show update notification to user instead of auto-reload
+          console.log('🔄 Service Worker updated, new version available');
         }
       });
 
-      // Handle API and RSC fetch failures
+      // Improved error handling - only clear specific problematic caches
       const handleFetchFailure = () => {
-        console.warn('🔄 API/RSC fetch failed, attempting to clear service worker cache...');
+        console.warn('🔄 API/RSC fetch failed, clearing problematic caches...');
         
-        // Clear service worker cache for problematic files
         if ('caches' in window) {
           caches.keys().then(cacheNames => {
             cacheNames.forEach(cacheName => {
-              if (cacheName.includes('next-js-files') || cacheName.includes('start-url') || cacheName.includes('api-')) {
+              // Only clear caches that might interfere with API/RSC
+              if (cacheName.includes('api-') || 
+                  cacheName.includes('pages-cache') ||
+                  cacheName.includes('start-url')) {
                 caches.delete(cacheName).then(() => {
-                  console.log(`🗑️ Cleared cache: ${cacheName}`);
+                  console.log(`🗑️ Cleared problematic cache: ${cacheName}`);
                 });
               }
             });
@@ -112,12 +81,11 @@ export default function ServiceWorkerRegistration() {
         }
       };
 
-      // Listen for fetch errors
+      // Listen for fetch errors with more specific handling
       window.addEventListener('error', (event) => {
         const message = event.message || '';
         if (message.includes('Failed to fetch RSC payload') || 
-            message.includes('Decoding failed') || 
-            message.includes('ServiceWorker intercepted')) {
+            message.includes('Decoding failed')) {
           handleFetchFailure();
         }
       });
@@ -126,15 +94,27 @@ export default function ServiceWorkerRegistration() {
       window.addEventListener('unhandledrejection', (event) => {
         const message = event.reason?.message || '';
         if (message.includes('Decoding failed') || 
-            message.includes('ServiceWorker intercepted') ||
             message.includes('Failed to fetch RSC payload')) {
           handleFetchFailure();
         }
       });
     }
-    */
   }, []);
 
-  // Don't render anything since service worker is disabled
+  // Show update notification if available
+  if (updateReady) {
+    return (
+      <div className="fixed bottom-4 right-4 bg-blue-600 text-white p-4 rounded-lg shadow-lg z-50">
+        <p className="text-sm">App updated! Reload to get the latest version.</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-2 bg-white text-blue-600 px-3 py-1 rounded text-sm hover:bg-gray-100"
+        >
+          Reload Now
+        </button>
+      </div>
+    );
+  }
+  
   return null;
 }

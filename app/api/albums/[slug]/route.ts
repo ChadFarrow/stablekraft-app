@@ -16,8 +16,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             audioUrl: { not: '' }
           },
           orderBy: [
-            { publishedAt: 'desc' },
-            { createdAt: 'desc' }
+            { trackOrder: 'asc' },
+            { publishedAt: 'asc' },
+            { createdAt: 'asc' }
           ]
         }
       },
