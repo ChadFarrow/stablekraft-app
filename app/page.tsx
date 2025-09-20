@@ -432,32 +432,6 @@ export default function HomePage() {
             coverArt: '/api/placeholder/300/300',
             tracks: []
           },
-          {
-            id: 'playlist-maker',
-            title: 'Playlist Maker',
-            artist: 'Tools',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/maker',
-            description: 'Create your own custom playlists',
-            albumCount: 0, // Tool, not a playlist
-            totalTracks: 0,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/placeholder-artist.png',
-            tracks: []
-          },
-          {
-            id: 'playlist-export',
-            title: 'Playlist Export',
-            artist: 'Tools',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/export',
-            description: 'Export playlists to various formats',
-            albumCount: 0, // Tool, not a playlist
-            totalTracks: 0,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/placeholder-artist.png',
-            tracks: []
-          }
         ];
         
         setDisplayedAlbums(playlists);
