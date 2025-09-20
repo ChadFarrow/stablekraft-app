@@ -1,19 +1,48 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug } from '@/lib/url-utils';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function GET() {
   try {
-    console.log('🔍 Database Publishers API: Getting all publishers from database');
+    console.log('🔍 Database Publishers API: Getting actual publisher feeds');
     
-    // Get all feeds from database that have tracks and could be publishers
+    // Load the publisher feed results to get actual publisher feeds
+    const publisherFeedResultsPath = path.join(process.cwd(), 'data', 'publisher-feed-results.json');
+    let actualPublisherFeedUrls = new Set<string>();
+    let publisherFeedResults: any[] = [];
+    
+    try {
+      if (fs.existsSync(publisherFeedResultsPath)) {
+        publisherFeedResults = JSON.parse(fs.readFileSync(publisherFeedResultsPath, 'utf8'));
+        // Extract URLs from publisher feed results
+        publisherFeedResults.forEach((item: any) => {
+          if (item.feed?.originalUrl) {
+            actualPublisherFeedUrls.add(item.feed.originalUrl);
+          }
+        });
+        console.log(`📊 Found ${actualPublisherFeedUrls.size} actual publisher feed URLs from publisher-feed-results.json`);
+      }
+    } catch (error) {
+      console.error('Error loading publisher feed results:', error);
+    }
+    
+    // Get feeds from database that match the actual publisher feed URLs
     const feeds = await prisma.feed.findMany({
       where: { 
         status: 'active',
-        OR: [
-          { type: 'publisher' },
-          { type: 'album', artist: { not: null } }
-        ]
+        OR: actualPublisherFeedUrls.size > 0 
+          ? [
+              // Match feeds by URL
+              { originalUrl: { in: Array.from(actualPublisherFeedUrls) } },
+              // Also include feeds explicitly marked as publisher type
+              { type: 'publisher' }
+            ]
+          : [
+              // Fallback if no publisher feed results file exists
+              { type: 'publisher' }
+            ]
       },
       include: {
         tracks: {
@@ -107,11 +136,35 @@ export async function GET() {
       publisher.itemCount = publisher.albums.length;
     });
     
-    const publishers = Array.from(publishersMap.values()).sort((a, b) => 
+    let publishers = Array.from(publishersMap.values()).sort((a, b) => 
       a.title.toLowerCase().localeCompare(b.title.toLowerCase())
     );
 
-    console.log(`✅ Database Publishers API: Returning ${publishers.length} publishers with ${publishers.reduce((sum, p) => sum + p.itemCount, 0)} total albums`);
+    // If no publishers found in database but we have static data, use that instead
+    if (publishers.length === 0 && publisherFeedResults.length > 0) {
+      console.log(`📊 No publishers in database, falling back to static data (${publisherFeedResults.length} items)`);
+      
+      publishers = publisherFeedResults.map((item: any) => {
+        const feedTitle = item.title?.replace(/^<!\[CDATA\[|\]\]>$/g, '') || item.feed?.title || 'Unknown Publisher';
+        const feedDescription = item.description?.replace(/^<!\[CDATA\[|\]\]>$/g, '') || 'Publisher feed discovered from RSS remote items';
+        
+        return {
+          id: generateAlbumSlug(feedTitle),
+          title: feedTitle,
+          feedGuid: item.feed?.id || generateAlbumSlug(feedTitle),
+          originalUrl: item.feed?.originalUrl,
+          image: item.itunesImage || '/placeholder-artist.png',
+          description: feedDescription,
+          albums: [], // Static data doesn't have album details
+          itemCount: item.remoteItemCount || 0,
+          totalTracks: item.remoteItemCount || 0,
+          isPublisherCard: true,
+          publisherUrl: `/publisher/${generateAlbumSlug(feedTitle)}`
+        };
+      }).sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+    }
+
+    console.log(`✅ Database Publishers API: Returning ${publishers.length} actual publisher feeds with ${publishers.reduce((sum, p) => sum + p.itemCount, 0)} total albums`);
 
     const response = {
       publishers,
