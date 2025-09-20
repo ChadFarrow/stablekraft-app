@@ -364,7 +364,7 @@ export default function HomePage() {
             albumCount: 841, // Total tracks in playlist
             totalTracks: 841,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/HGH-playlist-art.webp',
+            coverArt: '/api/placeholder/300/300',
             tracks: []
           },
           {
@@ -381,19 +381,6 @@ export default function HomePage() {
             tracks: []
           },
           {
-            id: 'itdv-music-playlist',
-            title: 'ITDV Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/itdv-music',
-            description: 'Extended music collection from Into The Doerfel-Verse episodes',
-            albumCount: 300, // Estimated
-            totalTracks: 300,
-            releaseDate: new Date().toISOString(),
-            coverArt: 'https://www.doerfelverse.com/art/itdvchadf.png',
-            tracks: []
-          },
-          {
             id: 'lightning-thrashes-playlist',
             title: 'Lightning Thrashes Playlist',
             artist: 'Various Artists',
@@ -402,19 +389,6 @@ export default function HomePage() {
             description: 'Music from Lightning Thrashes podcast episodes',
             albumCount: 60, // Estimated from episodes 001-060
             totalTracks: 60,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'lightning-thrashes-rss-playlist',
-            title: 'Lightning Thrashes RSS Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/lightning-thrashes-rss',
-            description: 'RSS-based music tracks from Lightning Thrashes episodes',
-            albumCount: 80, // Estimated
-            totalTracks: 80,
             releaseDate: new Date().toISOString(),
             coverArt: '/api/placeholder/300/300',
             tracks: []
@@ -456,32 +430,6 @@ export default function HomePage() {
             totalTracks: 150,
             releaseDate: new Date().toISOString(),
             coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'hgh-rss-playlist',
-            title: 'HGH RSS Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/hgh-rss',
-            description: 'RSS-based tracks from Homegrown Hits episodes',
-            albumCount: 400, // Estimated
-            totalTracks: 400,
-            releaseDate: new Date().toISOString(),
-            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/HGH-playlist-art.webp',
-            tracks: []
-          },
-          {
-            id: 'itdv-rss-playlist',
-            title: 'ITDV RSS Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/itdv-rss',
-            description: 'RSS-based tracks from Into The Doerfel-Verse episodes',
-            albumCount: 250, // Estimated
-            totalTracks: 250,
-            releaseDate: new Date().toISOString(),
-            coverArt: 'https://www.doerfelverse.com/art/itdvchadf.png',
             tracks: []
           },
           {
