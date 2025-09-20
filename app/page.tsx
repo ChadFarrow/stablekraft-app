@@ -635,13 +635,13 @@ export default function HomePage() {
       const albums = data.albums || [];
       const publisherStatsFromAPI = data.publisherStats || [];
       
-      // Update publisher stats from API response
+      // Update publisher stats from API response only if we don't have any yet
       console.log(`📊 API Response publisher stats: ${publisherStatsFromAPI.length} publishers`);
-      if (publisherStatsFromAPI.length > 0) {
+      if (publisherStatsFromAPI.length > 0 && publisherStats.length === 0) {
         setPublisherStats(publisherStatsFromAPI);
         console.log(`📊 Updated publisher stats: ${publisherStatsFromAPI.length} publishers`);
       } else {
-        console.log(`⚠️ No publisher stats in API response, keeping existing: ${publisherStats.length}`);
+        console.log(`⚠️ Skipping publisher stats update from albums API, keeping existing: ${publisherStats.length}`);
       }
       
       // Skip music tracks processing for initial load performance
