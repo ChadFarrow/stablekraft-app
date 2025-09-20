@@ -168,10 +168,12 @@ export async function GET() {
     
     // Update publisher item counts with actual database counts
     actualAlbumCounts.forEach(count => {
-      const publisherKey = generateAlbumSlug(count.artist);
-      const publisher = publishersMap.get(publisherKey);
-      if (publisher) {
-        publisher.itemCount = count._count.id;
+      if (count.artist) {
+        const publisherKey = generateAlbumSlug(count.artist);
+        const publisher = publishersMap.get(publisherKey);
+        if (publisher) {
+          publisher.itemCount = count._count.id;
+        }
       }
     });
     
