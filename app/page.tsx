@@ -13,6 +13,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
+import NowPlayingScreen from '@/components/NowPlayingScreen';
 
 
 
@@ -104,6 +105,7 @@ export default function HomePage() {
   const [isCriticalLoaded, setIsCriticalLoaded] = useState(false);
   const [isEnhancedLoaded, setIsEnhancedLoaded] = useState(false);
   const [publisherStats, setPublisherStats] = useState<{ name: string; feedGuid: string; albumCount: number }[]>([]);
+  const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
   
   // Performance optimization: Limit rendered albums for better scrolling
   const [visibleAlbumCount, setVisibleAlbumCount] = useState(50);
@@ -760,6 +762,8 @@ export default function HomePage() {
       const success = await globalPlayAlbum(album, 0);
       if (success) {
         console.log('✅ Successfully started playback');
+        // Open the fullscreen now playing screen
+        setNowPlayingOpen(true);
       } else {
         throw new Error('Failed to start album playback');
       }
@@ -1426,6 +1430,12 @@ export default function HomePage() {
 
         {/* Now Playing Bar is now handled by the global AudioContext */}
       </div>
+      
+      {/* Fullscreen Now Playing Screen */}
+      <NowPlayingScreen
+        isOpen={nowPlayingOpen}
+        onClose={() => setNowPlayingOpen(false)}
+      />
     </div>
   );
 }
