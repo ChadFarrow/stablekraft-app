@@ -26,9 +26,34 @@ interface PublisherDetailClientProps {
 
 export default function PublisherDetailClient({ publisherId, initialData }: PublisherDetailClientProps) {
   console.log('🎯 PublisherDetailClient component loaded with publisherId:', publisherId);
+  console.log('🎯 Initial data received:', initialData);
   
   const [isLoading, setIsLoading] = useState(!initialData);
-  const [albums, setAlbums] = useState<RSSAlbum[]>([]);
+  const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
+    // Initialize albums from initial data if available
+    if (initialData?.publisherItems?.length > 0) {
+      const validItems = initialData.publisherItems.filter((item: any) => 
+        item.title && item.title.trim() !== ''
+      );
+      return validItems.map((item: any) => ({
+        id: item.id || item.feedGuid || `album-${Math.random()}`,
+        title: item.title,
+        artist: item.artist,
+        description: item.description,
+        coverArt: item.coverArt || item.image,
+        tracks: Array(item.trackCount || 0).fill(null).map((_, i) => ({
+          id: `track-${i}`,
+          title: `${item.title} - Track ${i + 1}`,
+          duration: '0:00',
+          url: item.feedUrl || item.link
+        })),
+        releaseDate: item.releaseDate || new Date().toISOString(),
+        link: item.feedUrl || item.link,
+        feedUrl: item.feedUrl || item.link
+      }));
+    }
+    return [];
+  });
   const [publisherItems, setPublisherItems] = useState<RSSPublisherItem[]>(initialData?.publisherItems || []);
   const [error, setError] = useState<string | null>(null);
   const [publisherInfo, setPublisherInfo] = useState<{ title?: string; description?: string; artist?: string; coverArt?: string; avatarArt?: string } | null>(
@@ -143,6 +168,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             );
             
             if (validItems.length > 0) {
+              console.log(`🏢 Processing ${validItems.length} valid items:`, validItems);
               const albumsFromItems = validItems.map((item: any) => ({
                 id: item.id || item.feedGuid || `album-${Math.random()}`,
                 title: item.title,
@@ -161,7 +187,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
               }));
               
               console.log(`🏢 Setting ${albumsFromItems.length} albums from initial data (filtered from ${initialData.publisherItems.length} items)`);
+              console.log(`🏢 First album:`, albumsFromItems[0]);
               setAlbums(albumsFromItems);
+              console.log(`🏢 Albums state should now be set to ${albumsFromItems.length} albums`);
             } else {
               console.log(`⚠️ No valid albums found - all ${initialData.publisherItems.length} items have empty titles`);
               // For publishers with empty titles, we need to fetch the actual album data

@@ -52,8 +52,8 @@ export async function GET() {
     
     console.log(`📊 Loaded ${feeds.length} feeds from database for publishers API`);
     
-    // Instead of looking for exact publisher feed URLs, group albums by artist
-    // This will work with the actual album feeds in the database
+    // Check feeds for publisher tags according to Podcasting 2.0 spec
+    // Publisher tags should be within the main RSS feed, not separate URLs
     const artistMap = new Map<string, any>();
     
     feeds.forEach(feed => {
@@ -61,34 +61,48 @@ export async function GET() {
         const artistName = feed.artist;
         const artistKey = generateAlbumSlug(artistName);
         
-        if (!artistMap.has(artistKey)) {
-          artistMap.set(artistKey, {
-            id: artistKey,
-            title: artistName,
-            feedGuid: artistKey,
-            originalUrl: feed.originalUrl,
+        // Check if this feed has publisher information
+        // Only include feeds from platforms that are confirmed to have publisher tags
+        const hasPublisherInfo = feed.originalUrl.includes('wavlake.com') || 
+                                // Only include specific confirmed Doerfelverse publisher feeds
+                                (feed.originalUrl.includes('doerfelverse.com') && 
+                                 (feed.originalUrl.includes('the-doerfels') || 
+                                  feed.originalUrl.includes('citybeach') ||
+                                  feed.originalUrl.includes('ben-doerfel'))) ||
+                                // Include other known platforms that support publisher tags
+                                feed.originalUrl.includes('agilesetmedia.com') ||
+                                feed.originalUrl.includes('podcastindex.org');
+        
+        if (hasPublisherInfo) {
+          if (!artistMap.has(artistKey)) {
+            artistMap.set(artistKey, {
+              id: artistKey,
+              title: artistName,
+              feedGuid: artistKey,
+              originalUrl: feed.originalUrl,
+              image: feed.image,
+              description: `Artist: ${artistName}`,
+              albums: [],
+              itemCount: 0,
+              totalTracks: 0
+            });
+          }
+          
+          const artist = artistMap.get(artistKey)!;
+          artist.albums.push({
+            title: feed.title,
+            artist: feed.artist,
+            trackCount: feed.tracks?.length || 0,
+            feedGuid: feed.id,
+            feedUrl: feed.originalUrl,
+            albumSlug: generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0],
             image: feed.image,
-            description: `Artist: ${artistName}`,
-            albums: [],
-            itemCount: 0,
-            totalTracks: 0
+            explicit: feed.tracks?.some((t: any) => t.explicit) || feed.explicit
           });
+          
+          artist.itemCount++;
+          artist.totalTracks += feed.tracks?.length || 0;
         }
-        
-        const artist = artistMap.get(artistKey)!;
-        artist.albums.push({
-          title: feed.title,
-          artist: feed.artist,
-          trackCount: feed.tracks?.length || 0,
-          feedGuid: feed.id,
-          feedUrl: feed.originalUrl,
-          albumSlug: generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0],
-          image: feed.image,
-          explicit: feed.tracks?.some((t: any) => t.explicit) || feed.explicit
-        });
-        
-        artist.itemCount++;
-        artist.totalTracks += feed.tracks?.length || 0;
       }
     });
     
