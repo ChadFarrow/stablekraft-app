@@ -31,7 +31,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const [isLoading, setIsLoading] = useState(!initialData);
   const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
     // Initialize albums from initial data if available
-    if (initialData?.publisherItems?.length > 0) {
+    if (initialData?.publisherItems && initialData.publisherItems.length > 0) {
       const validItems = initialData.publisherItems.filter((item: any) => 
         item.title && item.title.trim() !== ''
       );
