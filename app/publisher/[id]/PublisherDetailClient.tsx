@@ -143,20 +143,20 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             
             if (validItems.length > 0) {
               const albumsFromItems = validItems.map((item: any) => ({
-                id: item.id || `album-${Math.random()}`,
+                id: item.id || item.feedGuid || `album-${Math.random()}`,
                 title: item.title,
                 artist: item.artist,
                 description: item.description,
-                coverArt: item.coverArt,
-                tracks: Array(item.trackCount).fill(null).map((_, i) => ({
+                coverArt: item.coverArt || item.image,
+                tracks: Array(item.trackCount || 0).fill(null).map((_, i) => ({
                   id: `track-${i}`,
                   title: `${item.title} - Track ${i + 1}`,
                   duration: '0:00',
-                  url: item.link
+                  url: item.feedUrl || item.link
                 })),
-                releaseDate: item.releaseDate,
-                link: item.link,
-                feedUrl: item.link
+                releaseDate: item.releaseDate || new Date().toISOString(),
+                link: item.feedUrl || item.link,
+                feedUrl: item.feedUrl || item.link
               }));
               
               console.log(`🏢 Setting ${albumsFromItems.length} albums from initial data (filtered from ${initialData.publisherItems.length} items)`);
@@ -694,10 +694,10 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 // Use latest item's artwork for avatar
                 <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white/20">
                   <Image 
-                    src={getAlbumArtworkUrl(publisherInfo.avatarArt, 'large')} 
+                    src={getAlbumArtworkUrl(publisherInfo.avatarArt, 'xl')} 
                     alt={publisherInfo.title || "Artist"}
-                    width={192}
-                    height={192}
+                    width={256}
+                    height={256}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -718,10 +718,10 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                   return newestAlbum.coverArt ? (
                     <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white/20">
                       <Image 
-                        src={getAlbumArtworkUrl(newestAlbum.coverArt, 'large')} 
+                        src={getAlbumArtworkUrl(newestAlbum.coverArt, 'xl')} 
                         alt={newestAlbum.title || "Latest Release"}
-                        width={192}
-                        height={192}
+                        width={256}
+                        height={256}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;

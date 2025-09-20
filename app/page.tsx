@@ -381,6 +381,19 @@ export default function HomePage() {
             tracks: []
           },
           {
+            id: 'itdv-music-playlist',
+            title: 'ITDV Music Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/itdv-music',
+            description: 'Extended music collection from Into The Doerfel-Verse episodes',
+            albumCount: 300, // Estimated
+            totalTracks: 300,
+            releaseDate: new Date().toISOString(),
+            coverArt: 'https://www.doerfelverse.com/art/itdvchadf.png',
+            tracks: []
+          },
+          {
             id: 'lightning-thrashes-playlist',
             title: 'Lightning Thrashes Playlist',
             artist: 'Various Artists',
@@ -390,7 +403,20 @@ export default function HomePage() {
             albumCount: 60, // Estimated from episodes 001-060
             totalTracks: 60,
             releaseDate: new Date().toISOString(),
-            coverArt: '/placeholder-artist.png', // Use local placeholder
+            coverArt: '/api/placeholder/300/300',
+            tracks: []
+          },
+          {
+            id: 'lightning-thrashes-rss-playlist',
+            title: 'Lightning Thrashes RSS Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/lightning-thrashes-rss',
+            description: 'RSS-based music tracks from Lightning Thrashes episodes',
+            albumCount: 80, // Estimated
+            totalTracks: 80,
+            releaseDate: new Date().toISOString(),
+            coverArt: '/api/placeholder/300/300',
             tracks: []
           },
           {
@@ -403,7 +429,85 @@ export default function HomePage() {
             albumCount: 50, // Estimated
             totalTracks: 50,
             releaseDate: new Date().toISOString(),
-            coverArt: '/placeholder-artist.png', // Use local placeholder
+            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/UpBEATs-playlist-art.webp',
+            tracks: []
+          },
+          {
+            id: 'top100-music-playlist',
+            title: 'Top 100 Music Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/top100-music',
+            description: 'Top 100 most popular tracks across all playlists',
+            albumCount: 100, // Exactly 100
+            totalTracks: 100,
+            releaseDate: new Date().toISOString(),
+            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/top100-playlist-art.webp',
+            tracks: []
+          },
+          {
+            id: 'index-playlist',
+            title: 'Podcast Index Music Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/index',
+            description: 'Music tracks from Podcast Index network shows',
+            albumCount: 150, // Estimated
+            totalTracks: 150,
+            releaseDate: new Date().toISOString(),
+            coverArt: 'https://podcastindex-org.github.io/art/podcast-index-logo.png',
+            tracks: []
+          },
+          {
+            id: 'hgh-rss-playlist',
+            title: 'HGH RSS Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/hgh-rss',
+            description: 'RSS-based tracks from Homegrown Hits episodes',
+            albumCount: 400, // Estimated
+            totalTracks: 400,
+            releaseDate: new Date().toISOString(),
+            coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/HGH-playlist-art.webp',
+            tracks: []
+          },
+          {
+            id: 'itdv-rss-playlist',
+            title: 'ITDV RSS Playlist',
+            artist: 'Various Artists',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/itdv-rss',
+            description: 'RSS-based tracks from Into The Doerfel-Verse episodes',
+            albumCount: 250, // Estimated
+            totalTracks: 250,
+            releaseDate: new Date().toISOString(),
+            coverArt: 'https://www.doerfelverse.com/art/itdvchadf.png',
+            tracks: []
+          },
+          {
+            id: 'playlist-maker',
+            title: 'Playlist Maker',
+            artist: 'Tools',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/maker',
+            description: 'Create your own custom playlists',
+            albumCount: 0, // Tool, not a playlist
+            totalTracks: 0,
+            releaseDate: new Date().toISOString(),
+            coverArt: '/placeholder-artist.png',
+            tracks: []
+          },
+          {
+            id: 'playlist-export',
+            title: 'Playlist Export',
+            artist: 'Tools',
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/export',
+            description: 'Export playlists to various formats',
+            albumCount: 0, // Tool, not a playlist
+            totalTracks: 0,
+            releaseDate: new Date().toISOString(),
+            coverArt: '/placeholder-artist.png',
             tracks: []
           }
         ];
@@ -420,6 +524,15 @@ export default function HomePage() {
         const publishersResponse = await fetch('/api/publishers');
         const publishersData = await publishersResponse.json();
         const publishers = publishersData.publishers || [];
+        
+        // Update publisher stats for sidebar from publishers data
+        const publisherStatsFromPublishers = publishers.map((publisher: any) => ({
+          name: publisher.title,
+          feedGuid: publisher.feedGuid || publisher.id,
+          albumCount: publisher.itemCount || 0
+        }));
+        setPublisherStats(publisherStatsFromPublishers);
+        console.log(`📊 Updated publisher stats from publishers API: ${publisherStatsFromPublishers.length} publishers`);
         
         // Convert publishers to album-like format for display
         const publisherAlbums = publishers.map((publisher: any) => ({
@@ -523,9 +636,12 @@ export default function HomePage() {
       const publisherStatsFromAPI = data.publisherStats || [];
       
       // Update publisher stats from API response
+      console.log(`📊 API Response publisher stats: ${publisherStatsFromAPI.length} publishers`);
       if (publisherStatsFromAPI.length > 0) {
         setPublisherStats(publisherStatsFromAPI);
         console.log(`📊 Updated publisher stats: ${publisherStatsFromAPI.length} publishers`);
+      } else {
+        console.log(`⚠️ No publisher stats in API response, keeping existing: ${publisherStats.length}`);
       }
       
       // Skip music tracks processing for initial load performance
@@ -1016,9 +1132,9 @@ export default function HomePage() {
                   </h3>
                   <div className="space-y-1 max-h-48 overflow-y-auto">
                     {publisherStats.length > 0 ? (
-                      publisherStats.map((artist) => (
+                      publisherStats.map((artist, index) => (
                         <Link
-                          key={artist.feedGuid}
+                          key={`publisher-${artist.feedGuid || artist.name || index}`}
                           href={`/publisher/${generatePublisherSlug({ title: artist.name, feedGuid: artist.feedGuid })}`}
                           className="flex items-center justify-between bg-gray-800/30 hover:bg-gray-800/50 rounded p-1.5 transition-colors group"
                           onClick={() => setIsSidebarOpen(false)}
@@ -1110,7 +1226,7 @@ export default function HomePage() {
                   activeFilter === 'albums' ? 'Albums' :
                   activeFilter === 'eps' ? 'EPs' : 
                   activeFilter === 'singles' ? 'Singles' : 
-                  activeFilter === 'artists' ? 'Artists' :
+                  activeFilter === 'artists' ? 'Publisher' :
                   activeFilter === 'playlist' ? 'Playlist' : 'Releases'}
                 className="mb-8"
               />
@@ -1191,10 +1307,10 @@ export default function HomePage() {
                               >
                                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                                   <Image 
-                                    src={getAlbumArtworkUrl(album.coverArt || '', 'thumbnail')} 
+                                    src={getAlbumArtworkUrl(album.coverArt || '', 'medium')} 
                                     alt={album.title}
-                                    width={64}
-                                    height={64}
+                                    width={128}
+                                    height={128}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
@@ -1255,10 +1371,10 @@ export default function HomePage() {
                               >
                                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                                   <Image 
-                                    src={getAlbumArtworkUrl(album.coverArt || '', 'thumbnail')} 
+                                    src={getAlbumArtworkUrl(album.coverArt || '', 'medium')} 
                                     alt={album.title}
-                                    width={64}
-                                    height={64}
+                                    width={128}
+                                    height={128}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;

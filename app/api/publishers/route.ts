@@ -28,21 +28,10 @@ export async function GET() {
       console.error('Error loading publisher feed results:', error);
     }
     
-    // Get feeds from database that match the actual publisher feed URLs
+    // Get all active feeds from database to create publisher data
     const feeds = await prisma.feed.findMany({
       where: { 
-        status: 'active',
-        OR: actualPublisherFeedUrls.size > 0 
-          ? [
-              // Match feeds by URL
-              { originalUrl: { in: Array.from(actualPublisherFeedUrls) } },
-              // Also include feeds explicitly marked as publisher type
-              { type: 'publisher' }
-            ]
-          : [
-              // Fallback if no publisher feed results file exists
-              { type: 'publisher' }
-            ]
+        status: 'active'
       },
       include: {
         tracks: {
@@ -63,125 +52,65 @@ export async function GET() {
     
     console.log(`📊 Loaded ${feeds.length} feeds from database for publishers API`);
     
-    // Group feeds by artist/publisher to create publisher data
-    const publishersMap = new Map<string, any>();
+    // Check which feeds match actual publisher feed URLs to filter out non-publishers
+    const actualPublisherFeeds = feeds.filter(feed => 
+      actualPublisherFeedUrls.has(feed.originalUrl)
+    );
     
-    feeds.forEach(feed => {
-      // Determine publisher identity - use artist for album feeds, title for publisher feeds
-      const publisherName = feed.artist || feed.title;
-      const publisherKey = generateAlbumSlug(publisherName);
+    console.log(`📊 Found ${actualPublisherFeeds.length} actual publisher feeds in database out of ${feeds.length} total feeds`);
+    
+    let publishers: any[] = [];
+    
+    if (actualPublisherFeeds.length > 0) {
+      // Group actual publisher feeds by artist to create publisher entries
+      const publisherMap = new Map<string, any>();
       
-      if (!publishersMap.has(publisherKey)) {
-        publishersMap.set(publisherKey, {
-          id: publisherKey,
-          title: publisherName,
-          feedGuid: feed.type === 'publisher' ? feed.id : publisherKey,
-          originalUrl: feed.originalUrl,
-          image: feed.image,
-          description: feed.description,
-          albums: [],
-          itemCount: 0,
-          totalTracks: 0
-        });
-      }
-      
-      const publisher = publishersMap.get(publisherKey);
-      
-      // For publisher feeds, tracks might represent different albums
-      if (feed.type === 'publisher') {
-        // Group tracks by album if available, otherwise treat as one album
-        const albumMap = new Map<string, any>();
-        
-        if (feed.tracks.length > 0) {
-          feed.tracks.forEach(track => {
-            const albumKey = track.album || track.title || feed.title;
-            if (!albumMap.has(albumKey)) {
-              albumMap.set(albumKey, {
-                title: track.album || track.title || feed.title,
-                artist: track.artist || feed.artist || publisherName,
-                trackCount: 0,
-                feedGuid: feed.id,
-                feedUrl: feed.originalUrl,
-                albumSlug: generateAlbumSlug(albumKey) + '-' + feed.id.split('-')[0],
-                image: track.image || feed.image,
-                explicit: track.explicit || false
-              });
-            }
-            albumMap.get(albumKey)!.trackCount++;
-          });
+      actualPublisherFeeds.forEach(feed => {
+        const artistName = feed.artist;
+        if (artistName) {
+          const publisherKey = generateAlbumSlug(artistName);
           
-          // Add all albums from this publisher feed
-          Array.from(albumMap.values()).forEach(album => {
-            publisher.albums.push(album);
-            publisher.totalTracks += album.trackCount;
-          });
-        } else {
-          // For publisher feeds with no tracks, create a placeholder album
+          if (!publisherMap.has(publisherKey)) {
+            publisherMap.set(publisherKey, {
+              id: publisherKey,
+              title: artistName,
+              feedGuid: publisherKey,
+              originalUrl: feed.originalUrl,
+              image: feed.image,
+              description: `Publisher feed: ${artistName}`,
+              albums: [],
+              itemCount: 0,
+              totalTracks: 0
+            });
+          }
+          
+          const publisher = publisherMap.get(publisherKey)!;
           const albumSlug = generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0];
+          
           publisher.albums.push({
             title: feed.title,
-            artist: feed.artist || publisherName,
-            trackCount: 0,
+            artist: feed.artist || artistName,
+            trackCount: feed.tracks?.length || 0,
             feedGuid: feed.id,
             feedUrl: feed.originalUrl,
             albumSlug: albumSlug,
             image: feed.image,
-            explicit: false
+            explicit: feed.tracks?.some((t: any) => t.explicit) || feed.explicit
           });
+          
+          publisher.itemCount++;
+          publisher.totalTracks += feed.tracks?.length || 0;
         }
-      } else {
-        // For album feeds, the entire feed is one album
-        const albumSlug = generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0];
-        publisher.albums.push({
-          title: feed.title,
-          artist: feed.artist || publisherName,
-          trackCount: feed.tracks.length,
-          feedGuid: feed.id,
-          feedUrl: feed.originalUrl,
-          albumSlug: albumSlug,
-          image: feed.image,
-          explicit: feed.tracks.some(t => t.explicit) || feed.explicit
-        });
-        publisher.totalTracks += feed.tracks.length;
-      }
+      });
       
-      publisher.itemCount = publisher.albums.length;
-    });
-    
-    // Get actual album counts for all publishers in one query
-    const publisherNames = Array.from(publishersMap.keys()).map(key => publishersMap.get(key)!.title);
-    const actualAlbumCounts = await prisma.feed.groupBy({
-      by: ['artist'],
-      where: {
-        status: 'active',
-        artist: { in: publisherNames },
-        tracks: {
-          some: {
-            audioUrl: { not: '' }
-          }
-        }
-      },
-      _count: {
-        id: true
-      }
-    });
-    
-    // Update publisher item counts with actual database counts
-    actualAlbumCounts.forEach(count => {
-      if (count.artist) {
-        const publisherKey = generateAlbumSlug(count.artist);
-        const publisher = publishersMap.get(publisherKey);
-        if (publisher) {
-          publisher.itemCount = count._count.id;
-        }
-      }
-    });
-    
-    let publishers = Array.from(publishersMap.values()).sort((a, b) => 
-      a.title.toLowerCase().localeCompare(b.title.toLowerCase())
-    );
+      publishers = Array.from(publisherMap.values()).sort((a, b) => 
+        a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+      );
+      
+      console.log(`📊 Created ${publishers.length} publishers from actual publisher feeds`);
+    }
 
-    // If no publishers found in database but we have static data, use that instead
+    // If no actual publisher feeds found in database, fall back to static data
     if (publishers.length === 0 && publisherFeedResults.length > 0) {
       console.log(`📊 No publishers in database, falling back to static data (${publisherFeedResults.length} items)`);
       
@@ -216,7 +145,10 @@ export async function GET() {
     return NextResponse.json(response, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=1800',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'ETag': `"${Date.now()}"`,
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',

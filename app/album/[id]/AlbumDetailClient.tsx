@@ -75,7 +75,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
     const preloadBackgroundImage = async () => {
       try {
         // Use the new specific album API endpoint for much faster lookup
-        const response = await fetch(`/api/albums/${encodeURIComponent(albumId)}`);
+        const cacheBuster = Date.now();
+        const response = await fetch(`/api/albums/${encodeURIComponent(albumId)}?cb=${cacheBuster}`);
         if (response.ok) {
           const data = await response.json();
           const foundAlbum = data.album;
@@ -414,7 +415,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
     
     const style = backgroundImage && isClient ? {
       ...baseStyle,
-      backgroundImage: `linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), url('${backgroundImage}')`,
+      backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${backgroundImage}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundAttachment: 'fixed'
@@ -437,7 +438,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           
           // Use the new specific album API endpoint for much faster lookup
           console.log(`🔍 Loading album: ${albumTitle} (ID: ${albumId})`);
-          const response = await fetch(`/api/albums/${encodeURIComponent(albumId)}`);
+          const cacheBuster = Date.now();
+          const response = await fetch(`/api/albums/${encodeURIComponent(albumId)}?cb=${cacheBuster}`);
           
           if (!response.ok) {
             if (response.status === 404) {

@@ -115,7 +115,14 @@ export async function GET(request: Request) {
     // Transform to consistent album format
     const transformedAlbums = albums.map((album: any) => {
       const feed = album.feed;
-      const tracks = album.tracks.map((track: any, index: number) => ({
+      const tracks = album.tracks
+        .filter((track: any, index: number, self: any[]) => {
+          // Deduplicate tracks by URL and title
+          return self.findIndex((t: any) => 
+            t.audioUrl === track.audioUrl && t.title === track.title
+          ) === index;
+        })
+        .map((track: any, index: number) => ({
         title: track.title,
         duration: track.duration ? 
           Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 

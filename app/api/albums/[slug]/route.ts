@@ -59,7 +59,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const feed = bestMatchData.feed;
       console.log(`✅ Selected best match: "${feed.title}" with ${feed.tracks.length} tracks`);
       
-      const tracks = feed.tracks.map((track: any, index: number) => ({
+      const tracks = feed.tracks
+        .filter((track: any, index: number, self: any[]) => {
+          // Deduplicate tracks by URL and title
+          return self.findIndex((t: any) => 
+            t.audioUrl === track.audioUrl && t.title === track.title
+          ) === index;
+        })
+        .map((track: any, index: number) => ({
         title: track.title,
         duration: track.duration ? 
           Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
@@ -148,7 +155,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         const feed = bestFlexibleMatch.feed;
         console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.tracks.length} tracks`);
         
-        const tracks = feed.tracks.map((track: any, index: number) => ({
+        const tracks = feed.tracks
+        .filter((track: any, index: number, self: any[]) => {
+          // Deduplicate tracks by URL and title
+          return self.findIndex((t: any) => 
+            t.audioUrl === track.audioUrl && t.title === track.title
+          ) === index;
+        })
+        .map((track: any, index: number) => ({
           title: track.title,
           duration: track.duration ? 
             Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
@@ -210,7 +224,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       lastUpdated: new Date().toISOString()
     }, {
       headers: {
-        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=1800',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'ETag': `"${Date.now()}"`,
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',

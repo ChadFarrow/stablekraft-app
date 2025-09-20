@@ -95,15 +95,22 @@ export async function GET(request: Request) {
       feedUrl: feed.originalUrl,
       feedGuid: feed.id,
       priority: feed.priority,
-      tracks: feed.tracks.map((track: Track) => ({
-        id: track.id,
-        title: track.title,
-        duration: track.duration || 180,
-        url: track.audioUrl,
-        image: track.image,
-        publishedAt: track.publishedAt,
-        guid: track.guid
-      }))
+      tracks: feed.tracks
+        .filter((track: Track, index: number, self: Track[]) => {
+          // Deduplicate tracks by URL and title
+          return self.findIndex((t: Track) => 
+            t.audioUrl === track.audioUrl && t.title === track.title
+          ) === index;
+        })
+        .map((track: Track) => ({
+          id: track.id,
+          title: track.title,
+          duration: track.duration || 180,
+          url: track.audioUrl,
+          image: track.image,
+          publishedAt: track.publishedAt,
+          guid: track.guid
+        }))
     }));
     
     // Apply filtering
@@ -117,12 +124,12 @@ export async function GET(request: Request) {
           break;
         case 'eps':
           filteredAlbums = albums.filter(album => 
-            album.tracks && album.tracks.length >= 3 && album.tracks.length < 8
+            album.tracks && album.tracks.length >= 2 && album.tracks.length < 8
           );
           break;
         case 'singles':
           filteredAlbums = albums.filter(album => 
-            album.tracks && album.tracks.length < 3
+            album.tracks && album.tracks.length <= 2
           );
           break;
       }

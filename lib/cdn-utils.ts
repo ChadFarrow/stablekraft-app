@@ -9,7 +9,7 @@
  * @param size - The desired size for placeholder
  * @returns The original artwork URL or placeholder
  */
-export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'medium' | 'large' = 'medium'): string {
+export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'medium' | 'large' | 'xl' = 'medium'): string {
   // Always return placeholder for missing, empty, or invalid URLs
   if (!originalUrl || originalUrl.trim() === '' || originalUrl === 'undefined' || originalUrl === 'null') {
     return getPlaceholderImageUrl(size);
@@ -30,6 +30,8 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
     originalUrl = originalUrl.replace('http://', 'https://');
   }
   
+  // Use original URLs directly for best quality since RSS feeds provide high-res images
+  
   return originalUrl;
 }
 
@@ -38,11 +40,12 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
  * @param size - The desired size
  * @returns A placeholder image URL
  */
-export function getPlaceholderImageUrl(size: 'thumbnail' | 'medium' | 'large' = 'medium'): string {
+export function getPlaceholderImageUrl(size: 'thumbnail' | 'medium' | 'large' | 'xl' = 'medium'): string {
   const sizeMap = {
     thumbnail: { width: 150, height: 150 },
     medium: { width: 300, height: 300 },
     large: { width: 600, height: 600 },
+    xl: { width: 1200, height: 1200 },
   };
 
   const { width, height } = sizeMap[size];
