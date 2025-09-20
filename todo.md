@@ -17,6 +17,11 @@
 - [ ] Consider automating title extraction for new feeds
 
 ## Completed ✅
+- [x] Fixed scroll sensitivity causing accidental clicks on main page
+  - [x] Increased movement threshold from 10px to 20px
+  - [x] Extended scroll detection timeouts (150ms → 300ms)
+  - [x] Improved touch end handling (100ms → 250ms)
+  - [x] Enhanced click prevention thresholds (100ms → 200ms)
 - [x] Created migration API endpoints for title fixes
 - [x] Built local and production database scripts
 - [x] Identified and documented the original feeds.json structure

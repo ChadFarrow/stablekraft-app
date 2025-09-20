@@ -45,7 +45,6 @@ model Track {
   explicit         Boolean   @default(false)
   image            String?
   publishedAt      DateTime?
-  trackOrder       Int?      // Track sequence within album/feed
   itunesAuthor     String?
   itunesSummary    String?
   itunesImage      String?
@@ -60,6 +59,7 @@ model Track {
   feedId           String
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  trackOrder       Int?
   feed             Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
 
   @@index([feedId])
@@ -72,13 +72,12 @@ model Track {
 }
 
 model PlaylistTrack {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   playlistId String
   trackId    String
   position   Int
   addedBy    String?
-  addedAt    DateTime @default(now())
-  
+  addedAt    DateTime     @default(now())
   playlist   UserPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
 
   @@unique([playlistId, trackId])
@@ -86,15 +85,14 @@ model PlaylistTrack {
 }
 
 model UserPlaylist {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
   description String?
-  isPublic    Boolean  @default(false)
+  isPublic    Boolean         @default(false)
   createdBy   String
   image       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   tracks      PlaylistTrack[]
 
   @@index([createdBy])
