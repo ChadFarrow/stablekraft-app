@@ -390,7 +390,7 @@ export default function HomePage() {
             albumCount: 60, // Estimated from episodes 001-060
             totalTracks: 60,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://images.ctfassets.net/xi52pft0lyqg/7h1N8FUGXiOUhX0cDBfkbE/8fb1e0e3af6a2cf7f6cf31bc079bc67f/pod2.0_certified_white.png', // Use a placeholder or actual artwork
+            coverArt: '/placeholder-artist.png', // Use local placeholder
             tracks: []
           },
           {
@@ -403,7 +403,7 @@ export default function HomePage() {
             albumCount: 50, // Estimated
             totalTracks: 50,
             releaseDate: new Date().toISOString(),
-            coverArt: 'https://images.ctfassets.net/xi52pft0lyqg/7h1N8FUGXiOUhX0cDBfkbE/8fb1e0e3af6a2cf7f6cf31bc079bc67f/pod2.0_certified_white.png', // Use a placeholder or actual artwork
+            coverArt: '/placeholder-artist.png', // Use local placeholder
             tracks: []
           }
         ];

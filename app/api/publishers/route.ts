@@ -67,9 +67,6 @@ export async function GET() {
     const publishersMap = new Map<string, any>();
     
     feeds.forEach(feed => {
-      // Skip feeds without tracks
-      if (feed.tracks.length === 0) return;
-      
       // Determine publisher identity - use artist for album feeds, title for publisher feeds
       const publisherName = feed.artist || feed.title;
       const publisherKey = generateAlbumSlug(publisherName);
@@ -95,28 +92,43 @@ export async function GET() {
         // Group tracks by album if available, otherwise treat as one album
         const albumMap = new Map<string, any>();
         
-        feed.tracks.forEach(track => {
-          const albumKey = track.album || track.title || feed.title;
-          if (!albumMap.has(albumKey)) {
-            albumMap.set(albumKey, {
-              title: track.album || track.title || feed.title,
-              artist: track.artist || feed.artist || publisherName,
-              trackCount: 0,
-              feedGuid: feed.id,
-              feedUrl: feed.originalUrl,
-              albumSlug: generateAlbumSlug(albumKey) + '-' + feed.id.split('-')[0],
-              image: track.image || feed.image,
-              explicit: track.explicit || false
-            });
-          }
-          albumMap.get(albumKey)!.trackCount++;
-        });
-        
-        // Add all albums from this publisher feed
-        Array.from(albumMap.values()).forEach(album => {
-          publisher.albums.push(album);
-          publisher.totalTracks += album.trackCount;
-        });
+        if (feed.tracks.length > 0) {
+          feed.tracks.forEach(track => {
+            const albumKey = track.album || track.title || feed.title;
+            if (!albumMap.has(albumKey)) {
+              albumMap.set(albumKey, {
+                title: track.album || track.title || feed.title,
+                artist: track.artist || feed.artist || publisherName,
+                trackCount: 0,
+                feedGuid: feed.id,
+                feedUrl: feed.originalUrl,
+                albumSlug: generateAlbumSlug(albumKey) + '-' + feed.id.split('-')[0],
+                image: track.image || feed.image,
+                explicit: track.explicit || false
+              });
+            }
+            albumMap.get(albumKey)!.trackCount++;
+          });
+          
+          // Add all albums from this publisher feed
+          Array.from(albumMap.values()).forEach(album => {
+            publisher.albums.push(album);
+            publisher.totalTracks += album.trackCount;
+          });
+        } else {
+          // For publisher feeds with no tracks, create a placeholder album
+          const albumSlug = generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0];
+          publisher.albums.push({
+            title: feed.title,
+            artist: feed.artist || publisherName,
+            trackCount: 0,
+            feedGuid: feed.id,
+            feedUrl: feed.originalUrl,
+            albumSlug: albumSlug,
+            image: feed.image,
+            explicit: false
+          });
+        }
       } else {
         // For album feeds, the entire feed is one album
         const albumSlug = generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0];
