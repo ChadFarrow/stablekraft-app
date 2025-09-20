@@ -52,62 +52,58 @@ export async function GET() {
     
     console.log(`📊 Loaded ${feeds.length} feeds from database for publishers API`);
     
-    // Check which feeds match actual publisher feed URLs to filter out non-publishers
-    const actualPublisherFeeds = feeds.filter(feed => 
-      actualPublisherFeedUrls.has(feed.originalUrl)
-    );
+    // Instead of looking for exact publisher feed URLs, group albums by artist
+    // This will work with the actual album feeds in the database
+    const artistMap = new Map<string, any>();
     
-    console.log(`📊 Found ${actualPublisherFeeds.length} actual publisher feeds in database out of ${feeds.length} total feeds`);
+    feeds.forEach(feed => {
+      if (feed.artist && feed.tracks && feed.tracks.length > 0) {
+        const artistName = feed.artist;
+        const artistKey = generateAlbumSlug(artistName);
+        
+        if (!artistMap.has(artistKey)) {
+          artistMap.set(artistKey, {
+            id: artistKey,
+            title: artistName,
+            feedGuid: artistKey,
+            originalUrl: feed.originalUrl,
+            image: feed.image,
+            description: `Artist: ${artistName}`,
+            albums: [],
+            itemCount: 0,
+            totalTracks: 0
+          });
+        }
+        
+        const artist = artistMap.get(artistKey)!;
+        artist.albums.push({
+          title: feed.title,
+          artist: feed.artist,
+          trackCount: feed.tracks?.length || 0,
+          feedGuid: feed.id,
+          feedUrl: feed.originalUrl,
+          albumSlug: generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0],
+          image: feed.image,
+          explicit: feed.tracks?.some((t: any) => t.explicit) || feed.explicit
+        });
+        
+        artist.itemCount++;
+        artist.totalTracks += feed.tracks?.length || 0;
+      }
+    });
+    
+    const actualPublisherFeeds = Array.from(artistMap.values());
+    
+    console.log(`📊 Found ${actualPublisherFeeds.length} artists with albums in database out of ${feeds.length} total feeds`);
     
     let publishers: any[] = [];
     
     if (actualPublisherFeeds.length > 0) {
-      // Group actual publisher feeds by artist to create publisher entries
-      const publisherMap = new Map<string, any>();
-      
-      actualPublisherFeeds.forEach(feed => {
-        const artistName = feed.artist;
-        if (artistName) {
-          const publisherKey = generateAlbumSlug(artistName);
-          
-          if (!publisherMap.has(publisherKey)) {
-            publisherMap.set(publisherKey, {
-              id: publisherKey,
-              title: artistName,
-              feedGuid: publisherKey,
-              originalUrl: feed.originalUrl,
-              image: feed.image,
-              description: `Publisher feed: ${artistName}`,
-              albums: [],
-              itemCount: 0,
-              totalTracks: 0
-            });
-          }
-          
-          const publisher = publisherMap.get(publisherKey)!;
-          const albumSlug = generateAlbumSlug(feed.title) + '-' + feed.id.split('-')[0];
-          
-          publisher.albums.push({
-            title: feed.title,
-            artist: feed.artist || artistName,
-            trackCount: feed.tracks?.length || 0,
-            feedGuid: feed.id,
-            feedUrl: feed.originalUrl,
-            albumSlug: albumSlug,
-            image: feed.image,
-            explicit: feed.tracks?.some((t: any) => t.explicit) || feed.explicit
-          });
-          
-          publisher.itemCount++;
-          publisher.totalTracks += feed.tracks?.length || 0;
-        }
-      });
-      
-      publishers = Array.from(publisherMap.values()).sort((a, b) => 
+      publishers = actualPublisherFeeds.sort((a, b) => 
         a.title.toLowerCase().localeCompare(b.title.toLowerCase())
       );
       
-      console.log(`📊 Created ${publishers.length} publishers from actual publisher feeds`);
+      console.log(`📊 Created ${publishers.length} publishers from database artists`);
     }
 
     // If no actual publisher feeds found in database, fall back to static data

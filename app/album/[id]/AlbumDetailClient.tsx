@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, generateAlbumSlug, generatePublisherSlug } from '@/lib/url-utils';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import ControlsBar from '@/components/ControlsBar';
+import BackButton from '@/components/BackButton';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -701,13 +702,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
       <div className="min-h-screen text-white relative z-10">
         <div className="container mx-auto px-6 pt-16 md:pt-12 pb-40">
         {/* Back button */}
-        <Link 
-          href="/" 
-          className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Albums
-        </Link>
+        <div className="mb-6">
+          <BackButton href="/" label="Back to Albums" />
+        </div>
 
         {/* Album Header */}
         <div className="flex flex-col gap-6 mb-8">

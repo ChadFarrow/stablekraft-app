@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Play, Music, Disc, Calendar, Clock, ExternalLink } from 'lucide-react';
+import { Play, Music, Disc, Calendar, Clock, ExternalLink } from 'lucide-react';
 import { RSSAlbum, RSSPublisherItem } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, getPublisherInfo } from '@/lib/url-utils';
@@ -12,6 +12,7 @@ import ControlsBar, { FilterType, ViewType, SortType } from '@/components/Contro
 import { useAudio } from '@/contexts/AudioContext';
 import { toast } from '@/components/Toast';
 import dataService from '@/lib/data-service';
+import BackButton from '@/components/BackButton';
 
 interface PublisherDetailClientProps {
   publisherId: string;
@@ -679,10 +680,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       <div className="relative z-10">
         {/* Navigation */}
         <div className="container mx-auto px-4 pt-8">
-          <Link href="/" className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-8">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Link>
+          <div className="mb-6">
+            <BackButton href="/" label="Back to Home" />
+          </div>
         </div>
 
         {/* Hero Section */}

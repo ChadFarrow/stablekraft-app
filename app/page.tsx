@@ -457,6 +457,7 @@ export default function HomePage() {
         }));
         setPublisherStats(publisherStatsFromPublishers);
         console.log(`📊 Updated publisher stats from publishers API: ${publisherStatsFromPublishers.length} publishers`);
+        console.log(`📊 Publishers data:`, publishers.slice(0, 3)); // Debug first 3 publishers
         
         // Convert publishers to album-like format for display
         const publisherAlbums = publishers.map((publisher: any) => ({
@@ -481,6 +482,9 @@ export default function HomePage() {
           albumCount: publisher.itemCount,
           totalTracks: publisher.totalTracks
         }));
+        
+        console.log(`📊 Converted ${publisherAlbums.length} publishers to album format`);
+        console.log(`📊 First publisher album:`, publisherAlbums[0]); // Debug first publisher album
         
         setTotalAlbums(publishers.length);
         setCriticalAlbums(publisherAlbums.slice(0, 12));
@@ -805,6 +809,17 @@ export default function HomePage() {
 
   // Albums are now sorted server-side, just use them directly
   const filteredAlbums = displayedAlbums.length > 0 ? displayedAlbums : (isEnhancedLoaded ? enhancedAlbums : criticalAlbums);
+  
+  // Debug filtered albums when activeFilter is 'artists'
+  if (activeFilter === 'artists') {
+    console.log(`🔍 Debug filteredAlbums for artists filter:`, {
+      displayedAlbums: displayedAlbums.length,
+      enhancedAlbums: enhancedAlbums.length,
+      criticalAlbums: criticalAlbums.length,
+      filteredAlbums: filteredAlbums.length,
+      activeFilter
+    });
+  }
   
   // Show loading state for progressive loading
   const showProgressiveLoading = isCriticalLoaded && !isEnhancedLoaded && filteredAlbums.length > 0;
@@ -1347,7 +1362,6 @@ export default function HomePage() {
                       <AlbumCard
                         key={`${album.title}-${index}`}
                         album={album}
-
                         onPlay={playAlbum}
                       />
                     ))}
