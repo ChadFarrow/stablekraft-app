@@ -37,7 +37,7 @@ export default function AboutPage() {
             {/* Main Description - moved from banner */}
             <div className="bg-gray-900/50 rounded-lg p-8 mb-8">
               <p className="text-lg leading-relaxed mb-4">
-                This is a demo app I built for the "StableKraft" project to see what we could do with RSS feeds and music. All data here comes from RSS feeds on{' '}
+                This is a demo app I built for the &quot;StableKraft&quot; project to see what we could do with RSS feeds and music. All data here comes from RSS feeds on{' '}
                 <a href="https://podcastindex.org/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
                   podcastindex.org
                 </a>. This is also a demo of a site for The Doerfels that I added other music I like also and some stuff to help test.
