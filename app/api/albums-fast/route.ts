@@ -60,19 +60,25 @@ export async function GET(request: Request) {
         ]
       });
       
-      // Calculate publisher stats
-      const publisherMap = new Map();
-      feeds.forEach(feed => {
-        const artist = feed.artist || feed.title;
-        if (!publisherMap.has(artist)) {
-          publisherMap.set(artist, 0);
+      // Load publisher stats from the pre-built publisher data file
+      // This contains actual publisher feeds (podcast:publisher references) not individual albums
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const publisherDataPath = path.join(process.cwd(), 'public', 'publisher-stats.json');
+        
+        if (fs.existsSync(publisherDataPath)) {
+          const publisherData = JSON.parse(fs.readFileSync(publisherDataPath, 'utf8'));
+          publisherStats = publisherData.publishers || [];
+          console.log(`📊 Loaded ${publisherStats.length} publisher feeds from publisher-stats.json`);
+        } else {
+          console.log('⚠️ No publisher-stats.json found, using empty publisher stats');
+          publisherStats = [];
         }
-        publisherMap.set(artist, publisherMap.get(artist) + 1);
-      });
-      
-      publisherStats = Array.from(publisherMap.entries())
-        .map(([name, count]) => ({ name, albumCount: count }))
-        .sort((a, b) => b.albumCount - a.albumCount);
+      } catch (error) {
+        console.error('❌ Error loading publisher stats:', error);
+        publisherStats = [];
+      }
       
       // Cache the results
       cachedData = { feeds, publisherStats };

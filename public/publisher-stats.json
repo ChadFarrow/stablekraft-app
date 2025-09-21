@@ -1,0 +1,55 @@
+{
+  "publishers": [
+    {
+      "name": "Bitpunk.fm",
+      "feedGuid": "bitpunk-fm-publisher",
+      "albumCount": 1,
+      "feedUrl": "https://zine.bitpunk.fm/feeds/publisher.xml",
+      "title": "Bitpunk.fm Publisher feed"
+    },
+    {
+      "name": "Death by Lions",
+      "feedGuid": "death-by-lions-publisher",
+      "albumCount": 2,
+      "feedUrl": "https://wavlake.com/feed/artist/1e7f8807-31a7-454c-b612-f2563ba4cf67",
+      "title": "Death by Lions"
+    },
+    {
+      "name": "Joe Martin",
+      "feedGuid": "joe-martin-publisher",
+      "albumCount": 13,
+      "feedUrl": "https://wavlake.com/feed/artist/18bcbf10-6701-4ffb-b255-bc057390d738",
+      "title": "Joe Martin"
+    },
+    {
+      "name": "Nate Johnivan",
+      "feedGuid": "wavlake-publisher-aa909244",
+      "albumCount": 21,
+      "feedUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+      "title": "Nate Johnivan"
+    },
+    {
+      "name": "Ollie",
+      "feedGuid": "ollie-publisher",
+      "albumCount": 25,
+      "feedUrl": "https://wavlake.com/feed/artist/d2f43e9f-adfc-4811-b9c1-58d5ea383275",
+      "title": "Ollie"
+    },
+    {
+      "name": "My Friend Jimi",
+      "feedGuid": "my-friend-jimi-publisher",
+      "albumCount": 11,
+      "feedUrl": "https://wavlake.com/feed/artist/0ea699be-e985-4aa1-8c00-43542e4b9e0d",
+      "title": "My Friend Jimi"
+    },
+    {
+      "name": "The Doerfels",
+      "feedGuid": "doerfels-publisher-direct",
+      "albumCount": 18,
+      "feedUrl": "https://www.doerfelverse.com/feeds/doerfels-pubfeed.xml",
+      "title": "The Doerfels"
+    }
+  ],
+  "lastUpdated": "2025-09-21T13:03:45.000Z",
+  "totalPublishers": 7
+}
