@@ -7,6 +7,12 @@ export default function ServiceWorkerRegistration() {
   const [newVersion, setNewVersion] = useState('');
 
   useEffect(() => {
+    // Skip service worker registration in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Service Worker disabled in development mode');
+      return;
+    }
+    
     // Re-enabled Service Worker with improved API exclusions
     console.log('🔧 Service Worker registration enabled with improved API exclusions');
     

@@ -257,12 +257,16 @@ export default function HomePage() {
       
       // Load first page of albums (server-side sorted)
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
+      console.log('🔄 Loading albums with params:', { tier: 'all', limit: ALBUMS_PER_PAGE, startIndex, activeFilter });
       const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+      console.log('📦 Loaded albums from API:', { count: pageAlbums.length, firstAlbum: pageAlbums[0]?.title });
       
       // Set albums directly - show first 12 immediately, then rest
+      console.log('📦 Setting albums data:', { pageAlbumsCount: pageAlbums.length, criticalCount: pageAlbums.slice(0, 12).length });
       setCriticalAlbums(pageAlbums.slice(0, 12));
       setEnhancedAlbums(pageAlbums);
       setDisplayedAlbums(pageAlbums);
+      setAlbums(pageAlbums); // Also set the main albums state
       setHasMoreAlbums(totalCount > ALBUMS_PER_PAGE);
       setIsCriticalLoaded(true);
       setIsEnhancedLoaded(true);
@@ -354,95 +358,6 @@ export default function HomePage() {
     setIsLoading(true);
     
     try {
-      if (newFilter === 'playlist') {
-        // Show available playlists as cards
-        const playlists = [
-          {
-            id: 'hgh-playlist',
-            title: 'Homegrown Hits Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/hgh',
-            description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
-            albumCount: 841, // Total tracks in playlist
-            totalTracks: 841,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'itdv-playlist',
-            title: 'Into The Doerfel-Verse Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/itdv',
-            description: 'Music from Into The Doerfel-Verse podcast episodes 31-56',
-            albumCount: 200, // From your existing data
-            totalTracks: 200,
-            releaseDate: new Date().toISOString(),
-            coverArt: 'https://www.doerfelverse.com/art/itdvchadf.png',
-            tracks: []
-          },
-          {
-            id: 'lightning-thrashes-playlist',
-            title: 'Lightning Thrashes Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/lightning-thrashes',
-            description: 'Music from Lightning Thrashes podcast episodes',
-            albumCount: 60, // Estimated from episodes 001-060
-            totalTracks: 60,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'upbeats-playlist',
-            title: 'UpBEATs Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/upbeats',
-            description: 'Music from UpBEATs podcast episodes',
-            albumCount: 50, // Estimated
-            totalTracks: 50,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'top100-music-playlist',
-            title: 'Top 100 Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/top100-music',
-            description: 'Top 100 most popular tracks across all playlists',
-            albumCount: 100, // Exactly 100
-            totalTracks: 100,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-          {
-            id: 'index-playlist',
-            title: 'Podcast Index Music Playlist',
-            artist: 'Various Artists',
-            isPlaylistCard: true,
-            playlistUrl: '/playlist/index',
-            description: 'Music tracks from Podcast Index network shows',
-            albumCount: 150, // Estimated
-            totalTracks: 150,
-            releaseDate: new Date().toISOString(),
-            coverArt: '/api/placeholder/300/300',
-            tracks: []
-          },
-        ];
-        
-        setDisplayedAlbums(playlists);
-        setTotalAlbums(playlists.length);
-        setHasMoreAlbums(false);
-        setIsLoading(false);
-        return;
-      }
       
       if (newFilter === 'artists') {
         // Load publishers instead of albums
@@ -1169,7 +1084,7 @@ export default function HomePage() {
                   activeFilter === 'eps' ? 'EPs' : 
                   activeFilter === 'singles' ? 'Singles' : 
                   activeFilter === 'artists' ? 'Publisher' :
-                  activeFilter === 'playlist' ? 'Playlist' : 'Releases'}
+                  'Releases'}
                 className="mb-8"
               />
 

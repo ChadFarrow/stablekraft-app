@@ -2,7 +2,7 @@
 
 import { Filter, Grid3X3, List, Shuffle } from 'lucide-react';
 
-export type FilterType = 'all' | 'albums' | 'eps' | 'singles' | 'playlist' | 'artists';
+export type FilterType = 'all' | 'albums' | 'eps' | 'singles' | 'artists';
 export type ViewType = 'grid' | 'list';
 export type SortType = 'name' | 'year' | 'tracks';
 
@@ -40,14 +40,13 @@ const defaultSortOptions: { value: SortType; label: string }[] = [
   { value: 'tracks', label: 'Sort by Tracks' },
 ];
 
-// Filter options including playlist and artists
+// Filter options for artists/publishers
 const defaultFilters: { value: FilterType; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'albums', label: 'Albums' },
   { value: 'eps', label: 'EPs' },
   { value: 'singles', label: 'Singles' },
-  { value: 'artists', label: 'Publisher' }, // Changed from 'Artists' to 'Publisher'
-  { value: 'playlist', label: 'Playlist' },
+  { value: 'artists', label: 'Publisher' },
 ];
 
 export default function ControlsBar({
