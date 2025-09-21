@@ -17,6 +17,19 @@
 - [ ] Consider automating title extraction for new feeds
 
 ## Completed ✅
+- [x] Fixed ITDV playlist integration with global audio system
+  - [x] Integrated ITDV playlist with global AudioContext instead of local audio management  
+  - [x] Fixed play button to open now playing screen (like other albums)
+  - [x] Added url property to ITDV API tracks for compatibility with RSSAlbum type
+  - [x] Fixed track index calculation to properly handle filtered tracks
+  - [x] Resolved all TypeScript build errors preventing Railway deployment
+- [x] Fixed MediaSession track artwork display on mobile lock screen
+  - [x] Prioritized track.image over album.coverArt in MediaSession metadata
+  - [x] Individual track artwork now displays on phone lock screen instead of album art
+- [x] Created comprehensive startup.md documentation
+  - [x] Step-by-step dev server setup instructions
+  - [x] Common issues and troubleshooting solutions
+  - [x] Development workflow and useful commands
 - [x] Fixed scroll sensitivity causing accidental clicks on main page
   - [x] Increased movement threshold from 10px to 20px
   - [x] Extended scroll detection timeouts (150ms → 300ms)
