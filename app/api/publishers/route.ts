@@ -98,7 +98,7 @@ export async function GET() {
                 }
               }
             } catch (error) {
-              console.log(`⚠️ Could not fetch artwork for ${publisher.name}: ${error.message}`);
+              console.log(`⚠️ Could not fetch artwork for ${publisher.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
             
             return {

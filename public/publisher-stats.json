@@ -48,8 +48,29 @@
       "albumCount": 18,
       "feedUrl": "https://www.doerfelverse.com/feeds/doerfels-pubfeed.xml",
       "title": "The Doerfels"
+    },
+    {
+      "name": "IROH",
+      "feedGuid": "iroh-publisher",
+      "albumCount": 5,
+      "feedUrl": "https://wavlake.com/feed/artist/8a9c2e54-785a-4128-9412-737610f5d00a",
+      "title": "IROH"
+    },
+    {
+      "name": "CityBeach",
+      "feedGuid": "citybeach-publisher",
+      "albumCount": 9,
+      "feedUrl": "https://www.doerfelverse.com/feeds/citybeach-pubfeed.xml",
+      "title": "CityBeach"
+    },
+    {
+      "name": "Middle Season",
+      "feedGuid": "middleseason-publisher",
+      "albumCount": 3,
+      "feedUrl": "https://www.doerfelverse.com/artists/middleseason/mspubfeed.xml",
+      "title": "Middle Season"
     }
   ],
-  "lastUpdated": "2025-09-21T13:03:45.000Z",
-  "totalPublishers": 7
+  "lastUpdated": "2025-09-21T13:15:30.000Z",
+  "totalPublishers": 10
 }
