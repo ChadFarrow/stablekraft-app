@@ -257,12 +257,9 @@ export default function HomePage() {
       
       // Load first page of albums (server-side sorted)
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
-      console.log('🔄 Loading albums with params:', { tier: 'all', limit: ALBUMS_PER_PAGE, startIndex, activeFilter });
       const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
-      console.log('📦 Loaded albums from API:', { count: pageAlbums.length, firstAlbum: pageAlbums[0]?.title });
       
       // Set albums directly - show first 12 immediately, then rest
-      console.log('📦 Setting albums data:', { pageAlbumsCount: pageAlbums.length, criticalCount: pageAlbums.slice(0, 12).length });
       setCriticalAlbums(pageAlbums.slice(0, 12));
       setEnhancedAlbums(pageAlbums);
       setDisplayedAlbums(pageAlbums);
