@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Play, Pause, Music, Search, Filter, ChevronDown, X, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
+import { useAudio } from '@/contexts/AudioContext';
 
 interface Track {
   id: string;
@@ -45,18 +46,22 @@ const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 export default function ITDVPlaylistPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTrack, setCurrentTrack] = useState<string | null>(null);
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'main' | 'complete'>('main');
   const [error, setError] = useState<string | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [audioLoading, setAudioLoading] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<'fresh' | 'cached' | null>(null);
-  const [playQueue, setPlayQueue] = useState<string[]>([]);
-  const [queueIndex, setQueueIndex] = useState<number>(-1);
-  const [continuousPlay, setContinuousPlay] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  
+  // Use global audio context
+  const { 
+    currentPlayingAlbum, 
+    isPlaying, 
+    playAlbum, 
+    stop,
+    currentTrackIndex 
+  } = useAudio();
   
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -470,55 +475,13 @@ export default function ITDVPlaylistPage() {
     return track.artist;
   };
 
-  const playTrack = async (track: Track, addToQueue = false) => {
+  const playTrack = async (track: Track, trackIndex?: number) => {
     console.log('🎵 playTrack called for:', track.title);
-    console.log('🎵 Track data:', { 
-      id: track.id, 
-      audioUrl: track.audioUrl,
-      hasValueForValue: !!track.valueForValue,
-      resolved: track.valueForValue?.resolved 
-    });
-    console.log('🎵 Full track object:', track);
     
-    if (currentTrack === track.id) {
-      console.log('🎵 Stopping current track');
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-      setCurrentTrack(null);
-      setAudio(null);
-      setAudioLoading(null);
-      return;
-    }
-
-    if (addToQueue) {
-      // Add to queue instead of playing immediately
-      const newQueue = [...playQueue];
-      if (!newQueue.includes(track.id)) {
-        newQueue.push(track.id);
-        setPlayQueue(newQueue);
-        localStorage.setItem('itdv_queue', JSON.stringify(newQueue));
-      }
-      return;
-    }
-
-    if (audio) {
-      console.log('🎵 Pausing existing audio');
-      audio.pause();
-    }
-    
-    console.log('🎵 Setting audio loading state');
     setAudioLoading(track.id);
     
     try {
       const audioUrl = getAudioUrl(track);
-      console.log('🎵 Getting audio URL...');
-      console.log('🎵 getAudioUrl check:', {
-        hasValueForValue: !!track.valueForValue,
-        resolved: track.valueForValue?.resolved,
-        resolvedAudioUrl: track.valueForValue?.resolvedAudioUrl
-      });
       
       if (!audioUrl) {
         console.log('❌ No valid audio URL available - V4V not resolved');
@@ -527,204 +490,65 @@ export default function ITDVPlaylistPage() {
         return;
       }
       
-      console.log('🎵 Final audio URL:', audioUrl);
+      // Convert the current filtered tracks into an album format for the global audio context
+      const albumTracks = filteredAndSortedTracks.map((t) => ({
+        title: getDisplayTitle(t),
+        artist: getDisplayArtist(t),
+        url: getAudioUrl(t) || '',
+        startTime: 0, // V4V tracks play from beginning
+        endTime: undefined, // Play full track
+        image: t.image
+      })).filter(t => t.url); // Only include tracks with valid audio URLs
       
-      console.log('🎵 Creating new Audio element...');
-      const newAudio = new Audio(audioUrl);
-      console.log('🎵 Audio element created successfully');
+      const album = {
+        title: `Into The Doerfel-Verse - ${viewMode === 'main' ? 'Main Feed' : 'Complete Catalog'}`,
+        artist: 'Various Artists',
+        tracks: albumTracks,
+        coverArt: 'https://www.doerfelverse.com/images/podcast-cover.jpg'
+      };
       
-      // Set up comprehensive error logging
-      newAudio.addEventListener('loadstart', () => console.log('🎵 Audio loadstart event'));
-      newAudio.addEventListener('loadeddata', () => console.log('🎵 Audio loadeddata event'));
-      newAudio.addEventListener('canplay', () => console.log('🎵 Audio canplay event'));
-      newAudio.addEventListener('canplaythrough', () => console.log('🎵 Audio canplaythrough event'));
-      newAudio.addEventListener('playing', () => console.log('🎵 Audio playing event'));
-      newAudio.addEventListener('pause', () => console.log('🎵 Audio pause event'));
+      // Find the index of the current track in the filtered album
+      const albumTrackIndex = trackIndex !== undefined ? trackIndex : 
+        filteredAndSortedTracks.findIndex(t => t.id === track.id);
       
-      newAudio.addEventListener('error', (e) => {
-        console.error('🎵 Audio error event:', e);
-        console.error('🎵 Audio error details:', {
-          code: newAudio.error?.code,
-          message: newAudio.error?.message,
-          networkState: newAudio.networkState,
-          readyState: newAudio.readyState
-        });
+      if (albumTrackIndex === -1 || !albumTracks[albumTrackIndex]) {
         setAudioLoading(null);
-        alert('Failed to play track. The audio URL might not be accessible.');
-      });
-      
-      // Set up event listeners for queue management
-      newAudio.addEventListener('ended', () => {
-        handleTrackEnd();
-      });
-      
-      // For resolved V4V tracks, always start from beginning and play full duration
-      if (track.valueForValue?.resolved && track.valueForValue?.resolvedAudioUrl) {
-        console.log('🎵 Using resolved track - starting from beginning (0 seconds)');
-        newAudio.currentTime = 0;
-        console.log('🎵 Individual track - will play until natural end');
-        // Let the track play until its natural end (audio 'ended' event will handle it)
-      } else {
-        // This should never happen now since we require V4V resolution
-        console.error('🎵 Attempting to play non-resolved track - this should not happen');
-        setAudioLoading(null);
-        setError('Cannot play track: V4V data not resolved');
+        setError('Track not found in playable tracks');
         return;
       }
       
-      console.log('🎵 Attempting to play audio...');
-      try {
-        await newAudio.play();
-        console.log('🎵 Audio play() succeeded');
-        setCurrentTrack(track.id);
-        setAudio(newAudio);
-      } catch (playError) {
-        console.error('🎵 Audio play() failed:', playError);
-        setAudioLoading(null);
-        alert(`Failed to play track: ${playError instanceof Error ? playError.message : 'Unknown error'}`);
+      console.log('🎵 Playing track via global audio context:', {
+        trackIndex: albumTrackIndex,
+        trackTitle: albumTracks[albumTrackIndex].title,
+        totalTracks: albumTracks.length
+      });
+      
+      // Use the global audio context to play the album
+      const success = await playAlbum(album, albumTrackIndex);
+      
+      if (!success) {
+        setError('Failed to play track');
       }
+      
       setAudioLoading(null);
       
-      // Update queue index if playing from queue
-      const currentIndex = playQueue.indexOf(track.id);
-      if (currentIndex !== -1) {
-        setQueueIndex(currentIndex);
-      }
     } catch (error) {
       console.error('Failed to play track:', error);
       setAudioLoading(null);
-      alert('Failed to play track. The audio URL might not be accessible.');
+      setError('Failed to play track. The audio URL might not be accessible.');
     }
   };
 
-  const handleTrackEnd = () => {
-    console.log('🎵 handleTrackEnd called:', { 
-      currentTrack, 
-      continuousPlay, 
-      queueLength: playQueue.length,
-      totalTracks: filteredAndSortedTracks.length 
-    });
+  // Helper function to check if a track is currently playing
+  const isTrackPlaying = (track: Track): boolean => {
+    if (!currentPlayingAlbum || !currentPlayingAlbum.tracks) return false;
     
-    if (continuousPlay && playQueue.length > 0) {
-      console.log('🎵 Using queue playback');
-      playNextInQueue();
-    } else {
-      // Auto-play next track in the filtered list
-      const currentTrackIndex = filteredAndSortedTracks.findIndex(t => t.id === currentTrack);
-      console.log('🎵 Current track index:', currentTrackIndex, 'out of', filteredAndSortedTracks.length);
-      console.log('🎵 Current track ID:', currentTrack);
-      console.log('🎵 Track IDs in filtered list:', filteredAndSortedTracks.map(t => t.id).slice(0, 10)); // First 10 IDs
-      
-      if (currentTrackIndex !== -1 && currentTrackIndex < filteredAndSortedTracks.length - 1) {
-        const nextTrack = filteredAndSortedTracks[currentTrackIndex + 1];
-        console.log('🎵 Auto-playing next track:', nextTrack.title, 'at index', currentTrackIndex + 1);
-        playTrack(nextTrack);
-      } else {
-        // If current track not found in filtered list, try to find it in the full track list
-        // and play the next track in the original order
-        if (currentTrackIndex === -1) {
-          console.log('🎵 Current track not found in filtered list, searching full track list...');
-          const fullListIndex = tracks.findIndex(t => t.id === currentTrack);
-          console.log('🎵 Current track index in full list:', fullListIndex);
-          
-          if (fullListIndex !== -1 && fullListIndex < tracks.length - 1) {
-            // Find the next track that would be visible in the current filter
-            for (let i = fullListIndex + 1; i < tracks.length; i++) {
-              const candidateTrack = tracks[i];
-              const isVisible = filteredAndSortedTracks.some(ft => ft.id === candidateTrack.id);
-              if (isVisible) {
-                console.log('🎵 Found next visible track:', candidateTrack.title, 'at full index', i);
-                playTrack(candidateTrack);
-                return;
-              }
-            }
-          }
-        }
-        
-        console.log('🎵 Reached end of playlist - currentTrackIndex:', currentTrackIndex, 'totalTracks:', filteredAndSortedTracks.length);
-        setCurrentTrack(null);
-        setAudio(null);
-        setAudioLoading(null);
-      }
-    }
-  };
-
-  const playNextInQueue = () => {
-    if (playQueue.length === 0) return;
+    const currentTrack = currentPlayingAlbum.tracks[currentTrackIndex];
+    if (!currentTrack) return false;
     
-    let nextIndex = queueIndex + 1;
-    if (nextIndex >= playQueue.length) {
-      nextIndex = 0; // Loop back to start
-    }
-    
-    const nextTrackId = playQueue[nextIndex];
-    const nextTrack = tracks.find(t => t.id === nextTrackId);
-    
-    if (nextTrack) {
-      setQueueIndex(nextIndex);
-      playTrack(nextTrack);
-    }
-  };
-
-  const playPreviousInQueue = () => {
-    if (playQueue.length === 0) return;
-    
-    let prevIndex = queueIndex - 1;
-    if (prevIndex < 0) {
-      prevIndex = playQueue.length - 1; // Loop to end
-    }
-    
-    const prevTrackId = playQueue[prevIndex];
-    const prevTrack = tracks.find(t => t.id === prevTrackId);
-    
-    if (prevTrack) {
-      setQueueIndex(prevIndex);
-      playTrack(prevTrack);
-    }
-  };
-
-  const addAllToQueue = () => {
-    const allTrackIds = filteredAndSortedTracks.map(t => t.id);
-    setPlayQueue(allTrackIds);
-    localStorage.setItem('itdv_queue', JSON.stringify(allTrackIds));
-    setContinuousPlay(true);
-    
-    if (allTrackIds.length > 0) {
-      setQueueIndex(0);
-      const firstTrack = tracks.find(t => t.id === allTrackIds[0]);
-      if (firstTrack) {
-        playTrack(firstTrack);
-      }
-    }
-  };
-
-  const clearQueue = () => {
-    setPlayQueue([]);
-    setQueueIndex(-1);
-    setContinuousPlay(false);
-    localStorage.removeItem('itdv_queue');
-  };
-
-  const removeFromQueue = (trackId: string) => {
-    const newQueue = playQueue.filter(id => id !== trackId);
-    setPlayQueue(newQueue);
-    localStorage.setItem('itdv_queue', JSON.stringify(newQueue));
-    
-    // Adjust queue index if necessary
-    const currentTrackIndex = playQueue.indexOf(trackId);
-    if (currentTrackIndex !== -1 && currentTrackIndex <= queueIndex) {
-      setQueueIndex(Math.max(0, queueIndex - 1));
-    }
-  };
-
-  const stopTrack = () => {
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setCurrentTrack(null);
-    setAudio(null);
-    setAudioLoading(null);
+    // Compare by title and artist since the track structure might be different
+    return getDisplayTitle(track) === currentTrack.title && 
+           getDisplayArtist(track) === currentTrack.artist;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -887,7 +711,7 @@ ${generateRemoteItems(filteredAndSortedTracks)}
                 Export Playlist
               </button>
               <button
-                onClick={stopTrack}
+                onClick={stop}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
               >
                 Stop All
@@ -1121,7 +945,7 @@ ${generateRemoteItems(filteredAndSortedTracks)}
             <div
               key={track.id}
               className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
-                currentTrack === track.id
+                isTrackPlaying(track)
                   ? 'bg-green-600/20 border border-green-500/50'
                   : 'bg-gray-700/50 hover:bg-gray-700'
               }`}
@@ -1133,7 +957,7 @@ ${generateRemoteItems(filteredAndSortedTracks)}
               >
                 {audioLoading === track.id ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : currentTrack === track.id ? (
+                ) : isTrackPlaying(track) && isPlaying ? (
                   <Pause className="w-4 h-4" />
                 ) : (
                   <Play className="w-4 h-4 ml-0.5" />
@@ -1270,7 +1094,7 @@ ${generateRemoteItems(filteredAndSortedTracks)}
                   }}
                   className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm"
                 >
-                  {currentTrack === selectedTrack.id ? 'Pause' : 'Play'}
+                  {isTrackPlaying(selectedTrack) && isPlaying ? 'Pause' : 'Play'}
                 </button>
                 <button
                   onClick={() => setSelectedTrack(null)}
