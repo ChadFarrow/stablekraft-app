@@ -389,6 +389,13 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // ChadFarrow playlist repository specifically
+      {
+        protocol: 'https',
+        hostname: 'raw.githubusercontent.com',
+        port: '',
+        pathname: '/ChadFarrow/**',
+      },
       // Megaphone podcast hosting images
       {
         protocol: 'https',

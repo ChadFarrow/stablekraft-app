@@ -406,6 +406,17 @@ export default function HomePage() {
         setHasMoreAlbums(false); // Publishers are loaded all at once
         setIsCriticalLoaded(true);
         setIsEnhancedLoaded(true);
+      } else if (newFilter === 'playlist') {
+        // Special handling for playlist filter - only one playlist
+        const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
+        
+        setTotalAlbums(1);
+        setCriticalAlbums(pageAlbums.slice(0, 12));
+        setEnhancedAlbums(pageAlbums);
+        setDisplayedAlbums(pageAlbums);
+        setHasMoreAlbums(false); // Only one playlist, no pagination needed
+        setIsCriticalLoaded(true);
+        setIsEnhancedLoaded(true);
       } else {
         // Get new total count with filter
         const totalCountResponse = await fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}`);
@@ -440,6 +451,25 @@ export default function HomePage() {
 
   const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all') => {
     try {
+      // Handle playlist filter separately
+      if (filter === 'playlist') {
+        console.log('🎵 Loading ITDV playlist...');
+        const response = await fetch('/api/playlist/itdv');
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch playlist: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load playlist');
+        }
+        
+        // Return resolved albums directly - they're already in the correct format
+        console.log(`✅ Loaded ${data.albums.length} playlist albums`);
+        return data.albums;
+      }
+      
       // Simplified caching - only cache the main 'all' request with no filtering
       if (typeof window !== 'undefined' && loadTier === 'all' && offset === 0 && filter === 'all') {
         const cached = localStorage.getItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`);
@@ -1038,6 +1068,7 @@ export default function HomePage() {
                   activeFilter === 'eps' ? 'EPs' : 
                   activeFilter === 'singles' ? 'Singles' : 
                   activeFilter === 'artists' ? 'Publisher' :
+                  activeFilter === 'playlist' ? 'Playlist Items' :
                   'Releases'}
                 className="mb-8"
               />

@@ -68,8 +68,8 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
   // Let Next.js handle lazy loading natively - much simpler and faster
 
   const artworkUrl = useMemo(() => 
-    getAlbumArtworkUrl(album.coverArt || '', 'thumbnail'), // Use smaller images for faster loading
-    [album.coverArt]
+    getAlbumArtworkUrl(album.coverArt || (album as any).image || '', 'thumbnail'), // Use smaller images for faster loading
+    [album.coverArt, (album as any).image]
   );
   
   // Check if this is a playlist card, publisher card, and use appropriate URL
