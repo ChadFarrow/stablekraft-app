@@ -249,8 +249,8 @@ export default function HomePage() {
       setError(null);
       setLoadingProgress(0);
 
-      // Handle artists/publishers filter separately - redirect to handleFilterChange
-      if (activeFilter === 'artists' || activeFilter === 'publishers') {
+      // Handle artists filter separately - redirect to handleFilterChange
+      if (activeFilter === 'artists') {
         console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
         setIsLoading(false);
         await handleFilterChange(activeFilter);
@@ -293,8 +293,8 @@ export default function HomePage() {
   const loadMoreAlbums = useCallback(async () => {
     if (isLoading || !hasMoreAlbums) return;
 
-    // Don't load more for artists/publishers filter - all publishers are already loaded
-    if (activeFilter === 'artists' || activeFilter === 'publishers') {
+    // Don't load more for artists filter - all publishers are already loaded
+    if (activeFilter === 'artists') {
       console.log(`🚫 loadMoreAlbums: Skipping - all publishers already loaded for ${activeFilter} filter`);
       return;
     }
@@ -371,7 +371,7 @@ export default function HomePage() {
     
     try {
       
-      if (newFilter === 'artists' || newFilter === 'publishers') {
+      if (newFilter === 'artists') {
         console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
         // Load publishers instead of albums
         const publishersResponse = await fetch('/api/publishers');
@@ -472,8 +472,8 @@ export default function HomePage() {
 
   const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all') => {
     try {
-      // Handle artists/publishers filter separately - don't call albums API for publishers
-      if (filter === 'artists' || filter === 'publishers') {
+      // Handle artists filter separately - don't call albums API for publishers
+      if (filter === 'artists') {
         console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
         return []; // Return empty array to prevent showing wrong data
       }
