@@ -711,8 +711,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const updateMediaSession = (album: RSSAlbum, track: any) => {
     if ('mediaSession' in navigator && navigator.mediaSession) {
       try {
-        // Ensure we have valid artwork URL - make it absolute if relative
-        let artworkUrl = album.coverArt || '/stablekraft-rocket.png';
+        // Ensure we have valid artwork URL - prefer track image, then album cover
+        let artworkUrl = track.image || album.coverArt || '/stablekraft-rocket.png';
         
         // If the URL is relative, make it absolute
         if (artworkUrl.startsWith('/')) {
