@@ -495,6 +495,7 @@ export default function ITDVPlaylistPage() {
         title: getDisplayTitle(t),
         artist: getDisplayArtist(t),
         url: getAudioUrl(t) || '',
+        duration: String(t.duration || '0:00'), // Add required duration field, ensure it's a string
         startTime: 0, // V4V tracks play from beginning
         endTime: undefined, // Play full track
         image: t.image
