@@ -707,6 +707,115 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     };
   }, [isVideoMode, currentPlayingAlbum, currentTrackIndex]); // Add necessary dependencies but avoid functions that change frequently
 
+  // Helper function to update media session metadata
+  const updateMediaSession = (album: RSSAlbum, track: any) => {
+    if ('mediaSession' in navigator && navigator.mediaSession) {
+      try {
+        // Ensure we have valid artwork URL - make it absolute if relative
+        let artworkUrl = album.coverArt || '/stablekraft-rocket.png';
+        
+        // If the URL is relative, make it absolute
+        if (artworkUrl.startsWith('/')) {
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://music.podtards.com';
+          artworkUrl = `${baseUrl}${artworkUrl}`;
+        }
+        
+        // Create artwork array with various sizes
+        const artworkSizes = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'];
+        const artwork = artworkSizes.map(size => ({
+          src: artworkUrl,
+          sizes: size,
+          type: 'image/jpeg'
+        }));
+        
+        // Also add a catch-all for any size
+        artwork.push({
+          src: artworkUrl,
+          sizes: 'any',
+          type: 'image/jpeg'
+        });
+        
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.title || 'Unknown Track',
+          artist: album.artist || 'Unknown Artist',
+          album: album.title || 'Unknown Album',
+          artwork: artwork
+        });
+
+        // Set up media session action handlers - only track navigation, no seek
+        navigator.mediaSession.setActionHandler('play', () => {
+          console.log('📱 Media session: Play button pressed');
+          // Show visual feedback
+          if (typeof window !== 'undefined') {
+            const msg = document.createElement('div');
+            msg.innerHTML = '▶️ Play pressed';
+            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:green;color:white;padding:10px;border-radius:5px;z-index:9999;';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+          }
+          resume();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          console.log('📱 Media session: Pause button pressed');
+          // Show visual feedback
+          if (typeof window !== 'undefined') {
+            const msg = document.createElement('div');
+            msg.innerHTML = '⏸️ Pause pressed';
+            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:orange;color:white;padding:10px;border-radius:5px;z-index:9999;';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+          }
+          pause();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          console.log('📱 Media session: Previous track button pressed');
+          // Show visual feedback
+          if (typeof window !== 'undefined') {
+            const msg = document.createElement('div');
+            msg.innerHTML = '⏮️ Previous track pressed';
+            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:blue;color:white;padding:10px;border-radius:5px;z-index:9999;';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+          }
+          playPreviousTrack();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          console.log('📱 Media session: Next track button pressed');
+          // Show visual feedback
+          if (typeof window !== 'undefined') {
+            const msg = document.createElement('div');
+            msg.innerHTML = '⏭️ Next track pressed';
+            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:purple;color:white;padding:10px;border-radius:5px;z-index:9999;';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+          }
+          playNextTrack();
+        });
+        
+        // Explicitly disable seek handlers to show track navigation buttons instead
+        try {
+          navigator.mediaSession.setActionHandler('seekbackward', null);
+          navigator.mediaSession.setActionHandler('seekforward', null);
+        } catch (e) {
+          // Some browsers might not support these, ignore errors
+        }
+        
+        // Update playback state
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        
+        console.log('📱 Media session metadata updated:', {
+          title: track.title,
+          artist: album.artist,
+          album: album.title,
+          artwork: artworkUrl,
+          playbackState: navigator.mediaSession.playbackState
+        });
+      } catch (error) {
+        console.warn('Failed to update media session:', error);
+      }
+    }
+  };
+
   // Play album function
   const playAlbum = async (album: RSSAlbum, trackIndex: number = 0): Promise<boolean> => {
     if (!album.tracks || album.tracks.length === 0) {
@@ -731,6 +840,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     if (success) {
       setCurrentPlayingAlbum(album);
       setCurrentTrackIndex(trackIndex);
+      
+      // Update media session for lockscreen display
+      updateMediaSession(album, track);
       
       // If this is a manual play (not from shuffle), exit shuffle mode
       if (!isShuffleMode) {
@@ -774,6 +886,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       setCurrentTrackIndex(trackData.trackIndex);
       setCurrentShuffleIndex(index);
       setHasUserInteracted(true);
+      
+      // Update media session for lockscreen display
+      updateMediaSession(album, track);
     }
     return success;
   };
@@ -849,6 +964,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const currentElement = isVideoMode ? videoRef.current : audioRef.current;
     if (currentElement) {
       currentElement.pause();
+      // Update media session playback state
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
     }
   };
 
@@ -857,6 +976,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const currentElement = isVideoMode ? videoRef.current : audioRef.current;
     if (currentElement) {
       currentElement.play();
+      // Update media session playback state
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
     }
   };
 
