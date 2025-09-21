@@ -503,6 +503,8 @@ export default function ITDVPlaylistPage() {
       const album = {
         title: `Into The Doerfel-Verse - ${viewMode === 'main' ? 'Main Feed' : 'Complete Catalog'}`,
         artist: 'Various Artists',
+        description: `Music tracks from the ${viewMode === 'main' ? 'main podcast feed' : 'complete catalog'} featuring Value 4 Value resolved tracks`,
+        releaseDate: new Date().toISOString(),
         tracks: albumTracks,
         coverArt: 'https://www.doerfelverse.com/images/podcast-cover.jpg'
       };

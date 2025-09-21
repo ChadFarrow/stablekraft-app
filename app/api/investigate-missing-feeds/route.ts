@@ -6,6 +6,10 @@ const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
 const API_BASE_URL = 'https://api.podcastindex.org/api/1.0';
 
 function generateAuthHeaders() {
+  if (!PODCAST_INDEX_API_KEY || !PODCAST_INDEX_API_SECRET) {
+    throw new Error('Podcast Index API credentials not configured');
+  }
+  
   const apiHeaderTime = Math.floor(Date.now() / 1000);
   const data4Hash = PODCAST_INDEX_API_KEY + PODCAST_INDEX_API_SECRET + apiHeaderTime;
   const sha1Algorithm = crypto.createHash('sha1');

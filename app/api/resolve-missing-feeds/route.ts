@@ -6,6 +6,10 @@ const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
 const API_BASE_URL = 'https://api.podcastindex.org/api/1.0';
 
 function generateAuthHeaders() {
+  if (!PODCAST_INDEX_API_KEY || !PODCAST_INDEX_API_SECRET) {
+    throw new Error('Podcast Index API credentials not configured');
+  }
+  
   const apiHeaderTime = Math.floor(Date.now() / 1000);
   const data4Hash = PODCAST_INDEX_API_KEY + PODCAST_INDEX_API_SECRET + apiHeaderTime;
   const sha1Algorithm = crypto.createHash('sha1');
@@ -75,13 +79,11 @@ export async function GET(request: Request) {
     const playlistResponse = await fetch('http://localhost:3000/api/playlist/itdv');
     const playlistData = await playlistResponse.json();
     
-    const missingFeedGuids = [
-      ...new Set(
-        playlistData.albums[0].tracks
-          .filter((track: any) => track.title.startsWith('Music Reference'))
-          .map((track: any) => track.feedGuid)
-      )
-    ];
+    const missingFeedGuids = Array.from(new Set(
+      playlistData.albums[0].tracks
+        .filter((track: any) => track.title.startsWith('Music Reference') && track.feedGuid)
+        .map((track: any) => track.feedGuid as string)
+    )) as string[];
     
     console.log(`📋 Found ${missingFeedGuids.length} unique missing feed GUIDs`);
     
@@ -90,7 +92,7 @@ export async function GET(request: Request) {
     
     // Process feeds in batches to avoid rate limiting
     for (let i = 0; i < missingFeedGuids.length; i++) {
-      const guid = missingFeedGuids[i];
+      const guid: string = missingFeedGuids[i];
       
       const feedData = await lookupFeedByGuid(guid);
       

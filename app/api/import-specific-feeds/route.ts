@@ -34,6 +34,10 @@ const MISSING_FEED_GUIDS = [
 ];
 
 function generateAuthHeaders() {
+  if (!PODCAST_INDEX_API_KEY || !PODCAST_INDEX_API_SECRET) {
+    throw new Error('Podcast Index API credentials not configured');
+  }
+  
   const apiHeaderTime = Math.floor(Date.now() / 1000);
   const data4Hash = PODCAST_INDEX_API_KEY + PODCAST_INDEX_API_SECRET + apiHeaderTime;
   const sha1Algorithm = crypto.createHash('sha1');

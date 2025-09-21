@@ -219,13 +219,11 @@ export async function POST(request: Request) {
     const playlistResponse = await fetch('http://localhost:3000/api/playlist/itdv');
     const playlistData = await playlistResponse.json();
     
-    const missingFeedGuids = [
-      ...new Set(
-        playlistData.albums[0].tracks
-          .filter((track: any) => track.title.startsWith('Music Reference'))
-          .map((track: any) => track.feedGuid)
-      )
-    ];
+    const missingFeedGuids = Array.from(new Set(
+      playlistData.albums[0].tracks
+        .filter((track: any) => track.title.startsWith('Music Reference') && track.feedGuid)
+        .map((track: any) => track.feedGuid as string)
+    )) as string[];
     
     console.log(`📋 Found ${missingFeedGuids.length} unique missing feed GUIDs to import`);
     
@@ -237,7 +235,7 @@ export async function POST(request: Request) {
     const feedsToProcess = missingFeedGuids.slice(0, maxFeeds);
     
     for (let i = 0; i < feedsToProcess.length; i++) {
-      const guid = feedsToProcess[i];
+      const guid: string = feedsToProcess[i];
       
       try {
         // 1. Look up feed metadata via Podcast Index API
