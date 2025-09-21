@@ -855,9 +855,6 @@ export default function HomePage() {
               <div className="text-center">
                 <h1 className="text-xl font-bold mb-1 text-white">Project StableKraft</h1>
                 <p className="text-xs text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
-                                                  <div className="text-xs bg-stablekraft-yellow/20 text-stablekraft-yellow px-3 py-1 rounded-full border border-stablekraft-yellow/30">
-                  Beta - if the page isn&apos;t loading try a hard refresh and wait a little for it to load
-                </div>
               </div>
             </div>
 
@@ -884,9 +881,6 @@ export default function HomePage() {
                 <div className="text-center">
                   <h1 className="text-3xl font-bold mb-1 text-white">Project StableKraft</h1>
                   <p className="text-sm text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
-                  <div className="text-xs bg-stablekraft-yellow/20 text-stablekraft-yellow px-3 py-1 rounded-full border border-stablekraft-yellow/30 inline-block">
-                    Beta - if the page isn&apos;t loading try a hard refresh and wait a little for it to load
-                  </div>
                 </div>
                 
                 {/* Right side - About Link */}
@@ -1073,12 +1067,6 @@ export default function HomePage() {
                 className="mb-8"
               />
 
-              {/* Albums loaded indicator */}
-              {totalAlbums > 0 && (
-                <div className="mb-6 text-center text-gray-400">
-                  Showing {loadedAlbumsCount} of {totalAlbums} albums
-                </div>
-              )}
 
               {/* Shuffle functionality is now handled by the global AudioContext */}
 
