@@ -25,6 +25,21 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
     const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all
+
+    // Redirect publisher filter requests to the publishers API
+    if (filter === 'publishers' || filter === 'artists') {
+      console.log(`🚫 albums-fast: Rejecting ${filter} filter - should use /api/publishers instead`);
+      return NextResponse.json({
+        albums: [],
+        totalCount: 0,
+        hasMore: false,
+        offset: 0,
+        limit: 0,
+        publisherStats: [],
+        lastUpdated: new Date().toISOString(),
+        message: `Use /api/publishers for ${filter} data`
+      });
+    }
     
     const now = Date.now();
     const shouldRefreshCache = !cachedData || (now - cacheTimestamp) > CACHE_DURATION;

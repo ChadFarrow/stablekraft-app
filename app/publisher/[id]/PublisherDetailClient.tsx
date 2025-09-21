@@ -390,11 +390,14 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         // Find albums from this publisher
         const publisherAlbums = allAlbums.filter((album: any) => {
           if (!album.publisher) return false;
-          
+
           // Check if this album belongs to the publisher
           if (album.publisher.feedUrl === feedUrl) return true;
           if (album.publisher.feedGuid && typeof album.publisher.feedGuid === 'string' && album.publisher.feedGuid.includes(publisherId)) return true;
-          
+
+          // Special case: doerfels-publisher-direct should match albums with feedGuid 'the-doerfels'
+          if (publisherId === 'doerfels-publisher-direct' && album.publisher.feedGuid === 'the-doerfels') return true;
+
           return false;
         });
         
@@ -429,11 +432,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             avatarArt: prev?.avatarArt || prev?.coverArt || albumPublisherInfo.coverArt // Keep existing avatarArt, fallback to coverArt
           }));
           
-          // If we don't have albums from publisher items, use the album data
-          if (!albums.length) {
-            console.log(`🏢 Setting ${publisherAlbums.length} publisher albums from album data`);
-            setAlbums(publisherAlbums);
-          }
+          // Always update albums with the publisher album data we found
+          console.log(`🏢 Setting ${publisherAlbums.length} publisher albums from album data`);
+          setAlbums(publisherAlbums);
         }
         
         // Stop loading state early so page shows content

@@ -141,10 +141,19 @@ export async function GET(request: Request) {
       const isPlaylist = tracks.length > 1 && 
         new Set(tracks.map((t: any) => t.artist || album.artist)).size > 1;
       
-      // Create publisher info for artist feeds
+      // Create publisher info based on feed origin
       let publisher = null;
-      if (feed.type === 'album' && feed.artist) {
-        // For artist feeds, create publisher info
+
+      // Check if this is a Doerfels-related feed (from doerfelverse.com)
+      if (feed.originalUrl.includes('doerfelverse.com')) {
+        publisher = {
+          feedGuid: "the-doerfels", // Use consistent identifier for The Doerfels
+          feedUrl: "https://re.podtards.com/api/feeds/doerfels-pubfeed",
+          title: "The Doerfels",
+          artistImage: "https://www.doerfelverse.com/art/doerfels-hockeystick.png"
+        };
+      } else if (feed.type === 'album' && feed.artist) {
+        // For other artist feeds, create individual publisher info
         publisher = {
           feedGuid: feed.id,
           feedUrl: feed.originalUrl,
@@ -218,7 +227,7 @@ export async function GET(request: Request) {
         const key = album.publisher!.feedGuid;
         if (!publisherStats.has(key)) {
           publisherStats.set(key, {
-            name: album.artist,
+            name: album.publisher!.title,
             feedGuid: album.publisher!.feedGuid,
             albumCount: 1
           });

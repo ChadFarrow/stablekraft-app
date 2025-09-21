@@ -126,7 +126,7 @@ async function loadPublisherData(publisherId: string) {
         description: publisherFeed.description?.replace('<![CDATA[', '').replace(']]>', '') || '',
         image: publisherFeed.itunesImage || null,
         feedUrl: publisherFeed.feed.originalUrl,
-        feedGuid: publisherFeed.feed.originalUrl.split('/').pop() || ''
+        feedGuid: publisherId // Use the publisherId which matches what the API uses
       },
       publisherItems: [], // Will be populated by client-side API call
       feedId: publisherFeed.feed.id

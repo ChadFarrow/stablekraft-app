@@ -248,7 +248,15 @@ export default function HomePage() {
       setIsLoading(true);
       setError(null);
       setLoadingProgress(0);
-      
+
+      // Handle artists/publishers filter separately - redirect to handleFilterChange
+      if (activeFilter === 'artists' || activeFilter === 'publishers') {
+        console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
+        setIsLoading(false);
+        await handleFilterChange(activeFilter);
+        return;
+      }
+
       // Get total count first for pagination with current filter
       const totalCountResponse = await fetch(`/api/albums-fast?limit=1&offset=0&filter=${activeFilter}`);
       const totalCountData = await totalCountResponse.json();
@@ -284,10 +292,16 @@ export default function HomePage() {
   // Load more function to append albums instead of replacing
   const loadMoreAlbums = useCallback(async () => {
     if (isLoading || !hasMoreAlbums) return;
-    
+
+    // Don't load more for artists/publishers filter - all publishers are already loaded
+    if (activeFilter === 'artists' || activeFilter === 'publishers') {
+      console.log(`🚫 loadMoreAlbums: Skipping - all publishers already loaded for ${activeFilter} filter`);
+      return;
+    }
+
     setIsLoading(true);
     const nextPage = currentPage + 1;
-    
+
     try {
       // Load next page from API (server-side sorted)
       const startIndex = (nextPage - 1) * ALBUMS_PER_PAGE;
@@ -348,19 +362,25 @@ export default function HomePage() {
 
   // Handle filter changes - reload data and reset to page 1
   const handleFilterChange = async (newFilter: FilterType) => {
+    console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
     if (newFilter === activeFilter) return; // No change
-    
+
     setActiveFilter(newFilter);
     setCurrentPage(1); // Reset to first page
     setIsLoading(true);
     
     try {
       
-      if (newFilter === 'artists') {
+      if (newFilter === 'artists' || newFilter === 'publishers') {
+        console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
         // Load publishers instead of albums
         const publishersResponse = await fetch('/api/publishers');
+        if (!publishersResponse.ok) {
+          throw new Error(`Publishers API failed: ${publishersResponse.status}`);
+        }
         const publishersData = await publishersResponse.json();
         const publishers = publishersData.publishers || [];
+        console.log(`🎯 handleFilterChange: Received ${publishers.length} publishers from API`);
         
         // Update publisher stats for sidebar from publishers data
         const publisherStatsFromPublishers = publishers.map((publisher: any) => ({
@@ -379,7 +399,7 @@ export default function HomePage() {
           artist: publisher.title,
           description: publisher.description || `${publisher.itemCount} releases`,
           coverArt: publisher.image,
-          tracks: Array(publisher.totalTracks).fill(null).map((_, i) => ({
+          tracks: Array(publisher.totalTracks || 1).fill(null).map((_, i) => ({
             id: `track-${i}`,
             title: `Track ${i + 1}`,
             duration: '0:00',
@@ -438,8 +458,9 @@ export default function HomePage() {
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      console.warn('Failed to load filtered albums:', error);
-      setError('Failed to load albums');
+      console.error('❌ handleFilterChange error:', error);
+      console.error('❌ Filter was:', newFilter);
+      setError(`Failed to load ${newFilter} data: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -451,6 +472,12 @@ export default function HomePage() {
 
   const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all') => {
     try {
+      // Handle artists/publishers filter separately - don't call albums API for publishers
+      if (filter === 'artists' || filter === 'publishers') {
+        console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
+        return []; // Return empty array to prevent showing wrong data
+      }
+
       // Handle playlist filter separately
       if (filter === 'playlist') {
         console.log('🎵 Loading ITDV playlist...');
