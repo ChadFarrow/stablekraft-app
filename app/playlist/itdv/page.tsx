@@ -490,8 +490,11 @@ export default function ITDVPlaylistPage() {
         return;
       }
       
-      // Convert the current filtered tracks into an album format for the global audio context
-      const albumTracks = filteredAndSortedTracks.map((t) => ({
+      // Filter tracks with valid URLs first
+      const playableTracks = filteredAndSortedTracks.filter(t => getAudioUrl(t));
+      
+      // Convert the playable tracks into an album format for the global audio context
+      const albumTracks = playableTracks.map((t) => ({
         title: getDisplayTitle(t),
         artist: getDisplayArtist(t),
         url: getAudioUrl(t) || '',
@@ -499,7 +502,7 @@ export default function ITDVPlaylistPage() {
         startTime: 0, // V4V tracks play from beginning
         endTime: undefined, // Play full track
         image: t.image
-      })).filter(t => t.url); // Only include tracks with valid audio URLs
+      }));
       
       const album = {
         title: `Into The Doerfel-Verse - ${viewMode === 'main' ? 'Main Feed' : 'Complete Catalog'}`,
@@ -510,9 +513,8 @@ export default function ITDVPlaylistPage() {
         coverArt: 'https://www.doerfelverse.com/images/podcast-cover.jpg'
       };
       
-      // Find the index of the current track in the filtered album
-      const albumTrackIndex = trackIndex !== undefined ? trackIndex : 
-        filteredAndSortedTracks.findIndex(t => t.id === track.id);
+      // Find the index of the current track in the playable tracks
+      const albumTrackIndex = playableTracks.findIndex(t => t.id === track.id);
       
       if (albumTrackIndex === -1 || !albumTracks[albumTrackIndex]) {
         setAudioLoading(null);

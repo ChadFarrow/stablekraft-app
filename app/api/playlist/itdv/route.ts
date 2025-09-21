@@ -25,6 +25,7 @@ interface PlaylistItem {
   description: string;
   image: string;
   audioUrl: string;
+  url?: string; // For compatibility with RSSAlbum type
   duration: number;
   publishedAt: string;
   feedGuid: string;
@@ -116,6 +117,7 @@ export async function GET(request: Request) {
           title: resolvedTrack.title,
           artist: resolvedTrack.artist,
           audioUrl: resolvedTrack.audioUrl || '',
+          url: resolvedTrack.audioUrl || '', // Add url property for compatibility
           duration: resolvedTrack.duration || 180,
           publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
@@ -133,6 +135,7 @@ export async function GET(request: Request) {
           title: `Music Reference #${index + 1}`,
           artist: 'Featured in ITDV Podcast',
           audioUrl: '',
+          url: '', // Add url property for compatibility
           duration: 180,
           publishedAt: new Date().toISOString(),
           image: artworkUrl || '/placeholder-podcast.jpg',
@@ -239,6 +242,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           title: track.title,
           artist: track.artist || track.feed.artist || 'Unknown Artist',
           audioUrl: track.audioUrl,
+          url: track.audioUrl, // Add url property for compatibility
           duration: track.duration || 0,
           publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
           image: track.image || track.feed.image || '/placeholder-podcast.jpg',
