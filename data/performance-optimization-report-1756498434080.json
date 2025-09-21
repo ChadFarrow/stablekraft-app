@@ -1,0 +1,75 @@
+{
+  "analysis": {
+    "totalTracks": 1589,
+    "originalSizeMB": 2.569019317626953,
+    "optimizedSizeMB": 0.45954418182373047,
+    "potentialSavings": "82.1%",
+    "recommendations": [
+      "Implement database-level pagination",
+      "Pre-compute album groupings and cache results",
+      "Optimize JSON structure to reduce redundancy",
+      "Add compression for API responses",
+      "Implement incremental loading for the frontend",
+      "Use streaming JSON parsing for large files",
+      "Cache publisher mappings separately"
+    ]
+  },
+  "optimizedStructure": {
+    "example": [
+      {
+        "id": "4e3cd92d-d36b-42d5-8333-824901160fac",
+        "title": "Catch Me If You Can",
+        "artist": "Catch Me If You Can",
+        "feedUrl": "https://wavlake.com/feed/music/4e3cd92d-d36b-42d5-8333-824901160fac",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/4e3cd92d-d36b-42d5-8333-824901160fac.jpg",
+        "tracks": [
+          {
+            "title": "Headed South",
+            "duration": 186,
+            "enclosureUrl": "https://op3.dev/e,pg=79720bc8-6cb1-5ab4-a610-7576c78f660d/https://d12wklypp119aj.cloudfront.net/track/048c6e69-9b39-4e44-9505-d84d9913ec3e.mp3",
+            "guid": "fabd64b6-c3ad-5c2d-9069-a82a015736a6"
+          },
+          {
+            "title": "Diamond In The Dust",
+            "duration": 186,
+            "enclosureUrl": "https://op3.dev/e,pg=79720bc8-6cb1-5ab4-a610-7576c78f660d/https://d12wklypp119aj.cloudfront.net/track/589606a1-902e-4af6-b5c9-e946eab6e4cb.mp3",
+            "guid": "af948607-dea2-5f0f-a585-626eb708ecf1"
+          },
+          {
+            "title": "Ain't That A Shame",
+            "duration": 186,
+            "enclosureUrl": "https://op3.dev/e,pg=79720bc8-6cb1-5ab4-a610-7576c78f660d/https://d12wklypp119aj.cloudfront.net/track/2caf217a-87c4-472d-bfb2-5cdd7ba2752a.mp3",
+            "guid": "e873e192-2dd5-5af9-ab85-a7317d4c2b2f"
+          },
+          {
+            "title": "Drive It Like A Race Car",
+            "duration": 186,
+            "enclosureUrl": "https://op3.dev/e,pg=79720bc8-6cb1-5ab4-a610-7576c78f660d/https://d12wklypp119aj.cloudfront.net/track/fbb7f6b1-eb31-47ac-978d-89a4171dcb18.mp3",
+            "guid": "ef955134-3456-58da-a223-ad8b38de5daa"
+          },
+          {
+            "title": "Keep Going",
+            "duration": 186,
+            "enclosureUrl": "https://op3.dev/e,pg=79720bc8-6cb1-5ab4-a610-7576c78f660d/https://d12wklypp119aj.cloudfront.net/track/946f31fa-c2e4-4861-b200-ee40545e32ca.mp3",
+            "guid": "b1794f34-98a0-5d5f-99c7-e6a4bfb6baa5"
+          }
+        ]
+      },
+      {
+        "id": "0c878c73-f144-45a0-bc5c-ffe68d1a4a3c",
+        "title": "Gratitude",
+        "artist": "Gratitude",
+        "feedUrl": "https://wavlake.com/feed/music/0c878c73-f144-45a0-bc5c-ffe68d1a4a3c",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/0c878c73-f144-45a0-bc5c-ffe68d1a4a3c.jpg",
+        "tracks": [
+          {
+            "title": "Gratitude",
+            "duration": 179,
+            "enclosureUrl": "https://op3.dev/e,pg=8da1ca72-1721-50d6-b557-77b8715899b3/https://d12wklypp119aj.cloudfront.net/track/eca5aa9c-b654-4cd1-ab4b-3af4383c029e.mp3",
+            "guid": "37a5bf87-46d1-5237-829b-c5114e568138"
+          }
+        ]
+      }
+    ]
+  }
+}

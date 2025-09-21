@@ -1,0 +1,1255 @@
+{
+  "totalPlaceholderTracks": 33,
+  "feedsWithAudio": 12,
+  "feedsWithoutAudio": 7,
+  "feedAnalysis": {
+    "withAudio": [
+      {
+        "feedTitle": "Yuletide In My Doublewide",
+        "feedUrl": "https://wavlake.com/feed/music/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+        "trackCount": 2,
+        "tracks": [
+          {
+            "title": "Christmas (Baby Please Come Home)",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "5d865b45-e091-458e-ac82-a443ed274a40",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+            "feedUrl": "https://wavlake.com/feed/music/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+            "feedTitle": "Yuletide In My Doublewide",
+            "feedDescription": "Release date: 11/1/2018",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+            "feedArtist": "Yuletide In My Doublewide",
+            "published": "Thu, 31 Aug 2023 19:10:45 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Holiday",
+                "category": {
+                  "text": "Christmas"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=d141d44a-28ae-5308-82e4-d4781918a2f4/https://d12wklypp119aj.cloudfront.net/track/5d865b45-e091-458e-ac82-a443ed274a40.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "3061132",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+            "trackNumber": 1,
+            "albumTitle": "Yuletide In My Doublewide",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-108",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "album": "Yuletide In My Doublewide",
+            "publisher": "Jessica Lynne Witty",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:47.734Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:47.734Z",
+                "action": "resolution-failed",
+                "description": "Failed to fetch feed content: https://wavlake.com/feed/music/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+                "reason": "Network error or parsing failure"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:01.161Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:35.517Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "6a582e4a-e468-59fa-acd5-98780a16cc36",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          },
+          {
+            "title": "White Christmas (feat. Bob Witty)",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "177cd7a5-b07c-4dee-a19d-a2ca25b72005",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+            "feedUrl": "https://wavlake.com/feed/music/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+            "feedTitle": "Yuletide In My Doublewide",
+            "feedDescription": "Release date: 11/1/2018",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+            "feedArtist": "Yuletide In My Doublewide",
+            "published": "Thu, 31 Aug 2023 19:42:27 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Holiday",
+                "category": {
+                  "text": "Christmas"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=d141d44a-28ae-5308-82e4-d4781918a2f4/https://d12wklypp119aj.cloudfront.net/track/177cd7a5-b07c-4dee-a19d-a2ca25b72005.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "3976044",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+            "trackNumber": 4,
+            "albumTitle": "Yuletide In My Doublewide",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-111",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "album": "Yuletide In My Doublewide",
+            "publisher": "Jessica Lynne Witty",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:47.734Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:47.734Z",
+                "action": "resolution-failed",
+                "description": "Failed to fetch feed content: https://wavlake.com/feed/music/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df",
+                "reason": "Network error or parsing failure"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:02.326Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:35.517Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "87cfe0e8-fd16-5fe5-b5a3-373377e08d56",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "you don't need me",
+        "feedUrl": "https://wavlake.com/feed/music/00bcaba4-6e91-471f-bb1c-e03950f6ad1d",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "you don't need me",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "55ad4fb7-c05b-4616-b3b7-b03a8fe2dc2c",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "00bcaba4-6e91-471f-bb1c-e03950f6ad1d",
+            "feedUrl": "https://wavlake.com/feed/music/00bcaba4-6e91-471f-bb1c-e03950f6ad1d",
+            "feedTitle": "you don't need me",
+            "feedDescription": "you don't need me",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/00bcaba4-6e91-471f-bb1c-e03950f6ad1d.jpg",
+            "feedArtist": "you don't need me",
+            "published": "Fri, 21 Apr 2023 19:24:24 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "null",
+                "category": {
+                  "text": "null"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=1e01827d-ada3-5a85-abc9-fdcc027fbd98/https://d12wklypp119aj.cloudfront.net/track/55ad4fb7-c05b-4616-b3b7-b03a8fe2dc2c.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "3257507",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/00bcaba4-6e91-471f-bb1c-e03950f6ad1d.jpg",
+            "trackNumber": 1,
+            "albumTitle": "you don't need me",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-130",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "publisherFeedGuid": "4e33ca0c-bd98-4f98-9284-e8073046c049",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/4e33ca0c-bd98-4f98-9284-e8073046c049",
+            "album": "you don't need me",
+            "publisher": "bennyjeans",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:53.104Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:53.104Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/00bcaba4-6e91-471f-bb1c-e03950f6ad1d",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:03.494Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:49.398Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "bb7f7d7d-dc8b-594c-a728-730a54270f90",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "WHY (did you do this to me)",
+        "feedUrl": "https://wavlake.com/feed/music/5917663e-8d6e-45be-a364-01dfcdd26b4f",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "WHY (did you do this to me)",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "0fff4168-0576-4289-abd9-c37b278df12c",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "5917663e-8d6e-45be-a364-01dfcdd26b4f",
+            "feedUrl": "https://wavlake.com/feed/music/5917663e-8d6e-45be-a364-01dfcdd26b4f",
+            "feedTitle": "WHY (did you do this to me)",
+            "feedDescription": "WHY (did you do this to me)",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/5917663e-8d6e-45be-a364-01dfcdd26b4f.jpg",
+            "feedArtist": "WHY (did you do this to me)",
+            "published": "Fri, 21 Apr 2023 19:44:20 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "null",
+                "category": {
+                  "text": "null"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=25de7384-5134-545b-8069-c67c9523f851/https://d12wklypp119aj.cloudfront.net/track/0fff4168-0576-4289-abd9-c37b278df12c.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "3217403",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/5917663e-8d6e-45be-a364-01dfcdd26b4f.jpg",
+            "trackNumber": 1,
+            "albumTitle": "WHY (did you do this to me)",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-131",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "publisherFeedGuid": "4e33ca0c-bd98-4f98-9284-e8073046c049",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/4e33ca0c-bd98-4f98-9284-e8073046c049",
+            "album": "WHY (did you do this to me)",
+            "publisher": "bennyjeans",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:53.093Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:53.093Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/5917663e-8d6e-45be-a364-01dfcdd26b4f",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:04.700Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:45.488Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "9c7381d3-49ef-5297-87e8-18136923332c",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Just Say It feat. Helen Tess",
+        "feedUrl": "https://wavlake.com/feed/music/532c9b78-2099-4ee4-ac98-742157f01fd0",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "Just Say It feat. Helen Tess",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "82c1e083-f629-44c4-aa7a-1474e3f55e21",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "532c9b78-2099-4ee4-ac98-742157f01fd0",
+            "feedUrl": "https://wavlake.com/feed/music/532c9b78-2099-4ee4-ac98-742157f01fd0",
+            "feedTitle": "Just Say It feat. Helen Tess",
+            "feedDescription": "Produced by Charlie Crown",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/532c9b78-2099-4ee4-ac98-742157f01fd0.jpg",
+            "feedArtist": "Just Say It feat. Helen Tess",
+            "published": "Mon, 26 Feb 2024 22:39:45 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Dance/EDM",
+                "category": {
+                  "text": "null"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=8cf6a57e-0d58-5985-be24-aec60a10ff05/https://d12wklypp119aj.cloudfront.net/track/82c1e083-f629-44c4-aa7a-1474e3f55e21.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "3635040",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/532c9b78-2099-4ee4-ac98-742157f01fd0.jpg",
+            "trackNumber": 1,
+            "albumTitle": "Just Say It feat. Helen Tess",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-133",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "publisherFeedGuid": "707bc821-489e-46b2-8b51-d0aaad856f20",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/707bc821-489e-46b2-8b51-d0aaad856f20",
+            "album": "Just Say It feat. Helen Tess",
+            "publisher": "Charlie Crown",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:53.123Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:53.123Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/532c9b78-2099-4ee4-ac98-742157f01fd0",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:05.885Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:45.523Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "527b4046-a625-5d07-87ea-1bb1929cab2c",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Brutal (feat. Kyle Reynolds)",
+        "feedUrl": "https://wavlake.com/feed/music/a437c62e-23d4-4368-ba34-9f6b75ee5d5c",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "Brutal (feat. Kyle Reynolds)",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "6be29867-f7d1-4744-9df9-af29157949b0",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "a437c62e-23d4-4368-ba34-9f6b75ee5d5c",
+            "feedUrl": "https://wavlake.com/feed/music/a437c62e-23d4-4368-ba34-9f6b75ee5d5c",
+            "feedTitle": "Brutal (feat. Kyle Reynolds)",
+            "feedDescription": "Produced by Charlie Crown",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/a437c62e-23d4-4368-ba34-9f6b75ee5d5c.jpg",
+            "feedArtist": "Brutal (feat. Kyle Reynolds)",
+            "published": "Sun, 24 Mar 2024 21:20:42 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Dance/EDM",
+                "category": {
+                  "text": "null"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=60fb6025-a484-5e45-b613-187124a2c26b/https://d12wklypp119aj.cloudfront.net/track/6be29867-f7d1-4744-9df9-af29157949b0.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "4096032",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/a437c62e-23d4-4368-ba34-9f6b75ee5d5c.jpg",
+            "trackNumber": 1,
+            "albumTitle": "Brutal (feat. Kyle Reynolds)",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-134",
+            "addedAt": "2025-08-22T15:00:11.866Z",
+            "publisherFeedGuid": "707bc821-489e-46b2-8b51-d0aaad856f20",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/707bc821-489e-46b2-8b51-d0aaad856f20",
+            "album": "Brutal (feat. Kyle Reynolds)",
+            "publisher": "Charlie Crown",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:53.095Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:53.095Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/a437c62e-23d4-4368-ba34-9f6b75ee5d5c",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:07.060Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:57:45.520Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "72c32437-f554-57e7-b425-2b1293489f44",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Pop Song (Disaster)",
+        "feedUrl": "https://www.wavlake.com/feed/431d0502-f5af-4cf8-92c7-813ca9e38a8c",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "guid": "b660c9aa-f907-4040-910f-eece0227c9ad",
+            "episodeGuid": "3ef2da90-57be-4614-aa7d-24ceeb19a5e4",
+            "feedGuid": "84c4d46d-4155-5f9f-a6b6-2a01c3440dcf",
+            "feedUrl": "https://www.wavlake.com/feed/431d0502-f5af-4cf8-92c7-813ca9e38a8c",
+            "feedTitle": "Pop Song (Disaster)",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/431d0502-f5af-4cf8-92c7-813ca9e38a8c.jpg",
+            "title": "Pop Song",
+            "description": "",
+            "datePublished": 1689830145,
+            "datePublishedPretty": "July 20, 2023 12:15am",
+            "dateCrawled": 1699469190,
+            "enclosureUrl": "https://d12wklypp119aj.cloudfront.net/track/3ef2da90-57be-4614-aa7d-24ceeb19a5e4.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": 2886095,
+            "duration": 180,
+            "explicit": 0,
+            "episode": null,
+            "episodeType": "full",
+            "season": null,
+            "image": "https://d12wklypp119aj.cloudfront.net/image/431d0502-f5af-4cf8-92c7-813ca9e38a8c.jpg",
+            "feedItunesId": null,
+            "itunesId": null,
+            "link": "https://www.wavlake.com/album/431d0502-f5af-4cf8-92c7-813ca9e38a8c",
+            "chapters": null,
+            "transcript": null,
+            "value": {
+              "model": "lightning",
+              "suggested": 0,
+              "destinations": [
+                {
+                  "name": "FM Rodeo via Wavlake",
+                  "type": "node",
+                  "address": "036057de949c308f3f0116a3b993d4cf3de35dc312f11c961ac4f81ac78512fd7e",
+                  "split": 100,
+                  "fee": false,
+                  "customKey": "16180339",
+                  "customValue": "3ef2da90-57be-4614-aa7d-24ceeb19a5e4"
+                },
+                {
+                  "name": "Podcastindex.org",
+                  "type": "node",
+                  "address": "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a",
+                  "split": 1,
+                  "fee": true,
+                  "customKey": null,
+                  "customValue": null
+                }
+              ]
+            },
+            "persons": [],
+            "socialInteract": [],
+            "publisherFeedGuid": "1eb0e3c4-0f58-462b-997d-9b1e0dcaa936",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/1eb0e3c4-0f58-462b-997d-9b1e0dcaa936",
+            "id": "track-142",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "album": "Pop Song (Disaster)",
+            "artist": "FM Rodeo",
+            "audioUrl": "https://op3.dev/e,pg=84c4d46d-4155-5f9f-a6b6-2a01c3440dcf/https://d12wklypp119aj.cloudfront.net/track/3ef2da90-57be-4614-aa7d-24ceeb19a5e4.mp3",
+            "imageUrl": "https://d12wklypp119aj.cloudfront.net/image/431d0502-f5af-4cf8-92c7-813ca9e38a8c.jpg",
+            "publisher": "FM Rodeo",
+            "artwork": "https://d12wklypp119aj.cloudfront.net/image/431d0502-f5af-4cf8-92c7-813ca9e38a8c.jpg",
+            "feedId": 6477242,
+            "feedArtist": "Pop Song (Disaster)",
+            "fixedAt": "2025-08-29T00:57:58.406Z",
+            "fixMethod": "enhanced-rss-parsing"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Electrum",
+        "feedUrl": "https://www.wavlake.com/feed/63633462-5e88-4d09-a5c7-c8d0932ba785",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "guid": "0dd99108-a30b-4c56-ad17-a9b287bc9c44",
+            "episodeGuid": "bce6c2f3-c7eb-4dd2-8a51-11df4f2bccd7",
+            "feedGuid": "bd955a7a-aa7b-5b83-8ebe-3f1592ea962c",
+            "feedUrl": "https://www.wavlake.com/feed/63633462-5e88-4d09-a5c7-c8d0932ba785",
+            "feedTitle": "Electrum",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/63633462-5e88-4d09-a5c7-c8d0932ba785.jpg",
+            "title": "Tomorrow Love",
+            "description": "",
+            "datePublished": 1691173165,
+            "datePublishedPretty": "August 04, 2023 1:19pm",
+            "dateCrawled": 1699461083,
+            "enclosureUrl": "https://d12wklypp119aj.cloudfront.net/track/bce6c2f3-c7eb-4dd2-8a51-11df4f2bccd7.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": 2826991,
+            "duration": 180,
+            "explicit": 0,
+            "episode": null,
+            "episodeType": "full",
+            "season": null,
+            "image": "https://d12wklypp119aj.cloudfront.net/image/63633462-5e88-4d09-a5c7-c8d0932ba785.jpg",
+            "feedItunesId": null,
+            "itunesId": null,
+            "link": "https://www.wavlake.com/album/63633462-5e88-4d09-a5c7-c8d0932ba785",
+            "chapters": null,
+            "transcript": null,
+            "value": {
+              "model": "lightning",
+              "suggested": 0,
+              "destinations": [
+                {
+                  "name": "BecomingPhill via Wavlake",
+                  "type": "node",
+                  "address": "036057de949c308f3f0116a3b993d4cf3de35dc312f11c961ac4f81ac78512fd7e",
+                  "split": 100,
+                  "fee": false,
+                  "customKey": "16180339",
+                  "customValue": "bce6c2f3-c7eb-4dd2-8a51-11df4f2bccd7"
+                },
+                {
+                  "name": "Podcastindex.org",
+                  "type": "node",
+                  "address": "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a",
+                  "split": 1,
+                  "fee": true,
+                  "customKey": null,
+                  "customValue": null
+                }
+              ]
+            },
+            "persons": [],
+            "socialInteract": [],
+            "id": "track-450",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "album": "Electrum",
+            "artist": "BecomingPhill",
+            "audioUrl": "https://op3.dev/e,pg=bd955a7a-aa7b-5b83-8ebe-3f1592ea962c/https://d12wklypp119aj.cloudfront.net/track/e6785e83-3d7a-4107-bcf1-18a58ea2920d.mp3",
+            "imageUrl": "https://d12wklypp119aj.cloudfront.net/image/63633462-5e88-4d09-a5c7-c8d0932ba785.jpg",
+            "publisher": "BecomingPhill",
+            "artwork": "https://d12wklypp119aj.cloudfront.net/image/63633462-5e88-4d09-a5c7-c8d0932ba785.jpg",
+            "feedId": 6560463,
+            "feedArtist": "Electrum",
+            "fixedAt": "2025-08-29T00:59:27.787Z",
+            "fixMethod": "enhanced-rss-parsing"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Fight!",
+        "feedUrl": "https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "Hiding vs. Bad News",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "7bf430ff-6f92-4b44-bd3e-c4d0366e7508",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "0ed13237-aca9-446f-9a03-de1a2d9331a3",
+            "feedUrl": "https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+            "feedTitle": "Fight!",
+            "feedDescription": "Written and Recorded by Nate Johnivan in 2020.  \r\nSome Special Guests: \r\nDustin Posthuma: Some guitar layers throughout. \r\nNeil Edbrook: Mixed Red V. Blue and added some Backup Vocals",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/0ed13237-aca9-446f-9a03-de1a2d9331a3.jpg",
+            "feedArtist": "Nate Johnivan",
+            "published": "Mon, 11 Mar 2024 17:55:38 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Pop",
+                "category": {
+                  "text": "Pop/Rock"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=18843839-f79f-5b22-a842-241d0f6b12ea/https://d12wklypp119aj.cloudfront.net/track/7bf430ff-6f92-4b44-bd3e-c4d0366e7508.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "5311481",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/0ed13237-aca9-446f-9a03-de1a2d9331a3.jpg",
+            "trackNumber": 1,
+            "albumTitle": "Fight!",
+            "artist": "Nate Johnivan",
+            "isMusic": true,
+            "publisherFeedGuid": "aa909244-7555-4b52-ad88-7233860c6fb4",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+            "id": "track-455",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "album": "Fight!",
+            "index": 453,
+            "publisher": "Nate Johnivan",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:54.267Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:54.267Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:08.222Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "guid": "90e88d8a-4222-5c54-a32e-39684f468338",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "Fake Love - Demo",
+        "feedUrl": "https://wavlake.com/feed/music/8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "Fake Love - Demo",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "b8443651-b018-4dbe-8c1b-61e153c66ede",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+            "feedUrl": "https://wavlake.com/feed/music/8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+            "feedTitle": "Fake Love - Demo",
+            "feedDescription": "You know what you did....",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/8c8f8133-7ef1-4b72-a641-4e1a6a44d626.jpg",
+            "feedArtist": "Fake Love - Demo",
+            "published": "Mon, 21 Oct 2024 12:14:39 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Pop",
+                "category": {
+                  "text": "Pop/Rock"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=86625942-90be-56c7-b9b0-bf48b0e45d29/https://d12wklypp119aj.cloudfront.net/track/b8443651-b018-4dbe-8c1b-61e153c66ede.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "5692679",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/8c8f8133-7ef1-4b72-a641-4e1a6a44d626.jpg",
+            "trackNumber": 1,
+            "albumTitle": "Fake Love - Demo",
+            "artist": "Fake Love",
+            "isMusic": true,
+            "id": "track-469",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "publisherFeedGuid": "aa909244-7555-4b52-ad88-7233860c6fb4",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+            "album": "Fake Love - Demo",
+            "index": 467,
+            "publisher": "Nate Johnivan",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:04:54.289Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:04:54.289Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:09.387Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:59:37.989Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "893fe5e4-6af0-5143-891d-fc540c7b4aa8",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+        "feedUrl": "https://wavlake.com/feed/music/65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "c9c72c6c-0cdd-4f93-a1b5-acb0d437bf84",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+            "feedUrl": "https://wavlake.com/feed/music/65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+            "feedTitle": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+            "feedDescription": "Wrote this to be one long story, so here it is stitched together.  It's the story of how a kid winds up in Foster Care.  Written and recorded by Nate Johnivan at Rock Paper Bear Studio in Michigan.",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/65d6530c-22a8-4be3-9fed-0a0ea4e74d72.jpg",
+            "feedArtist": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+            "published": "Wed, 10 Jul 2024 17:19:03 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Pop",
+                "category": {
+                  "text": "Pop/Rock"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=466bd7b6-4a58-54e3-bf4e-e60c0783a62c/https://d12wklypp119aj.cloudfront.net/track/c9c72c6c-0cdd-4f93-a1b5-acb0d437bf84.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "16773608",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/65d6530c-22a8-4be3-9fed-0a0ea4e74d72.jpg",
+            "trackNumber": 1,
+            "albumTitle": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+            "artist": "Remote Artist (To Be Resolved)",
+            "isMusic": true,
+            "id": "track-489",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "publisherFeedGuid": "aa909244-7555-4b52-ad88-7233860c6fb4",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+            "album": "The Kid, The Dad, The Mom And The Tiny Window (The Whole Story)",
+            "publisher": "Nate Johnivan",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:05:00.633Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:05:00.633Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:10.568Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:59:39.976Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "c8720349-119b-5701-b8f2-750a3b83568f",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "The Poet Barfly - Demo",
+        "feedUrl": "https://wavlake.com/feed/music/f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+        "trackCount": 1,
+        "tracks": [
+          {
+            "title": "The Poet Barfly - Demo",
+            "subtitle": "",
+            "summary": "",
+            "itemGuid": {
+              "_": "ba10024a-d040-4b31-b61d-ea1fca19387d",
+              "isPermaLink": "false"
+            },
+            "feedGuid": "f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+            "feedUrl": "https://wavlake.com/feed/music/f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+            "feedTitle": "The Poet Barfly - Demo",
+            "feedDescription": "The drunk at the bar next to you is determined to ruin your silent reflection. Their blabbering slowly evolves from jibberish to coherent, and from coherent to brilliant.  They have tapped into exactly what you needed to hear somehow.  An annoyance turned into therapy all because you were too lazy to get up.",
+            "feedImage": "https://d12wklypp119aj.cloudfront.net/image/f6bbce4b-4d7a-42ba-9464-6a870b4a387e.jpg",
+            "feedArtist": "The Poet Barfly - Demo",
+            "published": "Tue, 31 Dec 2024 13:49:49 GMT",
+            "duration": 180,
+            "explicit": false,
+            "keywords": [],
+            "categories": [
+              {
+                "text": "Pop",
+                "category": {
+                  "text": "Indie Pop"
+                }
+              }
+            ],
+            "enclosureUrl": "https://op3.dev/e,pg=70456036-6a9c-5165-8fa7-84352259d602/https://d12wklypp119aj.cloudfront.net/track/ba10024a-d040-4b31-b61d-ea1fca19387d.mp3",
+            "enclosureType": "audio/mpeg",
+            "enclosureLength": "4776199",
+            "image": "https://d12wklypp119aj.cloudfront.net/image/f6bbce4b-4d7a-42ba-9464-6a870b4a387e.jpg",
+            "trackNumber": 1,
+            "albumTitle": "The Poet Barfly - Demo",
+            "artist": "Nate Johnivan",
+            "isMusic": true,
+            "id": "track-533",
+            "addedAt": "2025-08-22T15:00:11.865Z",
+            "publisherFeedGuid": "aa909244-7555-4b52-ad88-7233860c6fb4",
+            "publisherFeedUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+            "album": "The Poet Barfly - Demo",
+            "index": 531,
+            "publisher": "Nate Johnivan",
+            "sourceType": "remote-item",
+            "guidFormat": "wavlake-uuid-v4",
+            "resolutionStatus": "failed",
+            "addedDate": "2025-08-23T03:11:54.178Z",
+            "lastModified": "2025-08-23T03:05:00.646Z",
+            "modificationHistory": [
+              {
+                "date": "2025-08-23T02:35:17.921Z",
+                "action": "enhanced-metadata",
+                "description": "Added comprehensive placeholder data and tracking information"
+              },
+              {
+                "date": "2025-08-23T03:05:00.646Z",
+                "action": "resolution-failed",
+                "description": "Feed not accessible: https://wavlake.com/feed/music/f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+                "reason": "Feed does not exist or is inaccessible"
+              }
+            ],
+            "resolutionNotes": [
+              "Track needs metadata resolution from Wavlake RSS feeds",
+              "GUID format: Wavlake-specific UUID v4 (not Podcast Index compatible)",
+              "Future resolution: Parse Wavlake RSS feeds for title, artist, duration, artwork"
+            ],
+            "fullyEnhanced": true,
+            "datePublished": "2025-08-23T03:11:54.178Z",
+            "pubDate": "2025-08-23T03:11:54.178Z",
+            "externalMetadata": {
+              "source": "Title-Based Estimation",
+              "method": "pattern-matching",
+              "resolvedDate": "2025-08-26T23:10:11.736Z"
+            },
+            "artwork": "/stablekraft-rocket.png",
+            "artworkSource": {
+              "method": "main-page-background",
+              "reason": "using site's main background image as placeholder",
+              "originalType": "default",
+              "assignedDate": "2025-08-26T23:26:52.751Z",
+              "note": "Main page background used for consistent branding"
+            },
+            "fixedAt": "2025-08-29T00:59:42.280Z",
+            "fixMethod": "enhanced-rss-parsing",
+            "guid": "ee5805cc-506d-53d1-893e-45607d25b375",
+            "guidGenerated": true,
+            "guidGeneratedAt": "2025-08-29T01:18:54.895Z",
+            "guidGeneratedMethod": "deterministic-hash"
+          }
+        ]
+      },
+      {
+        "feedTitle": "DFB Volume 2",
+        "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+        "trackCount": 9,
+        "tracks": [
+          {
+            "title": "Hyssop Branches",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "f9683d28-70df-4112-95c4-490c0383c3c9",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/01-hyssop-branches.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "Blues You Never Lose",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "cddd92c4-a897-49a0-8bfb-e03e2fa34fe5",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/02-blues-you-never-lose.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "Bipolar",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "d60032f3-ce45-45c4-81fc-26ff0394a248",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/03-bipolar.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "The Chocolate Song",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "849d3c8b-2e0a-4b69-ad25-8237540827ab",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/04-the-chocolate-song.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "The Last Time",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "73189a5f-7265-4778-9f0e-9524494338e0",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/05-the-last-time.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "Dead Time",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "7592d5b6-832d-47ae-bc91-0380ec3bd33f",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/06-dead-time.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "What I'm Looking For",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "9dd6c1ef-0b92-47e9-ba54-3cc284ffdcbc",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/07-what-im-looking-for.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "C.R.V.P.",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "a12d4410-03e0-44fd-bc8b-890760541a93",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/08-crvp.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          },
+          {
+            "title": "The Guitar Song",
+            "feedTitle": "DFB Volume 2",
+            "feedArtist": "Doerfel Family Bluegrass",
+            "feedUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+            "feedGuid": "6bf3785f-e053-57f4-9f70-261ee5e3747f",
+            "feedImage": "https://www.doerfelverse.com/art/dfbv2.png",
+            "guid": "cefb5a94-44c9-4d17-93c0-de6830d27d50",
+            "enclosureUrl": "https://www.doerfelverse.com/tracks/09-the-guitar-song.mp3",
+            "duration": 180,
+            "image": "https://www.doerfelverse.com/art/dfbv2.png",
+            "datePublished": 1756497575,
+            "explicit": false,
+            "source": "Targeted Feed Refresh"
+          }
+        ]
+      }
+    ],
+    "withoutAudio": [
+      {
+        "feedTitle": "The Ultimate Album",
+        "feedUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/Dave's Not Here/The Ultimate Album/the utlimate album.xml",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "Thanks For Being Great",
+        "feedUrl": "https://wavlake.com/feed/music/ef437ae2-c7f1-449b-84ee-fba14daabd02",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "Animal Bus",
+        "feedUrl": "https://wavlake.com/feed/music/9659ff5c-6599-41b0-98ad-61bc8a3a2b8b",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "Tinderbox",
+        "feedUrl": "https://wavlake.com/feed/music/d677db67-0310-4813-970e-e65927c689f1",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "Far Enough",
+        "feedUrl": "https://jimmiebratcher.s3.us-west-1.amazonaws.com/Far Enough Album/far-enough.xml",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "The Edge of Everything",
+        "feedUrl": "https://wavlake.com/feed/8185da89-01a5-462e-b74f-7867d8ddc6fe",
+        "trackCount": 1
+      },
+      {
+        "feedTitle": "Music Reference from Homegrown Hits Playlist",
+        "feedUrl": "https://homegrownhits.xyz",
+        "trackCount": 6
+      }
+    ]
+  },
+  "recommendation": "Feeds with audio URLs could potentially have their durations updated by re-parsing RSS feeds"
+}

@@ -1,8 +1,0 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.doerfelverse.twa",
-    "sha256_cert_fingerprints": ["5E:16:D8:7D:29:2C:3E:52:86:01:17:53:A5:E8:16:FE:A2:A6:F6:65:76:82:D4:6D:73:FB:1B:1B:7B:8B:48:2B"]
-  }
-}]
