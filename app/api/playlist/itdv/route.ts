@@ -100,24 +100,35 @@ export async function GET(request: Request) {
     const resolvedTracks = await resolvePlaylistItems(remoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
     
-    // Create tracks from resolved data or fallback to placeholder
-    const tracks = resolvedTracks.length > 0 
-      ? resolvedTracks.map((track: any, index: number) => ({
-          id: track.id,
-          title: track.title,
-          artist: track.artist,
-          audioUrl: track.audioUrl || '',
-          duration: track.duration || 180,
-          publishedAt: track.publishedAt || new Date().toISOString(),
-          image: track.image || artworkUrl || '/placeholder-podcast.jpg',
-          feedGuid: track.playlistContext?.feedGuid || '',
-          itemGuid: track.playlistContext?.itemGuid || '',
-          description: `${track.title} by ${track.artist} - Featured in ITDV podcast`,
-          albumTitle: track.albumTitle,
-          feedTitle: track.feedTitle,
-          guid: track.guid
-        }))
-      : remoteItems.map((item, index) => ({
+    // Create a map of resolved tracks by itemGuid for quick lookup
+    const resolvedTrackMap = new Map(
+      resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
+    );
+    
+    // Create tracks for ALL remote items, using resolved data when available
+    const tracks = remoteItems.map((item, index) => {
+      const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
+      
+      if (resolvedTrack) {
+        // Use real track data
+        return {
+          id: resolvedTrack.id,
+          title: resolvedTrack.title,
+          artist: resolvedTrack.artist,
+          audioUrl: resolvedTrack.audioUrl || '',
+          duration: resolvedTrack.duration || 180,
+          publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
+          image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
+          feedGuid: item.feedGuid,
+          itemGuid: item.itemGuid,
+          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in ITDV podcast`,
+          albumTitle: resolvedTrack.albumTitle,
+          feedTitle: resolvedTrack.feedTitle,
+          guid: resolvedTrack.guid
+        };
+      } else {
+        // Use placeholder data
+        return {
           id: `itdv-track-${index + 1}`,
           title: `Music Reference #${index + 1}`,
           artist: 'Featured in ITDV Podcast',
@@ -128,7 +139,9 @@ export async function GET(request: Request) {
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
           description: `Music track referenced in Into The Doerfel-Verse podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
-        }));
+        };
+      }
+    });
     
     // Create a single virtual album that represents the ITDV playlist
     const playlistAlbum = {

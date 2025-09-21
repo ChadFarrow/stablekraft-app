@@ -143,23 +143,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const resolvedTracks = await resolvePlaylistItems(remoteItems);
       console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
       
-      // Create tracks from resolved data or fallback to placeholder
-      const tracks = resolvedTracks.length > 0 
-        ? resolvedTracks.map((track: any, index: number) => ({
-            title: track.title,
-            duration: track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '3:00',
-            url: track.audioUrl || '',
+      // Create a map of resolved tracks by itemGuid for quick lookup
+      const resolvedTrackMap = new Map(
+        resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
+      );
+      
+      // Create tracks for ALL remote items, using resolved data when available
+      const tracks = remoteItems.map((item, index) => {
+        const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
+        
+        if (resolvedTrack) {
+          // Use real track data
+          return {
+            title: resolvedTrack.title,
+            duration: resolvedTrack.duration ? `${Math.floor(resolvedTrack.duration / 60)}:${(resolvedTrack.duration % 60).toString().padStart(2, '0')}` : '3:00',
+            url: resolvedTrack.audioUrl || '',
             trackNumber: index + 1,
-            subtitle: track.artist,
-            summary: `${track.title} by ${track.artist} - Featured in ITDV podcast (from ${track.feedTitle})`,
-            image: track.image || artworkUrl || '/placeholder-podcast.jpg',
+            subtitle: resolvedTrack.artist,
+            summary: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in ITDV podcast (from ${resolvedTrack.feedTitle})`,
+            image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
             explicit: false,
             keywords: [],
-            albumTitle: track.albumTitle,
-            feedTitle: track.feedTitle,
-            guid: track.guid
-          }))
-        : remoteItems.map((item, index) => ({
+            albumTitle: resolvedTrack.albumTitle,
+            feedTitle: resolvedTrack.feedTitle,
+            guid: resolvedTrack.guid
+          };
+        } else {
+          // Use placeholder data
+          return {
             title: `Music Reference #${index + 1}`,
             duration: '3:00',
             url: '',
@@ -169,7 +180,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             image: artworkUrl || '/placeholder-podcast.jpg',
             explicit: false,
             keywords: []
-          }));
+          };
+        }
+      });
       
       // Create the album object compatible with AlbumDetailClient
       const playlistAlbum = {
