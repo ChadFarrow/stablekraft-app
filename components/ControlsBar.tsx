@@ -46,8 +46,8 @@ const defaultFilters: { value: FilterType; label: string }[] = [
   { value: 'albums', label: 'Albums' },
   { value: 'eps', label: 'EPs' },
   { value: 'singles', label: 'Singles' },
-  { value: 'artists', label: 'Publisher' },
-  { value: 'playlist', label: 'Playlist' },
+  { value: 'artists', label: 'Publishers' },
+  { value: 'playlist', label: 'Playlists' },
 ];
 
 export default function ControlsBar({

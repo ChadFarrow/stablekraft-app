@@ -1084,12 +1084,12 @@ export default function HomePage() {
                 showShuffle={true}
                 onShuffle={handleShuffle}
                 resultCount={totalAlbums}
-                resultLabel={activeFilter === 'all' ? 'Releases' : 
+                resultLabel={activeFilter === 'all' ? 'Releases' :
                   activeFilter === 'albums' ? 'Albums' :
-                  activeFilter === 'eps' ? 'EPs' : 
-                  activeFilter === 'singles' ? 'Singles' : 
-                  activeFilter === 'artists' ? 'Publisher' :
-                  activeFilter === 'playlist' ? 'Playlist Items' :
+                  activeFilter === 'eps' ? 'EPs' :
+                  activeFilter === 'singles' ? 'Singles' :
+                  activeFilter === 'artists' ? 'Publishers' :
+                  activeFilter === 'playlist' ? 'Playlists' :
                   'Releases'}
                 className="mb-8"
               />
