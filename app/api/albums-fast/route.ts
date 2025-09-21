@@ -130,7 +130,7 @@ export async function GET(request: Request) {
           break;
         case 'singles':
           filteredAlbums = albums.filter(album => 
-            album.tracks && album.tracks.length <= 2
+            album.tracks && album.tracks.length === 1
           );
           break;
       }
