@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { V4VResolver } from '@/lib/v4v-resolver';
 import { enhancedMusicService } from '@/lib/enhanced-music-service';
+import { logger } from '@/lib/logger';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -47,7 +48,7 @@ async function saveTracksToDatabase(tracks: any[], feedUrl: string): Promise<voi
     });
     
     if (newTracks.length === 0) {
-      console.log('📝 No new tracks to save (all already exist in database)');
+      logger.info('📝 No new tracks to save (all already exist in database)');
       return;
     }
     
@@ -72,7 +73,7 @@ async function saveTracksToDatabase(tracks: any[], feedUrl: string): Promise<voi
     // Save back to file
     await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
     
-    console.log(`💾 Saved ${tracksWithIds.length} new tracks to database (${tracks.length - tracksWithIds.length} already existed)`);
+    logger.info(`💾 Saved ${tracksWithIds.length} new tracks to database (${tracks.length - tracksWithIds.length} already existed)`);
   } catch (error) {
     console.error('Failed to save tracks to database:', error);
   }
@@ -88,7 +89,7 @@ async function loadTracksFromDatabase(feedUrl: string): Promise<any[] | null> {
     const tracks = musicData.musicTracks.filter((track: any) => track.feedUrl === feedUrl);
     
     if (tracks.length > 0) {
-      console.log(`📖 Found ${tracks.length} tracks in database for ${feedUrl}`);
+      logger.info(`📖 Found ${tracks.length} tracks in database for ${feedUrl}`);
       return tracks;
     }
     
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
     
     // Handle local database request with enhanced service
     if (feedUrl === 'local://database') {
-      console.log('🎵 Loading tracks from local database using enhanced service');
+      logger.info('🎵 Loading tracks from local database using enhanced service');
       try {
         // Use enhanced music service for unified track access
         const enhancedOnly = searchParams.get('enhanced') === 'true';
@@ -154,11 +155,11 @@ export async function GET(request: NextRequest) {
         
         // Handle V4V resolution for unified tracks if requested
         if (resolveV4V) {
-          console.log('🔍 Checking unified database tracks for V4V resolution...');
-          
+          logger.info('🔍 Checking unified database tracks for V4V resolution...');
+
           // Clear V4V cache if requested
           if (clearV4VCache) {
-            console.log('🗑️ Clearing V4V resolver cache...');
+            logger.info('🗑️ Clearing V4V resolver cache...');
             V4VResolver.clearCache();
           }
           
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest) {
           });
           
           if (v4vTracks.length > 0) {
-            console.log(`📡 Resolving ${v4vTracks.length} V4V tracks from unified database${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
+            logger.info(`📡 Resolving ${v4vTracks.length} V4V tracks from unified database${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
             
             // Prepare batch resolution
             const tracksToResolve = v4vTracks.map((track: any) => ({
@@ -229,7 +230,7 @@ export async function GET(request: NextRequest) {
                 }
               });
               
-              console.log(`✅ Successfully resolved ${resolvedCount} V4V tracks from unified database`);
+              logger.info(`✅ Successfully resolved ${resolvedCount} V4V tracks from unified database`);
             }
           }
         }
@@ -285,7 +286,7 @@ export async function GET(request: NextRequest) {
     // Check cache first (unless force refresh is requested)
     const cacheKey = getCacheKey(feedUrl, resolveV4V);
     if (!forceRefresh && isCacheValid(cacheKey)) {
-      console.log(`🎵 Serving cached data for: ${feedUrl}`);
+      logger.info(`🎵 Serving cached data for: ${feedUrl}`);
       const cachedData = cache.get(cacheKey)!.data;
       
       // Apply pagination to cached data
@@ -309,7 +310,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    console.log(`🎵 Extracting music tracks from: ${feedUrl} (cache miss)`);
+    logger.info(`🎵 Extracting music tracks from: ${feedUrl} (cache miss)`);
     
     // Check if we have tracks in the local database first (unless force refresh is requested)
     let databaseTracks = null;
@@ -318,15 +319,15 @@ export async function GET(request: NextRequest) {
     }
     
     if (databaseTracks && databaseTracks.length > 0) {
-      console.log(`📖 Serving ${databaseTracks.length} tracks from database`);
+      logger.info(`📖 Serving ${databaseTracks.length} tracks from database`);
       
       // Handle V4V resolution for database tracks if requested
       if (resolveV4V) {
-        console.log('🔍 Checking database tracks for V4V resolution...');
-        
+        logger.info('🔍 Checking database tracks for V4V resolution...');
+
         // Clear V4V cache if requested
         if (clearV4VCache) {
-          console.log('🗑️ Clearing V4V resolver cache...');
+          logger.info('🗑️ Clearing V4V resolver cache...');
           V4VResolver.clearCache();
         }
         
@@ -338,7 +339,7 @@ export async function GET(request: NextRequest) {
         );
         
         if (v4vTracks.length > 0) {
-          console.log(`📡 Resolving ${v4vTracks.length} V4V tracks from database${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
+          logger.info(`📡 Resolving ${v4vTracks.length} V4V tracks from database${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
           
           // Prepare batch resolution
           const tracksToResolve = v4vTracks.map((track: any) => ({
@@ -369,11 +370,11 @@ export async function GET(request: NextRequest) {
             }
           });
           
-          console.log(`✅ Successfully resolved ${resolvedCount} V4V tracks`);
+          logger.info(`✅ Successfully resolved ${resolvedCount} V4V tracks`);
           
           // Save updated tracks back to database if any were resolved
           if (resolvedCount > 0 && saveToDatabase) {
-            console.log('💾 Saving updated V4V resolutions to database...');
+            logger.info('💾 Saving updated V4V resolutions to database...');
             try {
               const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
               const existingData = await fs.readFile(dataPath, 'utf8');
@@ -396,7 +397,7 @@ export async function GET(request: NextRequest) {
               musicData.metadata.lastUpdated = new Date().toISOString();
               
               await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
-              console.log('✅ Database updated with V4V resolutions');
+              logger.info('✅ Database updated with V4V resolutions');
             } catch (error) {
               console.error('Failed to save V4V resolutions to database:', error);
             }
@@ -434,14 +435,14 @@ export async function GET(request: NextRequest) {
     }
     
     // If no database tracks or force refresh requested, parse from RSS feed
-    console.log(`📡 ${forceRefresh ? 'Force refresh requested' : 'No database tracks found'}, parsing RSS feed...`);
+    logger.info(`📡 ${forceRefresh ? 'Force refresh requested' : 'No database tracks found'}, parsing RSS feed...`);
     
     // Check if enhanced parsing is requested
     const useEnhanced = searchParams.get('useEnhanced') === 'true';
     
     let result;
     if (useEnhanced) {
-      console.log('🚀 Using enhanced RSS parser with Podcast Index integration...');
+      logger.info('🚀 Using enhanced RSS parser with Podcast Index integration...');
       try {
         // Import enhanced RSS parser
         const { enhancedRSSParser } = await import('@/lib/enhanced-rss-parser');
@@ -460,7 +461,7 @@ export async function GET(request: NextRequest) {
             tracks: enhancedResult.tracks || [],
             relatedFeeds: []
           };
-          console.log(`✅ Enhanced parsing extracted ${result.tracks.length} tracks`);
+          logger.info(`✅ Enhanced parsing extracted ${result.tracks.length} tracks`);
         } else {
           throw new Error('Enhanced parsing returned null');
         }
@@ -475,11 +476,11 @@ export async function GET(request: NextRequest) {
     
     // Check if we should resolve V4V tracks
     if (resolveV4V) {
-      console.log('🔍 Resolving V4V tracks...');
-      
+      logger.info('🔍 Resolving V4V tracks...');
+
       // Clear V4V cache if requested
       if (clearV4VCache) {
-        console.log('🗑️ Clearing V4V resolver cache...');
+        logger.info('🗑️ Clearing V4V resolver cache...');
         V4VResolver.clearCache();
       }
       
@@ -492,7 +493,7 @@ export async function GET(request: NextRequest) {
       );
       
       if (v4vTracks.length > 0) {
-        console.log(`📡 Resolving ${v4vTracks.length} V4V tracks${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
+        logger.info(`📡 Resolving ${v4vTracks.length} V4V tracks${clearV4VCache ? ' (forced re-resolution)' : ''}...`);
         
         // Prepare batch resolution
         const tracksToResolve = v4vTracks.map(track => ({
@@ -523,7 +524,7 @@ export async function GET(request: NextRequest) {
           }
         });
         
-        console.log(`✅ Successfully resolved ${resolvedCount} V4V tracks`);
+        logger.info(`✅ Successfully resolved ${resolvedCount} V4V tracks`);
       }
     }
     
@@ -584,7 +585,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`🎵 Analyzing ${feedUrls.length} feeds for music tracks`);
+    logger.info(`🎵 Analyzing ${feedUrls.length} feeds for music tracks`);
     
     const results = [];
     const errors = [];

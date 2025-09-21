@@ -1,5 +1,6 @@
 import { RSSParser, RSSAlbum, RSSPodRoll, RSSPublisher } from './rss-parser';
 import { FeedManager, Feed } from './feed-manager';
+import { logger } from './logger';
 import fs from 'fs';
 import path from 'path';
 
@@ -72,11 +73,11 @@ export class FeedParser {
     const parsedFeeds: ParsedFeedData[] = [];
     const errors: Array<{ feedId: string; feedUrl: string; error: string }> = [];
     
-    console.log(`🔄 Starting to parse ${feeds.length} active feeds...`);
+    logger.info(`🔄 Starting to parse ${feeds.length} active feeds...`);
     
     for (const feed of feeds) {
       try {
-        console.log(`📡 Parsing feed: ${feed.title} (${feed.originalUrl})`);
+        logger.info(`📡 Parsing feed: ${feed.title} (${feed.originalUrl})`);
         
         const parsedData: ParsedFeedData = {
           ...feed,
@@ -156,11 +157,11 @@ export class FeedParser {
     const report = this.generateReport(parsedFeeds, errors, Date.now() - startTime);
     await this.saveParseReport(report);
     
-    console.log(`✅ Feed parsing completed!`);
-    console.log(`📊 Report: ${report.successfulParses}/${report.totalFeeds} feeds parsed successfully`);
-    console.log(`🎵 Found ${report.albumsFound} albums with ${report.totalTracks} tracks`);
-    console.log(`🏢 Found ${report.publishersFound} publishers`);
-    console.log(`⏱️ Total parse time: ${(report.parseTime / 1000).toFixed(2)}s`);
+    logger.info(`✅ Feed parsing completed!`);
+    logger.info(`📊 Report: ${report.successfulParses}/${report.totalFeeds} feeds parsed successfully`);
+    logger.info(`🎵 Found ${report.albumsFound} albums with ${report.totalTracks} tracks`);
+    logger.info(`🏢 Found ${report.publishersFound} publishers`);
+    logger.info(`⏱️ Total parse time: ${(report.parseTime / 1000).toFixed(2)}s`);
     
     return report;
   }
@@ -366,7 +367,7 @@ export class FeedParser {
       }
       
       fs.writeFileSync(this.parsedDataPath, JSON.stringify(data, null, 2));
-      console.log(`💾 Saved parsed feeds to ${this.parsedDataPath}`);
+      logger.info(`💾 Saved parsed feeds to ${this.parsedDataPath}`);
     } catch (error) {
       console.error('Error saving parsed feeds:', error);
       throw error;
@@ -449,7 +450,7 @@ export class FeedParser {
       const filepath = path.join(this.reportPath, filename);
       
       fs.writeFileSync(filepath, JSON.stringify(report, null, 2));
-      console.log(`📊 Saved parse report to ${filepath}`);
+      logger.info(`📊 Saved parse report to ${filepath}`);
     } catch (error) {
       console.error('Error saving parse report:', error);
     }

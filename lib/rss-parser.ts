@@ -1,4 +1,5 @@
 import { AppError, ErrorCodes, withRetry, createErrorLogger } from './error-utils';
+import { logger } from './logger';
 
 export interface RSSTrack {
   title: string;
@@ -119,11 +120,11 @@ const isDev = process.env.NODE_ENV === 'development';
 const isVerbose = process.env.NEXT_PUBLIC_LOG_LEVEL === 'verbose';
 
 const devLog = (...args: any[]) => {
-  if (isDev) console.log(...args);
+  if (isDev) logger.debug(args.join(' '));
 };
 
 const verboseLog = (...args: any[]) => {
-  if (isVerbose) console.log(...args);
+  if (isVerbose) logger.debug(args.join(' '));
 };
 
 export class RSSParser {
@@ -746,7 +747,7 @@ export class RSSParser {
           // Enhanced error handling for NetworkError
           if (error instanceof TypeError && typeof error.message === 'string' && error.message.includes('NetworkError')) {
             console.error(`❌ NetworkError when attempting to fetch resource.`);
-            console.log('🔍 Error details:', {
+            logger.debug('🔍 Error details:', {
               message: error.message,
               stack: error.stack,
               feedUrl: url
@@ -912,7 +913,7 @@ export class RSSParser {
     try {
       // Handle special cases
       if (feedUrl === 'iroh-aggregated') {
-        console.log('🎵 Loading IROH aggregated feed from Wavlake...');
+        logger.info('🎵 Loading IROH aggregated feed from Wavlake...');
         // For IROH, we need to fetch the main artist feed and extract music items
         const isServer = typeof window === 'undefined';
         

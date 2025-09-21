@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
+import { logger } from '@/lib/logger';
 import { Play, Pause } from 'lucide-react';
 
 export interface PlaylistTrack {
@@ -52,8 +53,8 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
 
   useEffect(() => {
     const loadAndResolveAudio = async () => {
-      console.log(`✅ Loading tracks for playlist: ${config.name}`);
-      console.log(`🔍 Raw tracks received:`, rawTracks.length);
+      logger.info(`✅ Loading tracks for playlist: ${config.name}`);
+      logger.info(`🔍 Raw tracks received:`, rawTracks.length);
       setAudioResolutionStatus('Loading tracks...');
       
       // Convert raw tracks to PlaylistTrack format
@@ -79,7 +80,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
           }
         }));
       
-      console.log(`✅ Created initial tracks for ${config.name}:`, initialTracks.length);
+      logger.info(`✅ Created initial tracks for ${config.name}:`, initialTracks.length);
       setTracks(initialTracks);
       setTotalTracks(initialTracks.length);
       setIsLoading(false);
@@ -90,7 +91,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
       
       // Only resolve audio URLs if enabled AND tracks don't already have audio
       if (config.resolveAudioUrls && initialTracks.length > 0 && needsResolution) {
-        console.log(`🔄 ${tracksWithAudio.length}/${initialTracks.length} tracks have audio, attempting to resolve remaining...`);
+        logger.info(`🔄 ${tracksWithAudio.length}/${initialTracks.length} tracks have audio, attempting to resolve remaining...`);
         setAudioResolutionStatus('Resolving audio URLs...');
         
         try {
@@ -116,7 +117,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
           }
           
           const result = await response.json();
-          console.log(`🎵 Audio resolution completed for ${config.name}: ${result.resolved} resolved, ${result.failed} failed`);
+          logger.info(`🎵 Audio resolution completed for ${config.name}: ${result.resolved} resolved, ${result.failed} failed`);
           
           // Update tracks with resolved audio URLs and artwork
           const updatedTracks = initialTracks.map((track, index) => {
@@ -222,7 +223,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
 
     // Check if track has audio URL available
     if (!track.audioUrl) {
-      console.log('🚫 No audio URL available for track:', track.title);
+      logger.warn('🚫 No audio URL available for track:', track.title);
       return;
     }
 
@@ -332,7 +333,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
                   alt={displayTitle}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    console.log(`Image failed to load: ${displayImage}`);
+                    logger.error(`Image failed to load: ${displayImage}`);
                     e.currentTarget.src = config.coverArt;
                   }}
                 />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
+import { logger } from '@/lib/logger';
 import { Play, Pause, Music, ExternalLink, Download } from 'lucide-react';
 
 interface Top100Track {
@@ -39,7 +40,7 @@ export default function Top100MusicPlaylist() {
       setIsLoading(true);
       
       // Fetch real Top 100 data from our API endpoint
-      console.log('🎵 Loading Top 100 V4V Music data...');
+      logger.info('🎵 Loading Top 100 V4V Music data...');
       const response = await fetch('/api/top100-music', {
         method: 'GET',
         headers: {
@@ -72,7 +73,7 @@ export default function Top100MusicPlaylist() {
         artwork: track.artwork
       }));
       
-      console.log(`✅ Loaded ${formattedTracks.length} real Top 100 tracks`);
+      logger.info(`✅ Loaded ${formattedTracks.length} real Top 100 tracks`);
       
       setTracks(formattedTracks);
       setTotalTracks(data.data?.totalTracks || formattedTracks.length);
@@ -81,7 +82,7 @@ export default function Top100MusicPlaylist() {
       console.error('❌ Error loading Top 100 tracks:', err);
       
       // Fallback to sample data if real data fails
-      console.log('🔄 Falling back to sample data...');
+      logger.info('🔄 Falling back to sample data...');
       const sampleTracks: Top100Track[] = Array.from({ length: 10 }, (_, i) => ({
         id: `sample-${i + 1}`,
         title: `Sample Track ${i + 1}`,
@@ -105,7 +106,7 @@ export default function Top100MusicPlaylist() {
   const handlePlayTrack = async (track: Top100Track, index: number) => {
     // Prevent accidental clicks while scrolling
     if (shouldPreventClick()) {
-      console.log('🚫 Prevented accidental click while scrolling');
+      logger.debug('🚫 Prevented accidental click while scrolling');
       return;
     }
 
