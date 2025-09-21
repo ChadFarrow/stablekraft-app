@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "echo 'Skipping auto-version update for deployment'",
-    "build": "prisma migrate deploy && prisma generate && next build",
+    "build": "node scripts/migrate-production.js && prisma generate && next build",
     "postbuild": "echo 'Build complete'",
     "start": "next start",
     "lint": "next lint",
