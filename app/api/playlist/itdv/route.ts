@@ -95,6 +95,41 @@ export async function GET(request: Request) {
     console.log('📋 Found remote items:', remoteItems.length);
     console.log('🎨 Found artwork URL:', artworkUrl);
     
+    // Resolve playlist items to get actual track data from the database
+    console.log('🔍 Resolving playlist items to actual tracks...');
+    const resolvedTracks = await resolvePlaylistItems(remoteItems);
+    console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+    
+    // Create tracks from resolved data or fallback to placeholder
+    const tracks = resolvedTracks.length > 0 
+      ? resolvedTracks.map((track: any, index: number) => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          audioUrl: track.audioUrl || '',
+          duration: track.duration || 180,
+          publishedAt: track.publishedAt || new Date().toISOString(),
+          image: track.image || artworkUrl || '/placeholder-podcast.jpg',
+          feedGuid: track.playlistContext?.feedGuid || '',
+          itemGuid: track.playlistContext?.itemGuid || '',
+          description: `${track.title} by ${track.artist} - Featured in ITDV podcast`,
+          albumTitle: track.albumTitle,
+          feedTitle: track.feedTitle,
+          guid: track.guid
+        }))
+      : remoteItems.map((item, index) => ({
+          id: `itdv-track-${index + 1}`,
+          title: `Music Reference #${index + 1}`,
+          artist: 'Featured in ITDV Podcast',
+          audioUrl: '',
+          duration: 180,
+          publishedAt: new Date().toISOString(),
+          image: artworkUrl || '/placeholder-podcast.jpg',
+          feedGuid: item.feedGuid,
+          itemGuid: item.itemGuid,
+          description: `Music track referenced in Into The Doerfel-Verse podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+        }));
+    
     // Create a single virtual album that represents the ITDV playlist
     const playlistAlbum = {
       id: 'itdv-playlist',
@@ -105,25 +140,16 @@ export async function GET(request: Request) {
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
       url: ITDV_PLAYLIST_URL,
-      tracks: remoteItems.map((item, index) => ({
-        id: `itdv-track-${index + 1}`,
-        title: `ITDV Track ${index + 1}`,
-        artist: 'Various Artists',
-        audioUrl: '', // No direct audio URL - this represents a reference
-        duration: 180,
-        publishedAt: new Date().toISOString(),
-        image: artworkUrl || '/placeholder-podcast.jpg',
-        feedGuid: item.feedGuid,
-        itemGuid: item.itemGuid,
-        description: `Music reference from Into The Doerfel-Verse podcast - Feed: ${item.feedGuid.slice(0, 8)}...`
-      })),
+      tracks: tracks,
       feedId: 'itdv-playlist',
       type: 'playlist',
-      totalTracks: remoteItems.length,
+      totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
       playlistContext: {
         source: 'itdv-playlist',
-        originalUrl: ITDV_PLAYLIST_URL
+        originalUrl: ITDV_PLAYLIST_URL,
+        resolvedTracks: resolvedTracks.length,
+        totalRemoteItems: remoteItems.length
       }
     };
     
@@ -164,63 +190,49 @@ export async function GET(request: Request) {
 
 async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
   try {
-    // Get unique feed GUIDs from the playlist
-    const feedGuids = [...new Set(remoteItems.map(item => item.feedGuid))];
-    console.log(`🔍 Looking up ${feedGuids.length} unique feeds for ${remoteItems.length} playlist items`);
+    // Get unique item GUIDs from the playlist (these map to track.guid)
+    const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
+    console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
     
-    // Find feeds in database by GUID
-    const feeds = await prisma.feed.findMany({
+    // Find tracks in database by GUID
+    const tracks = await prisma.track.findMany({
       where: {
-        id: { in: feedGuids },
-        status: 'active'
+        guid: { in: itemGuids }
       },
       include: {
-        tracks: {
-          orderBy: [
-            { trackOrder: 'asc' },
-            { publishedAt: 'asc' },
-            { createdAt: 'asc' }
-          ]
-        }
-      }
+        feed: true
+      },
+      orderBy: [
+        { trackOrder: 'asc' },
+        { publishedAt: 'asc' },
+        { createdAt: 'asc' }
+      ]
     });
     
-    console.log(`📊 Found ${feeds.length} matching feeds in database`);
+    console.log(`📊 Found ${tracks.length} matching tracks in database`);
     
-    // Create a map for quick lookup
-    const feedMap = new Map(feeds.map(feed => [feed.id, feed]));
-    const resolvedAlbums: any[] = [];
+    // Create a map for quick lookup by track GUID
+    const trackMap = new Map(tracks.map(track => [track.guid, track]));
+    const resolvedTracks: any[] = [];
     
-    // Resolve each playlist item to an actual album
+    // Resolve each playlist item to an actual track
     for (const remoteItem of remoteItems) {
-      const feed = feedMap.get(remoteItem.feedGuid);
+      const track = trackMap.get(remoteItem.itemGuid);
       
-      if (feed && feed.tracks.length > 0) {
-        // Find specific track by item GUID, or use first track
-        const track = feed.tracks.find(t => t.guid === remoteItem.itemGuid) || feed.tracks[0];
-        
-        // Create album-compatible object
-        const album = {
-          id: feed.id,
-          title: feed.title,
-          artist: feed.artist || 'Unknown Artist',
-          album: feed.title,
-          description: feed.description || '',
-          image: feed.image || track.image || '/placeholder-podcast.jpg',
-          url: feed.originalUrl,
-          tracks: feed.tracks.map(t => ({
-            id: t.id,
-            title: t.title,
-            artist: t.artist || feed.artist || 'Unknown Artist',
-            audioUrl: t.audioUrl,
-            duration: t.duration || 0,
-            publishedAt: t.publishedAt?.toISOString() || new Date().toISOString(),
-            image: t.image || feed.image || '/placeholder-podcast.jpg'
-          })),
-          feedId: feed.id,
-          type: feed.type || 'music',
-          totalTracks: feed.tracks.length,
+      if (track && track.feed) {
+        // Create track object with feed context
+        const resolvedTrack = {
+          id: track.id,
+          title: track.title,
+          artist: track.artist || track.feed.artist || 'Unknown Artist',
+          audioUrl: track.audioUrl,
+          duration: track.duration || 0,
           publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
+          image: track.image || track.feed.image || '/placeholder-podcast.jpg',
+          albumTitle: track.feed.title,
+          feedTitle: track.feed.title,
+          feedId: track.feed.id,
+          guid: track.guid,
           // Add playlist context
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
@@ -229,13 +241,13 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           }
         };
         
-        resolvedAlbums.push(album);
+        resolvedTracks.push(resolvedTrack);
       } else {
         console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
       }
     }
     
-    return resolvedAlbums;
+    return resolvedTracks;
   } catch (error) {
     console.error('❌ Error resolving playlist items:', error);
     return [];

@@ -43,6 +43,72 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
   return remoteItems;
 }
 
+async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
+  try {
+    // Get unique item GUIDs from the playlist (these map to track.guid)
+    const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
+    console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+    
+    // Find tracks in database by GUID
+    const tracks = await prisma.track.findMany({
+      where: {
+        guid: { in: itemGuids }
+      },
+      include: {
+        feed: true
+      },
+      orderBy: [
+        { trackOrder: 'asc' },
+        { publishedAt: 'asc' },
+        { createdAt: 'asc' }
+      ]
+    });
+    
+    console.log(`📊 Found ${tracks.length} matching tracks in database`);
+    
+    // Create a map for quick lookup by track GUID
+    const trackMap = new Map(tracks.map(track => [track.guid, track]));
+    const resolvedTracks: any[] = [];
+    
+    // Resolve each playlist item to an actual track
+    for (const remoteItem of remoteItems) {
+      const track = trackMap.get(remoteItem.itemGuid);
+      
+      if (track && track.feed) {
+        // Create track object with feed context
+        const resolvedTrack = {
+          id: track.id,
+          title: track.title,
+          artist: track.artist || track.feed.artist || 'Unknown Artist',
+          audioUrl: track.audioUrl,
+          duration: track.duration || 0,
+          publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
+          image: track.image || track.feed.image || '/placeholder-podcast.jpg',
+          albumTitle: track.feed.title,
+          feedTitle: track.feed.title,
+          feedId: track.feed.id,
+          guid: track.guid,
+          // Add playlist context
+          playlistContext: {
+            feedGuid: remoteItem.feedGuid,
+            itemGuid: remoteItem.itemGuid,
+            source: 'itdv-playlist'
+          }
+        };
+        
+        resolvedTracks.push(resolvedTrack);
+      } else {
+        console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+      }
+    }
+    
+    return resolvedTracks;
+  } catch (error) {
+    console.error('❌ Error resolving playlist items:', error);
+    return [];
+  }
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
@@ -72,6 +138,39 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       console.log('📋 Found remote items:', remoteItems.length);
       console.log('🎨 Found artwork URL:', artworkUrl);
       
+      // Resolve playlist items to get actual track data from the database
+      console.log('🔍 Resolving playlist items to actual tracks...');
+      const resolvedTracks = await resolvePlaylistItems(remoteItems);
+      console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+      
+      // Create tracks from resolved data or fallback to placeholder
+      const tracks = resolvedTracks.length > 0 
+        ? resolvedTracks.map((track: any, index: number) => ({
+            title: track.title,
+            duration: track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '3:00',
+            url: track.audioUrl || '',
+            trackNumber: index + 1,
+            subtitle: track.artist,
+            summary: `${track.title} by ${track.artist} - Featured in ITDV podcast (from ${track.feedTitle})`,
+            image: track.image || artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: [],
+            albumTitle: track.albumTitle,
+            feedTitle: track.feedTitle,
+            guid: track.guid
+          }))
+        : remoteItems.map((item, index) => ({
+            title: `Music Reference #${index + 1}`,
+            duration: '3:00',
+            url: '',
+            trackNumber: index + 1,
+            subtitle: 'Featured in ITDV Podcast',
+            summary: `Music track referenced in Into The Doerfel-Verse podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`,
+            image: artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: []
+          }));
+      
       // Create the album object compatible with AlbumDetailClient
       const playlistAlbum = {
         id: 'itdv-playlist',
@@ -83,17 +182,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         coverArt: artworkUrl || '/placeholder-podcast.jpg',
         releaseDate: new Date().toISOString(),
         explicit: false,
-        tracks: remoteItems.map((item, index) => ({
-          title: `ITDV Track ${index + 1}`,
-          duration: '3:00',
-          url: '', // No direct audio URL - this represents a reference
-          trackNumber: index + 1,
-          subtitle: '',
-          summary: `Music reference from Into The Doerfel-Verse podcast - Feed: ${item.feedGuid.slice(0, 8)}...`,
-          image: artworkUrl || '/placeholder-podcast.jpg',
-          explicit: false,
-          keywords: []
-        })),
+        tracks: tracks,
         podroll: null,
         publisher: null,
         funding: null,
