@@ -77,7 +77,7 @@ function PlaylistContent() {
       description: `Playlist track from ${track.albumTitle}`,
       coverArt: track.albumCoverArt || track.image || '',
       releaseDate: new Date().toISOString(),
-      tracks: playlist?.tracks.map(t => ({
+      tracks: (playlist?.tracks || []).map(t => ({
         title: t.title,
         duration: t.duration,
         url: t.url,
@@ -87,7 +87,7 @@ function PlaylistContent() {
         image: t.image,
         explicit: t.explicit,
         keywords: t.keywords
-      })) || []
+      }))
     };
 
     try {
@@ -99,7 +99,7 @@ function PlaylistContent() {
   };
 
   const playNext = () => {
-    if (!playlist || currentTrackIndex >= playlist.tracks.length - 1) return;
+    if (!playlist || !playlist.tracks || currentTrackIndex >= playlist.tracks.length - 1) return;
     const nextIndex = currentTrackIndex + 1;
     handlePlayTrack(playlist.tracks[nextIndex], nextIndex);
   };
@@ -113,20 +113,20 @@ function PlaylistContent() {
   };
 
   const playPrevious = () => {
-    if (!playlist || currentTrackIndex <= 0) return;
+    if (!playlist || !playlist.tracks || currentTrackIndex <= 0) return;
     const prevIndex = currentTrackIndex - 1;
     handlePlayTrack(playlist.tracks[prevIndex], prevIndex);
   };
 
   const shufflePlaylist = () => {
-    if (!playlist) return;
-    
+    if (!playlist || !playlist.tracks) return;
+
     const shuffledTracks = [...playlist.tracks];
     for (let i = shuffledTracks.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledTracks[i], shuffledTracks[j]] = [shuffledTracks[j], shuffledTracks[i]];
     }
-    
+
     setPlaylist({ ...playlist, tracks: shuffledTracks });
     toast.success('Playlist shuffled!');
   };
@@ -202,7 +202,7 @@ function PlaylistContent() {
             </button>
             
             <button
-              onClick={() => playlist.tracks.length > 0 && handlePlayTrack(playlist.tracks[0], 0)}
+              onClick={() => playlist.tracks && playlist.tracks.length > 0 && handlePlayTrack(playlist.tracks[0], 0)}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors font-medium"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -229,7 +229,7 @@ function PlaylistContent() {
 
         {/* Track List */}
         <div className="space-y-2 pb-32">
-          {playlist.tracks.map((track, index) => {
+          {(playlist.tracks || []).map((track, index) => {
             const isCurrentTrack = currentPlayingAlbum && 
               currentPlayingAlbum.tracks[audioCurrentTrackIndex]?.url === track.url;
             const isActiveIndex = index === currentTrackIndex;

@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import ClientErrorBoundary from '@/components/ClientErrorBoundary'
 import { ToastContainer } from '@/components/Toast'
 import { AudioProvider } from '@/contexts/AudioContext'
+import { LightningProvider } from '@/contexts/LightningContext'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
@@ -113,37 +114,39 @@ export default function RootLayout({
       <body className={inter.className}>
         <ClientErrorBoundary>
           <ErrorBoundary>
-            <ScrollDetectionProvider>
-              <AudioProvider>
-                <div className="min-h-screen relative">
-                  {/* Background Image - Lazy loaded for better performance */}
-                  <div 
-                    className="fixed inset-0 z-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-                      opacity: 0.8
-                    }}
-                  />
-                  {/* Background image loads after critical content */}
-                  <div 
-                    className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
-                    id="background-image"
-                    style={{
-                      background: 'url(/stablekraft-rocket.png) center/contain fixed',
-                      backgroundAttachment: 'fixed',
-                      opacity: 0.6
-                    }}
-                  />
-                  {/* Content overlay */}
-                  <div className="relative z-10">
-                    {children}
+            <LightningProvider>
+              <ScrollDetectionProvider>
+                <AudioProvider>
+                  <div className="min-h-screen relative">
+                    {/* Background Image - Lazy loaded for better performance */}
+                    <div 
+                      className="fixed inset-0 z-0"
+                      style={{
+                        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                        opacity: 0.8
+                      }}
+                    />
+                    {/* Background image loads after critical content */}
+                    <div 
+                      className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
+                      id="background-image"
+                      style={{
+                        background: 'url(/stablekraft-rocket.png) center/contain fixed',
+                        backgroundAttachment: 'fixed',
+                        opacity: 0.6
+                      }}
+                    />
+                    {/* Content overlay */}
+                    <div className="relative z-10">
+                      {children}
+                    </div>
                   </div>
-                </div>
-                <GlobalNowPlayingBar />
-                <ToastContainer />
-                <ServiceWorkerRegistration />
-              </AudioProvider>
-            </ScrollDetectionProvider>
+                  <GlobalNowPlayingBar />
+                  <ToastContainer />
+                  <ServiceWorkerRegistration />
+                </AudioProvider>
+              </ScrollDetectionProvider>
+            </LightningProvider>
           </ErrorBoundary>
           <PerformanceMonitor />
         </ClientErrorBoundary>

@@ -1,5 +1,10 @@
+/**
+ * Consolidated Cache API Route
+ * Handles all cache-related operations in a single endpoint
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { FeedCache } from '@/lib/feed-cache';
+import { CacheAPIHandler } from '@/lib/api/cache-handler';
 
 export async function GET(request: NextRequest) {
   try {

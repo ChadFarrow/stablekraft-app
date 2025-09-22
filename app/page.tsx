@@ -1076,6 +1076,14 @@ export default function HomePage() {
               <ControlsBar
                 activeFilter={activeFilter}
                 onFilterChange={handleFilterChange}
+                filterOptions={[
+                  { value: 'all', label: 'All' },
+                  { value: 'albums', label: 'Albums' },
+                  { value: 'eps', label: 'EPs' },
+                  { value: 'singles', label: 'Singles' },
+                  { value: 'artists', label: 'Publishers' },
+                  { value: 'playlist', label: 'Playlists' },
+                ]}
                 sortType={sortType}
                 onSortChange={setSortType}
                 showSort={false}

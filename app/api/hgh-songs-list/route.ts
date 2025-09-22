@@ -11,7 +11,7 @@ export async function GET() {
   try {
     // Fetch the HGH playlist XML from GitHub
     const response = await fetch(
-      'https://raw.githubusercontent.com/ChadFarrow/ITDV-music-playlist/refs/heads/main/docs/HGH-music-playlist.xml',
+      'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml',
       {
         next: { revalidate: 3600 }, // Cache for 1 hour
       }

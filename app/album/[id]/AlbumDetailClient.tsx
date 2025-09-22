@@ -11,6 +11,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import ControlsBar from '@/components/ControlsBar';
 import BackButton from '@/components/BackButton';
+import { useLightning } from '@/contexts/LightningContext';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -30,9 +31,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
   const [isDoerfelsAlbum, setIsDoerfelsAlbum] = useState(false);
   
   // Global audio context
-  const { 
-    playAlbum: globalPlayAlbum, 
-    currentPlayingAlbum, 
+  const {
+    playAlbum: globalPlayAlbum,
+    currentPlayingAlbum,
     isPlaying: globalIsPlaying,
     currentTrackIndex: globalTrackIndex,
     currentTime: globalCurrentTime,
@@ -43,6 +44,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
     shuffleAllTracks
   } = useAudio();
   const { shouldPreventClick } = useScrollDetectionContext();
+  const lightning = useLightning(); // Initialize Lightning context
 
   // Background state
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
