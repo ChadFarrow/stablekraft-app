@@ -27,6 +27,17 @@ const staticPlaylists: PlaylistItem[] = [
     type: 'rss',
     color: 'bg-green-600',
     medium: 'musicL'
+  },
+  {
+    id: 'hgh',
+    title: 'Homegrown Hits Music Playlist',
+    description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+    trackCount: 841,
+    episodes: '841 remote items',
+    href: '/playlist/hgh',
+    type: 'rss',
+    color: 'bg-purple-600',
+    medium: 'musicL'
   }
 ];
 

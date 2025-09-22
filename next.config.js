@@ -213,7 +213,9 @@ const nextConfig = {
       'raw.githubusercontent.com',
       'megaphone.imgix.net',
       'cdn-images.owltail.com',
-      'www.haciendoelsueco.com'
+      'www.haciendoelsueco.com',
+      'f.strangetextures.com',
+      'deow9bq0xqvbj.cloudfront.net'
     ],
     remotePatterns: [
       {
@@ -500,6 +502,20 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'raw.githubusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      // Strange Textures podcast hosting
+      {
+        protocol: 'https',
+        hostname: 'f.strangetextures.com',
+        port: '',
+        pathname: '/**',
+      },
+      // CloudFront CDN for podcast images
+      {
+        protocol: 'https',
+        hostname: 'deow9bq0xqvbj.cloudfront.net',
         port: '',
         pathname: '/**',
       },

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
+const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
 
 interface RemoteItem {
   feedGuid: string;
@@ -31,10 +32,13 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
 
 export async function GET(request: Request) {
   try {
-    console.log('🔍 Finding missing feeds from ITDV playlist...');
+    const { searchParams } = new URL(request.url);
+    const playlistUrl = searchParams.get('playlistUrl') || ITDV_PLAYLIST_URL;
+    
+    console.log('🔍 Finding missing feeds from playlist:', playlistUrl);
     
     // Fetch the playlist XML
-    const response = await fetch(ITDV_PLAYLIST_URL, {
+    const response = await fetch(playlistUrl, {
       headers: {
         'User-Agent': 'FUCKIT-Missing-Feed-Finder/1.0'
       }

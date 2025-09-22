@@ -161,6 +161,9 @@ export async function GET(request: Request) {
       type: 'playlist',
       totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
+      isPlaylistCard: true, // Mark as playlist card for proper URL generation
+      playlistUrl: '/playlist/hgh', // Set the playlist URL
+      albumUrl: '/album/homegrown-hits-music-playlist', // Set the album URL for album-style display
       playlistContext: {
         source: 'hgh-playlist',
         originalUrl: HGH_PLAYLIST_URL,

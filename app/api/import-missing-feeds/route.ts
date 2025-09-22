@@ -147,23 +147,49 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
       .replace(/^-+|-+$/g, '')
       .substring(0, 50) + '-' + Date.now();
     
-    // Import feed
-    const feed = await prisma.feed.create({
-      data: {
-        id: feedId,
-        title: feedData.title,
-        description: feedData.description || '',
-        originalUrl: feedData.url,
-        type: feedData.type === 1 ? 'music' : 'podcast',
-        artist: feedData.author || null,
-        image: feedData.image || null,
-        language: feedData.language || null,
-        category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
-        explicit: feedData.explicit === 1,
-        status: 'active',
-        lastFetched: new Date()
-      }
+    // Check if feed already exists
+    let feed = await prisma.feed.findUnique({
+      where: { originalUrl: feedData.url }
     });
+    
+    if (!feed) {
+      // Create new feed
+      feed = await prisma.feed.create({
+        data: {
+          id: feedId,
+          title: feedData.title,
+          description: feedData.description || '',
+          originalUrl: feedData.url,
+          type: feedData.type === 1 ? 'music' : 'podcast',
+          artist: feedData.author || null,
+          image: feedData.image || null,
+          language: feedData.language || null,
+          category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
+          explicit: feedData.explicit === 1,
+          status: 'active',
+          lastFetched: new Date()
+        }
+      });
+      console.log(`✅ Created new feed: ${feed.id}`);
+    } else {
+      // Update existing feed
+      feed = await prisma.feed.update({
+        where: { id: feed.id },
+        data: {
+          title: feedData.title,
+          description: feedData.description || '',
+          type: feedData.type === 1 ? 'music' : 'podcast',
+          artist: feedData.author || null,
+          image: feedData.image || null,
+          language: feedData.language || null,
+          category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
+          explicit: feedData.explicit === 1,
+          status: 'active',
+          lastFetched: new Date()
+        }
+      });
+      console.log(`✅ Updated existing feed: ${feed.id}`);
+    }
     
     console.log(`✅ Created feed: ${feed.id}`);
     
@@ -171,20 +197,29 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
     let trackCount = 0;
     for (const episode of episodes) {
       try {
-        await prisma.track.create({
-          data: {
-            guid: episode.guid,
-            title: episode.title,
-            description: episode.description || null,
-            audioUrl: episode.audioUrl || '',
-            duration: parseDuration(episode.duration),
-            image: episode.image || feed.image || null,
-            publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
-            feedId: feed.id,
-            trackOrder: trackCount + 1
-          }
+        // Check if track already exists
+        const existingTrack = await prisma.track.findUnique({
+          where: { guid: episode.guid }
         });
-        trackCount++;
+        
+        if (!existingTrack) {
+          await prisma.track.create({
+            data: {
+              guid: episode.guid,
+              title: episode.title,
+              description: episode.description || null,
+              audioUrl: episode.audioUrl || '',
+              duration: parseDuration(episode.duration),
+              image: episode.image || feed.image || null,
+              publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
+              feedId: feed.id,
+              trackOrder: trackCount + 1
+            }
+          });
+          trackCount++;
+        } else {
+          console.log(`⚠️ Track "${episode.title}" already exists, skipping`);
+        }
       } catch (error) {
         console.warn(`⚠️ Failed to import track "${episode.title}":`, error instanceof Error ? error.message : error);
       }
@@ -200,6 +235,8 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
     
   } catch (error) {
     console.error(`❌ Error importing feed "${feedData.title}":`, error);
+    console.error(`❌ Error details:`, error instanceof Error ? error.message : error);
+    console.error(`❌ Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
     return null;
   }
 }
@@ -215,8 +252,13 @@ export async function POST(request: Request) {
       );
     }
     
-    // Get missing feed GUIDs from the ITDV playlist
-    const playlistResponse = await fetch('http://localhost:3000/api/playlist/itdv');
+    // Get playlist type from request body or default to ITDV
+    const body = await request.json().catch(() => ({}));
+    const playlistType = body.playlistType || 'itdv';
+    const maxFeeds = body.maxFeeds || 10;
+    
+    // Get missing feed GUIDs from the specified playlist
+    const playlistResponse = await fetch(`http://localhost:3000/api/playlist/${playlistType}`);
     const playlistData = await playlistResponse.json();
     
     const missingFeedGuids = Array.from(new Set(
@@ -231,7 +273,6 @@ export async function POST(request: Request) {
     const failedImports = [];
     
     // Process a limited number for initial testing
-    const maxFeeds = 10; // Start with 10 feeds to avoid overwhelming the system
     const feedsToProcess = missingFeedGuids.slice(0, maxFeeds);
     
     for (let i = 0; i < feedsToProcess.length; i++) {

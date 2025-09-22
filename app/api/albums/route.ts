@@ -2,6 +2,36 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug } from '@/lib/url-utils';
 
+// Function to get playlist albums
+async function getPlaylistAlbums() {
+  try {
+    const playlistAlbums = [];
+    
+    // Fetch HGH playlist
+    const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/hgh`);
+    if (hghResponse.ok) {
+      const hghData = await hghResponse.json();
+      if (hghData.success && hghData.albums && hghData.albums.length > 0) {
+        playlistAlbums.push(hghData.albums[0]);
+      }
+    }
+    
+    // Fetch ITDV playlist
+    const itdvResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/itdv`);
+    if (itdvResponse.ok) {
+      const itdvData = await itdvResponse.json();
+      if (itdvData.success && itdvData.albums && itdvData.albums.length > 0) {
+        playlistAlbums.push(itdvData.albums[0]);
+      }
+    }
+    
+    return playlistAlbums;
+  } catch (error) {
+    console.error('Error fetching playlist albums:', error);
+    return [];
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -199,6 +229,12 @@ export async function GET(request: Request) {
         default:
           filteredAlbums = transformedAlbums;
       }
+    }
+    
+    // Add playlist albums if they're requested or if we're looking for specific album titles
+    const playlistAlbums = await getPlaylistAlbums();
+    if (playlistAlbums.length > 0) {
+      filteredAlbums.push(...playlistAlbums);
     }
     
     // Sort albums: Albums first (7+ tracks), then EPs (2-6 tracks), then Singles (1 track)
