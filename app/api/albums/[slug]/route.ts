@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug } from '@/lib/url-utils';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
+const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
 
 interface RemoteItem {
   feedGuid: string;
@@ -43,12 +44,12 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
   return remoteItems;
 }
 
-async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
+async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 'itdv-playlist') {
   try {
     // Get unique item GUIDs from the playlist (these map to track.guid)
     const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
     console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
-    
+
     // Find tracks in database by GUID
     const tracks = await prisma.track.findMany({
       where: {
@@ -63,17 +64,17 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
         { createdAt: 'asc' }
       ]
     });
-    
+
     console.log(`📊 Found ${tracks.length} matching tracks in database`);
-    
+
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
     const resolvedTracks: any[] = [];
-    
+
     // Resolve each playlist item to an actual track
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
-      
+
       if (track && track.feed) {
         // Create track object with feed context
         const resolvedTrack = {
@@ -92,16 +93,16 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
             itemGuid: remoteItem.itemGuid,
-            source: 'itdv-playlist'
+            source: playlistSource
           }
         };
-        
+
         resolvedTracks.push(resolvedTrack);
       } else {
         console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
       }
     }
-    
+
     return resolvedTracks;
   } catch (error) {
     console.error('❌ Error resolving playlist items:', error);
@@ -117,41 +118,41 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     // Handle playlist-specific album requests
     if (slug === 'itdv-playlist' || slug === 'itdv-music-playlist') {
       console.log('🎵 Fetching ITDV playlist album details...');
-      
+
       // Fetch the playlist XML
       const response = await fetch(ITDV_PLAYLIST_URL, {
         headers: {
           'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch playlist: ${response.status}`);
       }
-      
+
       const xmlText = await response.text();
       console.log('📄 Fetched playlist XML, length:', xmlText.length);
-      
+
       // Parse the XML to extract remote items and artwork
       const remoteItems = parseRemoteItems(xmlText);
       const artworkUrl = parseArtworkUrl(xmlText);
       console.log('📋 Found remote items:', remoteItems.length);
       console.log('🎨 Found artwork URL:', artworkUrl);
-      
+
       // Resolve playlist items to get actual track data from the database
       console.log('🔍 Resolving playlist items to actual tracks...');
-      const resolvedTracks = await resolvePlaylistItems(remoteItems);
+      const resolvedTracks = await resolvePlaylistItems(remoteItems, 'itdv-playlist');
       console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
-      
+
       // Create a map of resolved tracks by itemGuid for quick lookup
       const resolvedTrackMap = new Map(
         resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
       );
-      
+
       // Create tracks for ALL remote items, using resolved data when available
       const tracks = remoteItems.map((item, index) => {
         const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
-        
+
         if (resolvedTrack) {
           // Use real track data
           return {
@@ -183,7 +184,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           };
         }
       });
-      
+
       // Create the album object compatible with AlbumDetailClient
       const playlistAlbum = {
         id: 'itdv-playlist',
@@ -203,9 +204,120 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         feedUrl: ITDV_PLAYLIST_URL,
         lastUpdated: new Date().toISOString()
       };
-      
+
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
-      
+
+      return NextResponse.json({
+        album: playlistAlbum,
+        lastUpdated: new Date().toISOString()
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'ETag': `"${Date.now()}"`,
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY'
+        }
+      });
+    }
+
+    // Handle HGH playlist
+    if (slug === 'hgh-playlist' || slug === 'homegrown-hits-music-playlist') {
+      console.log('🎵 Fetching HGH playlist album details...');
+
+      // Fetch the playlist XML
+      const response = await fetch(HGH_PLAYLIST_URL, {
+        headers: {
+          'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch playlist: ${response.status}`);
+      }
+
+      const xmlText = await response.text();
+      console.log('📄 Fetched playlist XML, length:', xmlText.length);
+
+      // Parse the XML to extract remote items and artwork
+      const remoteItems = parseRemoteItems(xmlText);
+      const artworkUrl = parseArtworkUrl(xmlText);
+      console.log('📋 Found remote items:', remoteItems.length);
+      console.log('🎨 Found artwork URL:', artworkUrl);
+
+      // Resolve playlist items to get actual track data from the database
+      console.log('🔍 Resolving playlist items to actual tracks...');
+      const resolvedTracks = await resolvePlaylistItems(remoteItems, 'hgh-playlist');
+      console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+
+      // Create a map of resolved tracks by itemGuid for quick lookup
+      const resolvedTrackMap = new Map(
+        resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
+      );
+
+      // Create tracks for ALL remote items, using resolved data when available
+      const tracks = remoteItems.map((item, index) => {
+        const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
+
+        if (resolvedTrack) {
+          // Use real track data
+          return {
+            title: resolvedTrack.title,
+            duration: resolvedTrack.duration ? `${Math.floor(resolvedTrack.duration / 60)}:${(resolvedTrack.duration % 60).toString().padStart(2, '0')}` : '3:00',
+            url: resolvedTrack.audioUrl || '',
+            trackNumber: index + 1,
+            subtitle: resolvedTrack.artist,
+            summary: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Homegrown Hits podcast (from ${resolvedTrack.feedTitle})`,
+            image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: [],
+            albumTitle: resolvedTrack.albumTitle,
+            feedTitle: resolvedTrack.feedTitle,
+            guid: resolvedTrack.guid
+          };
+        } else {
+          // Use placeholder data
+          return {
+            title: `Music Reference #${index + 1}`,
+            duration: '3:00',
+            url: '',
+            trackNumber: index + 1,
+            subtitle: 'Featured in Homegrown Hits Podcast',
+            summary: `Music track referenced in Homegrown Hits podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`,
+            image: artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: []
+          };
+        }
+      });
+
+      // Create the album object compatible with AlbumDetailClient
+      const playlistAlbum = {
+        id: 'hgh-playlist',
+        title: 'Homegrown Hits Music Playlist',
+        artist: 'Various Artists',
+        description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+        summary: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+        subtitle: '',
+        coverArt: artworkUrl || '/placeholder-podcast.jpg',
+        releaseDate: new Date().toISOString(),
+        explicit: false,
+        tracks: tracks,
+        podroll: null,
+        publisher: null,
+        funding: null,
+        feedId: 'hgh-playlist',
+        feedUrl: HGH_PLAYLIST_URL,
+        lastUpdated: new Date().toISOString()
+      };
+
+      console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
+
       return NextResponse.json({
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()

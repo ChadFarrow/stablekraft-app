@@ -1,0 +1,272 @@
+import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
+
+// Simple cache to prevent multiple rapid calls
+let playlistCache: { data: any; timestamp: number } | null = null;
+const CACHE_DURATION = 60000; // 1 minute cache
+
+// Clear cache to ensure fresh artwork
+playlistCache = null;
+
+interface RemoteItem {
+  feedGuid: string;
+  itemGuid: string;
+}
+
+interface PlaylistItem {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  description: string;
+  image: string;
+  audioUrl: string;
+  url?: string; // For compatibility with RSSAlbum type
+  duration: number;
+  publishedAt: string;
+  feedGuid: string;
+  itemGuid: string;
+}
+
+function parseArtworkUrl(xmlText: string): string | null {
+  // Parse the <image><url>...</url></image> structure
+  const imageRegex = /<image>\s*<url>(.*?)<\/url>\s*<\/image>/s;
+  const match = xmlText.match(imageRegex);
+
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  return null;
+}
+
+function parseRemoteItems(xmlText: string): RemoteItem[] {
+  const remoteItems: RemoteItem[] = [];
+
+  // Simple regex parsing for podcast:remoteItem tags
+  const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
+
+  let match;
+  while ((match = remoteItemRegex.exec(xmlText)) !== null) {
+    const feedGuid = match[1];
+    const itemGuid = match[2];
+
+    if (feedGuid && itemGuid) {
+      remoteItems.push({
+        feedGuid,
+        itemGuid
+      });
+    }
+  }
+
+  return remoteItems;
+}
+
+export async function GET(request: Request) {
+  try {
+    console.log('🎵 Fetching HGH playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
+
+    // Check cache first
+    if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION) {
+      console.log('⚡ Using cached playlist data');
+      return NextResponse.json(playlistCache.data);
+    }
+
+    // Fetch the playlist XML
+    const response = await fetch(HGH_PLAYLIST_URL, {
+      headers: {
+        'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch playlist: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    console.log('📄 Fetched playlist XML, length:', xmlText.length);
+
+    // Parse the XML to extract remote items and artwork
+    const remoteItems = parseRemoteItems(xmlText);
+    const artworkUrl = parseArtworkUrl(xmlText);
+    console.log('📋 Found remote items:', remoteItems.length);
+    console.log('🎨 Found artwork URL:', artworkUrl);
+
+    // Resolve playlist items to get actual track data from the database
+    console.log('🔍 Resolving playlist items to actual tracks...');
+    const resolvedTracks = await resolvePlaylistItems(remoteItems);
+    console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+
+    // Create a map of resolved tracks by itemGuid for quick lookup
+    const resolvedTrackMap = new Map(
+      resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
+    );
+
+    // Create tracks for ALL remote items, using resolved data when available
+    const tracks = remoteItems.map((item, index) => {
+      const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
+
+      if (resolvedTrack) {
+        // Use real track data
+        return {
+          id: resolvedTrack.id,
+          title: resolvedTrack.title,
+          artist: resolvedTrack.artist,
+          audioUrl: resolvedTrack.audioUrl || '',
+          url: resolvedTrack.audioUrl || '', // Add url property for compatibility
+          duration: resolvedTrack.duration || 180,
+          publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
+          image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
+          feedGuid: item.feedGuid,
+          itemGuid: item.itemGuid,
+          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Homegrown Hits podcast`,
+          albumTitle: resolvedTrack.albumTitle,
+          feedTitle: resolvedTrack.feedTitle,
+          guid: resolvedTrack.guid
+        };
+      } else {
+        // Use placeholder data
+        return {
+          id: `hgh-track-${index + 1}`,
+          title: `Music Reference #${index + 1}`,
+          artist: 'Featured in Homegrown Hits Podcast',
+          audioUrl: '',
+          url: '', // Add url property for compatibility
+          duration: 180,
+          publishedAt: new Date().toISOString(),
+          image: artworkUrl || '/placeholder-podcast.jpg',
+          feedGuid: item.feedGuid,
+          itemGuid: item.itemGuid,
+          description: `Music track referenced in Homegrown Hits podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+        };
+      }
+    });
+
+    // Create a single virtual album that represents the HGH playlist
+    const playlistAlbum = {
+      id: 'hgh-playlist',
+      title: 'Homegrown Hits Music Playlist',
+      artist: 'Various Artists',
+      album: 'Homegrown Hits Music Playlist',
+      description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+      image: artworkUrl || '/placeholder-podcast.jpg',
+      coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
+      url: HGH_PLAYLIST_URL,
+      tracks: tracks,
+      feedId: 'hgh-playlist',
+      type: 'playlist',
+      totalTracks: tracks.length,
+      publishedAt: new Date().toISOString(),
+      playlistContext: {
+        source: 'hgh-playlist',
+        originalUrl: HGH_PLAYLIST_URL,
+        resolvedTracks: resolvedTracks.length,
+        totalRemoteItems: remoteItems.length
+      }
+    };
+
+    console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
+
+    const responseData = {
+      success: true,
+      albums: [playlistAlbum], // Return as single album
+      totalCount: 1,
+      playlist: {
+        title: 'Homegrown Hits Music Playlist',
+        description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+        author: 'ChadF',
+        totalItems: 1,
+        items: [playlistAlbum]
+      }
+    };
+
+    // Cache the response
+    playlistCache = {
+      data: responseData,
+      timestamp: Date.now()
+    };
+
+    return NextResponse.json(responseData);
+
+  } catch (error) {
+    console.error('❌ Error fetching HGH playlist:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
+  try {
+    // Get unique item GUIDs from the playlist (these map to track.guid)
+    const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
+    console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+
+    // Find tracks in database by GUID
+    const tracks = await prisma.track.findMany({
+      where: {
+        guid: { in: itemGuids }
+      },
+      include: {
+        feed: true
+      },
+      orderBy: [
+        { trackOrder: 'asc' },
+        { publishedAt: 'asc' },
+        { createdAt: 'asc' }
+      ]
+    });
+
+    console.log(`📊 Found ${tracks.length} matching tracks in database`);
+
+    // Create a map for quick lookup by track GUID
+    const trackMap = new Map(tracks.map(track => [track.guid, track]));
+    const resolvedTracks: any[] = [];
+
+    // Resolve each playlist item to an actual track
+    for (const remoteItem of remoteItems) {
+      const track = trackMap.get(remoteItem.itemGuid);
+
+      if (track && track.feed) {
+        // Create track object with feed context
+        const resolvedTrack = {
+          id: track.id,
+          title: track.title,
+          artist: track.artist || track.feed.artist || 'Unknown Artist',
+          audioUrl: track.audioUrl,
+          url: track.audioUrl, // Add url property for compatibility
+          duration: track.duration || 0,
+          publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
+          image: track.image || track.feed.image || '/placeholder-podcast.jpg',
+          albumTitle: track.feed.title,
+          feedTitle: track.feed.title,
+          feedId: track.feed.id,
+          guid: track.guid,
+          // Add playlist context
+          playlistContext: {
+            feedGuid: remoteItem.feedGuid,
+            itemGuid: remoteItem.itemGuid,
+            source: 'hgh-playlist'
+          }
+        };
+
+        resolvedTracks.push(resolvedTrack);
+      } else {
+        console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+      }
+    }
+
+    return resolvedTracks;
+  } catch (error) {
+    console.error('❌ Error resolving playlist items:', error);
+    return [];
+  }
+}

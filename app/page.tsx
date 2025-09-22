@@ -427,14 +427,14 @@ export default function HomePage() {
         setIsCriticalLoaded(true);
         setIsEnhancedLoaded(true);
       } else if (newFilter === 'playlist') {
-        // Special handling for playlist filter - only one playlist
+        // Special handling for playlist filter - multiple playlists
         const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
-        
-        setTotalAlbums(1);
+
+        setTotalAlbums(pageAlbums.length);
         setCriticalAlbums(pageAlbums.slice(0, 12));
         setEnhancedAlbums(pageAlbums);
         setDisplayedAlbums(pageAlbums);
-        setHasMoreAlbums(false); // Only one playlist, no pagination needed
+        setHasMoreAlbums(false); // Limited number of playlists, no pagination needed
         setIsCriticalLoaded(true);
         setIsEnhancedLoaded(true);
       } else {
@@ -480,21 +480,41 @@ export default function HomePage() {
 
       // Handle playlist filter separately
       if (filter === 'playlist') {
-        console.log('🎵 Loading ITDV playlist...');
-        const response = await fetch('/api/playlist/itdv');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch playlist: ${response.status}`);
+        console.log('🎵 Loading playlists...');
+
+        // Load both ITDV and HGH playlists in parallel
+        const [itdvResponse, hghResponse] = await Promise.allSettled([
+          fetch('/api/playlist/itdv'),
+          fetch('/api/playlist/hgh')
+        ]);
+
+        const allAlbums: any[] = [];
+
+        // Process ITDV playlist
+        if (itdvResponse.status === 'fulfilled' && itdvResponse.value.ok) {
+          const itdvData = await itdvResponse.value.json();
+          if (itdvData.success && itdvData.albums) {
+            allAlbums.push(...itdvData.albums);
+            console.log(`✅ Loaded ${itdvData.albums.length} ITDV playlist albums`);
+          }
+        } else {
+          console.warn('⚠️ Failed to load ITDV playlist');
         }
-        
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to load playlist');
+
+        // Process HGH playlist
+        if (hghResponse.status === 'fulfilled' && hghResponse.value.ok) {
+          const hghData = await hghResponse.value.json();
+          if (hghData.success && hghData.albums) {
+            allAlbums.push(...hghData.albums);
+            console.log(`✅ Loaded ${hghData.albums.length} HGH playlist albums`);
+          }
+        } else {
+          console.warn('⚠️ Failed to load HGH playlist');
         }
-        
-        // Return resolved albums directly - they're already in the correct format
-        console.log(`✅ Loaded ${data.albums.length} playlist albums`);
-        return data.albums;
+
+        // Return all playlist albums
+        console.log(`✅ Loaded ${allAlbums.length} total playlist albums`);
+        return allAlbums;
       }
       
       // Simplified caching - only cache the main 'all' request with no filtering

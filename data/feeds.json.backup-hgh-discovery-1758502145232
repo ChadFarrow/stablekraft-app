@@ -1,0 +1,1346 @@
+{
+  "feeds": [
+    {
+      "id": "music-from-the-doerfelverse",
+      "originalUrl": "https://www.doerfelverse.com/feeds/music-from-the-doerfelverse.xml",
+      "type": "album",
+      "title": "Music From The Doerfel-Verse",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "bloodshot-lies-album",
+      "originalUrl": "https://www.doerfelverse.com/feeds/bloodshot-lies-album.xml",
+      "type": "album",
+      "title": "Bloodshot Lies - The Album",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "intothedoerfelverse",
+      "originalUrl": "https://www.doerfelverse.com/feeds/intothedoerfelverse.xml",
+      "type": "album",
+      "title": "Into The Doerfel-Verse",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wrath-of-banjo",
+      "originalUrl": "https://www.doerfelverse.com/feeds/wrath-of-banjo.xml",
+      "type": "album",
+      "title": "Wrath of Banjo",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ben-doerfel",
+      "originalUrl": "https://www.doerfelverse.com/feeds/ben-doerfel.xml",
+      "type": "album",
+      "title": "Ben Doerfel",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "able-and-the-wolf",
+      "originalUrl": "https://ableandthewolf.com/static/media/feed.xml",
+      "type": "album",
+      "title": "Able and the Wolf",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "18sundays",
+      "originalUrl": "https://www.doerfelverse.com/feeds/18sundays.xml",
+      "type": "album",
+      "title": "18 Sundays",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "alandace",
+      "originalUrl": "https://www.doerfelverse.com/feeds/alandace.xml",
+      "type": "album",
+      "title": "Alan Dace",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "autumn",
+      "originalUrl": "https://www.doerfelverse.com/feeds/autumn.xml",
+      "type": "album",
+      "title": "Autumn",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "christ-exalted",
+      "originalUrl": "https://www.doerfelverse.com/feeds/christ-exalted.xml",
+      "type": "album",
+      "title": "Christ Exalted",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "come-back-to-me",
+      "originalUrl": "https://www.doerfelverse.com/feeds/come-back-to-me.xml",
+      "type": "album",
+      "title": "Come Back to Me",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "dead-time-live-2016",
+      "originalUrl": "https://www.doerfelverse.com/feeds/dead-time-live-2016.xml",
+      "type": "album",
+      "title": "Dead Time Live 2016",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "dfbv1",
+      "originalUrl": "https://www.doerfelverse.com/feeds/dfbv1.xml",
+      "type": "album",
+      "title": "DFBV1",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "dfbv2",
+      "originalUrl": "https://www.doerfelverse.com/feeds/dfbv2.xml",
+      "type": "album",
+      "title": "DFBV2",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "disco-swag",
+      "originalUrl": "https://www.doerfelverse.com/feeds/disco-swag.xml",
+      "type": "album",
+      "title": "Disco Swag",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "first-married-christmas",
+      "originalUrl": "https://www.doerfelverse.com/feeds/first-married-christmas.xml",
+      "type": "album",
+      "title": "First Married Christmas",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "generation-gap",
+      "originalUrl": "https://www.doerfelverse.com/feeds/generation-gap.xml",
+      "type": "album",
+      "title": "Generation Gap",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "heartbreak",
+      "originalUrl": "https://www.doerfelverse.com/feeds/heartbreak.xml",
+      "type": "album",
+      "title": "Heartbreak",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "merry-christmix",
+      "originalUrl": "https://www.doerfelverse.com/feeds/merry-christmix.xml",
+      "type": "album",
+      "title": "Merry Christmix",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "middle-season-let-go",
+      "originalUrl": "https://www.doerfelverse.com/feeds/middle-season-let-go.xml",
+      "type": "album",
+      "title": "Middle Season - Let Go (What's holding you back)",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "phatty-the-grasshopper",
+      "originalUrl": "https://www.doerfelverse.com/feeds/phatty-the-grasshopper.xml",
+      "type": "album",
+      "title": "Phatty the Grasshopper",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "possible",
+      "originalUrl": "https://www.doerfelverse.com/feeds/possible.xml",
+      "type": "album",
+      "title": "Possible",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "pour-over",
+      "originalUrl": "https://www.doerfelverse.com/feeds/pour-over.xml",
+      "type": "album",
+      "title": "Pour Over",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "psalm-54",
+      "originalUrl": "https://www.doerfelverse.com/feeds/psalm-54.xml",
+      "type": "album",
+      "title": "Psalm 54",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "sensitive-guy",
+      "originalUrl": "https://www.doerfelverse.com/feeds/sensitive-guy.xml",
+      "type": "album",
+      "title": "Sensitive Guy",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "they-dont-know",
+      "originalUrl": "https://www.doerfelverse.com/feeds/they-dont-know.xml",
+      "type": "album",
+      "title": "They Don't Know",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "think-ep",
+      "originalUrl": "https://www.doerfelverse.com/feeds/think-ep.xml",
+      "type": "album",
+      "title": "Think EP",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "underwater-single",
+      "originalUrl": "https://www.doerfelverse.com/feeds/underwater-single.xml",
+      "type": "album",
+      "title": "Underwater Single",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "unsound-existence",
+      "originalUrl": "https://www.doerfelverse.com/feeds/unsound-existence.xml",
+      "type": "album",
+      "title": "Unsound Existence",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "you-are-my-world",
+      "originalUrl": "https://www.doerfelverse.com/feeds/you-are-my-world.xml",
+      "type": "album",
+      "title": "You Are My World",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "you-feel-like-home",
+      "originalUrl": "https://www.doerfelverse.com/feeds/you-feel-like-home.xml",
+      "type": "album",
+      "title": "You Feel Like Home",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "your-chance",
+      "originalUrl": "https://www.doerfelverse.com/feeds/your-chance.xml",
+      "type": "album",
+      "title": "Your Chance",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "opus",
+      "originalUrl": "https://www.doerfelverse.com/artists/opus/opus/opus.xml",
+      "type": "album",
+      "title": "Opus",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ed-doerfel-nostalgic",
+      "originalUrl": "https://www.sirtjthewrathful.com/wp-content/uploads/2023/08/Nostalgic.xml",
+      "type": "album",
+      "title": "Ed Doerfel - Nostalgic",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ed-doerfel-city-beach",
+      "originalUrl": "https://www.sirtjthewrathful.com/wp-content/uploads/2023/08/CityBeach.xml",
+      "type": "album",
+      "title": "Ed Doerfel - City Beach",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ed-doerfel-kurtisdrums-v1",
+      "originalUrl": "https://www.sirtjthewrathful.com/wp-content/uploads/2023/08/Kurtisdrums-V1.xml",
+      "type": "album",
+      "title": "Ed Doerfel - Kurtisdrums V1",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "tj-doerfel-ring-that-bell",
+      "originalUrl": "https://www.thisisjdog.com/media/ring-that-bell.xml",
+      "type": "album",
+      "title": "TJ Doerfel - Ring That Bell",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "deathdreams",
+      "originalUrl": "https://static.staticsave.com/mspfiles/deathdreams.xml",
+      "type": "album",
+      "title": "Deathdreams",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "waytogo",
+      "originalUrl": "https://static.staticsave.com/mspfiles/waytogo.xml",
+      "type": "album",
+      "title": "Way to Go",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "c-kostra-now-i-feel-it",
+      "originalUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/c_kostra/now%20i%20feel%20it.xml",
+      "type": "album",
+      "title": "C Kostra - Now I Feel It",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "mellow-cassette-pilot",
+      "originalUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/Mellow%20Cassette/Pilot/pilot.xml",
+      "type": "album",
+      "title": "Mellow Cassette - Pilot",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "mellow-cassette-radio-brigade",
+      "originalUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/Mellow%20Cassette/Radio_Brigade/radio_brigade.xml",
+      "type": "album",
+      "title": "Mellow Cassette - Radio Brigade",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-1",
+      "originalUrl": "https://wavlake.com/feed/music/d677db67-0310-4813-970e-e65927c689f1",
+      "type": "album",
+      "title": "Wavlake Album 1",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-2",
+      "originalUrl": "https://wavlake.com/feed/music/e678589b-5a9f-4918-9622-34119d2eed2c",
+      "type": "album",
+      "title": "Wavlake Album 2",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-3",
+      "originalUrl": "https://wavlake.com/feed/music/3a152941-c914-43da-aeca-5d7c58892a7f",
+      "type": "album",
+      "title": "Wavlake Album 3",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-4",
+      "originalUrl": "https://wavlake.com/feed/music/a97e0586-ecda-4b79-9c38-be9a9effe05a",
+      "type": "album",
+      "title": "Wavlake Album 4",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-5",
+      "originalUrl": "https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+      "type": "album",
+      "title": "Wavlake Album 5",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-6",
+      "originalUrl": "https://wavlake.com/feed/music/ce8c4910-51bf-4d5e-a0b3-338e58e5ee79",
+      "type": "album",
+      "title": "Wavlake Album 6",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-7",
+      "originalUrl": "https://wavlake.com/feed/music/acb43f23-cfec-4cc1-a418-4087a5378129",
+      "type": "album",
+      "title": "Wavlake Album 7",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-8",
+      "originalUrl": "https://wavlake.com/feed/music/d1a871a7-7e4c-4a91-b799-87dcbb6bc41d",
+      "type": "album",
+      "title": "Wavlake Album 8",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-9",
+      "originalUrl": "https://wavlake.com/feed/music/3294d8b5-f9f6-4241-a298-f04df818390c",
+      "type": "album",
+      "title": "Wavlake Album 9",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-10",
+      "originalUrl": "https://wavlake.com/feed/music/d3145292-bf71-415f-a841-7f5c9a9466e1",
+      "type": "album",
+      "title": "Wavlake Album 10",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-11",
+      "originalUrl": "https://wavlake.com/feed/music/91367816-33e6-4b6e-8eb7-44b2832708fd",
+      "type": "album",
+      "title": "Wavlake Album 11",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-12",
+      "originalUrl": "https://wavlake.com/feed/music/8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+      "type": "album",
+      "title": "Wavlake Album 12",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-13",
+      "originalUrl": "https://wavlake.com/feed/music/9720d58b-22a5-4047-81de-f1940fec41c7",
+      "type": "album",
+      "title": "Wavlake Album 13",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-14",
+      "originalUrl": "https://wavlake.com/feed/music/21536269-5192-49e7-a819-fab00f4a159e",
+      "type": "album",
+      "title": "Wavlake Album 14",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-15",
+      "originalUrl": "https://wavlake.com/feed/music/624b19ac-5d8b-4fd6-8589-0eef7bcb9c9e",
+      "type": "album",
+      "title": "Wavlake Album 15",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-16",
+      "originalUrl": "https://wavlake.com/feed/music/997060e3-9dc1-4cd8-b3c1-3ae06d54bb03",
+      "type": "album",
+      "title": "Wavlake Album 16",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-album-17",
+      "originalUrl": "https://wavlake.com/feed/music/b54b9a19-b6ed-46c1-806c-7e82f7550edc",
+      "type": "album",
+      "title": "Wavlake Album 17",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "joe-martin-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/18bcbf10-6701-4ffb-b255-bc057390d738",
+      "type": "publisher",
+      "title": "Joe Martin (Wavlake)",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/8a9c2e54-785a-4128-9412-737610f5d00a",
+      "type": "publisher",
+      "title": "IROH (Wavlake)",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-1",
+      "originalUrl": "https://wavlake.com/feed/music/1c7917cc-357c-4eaf-ab54-1a7cda504976",
+      "type": "album",
+      "title": "IROH Album 1",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-2",
+      "originalUrl": "https://wavlake.com/feed/music/e1f9dfcb-ee9b-4a6d-aee7-189043917fb5",
+      "type": "album",
+      "title": "IROH Album 2",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-3",
+      "originalUrl": "https://wavlake.com/feed/music/d4f791c3-4d0c-4fbd-a543-c136ee78a9de",
+      "type": "album",
+      "title": "IROH Album 3",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-4",
+      "originalUrl": "https://wavlake.com/feed/music/51606506-66f8-4394-b6c6-cc0c1b554375",
+      "type": "album",
+      "title": "IROH Album 4",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-5",
+      "originalUrl": "https://wavlake.com/feed/music/6b7793b8-fd9d-432b-af1a-184cd41aaf9d",
+      "type": "album",
+      "title": "IROH Album 5",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-6",
+      "originalUrl": "https://wavlake.com/feed/music/0bb8c9c7-1c55-4412-a517-572a98318921",
+      "type": "album",
+      "title": "IROH Album 6",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-7",
+      "originalUrl": "https://wavlake.com/feed/music/16e46ed0-b392-4419-a937-a7815f6ca43b",
+      "type": "album",
+      "title": "IROH Album 7",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-8",
+      "originalUrl": "https://wavlake.com/feed/music/2cd1b9ea-9ef3-4a54-aa25-55295689f442",
+      "type": "album",
+      "title": "IROH Album 8",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-9",
+      "originalUrl": "https://wavlake.com/feed/music/33eeda7e-8591-4ff5-83f8-f36a879b0a09",
+      "type": "album",
+      "title": "IROH Album 9",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-10",
+      "originalUrl": "https://wavlake.com/feed/music/32a79df8-ec3e-4a14-bfcb-7a074e1974b9",
+      "type": "album",
+      "title": "IROH Album 10",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "iroh-album-11",
+      "originalUrl": "https://wavlake.com/feed/music/06376ab5-efca-459c-9801-49ceba5fdab1",
+      "type": "album",
+      "title": "IROH Album 11",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "wavlake-publisher-aa909244",
+      "originalUrl": "https://wavlake.com/feed/artist/aa909244-7555-4b52-ad88-7233860c6fb4",
+      "type": "publisher",
+      "title": "Wavlake Publisher",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "heycitizen-experience",
+      "originalUrl": "https://files.heycitizen.xyz/Songs/Albums/The-Heycitizen-Experience/the heycitizen experience.xml",
+      "type": "album",
+      "title": "Heycitizen - The Heycitizen Experience",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "heycitizen-lofi",
+      "originalUrl": "https://files.heycitizen.xyz/Songs/Albums/Lofi-Experience/lofi.xml",
+      "type": "album",
+      "title": "Heycitizen - Lofi Experience",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-wild-and-free",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/MP3%20Masters%20and%20Copy%20of%20Cover/Wild%20and%20Free%20RSS%20Feed/RSS%20Feed%20Wild%20and%20Free/Wild%20and%20Free%20RSS%20Feed.xml",
+      "type": "album",
+      "title": "Anni Powell - Wild and Free EP",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-beauty",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/Beauty%20Master%20and%20Album%20Cover/BeautyRSS.xml",
+      "type": "album",
+      "title": "Anni Powell - Beauty",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-peach-clouds",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/Peach%20Clouds%20Master%20and%20Album%20Cover/peach%20clouds%20RSS%20FEED.xml",
+      "type": "album",
+      "title": "Anni Powell - Peach Clouds",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-beyond-the-hills",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/Beyond%20the%20Hills%20MP3%20Master%20and%20Album%20Cover/Beyond%20the%20Hills%20RSS%20FEED/beyond%20the%20hills%20RSS%20FEED.xml",
+      "type": "album",
+      "title": "Anni Powell - Beyond the Hills",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-lingo",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/Lingo%20Master%20and%20Album%20Cover/lingoRSS.xml",
+      "type": "album",
+      "title": "Anni Powell - Lingo",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "anni-powell-so-it-goes",
+      "originalUrl": "https://annipowellmusic.com/wp-content/MusicSideProject/So%20It%20Goes%20Master%20and%20Album%20Cover/so%20it%20goesRSS.xml",
+      "type": "album",
+      "title": "Anni Powell - So It Goes",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "fountain-artist-takeover",
+      "originalUrl": "https://wavlake.com/feed/music/6dc5c681-8beb-4193-93a3-d405c962d103",
+      "type": "album",
+      "title": "Fountain Artist Takeover",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "empty-passenger-seat",
+      "originalUrl": "https://wavlake.com/feed/music/95ea253a-4058-402c-8503-204f6d3f1494",
+      "type": "album",
+      "title": "Empty Passenger Seat",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "doerfels-publisher",
+      "originalUrl": "https://re.podtards.com/api/feeds/doerfels-pubfeed",
+      "type": "publisher",
+      "title": "Doerfels Publisher Feed",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "example-com-test-feed-xml",
+      "originalUrl": "https://example.com/test-feed.xml",
+      "type": "album",
+      "title": "Feed from example.com",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-07-27T01:26:28.499Z",
+      "lastUpdated": "2025-07-27T01:26:28.499Z"
+    },
+    {
+      "id": "wavlake-com-feed-music-ef800a88-9a1c-4f8e-a7c5-f83d7d9b1c87",
+      "originalUrl": "https://wavlake.com/feed/music/ef800a88-9a1c-4f8e-a7c5-f83d7d9b1c87",
+      "type": "album",
+      "title": "Feed from wavlake.com",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-07-27T01:27:30.801Z",
+      "lastUpdated": "2025-07-27T01:27:30.801Z"
+    },
+    {
+      "id": "midnight-breakheart",
+      "originalUrl": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/midnight breakheart.xml",
+      "type": "album",
+      "title": "Midnight Breakheart",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:34:47.000Z",
+      "lastUpdated": "2025-07-27T02:34:47.000Z"
+    },
+    {
+      "id": "satoshi-streamer",
+      "originalUrl": "https://rocknrollbreakheart.com/msp/SatoshiStreamer/satoshi streamer.xml",
+      "type": "album",
+      "title": "Satoshi Streamer",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:34:47.000Z",
+      "lastUpdated": "2025-07-27T02:34:47.000Z"
+    },
+    {
+      "id": "panisee-attack",
+      "originalUrl": "https://feeds.rssblue.com/panisee-attack",
+      "type": "album",
+      "title": "Panisee Attack",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:34:47.000Z",
+      "lastUpdated": "2025-07-27T02:34:47.000Z"
+    },
+    {
+      "id": "2-crystal-balls",
+      "originalUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "type": "album",
+      "title": "2 Crystal Balls",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:34:47.000Z",
+      "lastUpdated": "2025-07-27T02:34:47.000Z"
+    },
+    {
+      "id": "rock-n-roll-breakheart",
+      "originalUrl": "https://rocknrollbreakheart.com/msp/RNRBH/rock'n'roll%20breakheart.xml",
+      "type": "album",
+      "title": "Rock'n'Roll Breakheart",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:34:47.000Z",
+      "lastUpdated": "2025-07-27T02:34:47.000Z"
+    },
+    {
+      "id": "my-friend-jimi-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/0ea699be-e985-4aa1-8c00-43542e4b9e0d",
+      "type": "publisher",
+      "title": "My Friend Jimi",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:35:00.000Z",
+      "lastUpdated": "2025-07-27T02:35:00.000Z"
+    },
+    {
+      "id": "elijah-lied-all-in-a-day",
+      "originalUrl": "https://www.doerfelverse.com/artists/elijahlied/all-in-a-day/all-in-a-day.xml",
+      "type": "album",
+      "title": "All in a Day - Elijah Lied",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-27T02:35:00.000Z",
+      "lastUpdated": "2025-07-27T02:35:00.000Z"
+    },
+    {
+      "id": "wavlake-com-feed-music-883ea557-39c0-4bec-9618-c75978bc63b5",
+      "originalUrl": "https://wavlake.com/feed/music/883ea557-39c0-4bec-9618-c75978bc63b5",
+      "type": "album",
+      "title": "Lost Summer - Ollie",
+      "priority": "low",
+      "status": "active",
+      "addedAt": "2025-07-28T22:15:00.000Z",
+      "lastUpdated": "2025-07-28T22:15:00.000Z"
+    },
+    {
+      "id": "ollie-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/d2f43e9f-adfc-4811-b9c1-58d5ea383275",
+      "type": "publisher",
+      "title": "Ollie",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T22:18:47.777Z",
+      "lastUpdated": "2025-07-28T22:18:47.778Z"
+    },
+    {
+      "id": "ollie-i-never-thought-things-would-be-different",
+      "originalUrl": "https://wavlake.com/feed/music/6c756ed0-6c1a-4473-86a8-9d30124fa01c",
+      "type": "album",
+      "title": "i never thought things would be different - Ollie",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-ed653567-a662-4ed9-bc0d-387f8e19b6f3",
+      "originalUrl": "https://wavlake.com/feed/music/ed653567-a662-4ed9-bc0d-387f8e19b6f3",
+      "type": "album",
+      "title": "Ollie Album 2",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-3a925dda-cc31-4bb6-b285-3a09ed2e5307",
+      "originalUrl": "https://wavlake.com/feed/music/3a925dda-cc31-4bb6-b285-3a09ed2e5307",
+      "type": "album",
+      "title": "Ollie Album 3",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-d0bebcfa-e20b-4b1b-b797-bd7ac95e646f",
+      "originalUrl": "https://wavlake.com/feed/music/d0bebcfa-e20b-4b1b-b797-bd7ac95e646f",
+      "type": "album",
+      "title": "Ollie Album 4",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-a80efac4-3637-4618-bd52-55493ce7d4c4",
+      "originalUrl": "https://wavlake.com/feed/music/a80efac4-3637-4618-bd52-55493ce7d4c4",
+      "type": "album",
+      "title": "Ollie Album 5",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-746e12e4-3b0d-47d2-b0d4-dd12d3a652dd",
+      "originalUrl": "https://wavlake.com/feed/music/746e12e4-3b0d-47d2-b0d4-dd12d3a652dd",
+      "type": "album",
+      "title": "Ollie Album 6",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-c2ff5364-7b02-4b94-af2c-bdde4a952778",
+      "originalUrl": "https://wavlake.com/feed/music/c2ff5364-7b02-4b94-af2c-bdde4a952778",
+      "type": "album",
+      "title": "Ollie Album 7",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-99217ff9-bfaa-4903-9201-f39113920618",
+      "originalUrl": "https://wavlake.com/feed/music/99217ff9-bfaa-4903-9201-f39113920618",
+      "type": "album",
+      "title": "Ollie Album 8",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-1e0e29c2-f05d-42a6-8b6e-acbfe2b29318",
+      "originalUrl": "https://wavlake.com/feed/music/1e0e29c2-f05d-42a6-8b6e-acbfe2b29318",
+      "type": "album",
+      "title": "Ollie Album 9",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-3cc3847a-8d5f-4086-9501-c1500165da07",
+      "originalUrl": "https://wavlake.com/feed/music/3cc3847a-8d5f-4086-9501-c1500165da07",
+      "type": "album",
+      "title": "Ollie Album 10",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-c5cc9864-c687-4c6d-937d-0aa5f103a8d2",
+      "originalUrl": "https://wavlake.com/feed/music/c5cc9864-c687-4c6d-937d-0aa5f103a8d2",
+      "type": "album",
+      "title": "Ollie Album 11",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "ollie-ccd54520-79e6-47e6-bc7d-9d951c023ef1",
+      "originalUrl": "https://wavlake.com/feed/music/ccd54520-79e6-47e6-bc7d-9d951c023ef1",
+      "type": "album",
+      "title": "Ollie Album 12",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "spectral-hiding",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/spectral-hiding.xml",
+      "type": "album",
+      "title": "Spectral Hiding",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "poetry-on-tape",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/pot.xml",
+      "type": "album",
+      "title": "Poetry on Tape",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "bitpunk-fm",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/bitpunk-fm.xml",
+      "type": "album",
+      "title": "bitpunk.fm",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "unwound",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/unwound.xml",
+      "type": "album",
+      "title": "unwound",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z"
+    },
+    {
+      "id": "vance-latta-love-in-its-purest-form",
+      "originalUrl": "https://feed.falsefinish.club/Vance Latta/Vance Latta - Love In Its Purest Form/love in its purest form.xml",
+      "type": "album",
+      "title": "Vance Latta - Love In Its Purest Form",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T00:00:00.000Z",
+      "lastUpdated": "2025-07-28T00:00:00.000Z"
+    },
+    {
+      "id": "delta-og-aged-friends-old-whiskey",
+      "originalUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/Delta_OG/Aged_Friends_and_Old_Whiskey/aged_friends_old_whiskey.xml",
+      "type": "album",
+      "title": "Delta OG - Aged Friends & Old Whiskey",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T00:00:00.000Z",
+      "lastUpdated": "2025-07-28T00:00:00.000Z"
+    },
+    {
+      "id": "bowl-covers",
+      "originalUrl": "https://feed.bowlafterbowl.com/demu/bowl-covers/feed.xml",
+      "type": "album",
+      "title": "Bowl Covers",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T00:00:00.000Z",
+      "lastUpdated": "2025-07-28T00:00:00.000Z"
+    },
+    {
+      "id": "red-arrow-highway-brothers-never-die",
+      "originalUrl": "https://wavlake.com/feed/a424ef37-84db-4ad4-8f84-8bce208e231b",
+      "type": "album",
+      "title": "Red Arrow Highway - Brothers Never Die",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T00:00:00.000Z",
+      "lastUpdated": "2025-07-28T00:00:00.000Z"
+    },
+    {
+      "id": "drawing-monsters-nate-and-cole-find-a-radio",
+      "originalUrl": "https://wavlake.com/feed/music/47bc7992-48ad-4a4b-907c-9972490bcdba",
+      "type": "album",
+      "title": "Drawing Monsters - Nate and Cole Find a Radio",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-28T00:00:00.000Z",
+      "lastUpdated": "2025-07-28T00:00:00.000Z"
+    },
+    {
+      "id": "my-friend-jimi-b220b396-0ebe-4760-8294-4bb27e06eabf",
+      "originalUrl": "https://wavlake.com/feed/music/b220b396-0ebe-4760-8294-4bb27e06eabf",
+      "type": "album",
+      "title": "My Friend Jimi Album - b220b396",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.982Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-e3f0086f-5ee2-4ead-ba9d-78a9a29acac8",
+      "originalUrl": "https://wavlake.com/feed/music/e3f0086f-5ee2-4ead-ba9d-78a9a29acac8",
+      "type": "album",
+      "title": "My Friend Jimi Album - e3f0086f",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-6c539346-f58e-4480-9276-32da31368f8e",
+      "originalUrl": "https://wavlake.com/feed/music/6c539346-f58e-4480-9276-32da31368f8e",
+      "type": "album",
+      "title": "My Friend Jimi Album - 6c539346",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-76407adf-773c-4eb2-b5e2-8aef137d781f",
+      "originalUrl": "https://wavlake.com/feed/music/76407adf-773c-4eb2-b5e2-8aef137d781f",
+      "type": "album",
+      "title": "My Friend Jimi Album - 76407adf",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-6e236029-d72e-48a4-8d0b-aecf78d39e87",
+      "originalUrl": "https://wavlake.com/feed/music/6e236029-d72e-48a4-8d0b-aecf78d39e87",
+      "type": "album",
+      "title": "My Friend Jimi Album - 6e236029",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-b6d8f17c-f448-4085-8ce2-8b247eb26e63",
+      "originalUrl": "https://wavlake.com/feed/music/b6d8f17c-f448-4085-8ce2-8b247eb26e63",
+      "type": "album",
+      "title": "My Friend Jimi Album - b6d8f17c",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-2b5b26a9-3b7a-4f78-9db2-424d94b182d8",
+      "originalUrl": "https://wavlake.com/feed/music/2b5b26a9-3b7a-4f78-9db2-424d94b182d8",
+      "type": "album",
+      "title": "My Friend Jimi Album - 2b5b26a9",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-ed3d6bdf-011b-4416-ab87-591672c07145",
+      "originalUrl": "https://wavlake.com/feed/music/ed3d6bdf-011b-4416-ab87-591672c07145",
+      "type": "album",
+      "title": "My Friend Jimi Album - ed3d6bdf",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-3d8c7279-6aa6-41e7-be1c-2680e57af6c8",
+      "originalUrl": "https://wavlake.com/feed/music/3d8c7279-6aa6-41e7-be1c-2680e57af6c8",
+      "type": "album",
+      "title": "My Friend Jimi Album - 3d8c7279",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "my-friend-jimi-86061a0e-52df-4cad-8c6d-cd1e19ca1e63",
+      "originalUrl": "https://wavlake.com/feed/music/86061a0e-52df-4cad-8c6d-cd1e19ca1e63",
+      "type": "album",
+      "title": "My Friend Jimi Album - 86061a0e",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:52:51.983Z",
+      "lastUpdated": "2025-07-29T21:52:51.983Z"
+    },
+    {
+      "id": "death-by-lions-the-sheer-magnitude-of-it-all",
+      "originalUrl": "https://wavlake.com/feed/e9ae5762-130d-4a16-b8b2-98804cc1802e",
+      "type": "album",
+      "title": "The Sheer Magnitude Of it All - Death by Lions",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:55:23.287Z",
+      "lastUpdated": "2025-07-29T21:55:23.288Z"
+    },
+    {
+      "id": "death-by-lions-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/1e7f8807-31a7-454c-b612-f2563ba4cf67",
+      "type": "publisher",
+      "title": "Death by Lions",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:56:09.080Z",
+      "lastUpdated": "2025-07-29T21:56:09.081Z"
+    },
+    {
+      "id": "death-by-lions-second-album",
+      "originalUrl": "https://wavlake.com/feed/music/ef437ae2-c7f1-449b-84ee-fba14daabd02",
+      "type": "album",
+      "title": "Death by Lions Album 2",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:56:09.081Z",
+      "lastUpdated": "2025-07-29T21:56:09.081Z"
+    },
+    {
+      "id": "death-by-lions-i-guess-this-will-have-to-do-single",
+      "originalUrl": "https://music.behindthesch3m3s.com/wp-content/uploads/Death_by_Lions/i_guess_this_will_have_to_do.xml",
+      "type": "album",
+      "title": "I Guess This Will Have to Do - Death by Lions (Single)",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T21:57:45.981Z",
+      "lastUpdated": "2025-07-29T21:57:45.982Z"
+    },
+    {
+      "id": "bitpunk-fm-publisher",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/publisher.xml",
+      "type": "publisher",
+      "title": "bitpunk.fm",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T22:05:00.000Z",
+      "lastUpdated": "2025-07-29T22:05:00.000Z"
+    },
+    {
+      "id": "drawing-monsters-old-wolf-wrong-scene",
+      "originalUrl": "https://wavlake.com/feed/music/c26d9d57-9e9e-444f-b131-1baf4ed85a0a",
+      "type": "album",
+      "title": "Drawing Monsters - Old Wolf, Wrong Scene",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T22:30:00.000Z",
+      "lastUpdated": "2025-07-29T22:30:00.000Z"
+    },
+    {
+      "id": "drawing-monsters-publisher",
+      "originalUrl": "https://wavlake.com/feed/artist/cbcb895d-9a01-465f-af7b-9a09ffbc29f5",
+      "type": "publisher",
+      "title": "Drawing Monsters",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-07-29T22:30:00.000Z",
+      "lastUpdated": "2025-07-29T22:30:00.000Z"
+    },
+    {
+      "id": "doerfels-publisher-direct",
+      "originalUrl": "https://www.doerfelverse.com/feeds/doerfels-pubfeed.xml",
+      "type": "publisher",
+      "title": "The Doerfels (Direct)",
+      "priority": "core",
+      "status": "active",
+      "addedAt": "2025-08-03T16:30:00.000Z",
+      "lastUpdated": "2025-08-03T16:30:00.000Z"
+    }
+  ],
+  "lastUpdated": "2025-08-03T16:30:00.000Z",
+  "version": 2
+}
