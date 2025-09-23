@@ -106,7 +106,19 @@ async function getAlbumData(albumTitle: string): Promise<RSSAlbum | null> {
 
 export default async function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  
+
+  // Redirect old playlist album URLs to new playlist pages
+  if (id === 'itdv-music-playlist') {
+    // Use Next.js redirect
+    const { redirect } = await import('next/navigation');
+    redirect('/playlist/itdv');
+  }
+
+  if (id === 'hgh-music-playlist' || id === 'homegrown-hits-music-playlist') {
+    const { redirect } = await import('next/navigation');
+    redirect('/playlist/hgh');
+  }
+
   // Handle both URL-encoded and slug formats
   let albumTitle: string;
   try {
@@ -116,16 +128,16 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
     // If decoding fails, use the original id
     albumTitle = id;
   }
-  
+
   // Convert hyphens to spaces for slug format (e.g., "stay-awhile" -> "stay awhile")
   albumTitle = albumTitle.replace(/-/g, ' ');
-  
+
   console.log(`🔍 Album page: id="${id}" -> albumTitle="${albumTitle}"`);
-  
+
   // Skip server-side data fetching to prevent RSC payload issues
   // Let the client component handle data loading
   const album = null;
-  
+
   // FIXED: Pass the original ID to the client component, not the converted title
   // This allows the client component to fetch the album using the correct ID format
   return <AlbumDetailClient albumTitle={albumTitle} albumId={id} initialAlbum={album} />;
