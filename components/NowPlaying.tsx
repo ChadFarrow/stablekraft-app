@@ -85,8 +85,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
     <div className="container mx-auto flex items-center gap-4">
       {/* Album Info - Left Side */}
       <div
-        onClick={onOpenFullscreen}
-        className="flex items-center gap-3 min-w-0 flex-1 hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors cursor-pointer"
+        className="flex items-center gap-3 min-w-0 flex-1 hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors"
       >
         <CDNImage 
           key={`${track.title}-${track.artist}-${track.albumArt}`}

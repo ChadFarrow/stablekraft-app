@@ -944,30 +944,13 @@ export default function HomePage() {
               </div>
             </div>
             
-            {/* Loading/Error Status */}
-            {isClient && (
+            {/* Error Status Only */}
+            {isClient && error && (
               <div className="flex items-center gap-2 text-sm">
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-stablekraft-teal rounded-full animate-pulse"></span>
-                    <span className="text-stablekraft-teal">
-                      {isCriticalLoaded ? 'Loading more albums...' : 'Loading albums...'}
-                      {loadingProgress > 0 && ` (${Math.round(loadingProgress)}%)`}
-                    </span>
-                  </div>
-                ) : showProgressiveLoading ? (
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 text-stablekraft-teal rounded-full animate-pulse"></span>
-                    <span className="text-stablekraft-teal">
-                      Loading more albums... ({filteredAlbums.length} loaded)
-                    </span>
-                  </div>
-                ) : error ? (
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-stablekraft-orange rounded-full"></span>
-                    <span className="text-stablekraft-orange">{error}</span>
-                  </div>
-                ) : null}
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-stablekraft-orange rounded-full"></span>
+                  <span className="text-stablekraft-orange">{error}</span>
+                </div>
               </div>
             )}
           </div>
