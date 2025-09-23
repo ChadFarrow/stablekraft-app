@@ -696,7 +696,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
   }
 
   return (
-    <>
+    <div>
       {/* Background layer - fixed positioned to override global layout background */}
       <div style={backgroundStyle} />
       
@@ -708,10 +708,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           <BackButton href="/" label="Back to Albums" />
         </div>
 
-        {/* Album Header */}
-        <div className="flex flex-col gap-6 mb-8">
-          {/* Album Art with Play Button Overlay */}
-          <div className="relative group mx-auto w-[280px] h-[280px]">
+        {/* Two-column layout on desktop, single column on mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Left Column: Album Art and Info */}
+          <div className="flex flex-col gap-6">
+            {/* Album Art with Play Button Overlay */}
+            <div className="relative group mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px]">
             <Image 
               src={getAlbumArtworkUrl(album?.coverArt || '', 'medium')} 
               alt={album.title}
@@ -758,8 +760,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             </div>
           </div>
           
-          {/* Album Info */}
-          <div className="text-center space-y-4">
+            {/* Album Info */}
+            <div className="text-center lg:text-left space-y-4">
             <h1 className="text-3xl md:text-4xl font-bold leading-tight">{album.title}</h1>
             <p className="text-xl text-gray-300">{album.artist}</p>
             
@@ -767,7 +769,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               <p className="text-lg text-gray-300 italic">{album.subtitle}</p>
             )}
             
-            <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
+            <div className="flex items-center justify-center lg:justify-start gap-6 text-sm text-gray-400">
               <span>{getAlbumYear(album.releaseDate)}</span>
               <span>{Array.isArray(album.tracks) ? album.tracks.length : 0} tracks</span>
               <span>{calculateTotalDuration(album.tracks)} min</span>
@@ -775,12 +777,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             </div>
             
             {(album.summary || album.description) && (
-              <p className="text-gray-300 text-center max-w-lg mx-auto leading-relaxed">{album.summary || album.description}</p>
+              <p className="text-gray-300 text-center lg:text-left max-w-lg lg:max-w-none lg:mx-0 mx-auto leading-relaxed">{album.summary || album.description}</p>
             )}
 
             {/* Publisher Information */}
             {album.publisher && (
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+              <div className="flex items-center justify-center lg:justify-start gap-2 text-sm text-gray-400">
                 <span>More from this artist:</span>
                 <Link
                   href={`/publisher/${generatePublisherSlug({ artist: album.artist, feedGuid: album.publisher.feedGuid })}`}
@@ -812,154 +814,158 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               </div>
             )}
           </div>
-        </div>
 
-        {/* Doerfels Publisher Information */}
-        {isDoerfelsAlbum && doerfelsPublisherInfo && (
-          <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 backdrop-blur-sm rounded-lg p-6 mb-8 border border-blue-500/30">
-            <div className="flex items-center gap-4 mb-4">
-              {doerfelsPublisherInfo.image && (
-                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image
-                    src={getAlbumArtworkUrl(doerfelsPublisherInfo.image, 'thumbnail')}
-                    alt="The Doerfels"
-                    width={64}
-                    height={64}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = getPlaceholderImageUrl('thumbnail');
-                    }}
-                    placeholder="empty"
-                  />
-                </div>
-              )}
-              <div>
-                <h3 className="text-xl font-bold text-blue-300">The Doerfels</h3>
-                <p className="text-gray-300 text-sm">
-                  Family band from Buffalo, NY creating original music across multiple genres
-                </p>
-                <a 
-                  href={doerfelsPublisherInfo.link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                >
-                  Visit DoerfelVerse →
-                </a>
-              </div>
-            </div>
-            
-            {/* Related Doerfels Albums */}
-            {relatedDoerfelsAlbums.length > 0 && (
-              <div>
-                <h4 className="text-lg font-semibold mb-3 text-white">More from The Doerfels</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {relatedDoerfelsAlbums.slice(0, 6).map((doerfelsAlbum, index) => (
-                    <div key={index} className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200">
-                      <div className="aspect-square bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-md mb-2 flex items-center justify-center">
-                        <span className="text-blue-300 text-xs text-center font-medium">
-                          {doerfelsAlbum.title}
-                        </span>
-                      </div>
-                      <p className="text-gray-400 text-xs truncate">
-                        {doerfelsAlbum.title}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Track List */}
-        <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <h2 className="text-xl font-semibold text-center sm:text-left">Tracks</h2>
-            
-            {/* Shuffle Controls */}
-            <ControlsBar
-              activeFilter="all"
-              onFilterChange={() => {}}
-              showFilters={false}
-              sortType="name"
-              onSortChange={() => {}}
-              showSort={false}
-              viewType="list"
-              onViewChange={() => {}}
-              showViewToggle={false}
-              onShuffle={shuffleAllTracks}
-              showShuffle={true}
-              resultCount={album.tracks.length}
-              resultLabel="tracks"
-              className="flex-shrink-0"
-            />
-          </div>
-          <div className="space-y-2">
-            {album.tracks.map((track, displayIndex) => (
-              <div 
-                key={displayIndex} 
-                className={`flex items-center justify-between p-4 hover:bg-white/10 rounded-lg transition-colors group cursor-pointer ${
-                  globalTrackIndex === displayIndex && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
-                }`}
-                onClick={() => playTrack(displayIndex)}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0 overflow-hidden rounded">
-                    {/* Use track-specific artwork if available, fallback to album artwork */}
-                    <Image 
-                      src={getAlbumArtworkUrl(track.image || album?.coverArt || '', 'thumbnail')} 
-                      alt={track.title}
-                      width={48}
-                      height={48}
+          {/* Doerfels Publisher Information */}
+          {isDoerfelsAlbum && doerfelsPublisherInfo && (
+            <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 backdrop-blur-sm rounded-lg p-6 mb-8 border border-blue-500/30">
+              <div className="flex items-center gap-4 mb-4">
+                {doerfelsPublisherInfo.image && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <Image
+                      src={getAlbumArtworkUrl(doerfelsPublisherInfo.image, 'thumbnail')}
+                      alt="The Doerfels"
+                      width={64}
+                      height={64}
                       className="w-full h-full object-cover"
-                      priority={displayIndex < 5} // Priority for first 5 tracks
-                      loading={displayIndex < 5 ? 'eager' : 'lazy'}
+                      loading="lazy"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = getPlaceholderImageUrl('thumbnail');
                       }}
                       placeholder="empty"
                     />
-                    {/* Play Button Overlay - On album artwork */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200">
-                      <button 
-                        className="bg-white text-black rounded-full p-1 transform hover:scale-110 transition-all duration-200 shadow-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playTrack(displayIndex);
-                        }}
-                      >
-                        {globalTrackIndex === displayIndex && globalIsPlaying && currentPlayingAlbum?.title === album?.title ? (
-                          <Pause className="h-3 w-3" />
-                        ) : (
-                          <Play className="h-3 w-3" />
-                        )}
-                      </button>
-                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate text-sm md:text-base">{track.title}</p>
-                    {track.subtitle && (
-                      <p className="text-xs md:text-sm text-gray-400 italic truncate">{track.subtitle}</p>
-                    )}
-                    <p className="text-xs md:text-sm text-gray-400 truncate">{album?.artist}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                  {track.explicit && (
-                    <span className="bg-red-600 text-white px-1 py-0.5 rounded text-xs font-bold">
-                      E
-                    </span>
-                  )}
-                  <span className="text-xs md:text-sm text-gray-400">
-                    {formatDuration(track.duration)}
-                  </span>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold text-blue-300">The Doerfels</h3>
+                  <p className="text-gray-300 text-sm">
+                    Family band from Buffalo, NY creating original music across multiple genres
+                  </p>
+                  <a
+                    href={doerfelsPublisherInfo.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                  >
+                    Visit DoerfelVerse →
+                  </a>
                 </div>
               </div>
-            ))}
+
+              {/* Related Doerfels Albums */}
+              {relatedDoerfelsAlbums.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 text-white">More from The Doerfels</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {relatedDoerfelsAlbums.slice(0, 6).map((doerfelsAlbum, index) => (
+                      <div key={index} className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200">
+                        <div className="aspect-square bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-md mb-2 flex items-center justify-center">
+                          <span className="text-blue-300 text-xs text-center font-medium">
+                            {doerfelsAlbum.title}
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-xs truncate">
+                          {doerfelsAlbum.title}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+          {/* Right Column: Track List (Desktop) / Below (Mobile) */}
+          <div className="lg:col-span-1">
+            {/* Track List */}
+            <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <h2 className="text-xl font-semibold text-center sm:text-left">Tracks</h2>
+
+                {/* Shuffle Controls */}
+                <ControlsBar
+                  activeFilter="all"
+                  onFilterChange={() => {}}
+                  showFilters={false}
+                  sortType="name"
+                  onSortChange={() => {}}
+                  showSort={false}
+                  viewType="list"
+                  onViewChange={() => {}}
+                  showViewToggle={false}
+                  onShuffle={shuffleAllTracks}
+                  showShuffle={true}
+                  resultCount={album.tracks.length}
+                  resultLabel="tracks"
+                  className="flex-shrink-0"
+                />
+              </div>
+              <div className="space-y-2">
+                {album.tracks.map((track, displayIndex) => (
+                  <div
+                    key={displayIndex}
+                    className={`flex items-center justify-between p-4 hover:bg-white/10 rounded-lg transition-colors group cursor-pointer ${
+                      globalTrackIndex === displayIndex && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
+                    }`}
+                    onClick={() => playTrack(displayIndex)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0 overflow-hidden rounded">
+                        {/* Use track-specific artwork if available, fallback to album artwork */}
+                        <Image
+                          src={getAlbumArtworkUrl(track.image || album?.coverArt || '', 'thumbnail')}
+                          alt={track.title}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                          priority={displayIndex < 5} // Priority for first 5 tracks
+                          loading={displayIndex < 5 ? 'eager' : 'lazy'}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = getPlaceholderImageUrl('thumbnail');
+                          }}
+                          placeholder="empty"
+                        />
+                        {/* Play Button Overlay - On album artwork */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            className="bg-white text-black rounded-full p-1 transform hover:scale-110 transition-all duration-200 shadow-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playTrack(displayIndex);
+                            }}
+                          >
+                            {globalTrackIndex === displayIndex && globalIsPlaying && currentPlayingAlbum?.title === album?.title ? (
+                              <Pause className="h-3 w-3" />
+                            ) : (
+                              <Play className="h-3 w-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate text-sm md:text-base">{track.title}</p>
+                        {track.subtitle && (
+                          <p className="text-xs md:text-sm text-gray-400 italic truncate">{track.subtitle}</p>
+                        )}
+                        <p className="text-xs md:text-sm text-gray-400 truncate">{album?.artist}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                      {track.explicit && (
+                        <span className="bg-red-600 text-white px-1 py-0.5 rounded text-xs font-bold">
+                          E
+                        </span>
+                      )}
+                      <span className="text-xs md:text-sm text-gray-400">
+                        {formatDuration(track.duration)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -976,8 +982,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                 >
                   <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 hover:scale-105">
                     <div className="aspect-square relative mb-3">
-                      <Image 
-                        src={getAlbumArtworkUrl(podrollAlbum.coverArt || '', 'thumbnail')} 
+                      <Image
+                        src={getAlbumArtworkUrl(podrollAlbum.coverArt || '', 'thumbnail')}
                         alt={podrollAlbum.title}
                         width={150}
                         height={150}
@@ -992,7 +998,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         <Play className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                       </div>
                     </div>
-                    <h3 className="font-semibold text-white text-sm mb-1 overflow-hidden text-ellipsis" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <h3 className="font-semibold text-white text-sm mb-1 overflow-hidden line-clamp-2">
                       {podrollAlbum.title}
                     </h3>
                     <p className="text-gray-400 text-xs">
@@ -1006,6 +1012,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
         )}
         </div>
       </div>
-    </>
+    </div>
   );
-} 
+}
