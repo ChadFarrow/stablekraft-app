@@ -44,7 +44,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
         const cached = localStorage.getItem(config.cacheKey);
         if (cached && cached !== null) {
-          const data: CachedData = JSON.parse(cached);
+          const data: CachedData = JSON.parse(cached as string);
           const now = Date.now();
 
           // Check if cache has resolved V4V data OR is a database playlist
@@ -253,7 +253,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         title: track.valueForValue?.resolvedTitle || track.title,
         artist: track.valueForValue?.resolvedArtist || track.artist,
         audioUrl: track.valueForValue?.resolvedAudioUrl || track.audioUrl,
-        duration: track.valueForValue?.resolvedDuration || track.duration,
+        duration: (track.valueForValue?.resolvedDuration || track.duration).toString(),
         artwork: track.image || '/placeholder-album.jpg'
       };
 
@@ -270,7 +270,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           title: t.valueForValue?.resolvedTitle || t.title,
           artist: t.valueForValue?.resolvedArtist || t.artist,
           url: t.valueForValue?.resolvedAudioUrl || t.audioUrl,
-          duration: t.valueForValue?.resolvedDuration || t.duration,
+          duration: (t.valueForValue?.resolvedDuration || t.duration).toString(),
           image: t.image,
           artwork: t.image
         }))
