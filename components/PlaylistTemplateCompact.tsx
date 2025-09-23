@@ -43,7 +43,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         return false;
 
         const cached = localStorage.getItem(config.cacheKey);
-        if (cached) {
+        if (cached && cached !== null) {
           const data: CachedData = JSON.parse(cached);
           const now = Date.now();
 
