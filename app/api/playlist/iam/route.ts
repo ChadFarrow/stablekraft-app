@@ -4,7 +4,7 @@ import { processPlaylistFeedDiscovery } from '@/lib/feed-discovery';
 
 const prisma = new PrismaClient();
 
-const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
+const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
 
 // Simple cache to prevent multiple rapid calls
 let playlistCache: { data: any; timestamp: number } | null = null;
@@ -69,7 +69,7 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
 
 export async function GET(request: Request) {
   try {
-    console.log('🎵 Fetching HGH playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
+    console.log('🎵 Fetching IAM playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
 
     // Check cache first
     if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION) {
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch the playlist XML
-    const response = await fetch(HGH_PLAYLIST_URL, {
+    const response = await fetch(IAM_PLAYLIST_URL, {
       headers: {
         'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
       }
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Homegrown Hits podcast`,
+          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in It's a Mood podcast`,
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
           guid: resolvedTrack.guid
@@ -148,9 +148,9 @@ export async function GET(request: Request) {
       } else {
         // Use placeholder data
         return {
-          id: `hgh-track-${index + 1}`,
+          id: `iam-track-${index + 1}`,
           title: `Music Reference #${index + 1}`,
-          artist: 'Featured in Homegrown Hits Podcast',
+          artist: 'Featured in It\'s a Mood Podcast',
           audioUrl: '',
           url: '', // Add url property for compatibility
           duration: 180,
@@ -158,32 +158,32 @@ export async function GET(request: Request) {
           image: artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `Music track referenced in Homegrown Hits podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+          description: `Music track referenced in It's a Mood podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
         };
       }
     });
 
-    // Create a single virtual album that represents the HGH playlist
+    // Create a single virtual album that represents the IAM playlist
     const playlistAlbum = {
-      id: 'hgh-playlist',
-      title: 'Homegrown Hits Music Playlist',
+      id: 'iam-playlist',
+      title: 'It\'s A Mood Music Playlist',
       artist: 'Various Artists',
-      album: 'Homegrown Hits Music Playlist',
-      description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+      album: 'It\'s A Mood Music Playlist',
+      description: 'Every music reference from the It\'s a Mood podcast',
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
-      url: HGH_PLAYLIST_URL,
+      url: IAM_PLAYLIST_URL,
       tracks: tracks,
-      feedId: 'hgh-playlist',
+      feedId: 'iam-playlist',
       type: 'playlist',
       totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
       isPlaylistCard: true, // Mark as playlist card for proper URL generation
-      playlistUrl: '/playlist/hgh', // Set the playlist URL
-      albumUrl: '/album/homegrown-hits-music-playlist', // Set the album URL for album-style display
+      playlistUrl: '/playlist/iam', // Set the playlist URL
+      albumUrl: '/album/its-a-mood-music-playlist', // Set the album URL for album-style display
       playlistContext: {
-        source: 'hgh-playlist',
-        originalUrl: HGH_PLAYLIST_URL,
+        source: 'iam-playlist',
+        originalUrl: IAM_PLAYLIST_URL,
         resolvedTracks: resolvedTracks.length,
         totalRemoteItems: remoteItems.length
       }
@@ -196,8 +196,8 @@ export async function GET(request: Request) {
       albums: [playlistAlbum], // Return as single album
       totalCount: 1,
       playlist: {
-        title: 'Homegrown Hits Music Playlist',
-        description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+        title: 'It\'s A Mood Music Playlist',
+        description: 'Every music reference from the It\'s a Mood podcast',
         author: 'ChadF',
         totalItems: 1,
         items: [playlistAlbum]
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
     return NextResponse.json(responseData);
 
   } catch (error) {
-    console.error('❌ Error fetching HGH playlist:', error);
+    console.error('❌ Error fetching IAM playlist:', error);
     return NextResponse.json(
       {
         success: false,
@@ -274,7 +274,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
             itemGuid: remoteItem.itemGuid,
-            source: 'hgh-playlist'
+            source: 'iam-playlist'
           }
         };
 

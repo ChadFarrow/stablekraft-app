@@ -25,6 +25,15 @@ async function getPlaylistAlbums() {
       }
     }
     
+    // Fetch IAM playlist
+    const iamResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002'}/api/playlist/iam`);
+    if (iamResponse.ok) {
+      const iamData = await iamResponse.json();
+      if (iamData.success && iamData.albums && iamData.albums.length > 0) {
+        playlistAlbums.push(iamData.albums[0]);
+      }
+    }
+    
     return playlistAlbums;
   } catch (error) {
     console.error('Error fetching playlist albums:', error);

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { processPlaylistFeedDiscovery } from '@/lib/feed-discovery';
 
 const prisma = new PrismaClient();
 
@@ -100,6 +101,22 @@ export async function GET(request: Request) {
     console.log('🔍 Resolving playlist items to actual tracks...');
     const resolvedTracks = await resolvePlaylistItems(remoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+
+    // Auto-discover and add unresolved feeds to database
+    const unresolvedItems = remoteItems.filter(item => {
+      return !resolvedTracks.find(track => track.playlistContext?.itemGuid === item.itemGuid);
+    });
+    
+    if (unresolvedItems.length > 0) {
+      console.log(`🔍 Processing ${unresolvedItems.length} unresolved items for feed discovery...`);
+      try {
+        const addedFeedsCount = await processPlaylistFeedDiscovery(unresolvedItems);
+        console.log(`✅ Feed discovery: ${addedFeedsCount} new feeds added to database`);
+      } catch (error) {
+        console.error('❌ Error during feed discovery:', error);
+        // Continue with playlist creation even if feed discovery fails
+      }
+    }
     
     // Create a map of resolved tracks by itemGuid for quick lookup
     const resolvedTrackMap = new Map(

@@ -1,0 +1,201 @@
+import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
+
+const prisma = new PrismaClient();
+
+interface PodcastIndexResponse {
+  status: string;
+  feeds: Array<{
+    id: number;
+    podcastGuid: string;
+    title: string;
+    url: string;
+    originalUrl: string;
+    link: string;
+    description: string;
+    author: string;
+    ownerName: string;
+    image: string;
+    artwork: string;
+    lastUpdateTime: number;
+    lastCrawlTime: number;
+    lastParseTime: number;
+    lastGoodHttpStatusTime: number;
+    lastHttpStatus: number;
+    contentType: string;
+    itunesId: number;
+    language: string;
+    type: number;
+    dead: number;
+    crawlErrors: number;
+    parseErrors: number;
+    categories: Record<string, string>;
+    locked: number;
+    explicit: boolean;
+    podcastGuid: string;
+    medium: string;
+  }>;
+  count: number;
+  query: string;
+  description: string;
+}
+
+// Load API keys from .env.local
+function getApiKeys(): { apiKey: string; apiSecret: string } {
+  try {
+    const envPath = path.join(process.cwd(), '.env.local');
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    
+    const apiKeyMatch = envContent.match(/PODCAST_INDEX_API_KEY=(.+)/);
+    const apiSecretMatch = envContent.match(/PODCAST_INDEX_API_SECRET=(.+)/);
+    
+    if (!apiKeyMatch || !apiSecretMatch) {
+      throw new Error('Missing PODCAST_INDEX_API_KEY or PODCAST_INDEX_API_SECRET in .env.local');
+    }
+    
+    return {
+      apiKey: apiKeyMatch[1].trim().replace(/['"]/g, ''),
+      apiSecret: apiSecretMatch[1].trim().replace(/['"]/g, '')
+    };
+  } catch (error) {
+    console.error('❌ Error loading API keys:', error);
+    throw error;
+  }
+}
+
+// Generate required headers for Podcast Index API
+async function generateHeaders(apiKey: string, apiSecret: string): Promise<Record<string, string>> {
+  const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
+  const data4Hash = apiKey + apiSecret + apiHeaderTime;
+  
+  // Generate SHA1 hash for authentication
+  const crypto = await import('crypto');
+  const hash = crypto.createHash('sha1').update(data4Hash).digest('hex');
+  
+  return {
+    'Content-Type': 'application/json',
+    'X-Auth-Date': apiHeaderTime,
+    'X-Auth-Key': apiKey,
+    'Authorization': hash,
+    'User-Agent': 'FUCKIT-Feed-Discovery/1.0'
+  };
+}
+
+export async function resolveFeedGuid(feedGuid: string): Promise<string | null> {
+  try {
+    console.log(`🔍 Resolving feed GUID: ${feedGuid}`);
+    
+    const { apiKey, apiSecret } = getApiKeys();
+    const headers = await generateHeaders(apiKey, apiSecret);
+    
+    // Use Podcast Index API to resolve GUID to feed URL
+    const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
+      headers
+    });
+    
+    if (!response.ok) {
+      console.warn(`⚠️ Podcast Index API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    const data: PodcastIndexResponse = await response.json();
+    
+    if (data.status === 'true' && data.feeds && data.feeds.length > 0) {
+      const feed = data.feeds[0];
+      console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
+      return feed.url;
+    } else {
+      console.warn(`⚠️ No feed found for GUID: ${feedGuid}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Error resolving feed GUID ${feedGuid}:`, error);
+    return null;
+  }
+}
+
+export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
+  let addedCount = 0;
+  
+  for (const feedGuid of feedGuids) {
+    try {
+      // Check if we already have this feed GUID in our database
+      // We'll store the GUID in the originalUrl field temporarily with a prefix
+      const guidUrl = `guid:${feedGuid}`;
+      const existingFeed = await prisma.feed.findUnique({
+        where: { originalUrl: guidUrl }
+      });
+      
+      if (existingFeed) {
+        console.log(`⚡ Feed GUID already exists in database: ${feedGuid}`);
+        continue;
+      }
+      
+      // Try to resolve the GUID to an actual feed URL
+      const resolvedUrl = await resolveFeedGuid(feedGuid);
+      
+      if (resolvedUrl) {
+        // Check if we already have this resolved URL
+        const existingResolvedFeed = await prisma.feed.findUnique({
+          where: { originalUrl: resolvedUrl }
+        });
+        
+        if (existingResolvedFeed) {
+          console.log(`⚡ Resolved feed URL already exists: ${resolvedUrl}`);
+          continue;
+        }
+        
+        // Add the resolved feed
+        await prisma.feed.create({
+          data: {
+            title: `Auto-discovered feed (${feedGuid.slice(0, 8)}...)`,
+            description: `Automatically discovered feed from playlist analysis`,
+            originalUrl: resolvedUrl,
+            type: 'album',
+            priority: 'normal',
+            status: 'active',
+            artist: 'Auto-discovered'
+          }
+        });
+        
+        console.log(`✅ Added resolved feed: ${resolvedUrl}`);
+        addedCount++;
+      } else {
+        // Store the GUID for future resolution
+        await prisma.feed.create({
+          data: {
+            title: `Unresolved feed GUID (${feedGuid.slice(0, 8)}...)`,
+            description: `Feed GUID from playlist - needs manual resolution: ${feedGuid}`,
+            originalUrl: guidUrl,
+            type: 'album',
+            priority: 'low',
+            status: 'pending',
+            artist: 'Unresolved GUID'
+          }
+        });
+        
+        console.log(`📝 Stored unresolved feed GUID: ${feedGuid}`);
+        addedCount++;
+      }
+    } catch (error) {
+      console.error(`❌ Error processing feed GUID ${feedGuid}:`, error);
+    }
+  }
+  
+  return addedCount;
+}
+
+export async function processPlaylistFeedDiscovery(remoteItems: Array<{ feedGuid: string; itemGuid: string }>): Promise<number> {
+  // Get unique feed GUIDs from the playlist
+  const uniqueFeedGuids = [...new Set(remoteItems.map(item => item.feedGuid))];
+  
+  console.log(`🔍 Processing ${uniqueFeedGuids.length} unique feed GUIDs for auto-discovery...`);
+  
+  // Add unresolved feeds to the database
+  const addedCount = await addUnresolvedFeeds(uniqueFeedGuids);
+  
+  console.log(`✅ Feed discovery complete: ${addedCount} new feeds added to database`);
+  
+  return addedCount;
+}
