@@ -12,6 +12,7 @@ interface ControlsBarProps {
   onFilterChange: (filter: FilterType) => void;
   showFilters?: boolean;
   filterOptions?: { value: FilterType; label: string }[];
+  isFilterLoading?: boolean;
   
   // Sort props
   sortType: SortType;
@@ -67,6 +68,7 @@ export default function ControlsBar({
   className = '',
   resultCount,
   resultLabel = 'results',
+  isFilterLoading = false,
 }: ControlsBarProps) {
   return (
     <div className={`bg-black/70 backdrop-blur-sm rounded-xl border border-gray-700 shadow-lg ${className}`}>
@@ -80,13 +82,23 @@ export default function ControlsBar({
                 <button
                   key={filter.value}
                   onClick={() => onFilterChange(filter.value)}
+                  disabled={isFilterLoading}
                   className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-all touch-manipulation flex-shrink-0 ${
                     activeFilter === filter.value
                       ? 'bg-stablekraft-teal text-white shadow-sm'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700 active:bg-gray-600'
+                      : isFilterLoading 
+                        ? 'text-gray-500 bg-gray-800 cursor-not-allowed opacity-50'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700 active:bg-gray-600'
                   }`}
                 >
-                  {filter.label}
+                  {isFilterLoading && activeFilter !== filter.value ? (
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                      {filter.label}
+                    </span>
+                  ) : (
+                    filter.label
+                  )}
                 </button>
               ))}
             </div>
@@ -175,13 +187,23 @@ export default function ControlsBar({
                   <button
                     key={filter.value}
                     onClick={() => onFilterChange(filter.value)}
+                    disabled={isFilterLoading}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all touch-manipulation ${
                       activeFilter === filter.value
                         ? 'bg-stablekraft-teal text-white shadow-sm'
-                        : 'text-gray-300 hover:text-white hover:bg-gray-700 active:bg-gray-600'
+                        : isFilterLoading 
+                          ? 'text-gray-500 bg-gray-800 cursor-not-allowed opacity-50'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700 active:bg-gray-600'
                     }`}
                   >
-                    {filter.label}
+                    {isFilterLoading && activeFilter !== filter.value ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        {filter.label}
+                      </span>
+                    ) : (
+                      filter.label
+                    )}
                   </button>
                 ))}
               </div>

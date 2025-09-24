@@ -135,6 +135,10 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [sortType, setSortType] = useState<SortType>('name');
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
+  
+  // Cache for filter data to avoid re-fetching
+  const [filterCache, setFilterCache] = useState<Map<FilterType, any>>(new Map());
   
   // Shuffle functionality is now handled by the global AudioContext
   const handleShuffle = async () => {
@@ -365,11 +369,30 @@ export default function HomePage() {
     console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
     if (newFilter === activeFilter) return; // No change
 
+    // Check cache first
+    const cachedData = filterCache.get(newFilter);
+    if (cachedData) {
+      console.log(`📦 Using cached data for filter: ${newFilter}`);
+      setActiveFilter(newFilter);
+      setCurrentPage(1);
+      setDisplayedAlbums(cachedData.albums);
+      setCriticalAlbums(cachedData.albums.slice(0, 12));
+      setEnhancedAlbums(cachedData.albums);
+      setTotalAlbums(cachedData.totalCount);
+      setHasMoreAlbums(cachedData.hasMore);
+      setIsCriticalLoaded(true);
+      setIsEnhancedLoaded(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setActiveFilter(newFilter);
     setCurrentPage(1); // Reset to first page
+    setIsFilterLoading(true);
     setIsLoading(true);
     
     try {
+      let resultData;
       
       if (newFilter === 'artists') {
         console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
@@ -389,8 +412,6 @@ export default function HomePage() {
           albumCount: publisher.itemCount || 0
         }));
         setPublisherStats(publisherStatsFromPublishers);
-        console.log(`📊 Updated publisher stats from publishers API: ${publisherStatsFromPublishers.length} publishers`);
-        console.log(`📊 Publishers data:`, publishers.slice(0, 3)); // Debug first 3 publishers
         
         // Convert publishers to album-like format for display
         const publisherAlbums = publishers.map((publisher: any) => ({
@@ -408,52 +429,54 @@ export default function HomePage() {
           releaseDate: new Date().toISOString(),
           link: `/publisher/${publisher.id}`,
           feedUrl: publisher.originalUrl,
-          // Mark as publisher card to use different URL generation
           isPublisherCard: true,
           publisherUrl: `/publisher/${publisher.id}`,
-          // Add publisher-specific data
           albumCount: publisher.itemCount,
           totalTracks: publisher.totalTracks
         }));
         
-        console.log(`📊 Converted ${publisherAlbums.length} publishers to album format`);
-        console.log(`📊 First publisher album:`, publisherAlbums[0]); // Debug first publisher album
-        
-        setTotalAlbums(publishers.length);
-        setCriticalAlbums(publisherAlbums.slice(0, 12));
-        setEnhancedAlbums(publisherAlbums);
-        setDisplayedAlbums(publisherAlbums);
-        setHasMoreAlbums(false); // Publishers are loaded all at once
-        setIsCriticalLoaded(true);
-        setIsEnhancedLoaded(true);
+        resultData = {
+          albums: publisherAlbums,
+          totalCount: publishers.length,
+          hasMore: false
+        };
       } else if (newFilter === 'playlist') {
         // Special handling for playlist filter - multiple playlists
         const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
-
-        setTotalAlbums(pageAlbums.length);
-        setCriticalAlbums(pageAlbums.slice(0, 12));
-        setEnhancedAlbums(pageAlbums);
-        setDisplayedAlbums(pageAlbums);
-        setHasMoreAlbums(false); // Limited number of playlists, no pagination needed
-        setIsCriticalLoaded(true);
-        setIsEnhancedLoaded(true);
+        
+        resultData = {
+          albums: pageAlbums,
+          totalCount: pageAlbums.length,
+          hasMore: false
+        };
       } else {
-        // Get new total count with filter
-        const totalCountResponse = await fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}`);
+        // Parallel fetch for count and data
+        const [totalCountResponse, pageAlbums] = await Promise.all([
+          fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}`),
+          loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter)
+        ]);
+        
         const totalCountData = await totalCountResponse.json();
         const totalCount = totalCountData.totalCount || 0;
-        setTotalAlbums(totalCount);
         
-        // Load first page with new filter
-        const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
-        
-        setCriticalAlbums(pageAlbums.slice(0, 12));
-        setEnhancedAlbums(pageAlbums);
-        setDisplayedAlbums(pageAlbums);
-        setHasMoreAlbums(totalCount > ALBUMS_PER_PAGE);
-        setIsCriticalLoaded(true);
-        setIsEnhancedLoaded(true);
+        resultData = {
+          albums: pageAlbums,
+          totalCount: totalCount,
+          hasMore: totalCount > ALBUMS_PER_PAGE
+        };
       }
+      
+      // Cache the result
+      setFilterCache(prev => new Map(prev).set(newFilter, resultData));
+      
+      // Apply the data
+      setTotalAlbums(resultData.totalCount);
+      setCriticalAlbums(resultData.albums.slice(0, 12));
+      setEnhancedAlbums(resultData.albums);
+      setDisplayedAlbums(resultData.albums);
+      setHasMoreAlbums(resultData.hasMore);
+      setIsCriticalLoaded(true);
+      setIsEnhancedLoaded(true);
       
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -462,6 +485,7 @@ export default function HomePage() {
       console.error('❌ Filter was:', newFilter);
       setError(`Failed to load ${newFilter} data: ${error}`);
     } finally {
+      setIsFilterLoading(false);
       setIsLoading(false);
     }
   };
@@ -1091,6 +1115,7 @@ export default function HomePage() {
               <ControlsBar
                 activeFilter={activeFilter}
                 onFilterChange={handleFilterChange}
+                isFilterLoading={isFilterLoading}
                 filterOptions={[
                   { value: 'all', label: 'All' },
                   { value: 'albums', label: 'Albums' },
