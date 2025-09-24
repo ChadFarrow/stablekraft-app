@@ -763,9 +763,9 @@ export default function HomePage() {
     return Object.values(episodeGroups).map((episode: any, index: number) => ({
       id: `music-episode-${episode.episodeId}`,
       title: episode.episodeTitle,
-      artist: episode.tracks.length > 0 ? episode.tracks[0].artist : 'From RSS Feed',
+      artist: episode.tracks?.length > 0 ? episode.tracks[0].artist : 'From RSS Feed',
       description: `Music tracks from ${episode.episodeTitle}`,
-      coverArt: episode.tracks.length > 0 ? (episode.tracks[0].artworkUrl || episode.tracks[0].image || '') : '',
+      coverArt: episode.tracks?.length > 0 ? (episode.tracks[0].artworkUrl || episode.tracks[0].image || '') : '',
       releaseDate: episode.episodeDate,
       feedId: 'music-rss',
       tracks: episode.tracks.map((track: any, trackIndex: number) => ({
@@ -1216,7 +1216,7 @@ export default function HomePage() {
                   {/* Albums Grid */}
                   {(() => {
                     const albumsWithMultipleTracks = filteredAlbums
-                      .filter(album => album.tracks.length > 6);
+                      .filter(album => (album.tracks?.length || album.totalTracks || 0) > 6);
                     return albumsWithMultipleTracks.length > 0 && (
                       <div className="mb-12">
                         <h2 className="text-2xl font-bold mb-6 text-white">Albums</h2>
@@ -1261,7 +1261,7 @@ export default function HomePage() {
                                 
                                 <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <span>{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span>{album.tracks.length} tracks</span>
+                                  <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
                                   <span className="px-2 py-1 bg-white/10 rounded text-xs">Album</span>
                                   {album.explicit && (
                                     <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -1280,7 +1280,7 @@ export default function HomePage() {
                   {/* EPs and Singles Grid */}
                   {(() => {
                     const epsAndSingles = filteredAlbums
-                      .filter(album => album.tracks.length <= 6);
+                      .filter(album => (album.tracks?.length || album.totalTracks || 0) <= 6);
                     return epsAndSingles.length > 0 && (
                       <div>
                         <h2 className="text-2xl font-bold mb-6 text-white">EPs and Singles</h2>
@@ -1325,9 +1325,9 @@ export default function HomePage() {
                                 
                                 <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <span>{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span>{album.tracks.length} tracks</span>
+                                  <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
                                   <span className="px-2 py-1 bg-white/10 rounded text-xs">
-                                    {album.tracks.length === 1 ? 'Single' : 'EP'}
+                                    {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
                                   </span>
                                   {album.explicit && (
                                     <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -1390,9 +1390,9 @@ export default function HomePage() {
                         
                         <div className="flex items-center gap-4 text-sm text-gray-500">
                           <span>{new Date(album.releaseDate).getFullYear()}</span>
-                          <span>{album.tracks.length} tracks</span>
+                          <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
                           <span className="px-2 py-1 bg-white/10 rounded text-xs">
-                            {album.tracks.length <= 6 ? (album.tracks.length === 1 ? 'Single' : 'EP') : 'Album'}
+                            {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
                           </span>
                           {album.explicit && (
                             <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
