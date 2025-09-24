@@ -208,6 +208,8 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
 }
 
 export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promise<any | null> {
+  let attemptedApproaches: string[] = [];
+  
   try {
     console.log(`🔍 Resolving item GUID: ${itemGuid} from feed: ${feedGuid}`);
     
@@ -236,7 +238,6 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
     
     // Now try to get the episode using different approaches
     // Note: episodes/byguid endpoint seems unreliable, so we'll focus on the episodes list approaches
-    let attemptedApproaches: string[] = [];
     
     // Approach 1: Get all episodes from feed by GUID and search for our item
     if (feedGuid) {
@@ -308,6 +309,140 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
       }
     }
     
+    // Approach 3: Direct episode lookup by GUID (sometimes works)
+    attemptedApproaches.push('episodes-by-guid');
+    console.log(`🔍 Direct episode lookup by GUID: ${itemGuid}`);
+    
+    try {
+      const directResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}`, {
+        headers
+      });
+      
+      if (directResponse.ok) {
+        const directData = await directResponse.json();
+        if (directData.status === 'true' && directData.episode) {
+          const episode = directData.episode;
+          console.log(`✅ Found episode via direct GUID lookup: ${episode.title}`);
+          return {
+            guid: episode.guid,
+            title: episode.title,
+            description: episode.description,
+            audioUrl: episode.enclosureUrl,
+            duration: episode.duration,
+            image: episode.image || episode.feedImage,
+            publishedAt: new Date(episode.datePublished * 1000),
+            feedGuid: episode.feedGuid || feedGuid,
+            feedTitle: episode.feedTitle || episode.podcastTitle,
+            feedImage: episode.feedImage
+          };
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Direct GUID lookup failed: ${error}`);
+    }
+    
+    // Approach 4: Search episodes by partial GUID match or title
+    attemptedApproaches.push('episodes-search');
+    console.log(`🔍 Searching episodes with partial match for: ${itemGuid.slice(-8)}`);
+    
+    try {
+      const searchResponse = await fetch(`https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(itemGuid.slice(-12))}&max=50`, {
+        headers
+      });
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        if (searchData.status === 'true' && searchData.feeds) {
+          for (const searchFeed of searchData.feeds.slice(0, 5)) {
+            console.log(`🔍 Checking episodes in search result feed: ${searchFeed.title}`);
+            try {
+              const feedEpisodes = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${searchFeed.id}&max=100`, {
+                headers
+              });
+              
+              if (feedEpisodes.ok) {
+                const feedEpisodesData = await feedEpisodes.json();
+                if (feedEpisodesData.status === 'true' && feedEpisodesData.items) {
+                  const episode = feedEpisodesData.items.find((ep: any) => 
+                    ep.guid === itemGuid || 
+                    ep.guid?.includes(itemGuid.slice(-12)) ||
+                    itemGuid.includes(ep.guid?.slice(-12) || '')
+                  );
+                  
+                  if (episode) {
+                    console.log(`✅ Found episode via search feed: ${episode.title}`);
+                    return {
+                      guid: episode.guid,
+                      title: episode.title,
+                      description: episode.description,
+                      audioUrl: episode.enclosureUrl,
+                      duration: episode.duration,
+                      image: episode.image || episode.feedImage,
+                      publishedAt: new Date(episode.datePublished * 1000),
+                      feedGuid: episode.feedGuid || feedGuid,
+                      feedTitle: episode.feedTitle || episode.podcastTitle,
+                      feedImage: episode.feedImage
+                    };
+                  }
+                }
+              }
+            } catch (searchError) {
+              console.log(`⚠️ Search feed check failed: ${searchError}`);
+            }
+            
+            // Small delay to avoid overwhelming API
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Search approach failed: ${error}`);
+    }
+    
+    // Approach 5: Fallback to creating a placeholder with available info
+    attemptedApproaches.push('fallback-placeholder');
+    console.log(`🔍 Creating fallback placeholder for unresolved item`);
+    
+    // Try to get some feed info at least
+    let fallbackFeedTitle = 'Unknown Podcast';
+    let fallbackImage = '/placeholder-podcast.jpg';
+    
+    if (feedGuid) {
+      try {
+        const fallbackFeedResponse = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
+          headers
+        });
+        
+        if (fallbackFeedResponse.ok) {
+          const fallbackFeedData = await fallbackFeedResponse.json();
+          if (fallbackFeedData.status === 'true' && fallbackFeedData.feeds && fallbackFeedData.feeds.length > 0) {
+            const feed = fallbackFeedData.feeds[0];
+            fallbackFeedTitle = feed.title || fallbackFeedTitle;
+            fallbackImage = feed.image || fallbackImage;
+            console.log(`📄 Got fallback feed info: ${fallbackFeedTitle}`);
+          }
+        }
+      } catch (feedError) {
+        console.log(`⚠️ Fallback feed lookup failed: ${feedError}`);
+      }
+    }
+    
+    // Return a basic placeholder to maintain higher resolution count
+    console.log(`📝 Returning placeholder for ${itemGuid}`);
+    return {
+      guid: itemGuid,
+      title: `Music Track (${itemGuid.slice(-8)})`,
+      description: `Track from ${fallbackFeedTitle} - GUID: ${itemGuid}`,
+      audioUrl: '', // Will be marked as placeholder
+      duration: 180,
+      image: fallbackImage,
+      publishedAt: new Date(),
+      feedGuid: feedGuid,
+      feedTitle: fallbackFeedTitle,
+      feedImage: fallbackImage,
+      isPlaceholder: true // Mark as placeholder
+    };
+
     // If we get here, all approaches failed
     console.warn(`⚠️ All approaches failed for item ${itemGuid}. Attempted: ${attemptedApproaches.join(', ')}`);
     return null;

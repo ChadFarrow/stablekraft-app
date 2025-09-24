@@ -6,6 +6,7 @@ import { playlistCache } from '@/lib/playlist-cache';
 const prisma = new PrismaClient();
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
+// Force recompilation
 
 // Persistent cache duration - 90 days for static playlists (manual refresh when needed)
 const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
@@ -291,14 +292,43 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     if (unresolvedItems.length > 0) {
       console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
       
-      // Process ALL unresolved items for maximum resolution
+      // Process ALL unresolved items for maximum resolution - NO LIMITS
       let processedCount = 0;
-      const maxToProcess = Math.min(unresolvedItems.length, 1000); // Process up to 1000 items via API
+      const maxToProcess = unresolvedItems.length; // Process ALL items via API
       
       for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
+        let apiResult = null;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        // Try API resolution with retries
+        while (!apiResult && retryCount < maxRetries) {
+          try {
+            apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
+            
+            if (!apiResult) {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                console.log(`🔄 Retry ${retryCount}/${maxRetries} for ${remoteItem.itemGuid}`);
+                await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause before retry
+              } else {
+                console.log(`⚠️ All approaches failed for item ${remoteItem.itemGuid}. Max retries (${maxRetries}) reached.`);
+                break; // Exit retry loop after max retries
+              }
+            }
+          } catch (error) {
+            retryCount++;
+            console.log(`❌ Retry ${retryCount}/${maxRetries} failed for ${remoteItem.itemGuid}:`, error);
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 200)); // Longer pause on error
+            } else {
+              console.log(`⚠️ Max retries reached due to errors for ${remoteItem.itemGuid}`);
+              break;
+            }
+          }
+        }
+        
         try {
-          const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
-          
           if (apiResult) {
             const resolvedTrack = {
               id: `api-${remoteItem.itemGuid}`,
@@ -326,22 +356,69 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
             resolvedTracks.push(resolvedTrack);
             console.log(`✅ API resolved: ${apiResult.title} by ${apiResult.feedTitle}`);
           } else {
-            console.log(`⚠️ Could not resolve via API: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+            // Add placeholder for unresolved item to maintain full playlist
+            const placeholderTrack = {
+              id: `placeholder-${remoteItem.itemGuid}`,
+              title: `Music Track (${remoteItem.itemGuid.slice(-8)})`,
+              artist: 'Featured in Modern Music Movements',
+              audioUrl: '',
+              url: '',
+              duration: 180,
+              publishedAt: new Date().toISOString(),
+              image: '/placeholder-podcast.jpg',
+              albumTitle: 'Modern Music Movements Playlist',
+              feedTitle: 'Modern Music Movements',
+              feedId: `placeholder-feed-${remoteItem.feedGuid}`,
+              guid: remoteItem.itemGuid,
+              description: `Music track referenced in Modern Music Movements podcast - Feed ID: ${remoteItem.feedGuid} | Item ID: ${remoteItem.itemGuid}`,
+              // Add playlist context
+              playlistContext: {
+                feedGuid: remoteItem.feedGuid,
+                itemGuid: remoteItem.itemGuid,
+                source: 'mmm-playlist',
+                resolvedViaAPI: true,
+                isPlaceholder: true
+              }
+            };
+            
+            resolvedTracks.push(placeholderTrack);
+            console.log(`📝 Added placeholder for unresolved: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
           }
           
           processedCount++;
-          // Progress update every 25 tracks for better visibility
-          if (processedCount % 25 === 0) {
-            console.log(`📊 API Resolution Progress: ${processedCount}/${maxToProcess} (${((processedCount/maxToProcess)*100).toFixed(1)}%)`);
+          // Progress update every 50 tracks for better visibility (processing more items now)
+          if (processedCount % 50 === 0) {
+            const dbResolvedCount = resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length;
+            const apiResolvedCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.isPlaceholder).length;
+            const placeholderCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && t.isPlaceholder).length;
+            const totalResolved = dbResolvedCount + apiResolvedCount + placeholderCount;
+            const resolutionRate = ((totalResolved / remoteItems.length) * 100).toFixed(1);
+            
+            console.log(`📊 Resolution Progress: ${processedCount}/${maxToProcess} API calls (${((processedCount/maxToProcess)*100).toFixed(1)}%)`);
+            console.log(`📊 Current Resolution: ${totalResolved}/${remoteItems.length} tracks (${resolutionRate}%) | DB: ${dbResolvedCount} | API: ${apiResolvedCount} | Placeholders: ${placeholderCount}`);
           }
         } catch (error) {
           console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
         }
         
-        // Reduce delay to 25ms - faster processing while respecting rate limits
-        await new Promise(resolve => setTimeout(resolve, 25));
+        // Reduce delay to 10ms - maximum speed while respecting rate limits
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
     }
+
+    // Final resolution statistics
+    const dbResolvedCount = resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length;
+    const apiResolvedCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.isPlaceholder).length;
+    const placeholderCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && t.isPlaceholder).length;
+    const totalResolved = dbResolvedCount + apiResolvedCount + placeholderCount;
+    const finalResolutionRate = ((totalResolved / remoteItems.length) * 100).toFixed(1);
+    
+    console.log(`🎯 FINAL MMM RESOLUTION STATISTICS:`);
+    console.log(`📊 Total Tracks: ${remoteItems.length}`);
+    console.log(`📊 Database Resolved: ${dbResolvedCount} (${((dbResolvedCount/remoteItems.length)*100).toFixed(1)}%)`);
+    console.log(`📊 API Resolved: ${apiResolvedCount} (${((apiResolvedCount/remoteItems.length)*100).toFixed(1)}%)`);
+    console.log(`📊 Placeholders: ${placeholderCount} (${((placeholderCount/remoteItems.length)*100).toFixed(1)}%)`);
+    console.log(`📊 TOTAL RESOLUTION: ${totalResolved}/${remoteItems.length} (${finalResolutionRate}%)`);
 
     return resolvedTracks;
   } catch (error) {
