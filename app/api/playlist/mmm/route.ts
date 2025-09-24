@@ -7,8 +7,8 @@ const prisma = new PrismaClient();
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 
-// Persistent cache duration - 7 days for static playlists (they rarely change)
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
+// Persistent cache duration - 90 days for static playlists (manual refresh when needed)
+const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
 
 interface RemoteItem {
   feedGuid: string;
