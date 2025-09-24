@@ -728,6 +728,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                     width={256}
                     height={256}
                     className="w-full h-full object-cover"
+                    unoptimized
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = getPlaceholderImageUrl('large');
@@ -752,6 +753,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                         width={256}
                         height={256}
                         className="w-full h-full object-cover"
+                        unoptimized
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = getPlaceholderImageUrl('large');

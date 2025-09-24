@@ -119,7 +119,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           </button>
           
           <div 
-            className="flex-1 text-center rounded-lg py-2 px-4"
+            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto"
             style={{
               backgroundColor: 'rgba(0,0,0,0.4)',
               backdropFilter: 'blur(8px)',
@@ -220,8 +220,9 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
         {/* Controls */}
         <div className="px-8 pb-8">
-          {/* Secondary Controls */}
-          <div className="flex items-center justify-center gap-8 mb-6">
+          {/* All Controls in Single Row */}
+          <div className="flex items-center justify-center gap-4">
+            {/* Shuffle Button */}
             <button
               onClick={toggleShuffle}
               className="p-2 rounded-full transition-all duration-200"
@@ -237,6 +238,47 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               <Shuffle className="w-5 h-5" />
             </button>
             
+            {/* Previous Button */}
+            <button
+              onClick={playPreviousTrack}
+              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: `${contrastColors.textColor}20`,
+                color: contrastColors.textColor
+              }}
+            >
+              <SkipBack className="w-6 h-6" />
+            </button>
+            
+            {/* Play/Pause Button */}
+            <button
+              onClick={isPlaying ? pause : resume}
+              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg mx-2"
+              style={{
+                backgroundColor: contrastColors.textColor,
+                boxShadow: `0 8px 25px rgba(0,0,0,0.3)`
+              }}
+            >
+              {isPlaying ? (
+                <Pause className="w-8 h-8" style={{ color: contrastColors.backgroundColor }} />
+              ) : (
+                <Play className="w-8 h-8 ml-1" style={{ color: contrastColors.backgroundColor }} />
+              )}
+            </button>
+            
+            {/* Next Button */}
+            <button
+              onClick={playNextTrack}
+              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: `${contrastColors.textColor}20`,
+                color: contrastColors.textColor
+              }}
+            >
+              <SkipForward className="w-6 h-6" />
+            </button>
+            
+            {/* Repeat Button */}
             <button
               onClick={() => {
                 // Cycle through repeat modes: none -> all -> one -> none
@@ -273,46 +315,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                   1
                 </span>
               )}
-            </button>
-          </div>
-
-          {/* Main Controls */}
-          <div className="flex items-center justify-center gap-6">
-            <button
-              onClick={playPreviousTrack}
-              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
-              style={{
-                backgroundColor: `${contrastColors.textColor}20`,
-                color: contrastColors.textColor
-              }}
-            >
-              <SkipBack className="w-6 h-6" />
-            </button>
-            
-            <button
-              onClick={isPlaying ? pause : resume}
-              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
-              style={{
-                backgroundColor: contrastColors.textColor,
-                boxShadow: `0 8px 25px rgba(0,0,0,0.3)`
-              }}
-            >
-              {isPlaying ? (
-                <Pause className="w-8 h-8" style={{ color: contrastColors.backgroundColor }} />
-              ) : (
-                <Play className="w-8 h-8 ml-1" style={{ color: contrastColors.backgroundColor }} />
-              )}
-            </button>
-            
-            <button
-              onClick={playNextTrack}
-              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
-              style={{
-                backgroundColor: `${contrastColors.textColor}20`,
-                color: contrastColors.textColor
-              }}
-            >
-              <SkipForward className="w-6 h-6" />
             </button>
           </div>
         </div>

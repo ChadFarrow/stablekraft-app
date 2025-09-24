@@ -68,7 +68,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
   // Let Next.js handle lazy loading natively - much simpler and faster
 
   const artworkUrl = useMemo(() => 
-    getAlbumArtworkUrl(album.coverArt || (album as any).image || '', 'thumbnail'), // Use smaller images for faster loading
+    getAlbumArtworkUrl(album.coverArt || (album as any).image || '', 'large'), // Use larger images for better quality
     [album.coverArt, (album as any).image]
   );
   
@@ -128,8 +128,8 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         <Image
           src={artworkUrl}
           alt={`${album.title} by ${album.artist}`}
-          width={200}
-          height={200}
+          width={300}
+          height={300}
           className={`w-full h-full object-cover transition-opacity duration-300 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
@@ -142,8 +142,9 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
           }}
           priority={false}
           loading="lazy"
-          sizes="(max-width: 768px) 160px, (max-width: 1200px) 180px, 200px"
+          sizes="(max-width: 768px) 160px, (max-width: 1200px) 180px, 300px"
           placeholder="empty"
+          unoptimized
         />
         
         {/* Loading placeholder */}

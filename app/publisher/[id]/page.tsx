@@ -66,7 +66,7 @@ async function loadPublisherData(publisherId: string) {
       console.log(`🔄 Falling back to /api/publishers for: ${publisherId}`);
       try {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                       (process.env.NODE_ENV === 'production' ? 'https://fuckit-production.up.railway.app' : 'http://localhost:3000');
+                       (process.env.NODE_ENV === 'production' ? 'https://fuckit-production.up.railway.app' : 'http://localhost:3002');
         
         const publishersResponse = await fetch(`${baseUrl}/api/publishers`);
         if (publishersResponse.ok) {

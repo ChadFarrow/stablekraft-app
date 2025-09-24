@@ -8,7 +8,7 @@ async function getPlaylistAlbums() {
     const playlistAlbums = [];
     
     // Fetch HGH playlist
-    const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/hgh`);
+    const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002'}/api/playlist/hgh`);
     if (hghResponse.ok) {
       const hghData = await hghResponse.json();
       if (hghData.success && hghData.albums && hghData.albums.length > 0) {
@@ -17,7 +17,7 @@ async function getPlaylistAlbums() {
     }
     
     // Fetch ITDV playlist
-    const itdvResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/itdv`);
+    const itdvResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002'}/api/playlist/itdv`);
     if (itdvResponse.ok) {
       const itdvData = await itdvResponse.json();
       if (itdvData.success && itdvData.albums && itdvData.albums.length > 0) {
