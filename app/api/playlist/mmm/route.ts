@@ -4,7 +4,7 @@ import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discov
 
 const prisma = new PrismaClient();
 
-const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
+const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 
 // Simple cache to prevent multiple rapid calls
 let playlistCache: { data: any; timestamp: number } | null = null;
@@ -69,7 +69,7 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
 
 export async function GET(request: Request) {
   try {
-    console.log('🎵 Fetching IAM playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
+    console.log('🎵 Fetching MMM playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
 
     // Check cache first (disable for API resolution testing)
     const forceRefresh = new URL(request.url).searchParams.has('refresh');
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch the playlist XML
-    const response = await fetch(IAM_PLAYLIST_URL, {
+    const response = await fetch(MMM_PLAYLIST_URL, {
       headers: {
         'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
       }
@@ -141,7 +141,7 @@ export async function GET(request: Request) {
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in It's a Mood podcast`,
+          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Modern Music Movements podcast`,
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
           guid: resolvedTrack.guid
@@ -149,9 +149,9 @@ export async function GET(request: Request) {
       } else {
         // Use placeholder data
         return {
-          id: `iam-track-${index + 1}`,
+          id: `mmm-track-${index + 1}`,
           title: `Music Reference #${index + 1}`,
-          artist: 'Featured in It\'s a Mood Podcast',
+          artist: 'Featured in Modern Music Movements Podcast',
           audioUrl: '',
           url: '', // Add url property for compatibility
           duration: 180,
@@ -159,32 +159,32 @@ export async function GET(request: Request) {
           image: artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `Music track referenced in It's a Mood podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+          description: `Music track referenced in Modern Music Movements podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
         };
       }
     });
 
-    // Create a single virtual album that represents the IAM playlist
+    // Create a single virtual album that represents the MMM playlist
     const playlistAlbum = {
-      id: 'iam-playlist',
-      title: 'It\'s A Mood Music Playlist',
+      id: 'mmm-playlist',
+      title: 'Modern Music Movements Playlist',
       artist: 'Various Artists',
-      album: 'It\'s A Mood Music Playlist',
-      description: 'Every music reference from the It\'s a Mood podcast',
+      album: 'Modern Music Movements Playlist',
+      description: 'Every music reference from the Modern Music Movements podcast',
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
-      url: IAM_PLAYLIST_URL,
+      url: MMM_PLAYLIST_URL,
       tracks: tracks,
-      feedId: 'iam-playlist',
+      feedId: 'mmm-playlist',
       type: 'playlist',
       totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
       isPlaylistCard: true, // Mark as playlist card for proper URL generation
-      playlistUrl: '/playlist/iam', // Set the playlist URL
-      albumUrl: '/album/its-a-mood-music-playlist', // Set the album URL for album-style display
+      playlistUrl: '/playlist/mmm', // Set the playlist URL
+      albumUrl: '/album/modern-music-movements-playlist', // Set the album URL for album-style display
       playlistContext: {
-        source: 'iam-playlist',
-        originalUrl: IAM_PLAYLIST_URL,
+        source: 'mmm-playlist',
+        originalUrl: MMM_PLAYLIST_URL,
         resolvedTracks: resolvedTracks.length,
         totalRemoteItems: remoteItems.length
       }
@@ -197,8 +197,8 @@ export async function GET(request: Request) {
       albums: [playlistAlbum], // Return as single album
       totalCount: 1,
       playlist: {
-        title: 'It\'s A Mood Music Playlist',
-        description: 'Every music reference from the It\'s a Mood podcast',
+        title: 'Modern Music Movements Playlist',
+        description: 'Every music reference from the Modern Music Movements podcast',
         author: 'ChadF',
         totalItems: 1,
         items: [playlistAlbum]
@@ -214,7 +214,7 @@ export async function GET(request: Request) {
     return NextResponse.json(responseData);
 
   } catch (error) {
-    console.error('❌ Error fetching IAM playlist:', error);
+    console.error('❌ Error fetching MMM playlist:', error);
     return NextResponse.json(
       {
         success: false,
@@ -276,7 +276,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
             itemGuid: remoteItem.itemGuid,
-            source: 'iam-playlist'
+            source: 'mmm-playlist'
           }
         };
 
@@ -319,7 +319,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
               playlistContext: {
                 feedGuid: remoteItem.feedGuid,
                 itemGuid: remoteItem.itemGuid,
-                source: 'iam-playlist',
+                source: 'mmm-playlist',
                 resolvedViaAPI: true
               }
             };

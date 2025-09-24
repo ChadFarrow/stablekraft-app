@@ -502,55 +502,83 @@ export default function HomePage() {
         return []; // Return empty array to prevent showing wrong data
       }
 
-      // Handle playlist filter separately
+      // Handle playlist filter separately - use fast endpoint for better performance
       if (filter === 'playlist') {
-        console.log('🎵 Loading playlists...');
+        console.log('🎵 Loading playlists using fast endpoint...');
 
-        // Load ITDV, HGH, and IAM playlists in parallel
-        const [itdvResponse, hghResponse, iamResponse] = await Promise.allSettled([
-          fetch('/api/playlist/itdv'),
-          fetch('/api/playlist/hgh'),
-          fetch('/api/playlist/iam')
-        ]);
-
-        const allAlbums: any[] = [];
-
-        // Process ITDV playlist
-        if (itdvResponse.status === 'fulfilled' && itdvResponse.value.ok) {
-          const itdvData = await itdvResponse.value.json();
-          if (itdvData.success && itdvData.albums) {
-            allAlbums.push(...itdvData.albums);
-            console.log(`✅ Loaded ${itdvData.albums.length} ITDV playlist albums`);
+        try {
+          const response = await fetch('/api/playlists-fast');
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.albums) {
+              console.log(`✅ Loaded ${data.albums.length} playlists from fast endpoint`);
+              return data.albums;
+            }
           }
-        } else {
-          console.warn('⚠️ Failed to load ITDV playlist');
-        }
+          
+          console.warn('⚠️ Fast playlist endpoint failed, falling back to individual APIs');
+          
+          // Fallback to individual playlist APIs if fast endpoint fails
+          const [itdvResponse, hghResponse, iamResponse, mmmResponse] = await Promise.allSettled([
+            fetch('/api/playlist/itdv'),
+            fetch('/api/playlist/hgh'),
+            fetch('/api/playlist/iam'),
+            fetch('/api/playlist/mmm')
+          ]);
 
-        // Process HGH playlist
-        if (hghResponse.status === 'fulfilled' && hghResponse.value.ok) {
-          const hghData = await hghResponse.value.json();
-          if (hghData.success && hghData.albums) {
-            allAlbums.push(...hghData.albums);
-            console.log(`✅ Loaded ${hghData.albums.length} HGH playlist albums`);
+          const allAlbums: any[] = [];
+
+          // Process ITDV playlist
+          if (itdvResponse.status === 'fulfilled' && itdvResponse.value.ok) {
+            const itdvData = await itdvResponse.value.json();
+            if (itdvData.success && itdvData.albums) {
+              allAlbums.push(...itdvData.albums);
+              console.log(`✅ Loaded ${itdvData.albums.length} ITDV playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load ITDV playlist');
           }
-        } else {
-          console.warn('⚠️ Failed to load HGH playlist');
-        }
 
-        // Process IAM playlist
-        if (iamResponse.status === 'fulfilled' && iamResponse.value.ok) {
-          const iamData = await iamResponse.value.json();
-          if (iamData.success && iamData.albums) {
-            allAlbums.push(...iamData.albums);
-            console.log(`✅ Loaded ${iamData.albums.length} IAM playlist albums`);
+          // Process HGH playlist
+          if (hghResponse.status === 'fulfilled' && hghResponse.value.ok) {
+            const hghData = await hghResponse.value.json();
+            if (hghData.success && hghData.albums) {
+              allAlbums.push(...hghData.albums);
+              console.log(`✅ Loaded ${hghData.albums.length} HGH playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load HGH playlist');
           }
-        } else {
-          console.warn('⚠️ Failed to load IAM playlist');
-        }
 
-        // Return all playlist albums
-        console.log(`✅ Loaded ${allAlbums.length} total playlist albums`);
-        return allAlbums;
+          // Process IAM playlist
+          if (iamResponse.status === 'fulfilled' && iamResponse.value.ok) {
+            const iamData = await iamResponse.value.json();
+            if (iamData.success && iamData.albums) {
+              allAlbums.push(...iamData.albums);
+              console.log(`✅ Loaded ${iamData.albums.length} IAM playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load IAM playlist');
+          }
+
+          // Process MMM playlist
+          if (mmmResponse.status === 'fulfilled' && mmmResponse.value.ok) {
+            const mmmData = await mmmResponse.value.json();
+            if (mmmData.success && mmmData.albums) {
+              allAlbums.push(...mmmData.albums);
+              console.log(`✅ Loaded ${mmmData.albums.length} MMM playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load MMM playlist');
+          }
+
+          return allAlbums;
+          
+        } catch (error) {
+          console.error('❌ Error loading playlists:', error);
+          return [];
+        }
       }
       
       // Simplified caching - only cache the main 'all' request with no filtering
