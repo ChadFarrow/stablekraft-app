@@ -27,6 +27,7 @@ interface ControlsBarLazyProps {
   onFilterChange: (filter: any) => void;
   showFilters?: boolean;
   filterOptions?: { value: any; label: string }[];
+  isFilterLoading?: boolean;
   
   // Sort props
   sortType: any;
