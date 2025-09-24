@@ -119,6 +119,11 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
     redirect('/playlist/hgh');
   }
 
+  if (id === 'iam-music-playlist' || id === 'its-a-mood-music-playlist') {
+    const { redirect } = await import('next/navigation');
+    redirect('/playlist/iam');
+  }
+
   // Handle both URL-encoded and slug formats
   let albumTitle: string;
   try {

@@ -1,0 +1,95 @@
+{
+  "totalFeeds": 572,
+  "successfulParses": 550,
+  "failedParses": 22,
+  "albumsFound": 540,
+  "publishersFound": 10,
+  "totalTracks": 2602,
+  "totalDuration": "NaN:NaN",
+  "podRollFeeds": 0,
+  "fundingFeeds": 0,
+  "parseTime": 310019,
+  "timestamp": "2025-09-24T16:46:05.138Z",
+  "errors": [
+    {
+      "feedId": "iroh-album-5",
+      "feedUrl": "https://wavlake.com/feed/music/6b7793b8-fd9d-432b-af1a-184cd41aaf9d",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "iroh-album-6",
+      "feedUrl": "https://wavlake.com/feed/music/0bb8c9c7-1c55-4412-a517-572a98318921",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "iroh-album-8",
+      "feedUrl": "https://wavlake.com/feed/music/2cd1b9ea-9ef3-4a54-aa25-55295689f442",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "example-com-test-feed-xml",
+      "feedUrl": "https://example.com/test-feed.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "cory-keith-owens-dummy-demos",
+      "feedUrl": "https://wavlake.com/feed/music/8b5248ad-0d1d-4cc4-b826-abbf58a4bebe",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "john-depew-trio-bell-of-hope",
+      "feedUrl": "https://wavlake.com/feed/music/99ed143c-c461-4f1a-9d0d-bee6f70d8b7e",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "nate-johnivan-fight-",
+      "feedUrl": "https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "seth-fonda-finding-lavender",
+      "feedUrl": "https://wavlake.com/feed/music/2663f4e8-aa52-4398-89e7-d26381b65545",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "theo-katzman-be-the-wheel",
+      "feedUrl": "https://wavlake.com/feed/music/6f724ceb-0688-40d5-a93f-4d0b6ec1c797",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "rock-n-roll-breakheart-2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "ariel-powell-the-leaves-shimmering-gold",
+      "feedUrl": "https://assets.libsyn.com/show/465249/the_leaves_shimmering_gold.xml",
+      "error": "Invalid RSS content received"
+    },
+    {
+      "feedId": "ariel-powell-you-re-ok-single-",
+      "feedUrl": "https://thebearsnare.com/youreok2.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "daniel-aragay-protologic-music",
+      "feedUrl": "https://www.haciendoelsueco.com/feed/protologic/",
+      "error": "Failed to fetch RSS feed"
+    },
+    {
+      "feedId": "torcon-7-torcon-vii",
+      "feedUrl": "https://feeds.podcastindex.org/Album-TourconVII.xml",
+      "error": "Failed to fetch RSS feed: 403"
+    },
+    {
+      "feedId": "able-kirby-november-ep",
+      "feedUrl": "https://bobcatindex.us-southeast-1.linodeobjects.com/AbleKirby_NovemberEP.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    }
+  ]
+}

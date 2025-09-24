@@ -147,7 +147,7 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         }
         
         // Add the resolved feed
-        await prisma.feed.create({
+        const newFeed = await prisma.feed.create({
           data: {
             title: `Auto-discovered feed (${feedGuid.slice(0, 8)}...)`,
             description: `Automatically discovered feed from playlist analysis`,
@@ -160,6 +160,28 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         });
         
         console.log(`✅ Added resolved feed: ${resolvedUrl}`);
+        
+        // Automatically process the RSS feed to extract tracks
+        try {
+          console.log(`🔄 Processing RSS for feed: ${newFeed.id}`);
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          const parseResponse = await fetch(`${baseUrl}/api/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          if (parseResponse.ok) {
+            const parseResult = await parseResponse.json();
+            console.log(`✅ RSS processing completed for feed ${newFeed.id}: ${parseResult.message}`);
+          } else {
+            console.warn(`⚠️ RSS processing failed for feed ${newFeed.id}: ${parseResponse.status}`);
+          }
+        } catch (parseError) {
+          console.error(`❌ Error processing RSS for feed ${newFeed.id}:`, parseError);
+        }
+        
         addedCount++;
       } else {
         // Store the GUID for future resolution
@@ -184,6 +206,180 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
   }
   
   return addedCount;
+}
+
+export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promise<any | null> {
+  try {
+    console.log(`🔍 Resolving item GUID: ${itemGuid} from feed: ${feedGuid}`);
+    
+    const { apiKey, apiSecret } = getApiKeys();
+    const headers = await generateHeaders(apiKey, apiSecret);
+    
+    // First, try to resolve the feed GUID to get feed information
+    let feedId: number | null = null;
+    let feedUrl: string | null = null;
+    
+    if (feedGuid) {
+      const feedResponse = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
+        headers
+      });
+      
+      if (feedResponse.ok) {
+        const feedData: PodcastIndexResponse = await feedResponse.json();
+        if (feedData.status === 'true' && feedData.feeds && feedData.feeds.length > 0) {
+          const feed = feedData.feeds[0];
+          feedId = feed.id;
+          feedUrl = feed.url;
+          console.log(`✅ Found feed info: ${feed.title} (ID: ${feedId})`);
+        }
+      }
+    }
+    
+    // Now try to get the episode using different approaches
+    let response: Response | null = null;
+    let attemptedApproaches: string[] = [];
+    
+    // Approach 1: Use feedid if available
+    if (feedId) {
+      attemptedApproaches.push('feedid');
+      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&feedid=${feedId}`, {
+        headers
+      });
+      
+      if (response.ok) {
+        console.log(`✅ Found episode using feedid approach`);
+      }
+    }
+    
+    // Approach 2: Use feedurl if feedid didn't work
+    if ((!response || !response.ok) && feedUrl) {
+      attemptedApproaches.push('feedurl');
+      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&feedurl=${encodeURIComponent(feedUrl)}`, {
+        headers
+      });
+      
+      if (response.ok) {
+        console.log(`✅ Found episode using feedurl approach`);
+      }
+    }
+    
+    // Approach 3: Use podcastguid if previous approaches didn't work
+    if ((!response || !response.ok) && feedGuid) {
+      attemptedApproaches.push('podcastguid');
+      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&podcastguid=${encodeURIComponent(feedGuid)}`, {
+        headers
+      });
+      
+      if (response.ok) {
+        console.log(`✅ Found episode using podcastguid approach`);
+      }
+    }
+    
+    // Approach 4: Get all episodes from feed by GUID and search for our item
+    if ((!response || !response.ok) && feedGuid) {
+      attemptedApproaches.push('episodes-by-feed-guid');
+      console.log(`🔍 Fetching all episodes for feed ${feedGuid} to find ${itemGuid}`);
+      
+      const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedguid?guid=${encodeURIComponent(feedGuid)}&max=1000`, {
+        headers
+      });
+      
+      if (episodesResponse.ok) {
+        const episodesData = await episodesResponse.json();
+        if (episodesData.status === 'true' && episodesData.items) {
+          console.log(`📊 Found ${episodesData.items.length} episodes in feed`);
+          // Search for our specific episode
+          const episode = episodesData.items.find((ep: any) => ep.guid === itemGuid);
+          if (episode) {
+            console.log(`✅ Found episode in feed list: ${episode.title}`);
+            return {
+              guid: episode.guid,
+              title: episode.title,
+              description: episode.description,
+              audioUrl: episode.enclosureUrl,
+              duration: episode.duration,
+              image: episode.image || episode.feedImage,
+              publishedAt: new Date(episode.datePublished * 1000),
+              feedGuid: episode.feedGuid || feedGuid,
+              feedTitle: episode.feedTitle || episode.podcastTitle,
+              feedImage: episode.feedImage
+            };
+          } else {
+            console.log(`⚠️ Episode ${itemGuid} not found among ${episodesData.items.length} episodes`);
+          }
+        }
+      }
+    }
+    
+    // Approach 5: Try to get episodes by feedId if we have it
+    if ((!response || !response.ok) && feedId) {
+      attemptedApproaches.push('episodes-by-feed-id');
+      console.log(`🔍 Fetching all episodes for feedId ${feedId} to find ${itemGuid}`);
+      
+      const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=1000`, {
+        headers
+      });
+      
+      if (episodesResponse.ok) {
+        const episodesData = await episodesResponse.json();
+        if (episodesData.status === 'true' && episodesData.items) {
+          console.log(`📊 Found ${episodesData.items.length} episodes in feedId`);
+          // Search for our specific episode
+          const episode = episodesData.items.find((ep: any) => ep.guid === itemGuid);
+          if (episode) {
+            console.log(`✅ Found episode in feedId list: ${episode.title}`);
+            return {
+              guid: episode.guid,
+              title: episode.title,
+              description: episode.description,
+              audioUrl: episode.enclosureUrl,
+              duration: episode.duration,
+              image: episode.image || episode.feedImage,
+              publishedAt: new Date(episode.datePublished * 1000),
+              feedGuid: episode.feedGuid || feedGuid,
+              feedTitle: episode.feedTitle || episode.podcastTitle,
+              feedImage: episode.feedImage
+            };
+          }
+        }
+      }
+    }
+    
+    if (!response || !response.ok) {
+      console.warn(`⚠️ All approaches failed for item ${itemGuid}. Attempted: ${attemptedApproaches.join(', ')}`);
+      if (response) {
+        const errorData = await response.json();
+        console.warn(`⚠️ Last error: ${response.status} ${response.statusText} - ${errorData.description || 'No description'}`);
+      }
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.status === 'true' && data.episode) {
+      const episode = data.episode;
+      console.log(`✅ Resolved item GUID ${itemGuid} to: ${episode.title}`);
+      
+      return {
+        guid: episode.guid,
+        title: episode.title,
+        description: episode.description,
+        audioUrl: episode.enclosureUrl,
+        duration: episode.duration,
+        image: episode.image,
+        publishedAt: new Date(episode.datePublished * 1000),
+        feedGuid: episode.feedGuid || feedGuid,
+        feedTitle: episode.feedTitle,
+        feedImage: episode.feedImage
+      };
+    } else {
+      console.warn(`⚠️ No episode found for GUID: ${itemGuid} (API returned status: ${data.status})`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Error resolving item GUID ${itemGuid}:`, error);
+    return null;
+  }
 }
 
 export async function processPlaylistFeedDiscovery(remoteItems: Array<{ feedGuid: string; itemGuid: string }>): Promise<number> {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { processPlaylistFeedDiscovery } from '@/lib/feed-discovery';
+import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 
 const prisma = new PrismaClient();
 
@@ -71,8 +71,9 @@ export async function GET(request: Request) {
   try {
     console.log('🎵 Fetching HGH playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
 
-    // Check cache first
-    if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION) {
+    // Check cache first (disable for API resolution testing)
+    const forceRefresh = new URL(request.url).searchParams.has('refresh');
+    if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION && !forceRefresh) {
       console.log('⚡ Using cached playlist data');
       return NextResponse.json(playlistCache.data);
     }
@@ -250,8 +251,9 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
     const resolvedTracks: any[] = [];
+    const unresolvedItems: RemoteItem[] = [];
 
-    // Resolve each playlist item to an actual track
+    // First pass: resolve items found in database
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
 
@@ -280,7 +282,55 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
 
         resolvedTracks.push(resolvedTrack);
       } else {
-        console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+        unresolvedItems.push(remoteItem);
+      }
+    }
+
+    console.log(`📊 Found ${resolvedTracks.length} tracks in database, ${unresolvedItems.length} need API resolution`);
+
+    // Second pass: resolve unresolved items using Podcast Index API
+    if (unresolvedItems.length > 0) {
+      console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
+      
+      for (const remoteItem of unresolvedItems.slice(0, 200)) { // Process more tracks for better resolution
+        try {
+          const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
+          
+          if (apiResult) {
+            const resolvedTrack = {
+              id: `api-${remoteItem.itemGuid}`,
+              title: apiResult.title || 'Unknown Track',
+              artist: apiResult.feedTitle || 'Unknown Artist',
+              audioUrl: apiResult.audioUrl || '',
+              url: apiResult.audioUrl || '',
+              duration: apiResult.duration || 0,
+              publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
+              image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
+              albumTitle: apiResult.feedTitle,
+              feedTitle: apiResult.feedTitle,
+              feedId: `api-feed-${remoteItem.feedGuid}`,
+              guid: apiResult.guid,
+              description: apiResult.description,
+              // Add playlist context
+              playlistContext: {
+                feedGuid: remoteItem.feedGuid,
+                itemGuid: remoteItem.itemGuid,
+                source: 'hgh-playlist',
+                resolvedViaAPI: true
+              }
+            };
+
+            resolvedTracks.push(resolvedTrack);
+            console.log(`✅ API resolved: ${apiResult.title} by ${apiResult.feedTitle}`);
+          } else {
+            console.log(`⚠️ Could not resolve via API: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 

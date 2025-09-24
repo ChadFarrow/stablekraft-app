@@ -4,6 +4,7 @@ import { generateAlbumSlug } from '@/lib/url-utils';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
+const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
 
 interface RemoteItem {
   feedGuid: string;
@@ -313,6 +314,117 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         funding: null,
         feedId: 'hgh-playlist',
         feedUrl: HGH_PLAYLIST_URL,
+        lastUpdated: new Date().toISOString()
+      };
+
+      console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
+
+      return NextResponse.json({
+        album: playlistAlbum,
+        lastUpdated: new Date().toISOString()
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'ETag': `"${Date.now()}"`,
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY'
+        }
+      });
+    }
+
+    // Handle IAM playlist
+    if (slug === 'iam-playlist' || slug === 'its-a-mood-music-playlist') {
+      console.log('🎵 Fetching IAM playlist album details...');
+
+      // Fetch the playlist XML
+      const response = await fetch(IAM_PLAYLIST_URL, {
+        headers: {
+          'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch playlist: ${response.status}`);
+      }
+
+      const xmlText = await response.text();
+      console.log('📄 Fetched playlist XML, length:', xmlText.length);
+
+      // Parse the XML to extract remote items and artwork
+      const remoteItems = parseRemoteItems(xmlText);
+      const artworkUrl = parseArtworkUrl(xmlText);
+      console.log('📋 Found remote items:', remoteItems.length);
+      console.log('🎨 Found artwork URL:', artworkUrl);
+
+      // Resolve playlist items to get actual track data from the database
+      console.log('🔍 Resolving playlist items to actual tracks...');
+      const resolvedTracks = await resolvePlaylistItems(remoteItems, 'iam-playlist');
+      console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
+
+      // Create a map of resolved tracks by itemGuid for quick lookup
+      const resolvedTrackMap = new Map(
+        resolvedTracks.map(track => [track.playlistContext?.itemGuid, track])
+      );
+
+      // Create tracks for ALL remote items, using resolved data when available
+      const tracks = remoteItems.map((item, index) => {
+        const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
+
+        if (resolvedTrack) {
+          // Use real track data
+          return {
+            title: resolvedTrack.title,
+            duration: resolvedTrack.duration ? `${Math.floor(resolvedTrack.duration / 60)}:${(resolvedTrack.duration % 60).toString().padStart(2, '0')}` : '3:00',
+            url: resolvedTrack.audioUrl || '',
+            trackNumber: index + 1,
+            subtitle: resolvedTrack.artist,
+            summary: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in It's A Mood podcast (from ${resolvedTrack.feedTitle})`,
+            image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: [],
+            albumTitle: resolvedTrack.albumTitle,
+            feedTitle: resolvedTrack.feedTitle,
+            guid: resolvedTrack.guid
+          };
+        } else {
+          // Use placeholder data
+          return {
+            title: `Music Reference #${index + 1}`,
+            duration: '3:00',
+            url: '',
+            trackNumber: index + 1,
+            subtitle: 'Featured in It\'s A Mood Podcast',
+            summary: `Music track referenced in It's A Mood podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`,
+            image: artworkUrl || '/placeholder-podcast.jpg',
+            explicit: false,
+            keywords: []
+          };
+        }
+      });
+
+      // Create the album object compatible with AlbumDetailClient
+      const playlistAlbum = {
+        id: 'iam-playlist',
+        title: 'It\'s A Mood Music Playlist',
+        artist: 'Various Artists',
+        description: 'Every music reference from It\'s A Mood podcast',
+        summary: 'Every music reference from It\'s A Mood podcast',
+        subtitle: '',
+        coverArt: artworkUrl || '/placeholder-podcast.jpg',
+        releaseDate: new Date().toISOString(),
+        explicit: false,
+        tracks: tracks,
+        podroll: null,
+        publisher: null,
+        funding: null,
+        feedId: 'iam-playlist',
+        feedUrl: IAM_PLAYLIST_URL,
         lastUpdated: new Date().toISOString()
       };
 

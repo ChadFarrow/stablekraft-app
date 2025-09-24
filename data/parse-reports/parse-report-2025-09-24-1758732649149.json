@@ -1,0 +1,65 @@
+{
+  "totalFeeds": 572,
+  "successfulParses": 556,
+  "failedParses": 16,
+  "albumsFound": 546,
+  "publishersFound": 10,
+  "totalTracks": 2664,
+  "totalDuration": "NaN:NaN",
+  "podRollFeeds": 0,
+  "fundingFeeds": 0,
+  "parseTime": 290951,
+  "timestamp": "2025-09-24T16:50:49.149Z",
+  "errors": [
+    {
+      "feedId": "example-com-test-feed-xml",
+      "feedUrl": "https://example.com/test-feed.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "my-friend-jimi-chasing-waterfalls",
+      "feedUrl": "https://wavlake.com/feed/music/ef800a88-9a1c-4f8e-a7c5-f83d7d9b1c87",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "my-friend-jimi-bullet-train",
+      "feedUrl": "https://wavlake.com/feed/music/b6d8f17c-f448-4085-8ce2-8b247eb26e63",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "rock-n-roll-breakheart-2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "ariel-powell-the-leaves-shimmering-gold",
+      "feedUrl": "https://assets.libsyn.com/show/465249/the_leaves_shimmering_gold.xml",
+      "error": "Invalid RSS content received"
+    },
+    {
+      "feedId": "ariel-powell-you-re-ok-single-",
+      "feedUrl": "https://thebearsnare.com/youreok2.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "daniel-aragay-protologic-music",
+      "feedUrl": "https://www.haciendoelsueco.com/feed/protologic/",
+      "error": "Failed to fetch RSS feed"
+    },
+    {
+      "feedId": "torcon-7-torcon-vii",
+      "feedUrl": "https://feeds.podcastindex.org/Album-TourconVII.xml",
+      "error": "Failed to fetch RSS feed: 403"
+    },
+    {
+      "feedId": "able-kirby-november-ep",
+      "feedUrl": "https://bobcatindex.us-southeast-1.linodeobjects.com/AbleKirby_NovemberEP.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    }
+  ]
+}

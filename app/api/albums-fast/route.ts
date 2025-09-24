@@ -19,6 +19,64 @@ let cachedData: CachedData | null = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for database results
 
+// Separate cache for playlist data to avoid re-fetching playlists every time
+let playlistCache: any[] | null = null;
+let playlistCacheTimestamp = 0;
+const PLAYLIST_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for playlists
+
+// Function to get playlist albums
+async function getPlaylistAlbums() {
+  try {
+    const now = Date.now();
+    
+    // Check if we have cached playlist data and it's still fresh
+    if (playlistCache && (now - playlistCacheTimestamp) < PLAYLIST_CACHE_DURATION) {
+      console.log('⚡ Using cached playlist data');
+      return playlistCache;
+    }
+    
+    console.log('🔄 Fetching playlist data...');
+    const playlistAlbums = [];
+    
+    // Fetch HGH playlist
+    const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/hgh`);
+    if (hghResponse.ok) {
+      const hghData = await hghResponse.json();
+      if (hghData.success && hghData.albums && hghData.albums.length > 0) {
+        playlistAlbums.push(hghData.albums[0]);
+      }
+    }
+    
+    // Fetch ITDV playlist
+    const itdvResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/itdv`);
+    if (itdvResponse.ok) {
+      const itdvData = await itdvResponse.json();
+      if (itdvData.success && itdvData.albums && itdvData.albums.length > 0) {
+        playlistAlbums.push(itdvData.albums[0]);
+      }
+    }
+    
+    // Fetch IAM playlist
+    const iamResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/iam`);
+    if (iamResponse.ok) {
+      const iamData = await iamResponse.json();
+      if (iamData.success && iamData.albums && iamData.albums.length > 0) {
+        playlistAlbums.push(iamData.albums[0]);
+      }
+    }
+    
+    // Cache the results
+    playlistCache = playlistAlbums;
+    playlistCacheTimestamp = now;
+    
+    console.log(`✅ Cached ${playlistAlbums.length} playlists for fast access`);
+    return playlistAlbums;
+  } catch (error) {
+    console.error('Error fetching playlist albums:', error);
+    return playlistCache || []; // Return cached data if available, empty array otherwise
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -179,6 +237,10 @@ export async function GET(request: Request) {
             album.tracks && album.tracks.length === 1
           );
           break;
+        case 'playlist':
+          // Start with empty array for playlist filter - playlists will be added after this
+          filteredAlbums = [];
+          break;
       }
     }
     
@@ -208,6 +270,14 @@ export async function GET(request: Request) {
       // Then sort alphabetically by title within each format
       return a.title.localeCompare(b.title);
     });
+    
+    // Add playlist albums only when specifically requesting playlists
+    if (filter === 'playlist') {
+      const playlistAlbums = await getPlaylistAlbums();
+      if (playlistAlbums.length > 0) {
+        filteredAlbums.push(...playlistAlbums);
+      }
+    }
     
     // Apply pagination
     const totalCount = filteredAlbums.length;

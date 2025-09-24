@@ -482,10 +482,11 @@ export default function HomePage() {
       if (filter === 'playlist') {
         console.log('🎵 Loading playlists...');
 
-        // Load both ITDV and HGH playlists in parallel
-        const [itdvResponse, hghResponse] = await Promise.allSettled([
+        // Load ITDV, HGH, and IAM playlists in parallel
+        const [itdvResponse, hghResponse, iamResponse] = await Promise.allSettled([
           fetch('/api/playlist/itdv'),
-          fetch('/api/playlist/hgh')
+          fetch('/api/playlist/hgh'),
+          fetch('/api/playlist/iam')
         ]);
 
         const allAlbums: any[] = [];
@@ -510,6 +511,17 @@ export default function HomePage() {
           }
         } else {
           console.warn('⚠️ Failed to load HGH playlist');
+        }
+
+        // Process IAM playlist
+        if (iamResponse.status === 'fulfilled' && iamResponse.value.ok) {
+          const iamData = await iamResponse.value.json();
+          if (iamData.success && iamData.albums) {
+            allAlbums.push(...iamData.albums);
+            console.log(`✅ Loaded ${iamData.albums.length} IAM playlist albums`);
+          }
+        } else {
+          console.warn('⚠️ Failed to load IAM playlist');
         }
 
         // Return all playlist albums
