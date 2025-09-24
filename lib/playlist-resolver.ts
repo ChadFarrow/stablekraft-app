@@ -97,7 +97,7 @@ export async function resolvePlaylistItems(
           albumTitle: track.feed.title,
           feedTitle: track.feed.title,
           feedId: track.feed.id,
-          guid: track.guid,
+          guid: track.guid || undefined,
           // Add playlist context
           playlistContext: {
             feedGuid: remoteItem.feedGuid,

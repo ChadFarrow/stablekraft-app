@@ -33,7 +33,6 @@ interface PodcastIndexResponse {
     categories: Record<string, string>;
     locked: number;
     explicit: boolean;
-    podcastGuid: string;
     medium: string;
   }>;
   count: number;
@@ -236,47 +235,11 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
     }
     
     // Now try to get the episode using different approaches
-    let response: Response | null = null;
+    // Note: episodes/byguid endpoint seems unreliable, so we'll focus on the episodes list approaches
     let attemptedApproaches: string[] = [];
     
-    // Approach 1: Use feedid if available
-    if (feedId) {
-      attemptedApproaches.push('feedid');
-      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&feedid=${feedId}`, {
-        headers
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Found episode using feedid approach`);
-      }
-    }
-    
-    // Approach 2: Use feedurl if feedid didn't work
-    if ((!response || !response.ok) && feedUrl) {
-      attemptedApproaches.push('feedurl');
-      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&feedurl=${encodeURIComponent(feedUrl)}`, {
-        headers
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Found episode using feedurl approach`);
-      }
-    }
-    
-    // Approach 3: Use podcastguid if previous approaches didn't work
-    if ((!response || !response.ok) && feedGuid) {
-      attemptedApproaches.push('podcastguid');
-      response = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}&podcastguid=${encodeURIComponent(feedGuid)}`, {
-        headers
-      });
-      
-      if (response.ok) {
-        console.log(`✅ Found episode using podcastguid approach`);
-      }
-    }
-    
-    // Approach 4: Get all episodes from feed by GUID and search for our item
-    if ((!response || !response.ok) && feedGuid) {
+    // Approach 1: Get all episodes from feed by GUID and search for our item
+    if (feedGuid) {
       attemptedApproaches.push('episodes-by-feed-guid');
       console.log(`🔍 Fetching all episodes for feed ${feedGuid} to find ${itemGuid}`);
       
@@ -311,8 +274,8 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
       }
     }
     
-    // Approach 5: Try to get episodes by feedId if we have it
-    if ((!response || !response.ok) && feedId) {
+    // Approach 2: Try to get episodes by feedId if we have it
+    if (feedId) {
       attemptedApproaches.push('episodes-by-feed-id');
       console.log(`🔍 Fetching all episodes for feedId ${feedId} to find ${itemGuid}`);
       
@@ -345,37 +308,9 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
       }
     }
     
-    if (!response || !response.ok) {
-      console.warn(`⚠️ All approaches failed for item ${itemGuid}. Attempted: ${attemptedApproaches.join(', ')}`);
-      if (response) {
-        const errorData = await response.json();
-        console.warn(`⚠️ Last error: ${response.status} ${response.statusText} - ${errorData.description || 'No description'}`);
-      }
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (data.status === 'true' && data.episode) {
-      const episode = data.episode;
-      console.log(`✅ Resolved item GUID ${itemGuid} to: ${episode.title}`);
-      
-      return {
-        guid: episode.guid,
-        title: episode.title,
-        description: episode.description,
-        audioUrl: episode.enclosureUrl,
-        duration: episode.duration,
-        image: episode.image,
-        publishedAt: new Date(episode.datePublished * 1000),
-        feedGuid: episode.feedGuid || feedGuid,
-        feedTitle: episode.feedTitle,
-        feedImage: episode.feedImage
-      };
-    } else {
-      console.warn(`⚠️ No episode found for GUID: ${itemGuid} (API returned status: ${data.status})`);
-      return null;
-    }
+    // If we get here, all approaches failed
+    console.warn(`⚠️ All approaches failed for item ${itemGuid}. Attempted: ${attemptedApproaches.join(', ')}`);
+    return null;
   } catch (error) {
     console.error(`❌ Error resolving item GUID ${itemGuid}:`, error);
     return null;
