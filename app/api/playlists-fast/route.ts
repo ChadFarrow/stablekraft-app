@@ -119,7 +119,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml',
         feedId: 'mmm-playlist',
         type: 'playlist',
-        totalTracks: 100, // Estimated count
+        totalTracks: 1468, // Actual count - 100% resolved with placeholders
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmm',
