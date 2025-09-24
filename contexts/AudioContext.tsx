@@ -24,6 +24,10 @@ interface AudioContextType {
   isFullscreenMode: boolean;
   setFullscreenMode: (fullscreen: boolean) => void;
   
+  // Repeat mode
+  repeatMode: 'none' | 'one' | 'all';
+  setRepeatMode: (mode: 'none' | 'one' | 'all') => void;
+  
   // Audio controls
   playAlbum: (album: RSSAlbum, trackIndex?: number) => Promise<boolean>;
   playTrack: (audioUrl: string, startTime?: number, endTime?: number) => Promise<boolean>;
@@ -79,6 +83,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   
   // UI state
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('none');
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1061,6 +1066,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }
 
     // Normal mode - play next track in current album
+    
+    // Handle repeat one mode
+    if (repeatMode === 'one') {
+      // Replay the same track
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔂 Repeat one: replaying current track');
+      }
+      await playAlbum(currentPlayingAlbum, currentTrackIndex);
+      return;
+    }
+    
     const nextIndex = currentTrackIndex + 1;
 
     if (nextIndex < currentPlayingAlbum.tracks.length) {
@@ -1070,13 +1086,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
       await playAlbum(currentPlayingAlbum, nextIndex);
     } else {
-      // End of album - loop back to the first track
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔁 End of album reached, looping back to first track');
+      // End of album reached
+      if (repeatMode === 'all') {
+        // Loop back to the first track
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔁 Repeat all: looping back to first track');
+        }
+        await playAlbum(currentPlayingAlbum, 0);
+      } else {
+        // repeatMode === 'none' - stop playback
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⏹️ End of album reached, stopping playback');
+        }
+        setIsPlaying(false);
+        // Optionally reset to first track but don't play
+        setCurrentTrackIndex(0);
       }
-      await playAlbum(currentPlayingAlbum, 0);
     }
-  }, [currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, playShuffledTrack, playAlbum]);
+  }, [currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, playShuffledTrack, playAlbum, repeatMode]);
 
   // Update the ref whenever playNextTrack changes
   useEffect(() => {
@@ -1123,6 +1150,23 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     
     // Set user interaction flag
     setHasUserInteracted(true);
+    
+    // Create a single-track "album" to enable repeat functionality
+    const singleTrackAlbum: RSSAlbum = {
+      title: 'Single Track',
+      artist: 'Unknown Artist',
+      tracks: [{
+        title: 'Track',
+        url: audioUrl,
+        startTime,
+        endTime,
+        duration: 0 // Will be updated when metadata loads
+      }]
+    };
+    
+    // Set the album context so repeat works
+    setCurrentPlayingAlbum(singleTrackAlbum);
+    setCurrentTrackIndex(0);
     
     // Attempt to play the track
     const success = await attemptAudioPlayback(audioUrl, 'individual track');
@@ -1193,6 +1237,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     isShuffleMode,
     isFullscreenMode,
     setFullscreenMode: setIsFullscreenMode,
+    repeatMode,
+    setRepeatMode,
     playAlbum,
     playTrack,
     playShuffledTrack,

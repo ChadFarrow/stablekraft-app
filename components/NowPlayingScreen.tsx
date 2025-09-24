@@ -19,6 +19,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
     currentTime,
     duration,
     isShuffleMode,
+    repeatMode,
+    setRepeatMode,
     playNextTrack,
     playPreviousTrack,
     pause,
@@ -29,7 +31,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   const [isDragging, setIsDragging] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
-  const [isRepeatMode, setIsRepeatMode] = useState(false);
   const [dominantColor, setDominantColor] = useState('#1A252F');
   
   const progressRef = useRef<HTMLDivElement>(null);
@@ -220,14 +221,31 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             </button>
             
             <button
-              onClick={() => setIsRepeatMode(!isRepeatMode)}
-              className={`p-2 rounded-full transition-all duration-200 ${
-                isRepeatMode 
+              onClick={() => {
+                // Cycle through repeat modes: none -> all -> one -> none
+                const nextMode = repeatMode === 'none' ? 'all' : 
+                                repeatMode === 'all' ? 'one' : 
+                                'none';
+                console.log('🔂 Fullscreen repeat button clicked:', { currentMode: repeatMode, nextMode });
+                setRepeatMode(nextMode);
+              }}
+              className={`p-2 rounded-full transition-all duration-200 relative ${
+                repeatMode !== 'none'
                   ? 'bg-white/30 text-white' 
                   : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
               }`}
+              title={
+                repeatMode === 'none' ? 'Enable repeat' : 
+                repeatMode === 'one' ? 'Repeat one' : 
+                'Repeat all'
+              }
             >
               <Repeat className="w-5 h-5" />
+              {repeatMode === 'one' && (
+                <span className="absolute -top-1 -right-1 bg-white text-black text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                  1
+                </span>
+              )}
             </button>
           </div>
 

@@ -39,12 +39,25 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const tier = searchParams.get('tier') || 'all';
     const feedId = searchParams.get('feedId');
-    const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all, playlist
+    const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all, playlist, publisher
     
     console.log(`🎵 Albums API request: limit=${limit}, offset=${offset}, tier=${tier}, feedId=${feedId}, filter=${filter}`);
     
-    // Build where clause for feeds
-    const feedWhere: any = { status: 'active' };
+    // Build where clause for feeds based on filter
+    const feedWhere: any = { 
+      status: 'active'
+    };
+
+    // Apply type filtering based on filter parameter
+    if (filter === 'publisher') {
+      // Only show publisher feeds when explicitly requested
+      feedWhere.type = 'publisher';
+    } else {
+      // For all other filters, exclude podcasts and publisher feeds
+      feedWhere.type = { 
+        notIn: ['podcast', 'publisher']
+      };
+    }
     
     // Apply tier filtering if specified
     if (tier !== 'all') {

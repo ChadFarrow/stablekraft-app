@@ -12,6 +12,8 @@ const GlobalNowPlayingBar: React.FC = () => {
     currentTime,
     duration,
     isShuffleMode,
+    repeatMode,
+    setRepeatMode,
     isFullscreenMode,
     setFullscreenMode,
     pause,
@@ -55,6 +57,15 @@ const GlobalNowPlayingBar: React.FC = () => {
     setFullscreenMode(true);
   };
 
+  const handleToggleRepeat = () => {
+    // Cycle through repeat modes: none -> all -> one -> none
+    const nextMode = repeatMode === 'none' ? 'all' : 
+                     repeatMode === 'all' ? 'one' : 
+                     'none';
+    console.log('🔂 Repeat button clicked:', { currentMode: repeatMode, nextMode });
+    setRepeatMode(nextMode);
+  };
+
   // Create track object for NowPlaying component
   const currentTrack = {
     title: currentPlayingAlbum.tracks?.[currentTrackIndex]?.title || `Track ${currentTrackIndex + 1}`,
@@ -96,6 +107,7 @@ const GlobalNowPlayingBar: React.FC = () => {
         currentTime={currentTime}
         volume={volume}
         isShuffleMode={isShuffleMode}
+        repeatMode={repeatMode}
         onPlayPause={handlePlayPause}
         onPrevious={playPreviousTrack}
         onNext={playNextTrack}
@@ -103,6 +115,7 @@ const GlobalNowPlayingBar: React.FC = () => {
         onVolumeChange={handleVolumeChange}
         onClose={handleClose}
         onToggleShuffle={toggleShuffle}
+        onToggleRepeat={handleToggleRepeat}
         onOpenFullscreen={handleOpenFullscreen}
       />
     </div>
