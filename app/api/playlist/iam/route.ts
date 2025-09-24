@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
+import { playlistCache } from '@/lib/playlist-cache';
 
 const prisma = new PrismaClient();
 
 const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
 
-// Simple cache to prevent multiple rapid calls
-let playlistCache: { data: any; timestamp: number } | null = null;
-const CACHE_DURATION = 1000 * 60 * 30; // 30 minute cache for better performance
-
-// Cache is enabled for production performance
-// playlistCache = null;
+// Persistent cache duration - 7 days for static playlists (they rarely change)
+const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 interface RemoteItem {
   feedGuid: string;
@@ -71,11 +68,16 @@ export async function GET(request: Request) {
   try {
     console.log('🎵 Fetching IAM playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
 
-    // Check cache first (disable for API resolution testing)
+    // Check for force refresh parameter
     const forceRefresh = new URL(request.url).searchParams.has('refresh');
-    if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION && !forceRefresh) {
-      console.log('⚡ Using cached playlist data');
-      return NextResponse.json(playlistCache.data);
+    
+    // Check persistent cache first
+    if (!forceRefresh && playlistCache.isCacheValid('iam-playlist', CACHE_DURATION)) {
+      const cachedData = playlistCache.getCachedData('iam-playlist');
+      if (cachedData) {
+        console.log('⚡ Using persistent cached playlist data');
+        return NextResponse.json(cachedData);
+      }
     }
 
     // Fetch the playlist XML
@@ -205,11 +207,8 @@ export async function GET(request: Request) {
       }
     };
 
-    // Cache the response
-    playlistCache = {
-      data: responseData,
-      timestamp: Date.now()
-    };
+    // Cache the response to persistent storage
+    playlistCache.setCachedData('iam-playlist', responseData);
 
     return NextResponse.json(responseData);
 
