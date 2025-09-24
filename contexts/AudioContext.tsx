@@ -1155,6 +1155,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const singleTrackAlbum: RSSAlbum = {
       title: 'Single Track',
       artist: 'Unknown Artist',
+      description: '',
+      coverArt: null,
+      releaseDate: new Date().toISOString(),
       tracks: [{
         title: 'Track',
         url: audioUrl,
