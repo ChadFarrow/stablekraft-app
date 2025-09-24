@@ -1160,7 +1160,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         url: audioUrl,
         startTime,
         endTime,
-        duration: 0 // Will be updated when metadata loads
+        duration: '0' // Will be updated when metadata loads
       }]
     };
     
