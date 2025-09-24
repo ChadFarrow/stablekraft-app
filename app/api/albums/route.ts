@@ -223,24 +223,49 @@ export async function GET(request: Request) {
       };
     });
     
+    // Filter out Bowl After Bowl main podcast content but keep music covers
+    const podcastFilteredAlbums = transformedAlbums.filter(album => {
+      const albumTitle = album.title?.toLowerCase() || '';
+      const albumArtist = album.artist?.toLowerCase() || '';
+      const feedUrl = album.feedUrl?.toLowerCase() || '';
+      
+      // Keep Bowl Covers - these are legitimate music content
+      if (album.feedId === 'bowl-covers' || albumTitle.includes('bowl covers')) {
+        return true;
+      }
+      
+      // Filter out main Bowl After Bowl podcast episodes
+      const isBowlAfterBowlPodcast = (
+        (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+        (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+        (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.feedId !== 'bowl-covers')
+      );
+      
+      if (isBowlAfterBowlPodcast) {
+        console.log(`🚫 Filtering out Bowl After Bowl podcast: ${album.title} by ${album.artist}`);
+      }
+      
+      return !isBowlAfterBowlPodcast;
+    });
+    
     // Apply filtering by type
-    let filteredAlbums = transformedAlbums;
+    let filteredAlbums = podcastFilteredAlbums;
     if (filter !== 'all') {
       switch (filter) {
         case 'albums':
-          filteredAlbums = transformedAlbums.filter(album => album.tracks.length > 6);
+          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length > 6);
           break;
         case 'eps':
-          filteredAlbums = transformedAlbums.filter(album => album.tracks.length > 1 && album.tracks.length <= 6);
+          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length > 1 && album.tracks.length <= 6);
           break;
         case 'singles':
-          filteredAlbums = transformedAlbums.filter(album => album.tracks.length === 1);
+          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length === 1);
           break;
         case 'playlist':
-          filteredAlbums = transformedAlbums.filter(album => album.podroll !== null);
+          filteredAlbums = podcastFilteredAlbums.filter(album => album.podroll !== null);
           break;
         default:
-          filteredAlbums = transformedAlbums;
+          filteredAlbums = podcastFilteredAlbums;
       }
     }
     

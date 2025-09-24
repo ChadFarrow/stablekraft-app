@@ -135,22 +135,47 @@ export async function GET(request: Request) {
         }))
     }));
     
+    // Filter out Bowl After Bowl main podcast content but keep music covers
+    const podcastFilteredAlbums = albums.filter(album => {
+      const albumTitle = album.title?.toLowerCase() || '';
+      const albumArtist = album.artist?.toLowerCase() || '';
+      const feedUrl = album.feedUrl?.toLowerCase() || '';
+      
+      // Keep Bowl Covers - these are legitimate music content
+      if (album.id === 'bowl-covers' || albumTitle.includes('bowl covers')) {
+        return true;
+      }
+      
+      // Filter out main Bowl After Bowl podcast episodes
+      const isBowlAfterBowlPodcast = (
+        (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+        (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+        (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
+      );
+      
+      if (isBowlAfterBowlPodcast) {
+        console.log(`🚫 Filtering out Bowl After Bowl podcast: ${album.title} by ${album.artist}`);
+      }
+      
+      return !isBowlAfterBowlPodcast;
+    });
+    
     // Apply filtering
-    let filteredAlbums = albums;
+    let filteredAlbums = podcastFilteredAlbums;
     if (filter !== 'all') {
       switch (filter) {
         case 'albums':
-          filteredAlbums = albums.filter(album => 
+          filteredAlbums = podcastFilteredAlbums.filter(album => 
             album.tracks && album.tracks.length >= 8
           );
           break;
         case 'eps':
-          filteredAlbums = albums.filter(album => 
+          filteredAlbums = podcastFilteredAlbums.filter(album => 
             album.tracks && album.tracks.length >= 2 && album.tracks.length < 8
           );
           break;
         case 'singles':
-          filteredAlbums = albums.filter(album => 
+          filteredAlbums = podcastFilteredAlbums.filter(album => 
             album.tracks && album.tracks.length === 1
           );
           break;

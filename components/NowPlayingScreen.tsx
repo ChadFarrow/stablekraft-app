@@ -7,11 +7,11 @@ import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { extractDominantColor, adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 
 interface NowPlayingScreenProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenProps) {
+export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenProps = {}) {
   const {
     currentPlayingAlbum,
     isPlaying,
@@ -27,6 +27,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
     resume,
     seek,
     toggleShuffle,
+    isFullscreenMode,
+    setFullscreenMode,
   } = useAudio();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -86,7 +88,10 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  if (!isOpen || !currentPlayingAlbum || !currentTrack) {
+  // Use isFullscreenMode from AudioContext if isOpen prop is not provided
+  const shouldShow = isOpen !== undefined ? isOpen : isFullscreenMode;
+  
+  if (!shouldShow || !currentPlayingAlbum || !currentTrack) {
     return null;
   }
 
@@ -112,7 +117,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (onClose) {
+                onClose();
+              } else {
+                setFullscreenMode(false);
+              }
+            }}
             className="p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
           >
             <ChevronDown className="w-6 h-6" />

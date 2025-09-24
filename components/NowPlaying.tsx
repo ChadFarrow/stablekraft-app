@@ -89,7 +89,14 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
     <div className="container mx-auto flex items-center gap-4">
       {/* Album Info - Left Side */}
       <div
-        className="flex items-center gap-3 min-w-0 flex-1 hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors"
+        className="flex items-center gap-3 min-w-0 flex-1 hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors cursor-pointer"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onOpenFullscreen) {
+            onOpenFullscreen();
+          }
+        }}
       >
         <CDNImage 
           key={`${track.title}-${track.artist}-${track.albumArt}`}
@@ -128,32 +135,6 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             </svg>
           </button>
         )}
-
-        {/* Repeat Button */}
-        {onToggleRepeat && (
-          <button
-            onClick={onToggleRepeat}
-            className={`rounded-full p-2 transition-colors relative ${
-              repeatMode !== 'none'
-                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                : 'bg-gray-600 hover:bg-gray-500 text-white'
-            }`}
-            title={
-              repeatMode === 'none' ? 'Enable repeat' : 
-              repeatMode === 'one' ? 'Repeat one' : 
-              'Repeat all'
-            }
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
-            </svg>
-            {repeatMode === 'one' && (
-              <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                1
-              </span>
-            )}
-          </button>
-        )}
         
         <button
           onClick={onPrevious}
@@ -188,6 +169,32 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
           </svg>
         </button>
+        
+        {/* Repeat Button */}
+        {onToggleRepeat && (
+          <button
+            onClick={onToggleRepeat}
+            className={`rounded-full p-2 transition-colors relative ${
+              repeatMode !== 'none'
+                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                : 'bg-gray-600 hover:bg-gray-500 text-white'
+            }`}
+            title={
+              repeatMode === 'none' ? 'Enable repeat' : 
+              repeatMode === 'one' ? 'Repeat one' : 
+              'Repeat all'
+            }
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+            </svg>
+            {repeatMode === 'one' && (
+              <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                1
+              </span>
+            )}
+          </button>
+        )}
       </div>
       
       {/* Progress Bar - Right Side */}

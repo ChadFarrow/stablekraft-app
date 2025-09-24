@@ -8,6 +8,7 @@ import { ToastContainer } from '@/components/Toast'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { LightningProvider } from '@/contexts/LightningContext'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
+import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
 
@@ -142,6 +143,7 @@ export default function RootLayout({
                     </div>
                   </div>
                   <GlobalNowPlayingBar />
+                  <NowPlayingScreen />
                   <ToastContainer />
                   <ServiceWorkerRegistration />
                 </AudioProvider>
