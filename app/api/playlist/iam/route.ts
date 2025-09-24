@@ -293,7 +293,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
       
       // Process ALL unresolved items for maximum resolution
       let processedCount = 0;
-      const maxToProcess = Math.min(unresolvedItems.length, 300); // Increase limit
+      const maxToProcess = Math.min(unresolvedItems.length, 1000); // Process up to 1000 items via API
       
       for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
         try {
@@ -330,16 +330,16 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           }
           
           processedCount++;
-          // Progress update every 10 tracks
-          if (processedCount % 10 === 0) {
-            console.log(`📊 Processed ${processedCount}/${maxToProcess} API lookups...`);
+          // Progress update every 25 tracks for better visibility
+          if (processedCount % 25 === 0) {
+            console.log(`📊 API Resolution Progress: ${processedCount}/${maxToProcess} (${((processedCount/maxToProcess)*100).toFixed(1)}%)`);
           }
         } catch (error) {
           console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
         }
         
-        // Reduce delay to 50ms - still respects rate limits but faster
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Reduce delay to 25ms - faster processing while respecting rate limits
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
     }
 
