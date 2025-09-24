@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
-import { extractDominantColor, adjustColorBrightness } from '@/lib/color-utils';
+import { extractDominantColor, adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 
 interface NowPlayingScreenProps {
   isOpen: boolean;
@@ -32,6 +32,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
   const [isDragging, setIsDragging] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
   const [dominantColor, setDominantColor] = useState('#1A252F');
+  const [contrastColors, setContrastColors] = useState({ backgroundColor: '#1A252F', textColor: '#ffffff' });
   
   const progressRef = useRef<HTMLDivElement>(null);
 
@@ -45,18 +46,24 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
     ? getAlbumArtworkUrl(currentPlayingAlbum.coverArt, 'xl')
     : '/api/placeholder/400/400';
 
-  // Extract dominant color from album art
+  // Extract dominant color from album art and ensure good contrast
   useEffect(() => {
     if (albumArt && !albumArt.includes('/api/placeholder/')) {
       extractDominantColor(albumArt)
         .then(color => {
           setDominantColor(color);
+          const colors = ensureGoodContrast(color);
+          setContrastColors(colors);
         })
         .catch(() => {
-          setDominantColor('#1A252F');
+          const fallbackColor = '#1A252F';
+          setDominantColor(fallbackColor);
+          setContrastColors({ backgroundColor: fallbackColor, textColor: '#ffffff' });
         });
     } else {
-      setDominantColor('#1A252F');
+      const fallbackColor = '#1A252F';
+      setDominantColor(fallbackColor);
+      setContrastColors({ backgroundColor: fallbackColor, textColor: '#ffffff' });
     }
   }, [albumArt, currentTrackIndex]);
 
@@ -85,17 +92,18 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Solid Color Background - ITDV Style */}
+      {/* Solid Color Background - ITDV Style with good contrast */}
       <div 
         className="absolute inset-0 transition-all duration-1000"
         style={{
-          backgroundColor: dominantColor,
-          background: `linear-gradient(180deg, ${dominantColor} 0%, ${adjustColorBrightness(dominantColor, -20)} 100%)`
+          backgroundColor: contrastColors.backgroundColor,
+          background: `linear-gradient(180deg, ${contrastColors.backgroundColor} 0%, ${adjustColorBrightness(contrastColors.backgroundColor, -20)} 100%)`
         }}
       />
       
       {/* Content */}
-      <div className="relative flex flex-col h-full text-white" style={{
+      <div className="relative flex flex-col h-full" style={{
+        color: contrastColors.textColor,
         paddingTop: 'max(env(safe-area-inset-top), 40px)',
         paddingBottom: 'max(env(safe-area-inset-bottom), 20px)',
         paddingLeft: 'env(safe-area-inset-left)',
@@ -121,7 +129,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             <p 
               className="text-sm font-medium"
               style={{
-                color: 'white',
+                color: contrastColors.textColor,
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
                 fontWeight: '500'
               }}
@@ -131,7 +139,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             <p 
               className="text-sm font-semibold truncate"
               style={{
-                color: 'white',
+                color: contrastColors.textColor,
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
                 fontWeight: '600'
               }}
@@ -179,20 +187,25 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         <div className="px-8 pb-6">
           <div
             ref={progressRef}
-            className="relative h-1 bg-white/30 rounded-full cursor-pointer"
+            className="relative h-1 rounded-full cursor-pointer"
+            style={{
+              backgroundColor: `${contrastColors.textColor}30`
+            }}
             onClick={handleProgressClick}
           >
             <div
-              className="absolute h-full bg-white rounded-full transition-all duration-100"
+              className="absolute h-full rounded-full transition-all duration-100"
               style={{
                 width: `${progress}%`,
+                backgroundColor: contrastColors.textColor
               }}
             />
             <div
-              className="absolute w-3 h-3 bg-white rounded-full shadow-lg transform -translate-y-1/2 transition-all duration-100"
+              className="absolute w-3 h-3 rounded-full shadow-lg transform -translate-y-1/2 transition-all duration-100"
               style={{
                 left: `${progress}%`,
                 transform: `translateX(-50%) translateY(-50%)`,
+                backgroundColor: contrastColors.textColor,
                 boxShadow: `0 4px 12px rgba(0,0,0,0.3)`
               }}
             />
@@ -211,11 +224,15 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <div className="flex items-center justify-center gap-8 mb-6">
             <button
               onClick={toggleShuffle}
-              className={`p-2 rounded-full transition-all duration-200 ${
-                isShuffleMode 
-                  ? 'bg-white/30 text-white' 
-                  : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
-              }`}
+              className="p-2 rounded-full transition-all duration-200"
+              style={{
+                backgroundColor: isShuffleMode 
+                  ? `${contrastColors.textColor}30` 
+                  : `${contrastColors.textColor}10`,
+                color: isShuffleMode 
+                  ? contrastColors.textColor 
+                  : `${contrastColors.textColor}60`
+              }}
             >
               <Shuffle className="w-5 h-5" />
             </button>
@@ -229,11 +246,15 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 console.log('🔂 Fullscreen repeat button clicked:', { currentMode: repeatMode, nextMode });
                 setRepeatMode(nextMode);
               }}
-              className={`p-2 rounded-full transition-all duration-200 relative ${
-                repeatMode !== 'none'
-                  ? 'bg-white/30 text-white' 
-                  : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
-              }`}
+              className="p-2 rounded-full transition-all duration-200 relative"
+              style={{
+                backgroundColor: repeatMode !== 'none'
+                  ? `${contrastColors.textColor}30` 
+                  : `${contrastColors.textColor}10`,
+                color: repeatMode !== 'none'
+                  ? contrastColors.textColor 
+                  : `${contrastColors.textColor}60`
+              }}
               title={
                 repeatMode === 'none' ? 'Enable repeat' : 
                 repeatMode === 'one' ? 'Repeat one' : 
@@ -242,7 +263,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               <Repeat className="w-5 h-5" />
               {repeatMode === 'one' && (
-                <span className="absolute -top-1 -right-1 bg-white text-black text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                <span 
+                  className="absolute -top-1 -right-1 text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold"
+                  style={{
+                    backgroundColor: contrastColors.textColor,
+                    color: contrastColors.backgroundColor
+                  }}
+                >
                   1
                 </span>
               )}
@@ -253,30 +280,39 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <div className="flex items-center justify-center gap-6">
             <button
               onClick={playPreviousTrack}
-              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: `${contrastColors.textColor}20`,
+                color: contrastColors.textColor
+              }}
             >
-              <SkipBack className="w-6 h-6 text-white" />
+              <SkipBack className="w-6 h-6" />
             </button>
             
             <button
               onClick={isPlaying ? pause : resume}
-              className="p-4 rounded-full bg-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
               style={{
+                backgroundColor: contrastColors.textColor,
                 boxShadow: `0 8px 25px rgba(0,0,0,0.3)`
               }}
             >
               {isPlaying ? (
-                <Pause className="w-8 h-8" style={{ color: dominantColor }} />
+                <Pause className="w-8 h-8" style={{ color: contrastColors.backgroundColor }} />
               ) : (
-                <Play className="w-8 h-8 ml-1" style={{ color: dominantColor }} />
+                <Play className="w-8 h-8 ml-1" style={{ color: contrastColors.backgroundColor }} />
               )}
             </button>
             
             <button
               onClick={playNextTrack}
-              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="p-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: `${contrastColors.textColor}20`,
+                color: contrastColors.textColor
+              }}
             >
-              <SkipForward className="w-6 h-6 text-white" />
+              <SkipForward className="w-6 h-6" />
             </button>
           </div>
         </div>

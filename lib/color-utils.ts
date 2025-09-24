@@ -152,3 +152,58 @@ export const adjustColorBrightness = (hex: string, percent: number): string => {
     (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
     (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1)}`;
 };
+
+/**
+ * Calculate the relative luminance of a color
+ */
+export const getColorLuminance = (hex: string): number => {
+  const rgb = parseInt(hex.replace('#', ''), 16);
+  const r = (rgb >> 16) & 0xff;
+  const g = (rgb >> 8) & 0xff;
+  const b = (rgb >> 0) & 0xff;
+
+  // Convert to linear RGB
+  const [rLinear, gLinear, bLinear] = [r, g, b].map(c => {
+    c = c / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+
+  // Calculate relative luminance
+  return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+};
+
+/**
+ * Determine if a color is light or dark based on luminance
+ */
+export const isColorLight = (hex: string): boolean => {
+  return getColorLuminance(hex) > 0.5;
+};
+
+/**
+ * Get contrasting text color (black or white) for a background color
+ */
+export const getContrastingTextColor = (backgroundColor: string): string => {
+  return isColorLight(backgroundColor) ? '#000000' : '#ffffff';
+};
+
+/**
+ * Ensure good contrast by darkening light colors or using a dark overlay
+ */
+export const ensureGoodContrast = (dominantColor: string): { backgroundColor: string; textColor: string } => {
+  const isLight = isColorLight(dominantColor);
+  
+  if (isLight) {
+    // For light colors, darken significantly to ensure white text is readable
+    const darkerColor = adjustColorBrightness(dominantColor, -60);
+    return {
+      backgroundColor: darkerColor,
+      textColor: '#ffffff'
+    };
+  } else {
+    // For dark colors, use them as-is with white text
+    return {
+      backgroundColor: dominantColor,
+      textColor: '#ffffff'
+    };
+  }
+};
