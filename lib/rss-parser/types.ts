@@ -112,6 +112,7 @@ export interface RSSAlbum {
   source?: string;
   id?: string;
   feedId?: string;
+  totalTracks?: number;
   // V4V (Value4Value) fields
   value4Value?: RSSValue4Value;
 }
