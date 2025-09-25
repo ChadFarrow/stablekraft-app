@@ -205,11 +205,11 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         </div>
 
         {/* Track count badge or album count for publishers */}
-        {(album.tracks.length > 0 || isPublisherCard) && (
+        {((album.tracks?.length || 0) > 0 || isPublisherCard) && (
           <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/80 backdrop-blur-sm rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white border border-gray-600">
             {isPublisherCard 
               ? `${(album as any).albumCount || 0} ${((album as any).albumCount || 0) !== 1 ? 'releases' : 'release'}`
-              : `${album.tracks.length} ${album.tracks.length !== 1 ? 'tracks' : 'track'}`
+              : `${album.tracks?.length || 0} ${(album.tracks?.length || 0) !== 1 ? 'tracks' : 'track'}`
             }
           </div>
         )}
@@ -260,6 +260,6 @@ export default memo(AlbumCard, (prevProps, nextProps) => {
     prevProps.album.coverArt === nextProps.album.coverArt &&
     prevProps.isPlaying === nextProps.isPlaying &&
     prevProps.className === nextProps.className &&
-    prevProps.album.tracks.length === nextProps.album.tracks.length
+    (prevProps.album.tracks?.length || 0) === (nextProps.album.tracks?.length || 0)
   );
 });

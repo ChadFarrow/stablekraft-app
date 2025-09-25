@@ -501,8 +501,8 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const sortEpsAndSingles = (albums: RSSAlbum[]) => {
     return albums.sort((a, b) => {
       // First sort by type: EPs (2-6 tracks) before Singles (1 track)
-      const aIsSingle = a.tracks.length === 1;
-      const bIsSingle = b.tracks.length === 1;
+      const aIsSingle = (a.tracks?.length || 0) === 1;
+      const bIsSingle = (b.tracks?.length || 0) === 1;
       
       if (aIsSingle && !bIsSingle) return 1; // b (EP) comes first
       if (!aIsSingle && bIsSingle) return -1; // a (EP) comes first
@@ -517,8 +517,8 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   };
 
   // Separate albums from EPs/singles (6 tracks or less)
-  const albumsWithMultipleTracks = sortAlbums(albums.filter(album => album.tracks.length > 6));
-  const epsAndSingles = sortEpsAndSingles(albums.filter(album => album.tracks.length <= 6));
+  const albumsWithMultipleTracks = sortAlbums(albums.filter(album => (album.tracks?.length || 0) > 6));
+  const epsAndSingles = sortEpsAndSingles(albums.filter(album => (album.tracks?.length || 0) <= 6));
 
   if (isLoading && !publisherInfo?.title && !publisherInfo?.artist) {
     return (
@@ -600,9 +600,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   }
 
   // Calculate statistics
-  const totalTracks = albums.reduce((sum, album) => sum + album.tracks.length, 0);
+  const totalTracks = albums.reduce((sum, album) => sum + (album.tracks?.length || 0), 0);
   const totalDuration = albums.reduce((sum, album) => {
-    return sum + album.tracks.reduce((trackSum, track) => {
+    return sum + (album.tracks || []).reduce((trackSum, track) => {
       const [minutes, seconds] = track.duration.split(':').map(Number);
       return trackSum + (minutes || 0) * 60 + (seconds || 0);
     }, 0);
@@ -625,10 +625,10 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         filtered = albumsWithMultipleTracks;
         break;
       case 'eps':
-        filtered = epsAndSingles.filter(album => album.tracks.length > 1);
+        filtered = epsAndSingles.filter(album => (album.tracks?.length || 0) > 1);
         break;
       case 'singles':
-        filtered = epsAndSingles.filter(album => album.tracks.length === 1);
+        filtered = epsAndSingles.filter(album => (album.tracks?.length || 0) === 1);
         break;
       default: // 'all'
         // For &quot;All&quot;, maintain the hierarchical order: Albums, EPs, then Singles
@@ -639,12 +639,12 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     return filtered.sort((a, b) => {
       // For &quot;All&quot; filter, maintain hierarchy first, then apply sorting within each category
       if (activeFilter === 'all') {
-        const aIsAlbum = a.tracks.length > 6;
-        const bIsAlbum = b.tracks.length > 6;
-        const aIsEP = a.tracks.length > 1 && a.tracks.length <= 6;
-        const bIsEP = b.tracks.length > 1 && b.tracks.length <= 6;
-        const aIsSingle = a.tracks.length === 1;
-        const bIsSingle = b.tracks.length === 1;
+        const aIsAlbum = (a.tracks?.length || 0) > 6;
+        const bIsAlbum = (b.tracks?.length || 0) > 6;
+        const aIsEP = (a.tracks?.length || 0) > 1 && (a.tracks?.length || 0) <= 6;
+        const bIsEP = (b.tracks?.length || 0) > 1 && (b.tracks?.length || 0) <= 6;
+        const aIsSingle = (a.tracks?.length || 0) === 1;
+        const bIsSingle = (b.tracks?.length || 0) === 1;
         
         // Albums come first
         if (aIsAlbum && !bIsAlbum) return -1;
@@ -661,7 +661,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           case 'year':
             return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
           case 'tracks':
-            return b.tracks.length - a.tracks.length;
+            return (b.tracks?.length || 0) - (a.tracks?.length || 0);
           default: // name
             return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
         }
@@ -671,7 +671,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           case 'year':
             return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
           case 'tracks':
-            return b.tracks.length - a.tracks.length;
+            return (b.tracks?.length || 0) - (a.tracks?.length || 0);
           default: // name
             return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
         }
@@ -890,7 +890,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                           </div>
                           
                           <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
-                            {album.tracks.length} tracks
+                            {album.tracks?.length || 0} tracks
                           </div>
                         </div>
                         
