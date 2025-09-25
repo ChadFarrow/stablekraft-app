@@ -47,6 +47,50 @@ export async function GET() {
     // Create lightweight playlist summaries without expensive resolution
     const playlists: PlaylistSummary[] = [
       {
+        id: 'upbeats-playlist',
+        title: 'Upbeats Playlist',
+        artist: 'Various Artists',
+        album: 'Upbeats Playlist',
+        description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Upbeats-playlist-art.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Upbeats-playlist-art.webp',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Upbeats-music-playlist.xml',
+        feedId: 'upbeats-playlist',
+        type: 'playlist',
+        totalTracks: 554,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/upbeats',
+        albumUrl: '/playlist/upbeats',
+        playlistContext: {
+          source: 'upbeats-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Upbeats-music-playlist.xml'
+        }
+      },
+      {
+        id: 'b4ts-playlist',
+        title: 'Behind the Sch3m3s Music Playlist',
+        artist: 'Various Artists',
+        album: 'Behind the Sch3m3s Music Playlist',
+        description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
+        image: '/placeholder-podcast.jpg',
+        coverArt: '/placeholder-podcast.jpg',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml',
+        feedId: 'b4ts-playlist',
+        type: 'playlist',
+        totalTracks: 565,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/b4ts',
+        albumUrl: '/playlist/b4ts',
+        playlistContext: {
+          source: 'b4ts-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml'
+        }
+      },
+      {
         id: 'iam-playlist',
         title: "It's A Mood Music Playlist",
         artist: 'Various Artists',
