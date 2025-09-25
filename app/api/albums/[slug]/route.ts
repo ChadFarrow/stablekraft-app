@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug } from '@/lib/url-utils';
+import { resolveItemGuid } from '@/lib/feed-discovery';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -101,7 +102,39 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 
 
         resolvedTracks.push(resolvedTrack);
       } else {
-        console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+        // Try to resolve from Podcast Index API
+        try {
+          const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
+          
+          if (apiResult) {
+            const resolvedTrack = {
+              id: `api-${remoteItem.itemGuid}`,
+              title: apiResult.title || 'Unknown Track',
+              artist: apiResult.author || apiResult.feedTitle || 'Unknown Artist',
+              audioUrl: apiResult.enclosureUrl || '',
+              duration: apiResult.duration || 0,
+              publishedAt: apiResult.datePublished ? new Date(apiResult.datePublished * 1000).toISOString() : new Date().toISOString(),
+              image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
+              albumTitle: apiResult.feedTitle || 'Unknown Album',
+              feedTitle: apiResult.feedTitle || 'Unknown Feed',
+              feedId: remoteItem.feedGuid,
+              guid: remoteItem.itemGuid,
+              // Add playlist context
+              playlistContext: {
+                feedGuid: remoteItem.feedGuid,
+                itemGuid: remoteItem.itemGuid,
+                source: playlistSource
+              }
+            };
+
+            resolvedTracks.push(resolvedTrack);
+            console.log(`✅ Resolved ${apiResult.title} via API`);
+          } else {
+            console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+          }
+        } catch (apiError) {
+          console.log(`⚠️ API resolution failed for ${remoteItem.feedGuid}/${remoteItem.itemGuid}:`, apiError);
+        }
       }
     }
 
