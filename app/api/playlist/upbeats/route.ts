@@ -193,21 +193,16 @@ export async function GET(request: Request) {
 
     const responseData = {
       success: true,
-      albums: [playlistAlbum], // Return as single album
-      totalCount: 1,
-      playlist: {
-        title: 'Upbeats Playlist',
-        description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
-        author: 'ChadF',
-        totalItems: 1,
-        items: [playlistAlbum]
-      }
+      tracks: tracks // Return tracks directly for PlaylistTemplate compatibility
     };
 
     // Cache the response to persistent storage
     playlistCache.setCachedData('upbeats-playlist', responseData);
 
-    return NextResponse.json(responseData);
+    return NextResponse.json({
+      success: true,
+      tracks: tracks // Return tracks directly for PlaylistTemplate compatibility
+    });
 
   } catch (error) {
     console.error('❌ Error fetching Upbeats playlist:', error);
