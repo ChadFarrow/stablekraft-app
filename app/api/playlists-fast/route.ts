@@ -15,6 +15,7 @@ interface PlaylistSummary {
   feedId: string;
   type: 'playlist';
   totalTracks: number;
+  tracks: any[]; // Add tracks array for compatibility
   publishedAt: string;
   isPlaylistCard: boolean;
   playlistUrl: string;
@@ -57,6 +58,7 @@ export async function GET() {
         feedId: 'iam-playlist',
         type: 'playlist',
         totalTracks: 342,
+        tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/iam',
@@ -78,6 +80,7 @@ export async function GET() {
         feedId: 'itdv-playlist',
         type: 'playlist',
         totalTracks: 50, // Estimated count
+        tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/itdv',
@@ -99,6 +102,7 @@ export async function GET() {
         feedId: 'hgh-playlist',
         type: 'playlist',
         totalTracks: 75, // Estimated count
+        tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/hgh',
@@ -120,6 +124,7 @@ export async function GET() {
         feedId: 'mmm-playlist',
         type: 'playlist',
         totalTracks: 1468, // Actual count - 100% resolved with placeholders
+        tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmm',
