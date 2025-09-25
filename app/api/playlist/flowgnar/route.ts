@@ -90,7 +90,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      albums: [album]
+      tracks: formattedTracks
     });
 
   } catch (error) {
