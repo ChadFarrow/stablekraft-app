@@ -1,0 +1,93 @@
+{
+  "timestamp": "2025-09-25T17:50:23.873Z",
+  "testedItems": 5,
+  "results": [
+    {
+      "feedGuid": "2cfd7dfd-19e1-545b-b3f3-8465d5d1d362",
+      "itemGuid": "fafc072c-9fd8-4eca-8002-89e4b8787d75",
+      "feedResult": {
+        "found": true,
+        "title": "Midnight Breakheart",
+        "author": "Rock'n'Roll Breakheart",
+        "url": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/midnight breakheart.xml",
+        "dead": 0,
+        "lastUpdate": "2025-04-17T16:33:31.000Z",
+        "episodeCount": 6
+      },
+      "itemResult": {
+        "found": true,
+        "method": "feed_episodes",
+        "title": "Bestlegs",
+        "description": "You've got the bestlegs and an old French head...",
+        "audioUrl": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/track%201/Bestlegs.mp3",
+        "duration": 181,
+        "pubDate": "2025-04-10T04:05:06.000Z"
+      }
+    },
+    {
+      "feedGuid": "dbad52b9-6253-4a9b-bfab-246b9e839815",
+      "itemGuid": "fabc3e64-e470-4f97-bf4a-3957e481e23b",
+      "feedResult": {
+        "found": true,
+        "title": "Jimmy V - Music",
+        "author": "Jimmy V",
+        "url": "https://music.jimmyv4v.com/bands/jimmy-v/jimmy-v-collection/jimmy_v-jimmy_v_collection-rss.xml",
+        "dead": 0,
+        "lastUpdate": "2025-09-16T20:37:50.000Z",
+        "episodeCount": 11
+      },
+      "itemResult": {
+        "found": true,
+        "method": "feed_episodes",
+        "title": "Pour Me Some Water",
+        "description": "<p>Pour Me Some Water Written, recorded and produced by Jimmy V Jimmyv4v.com</p>...",
+        "audioUrl": "https://op3.dev/e/ipfspodcasting.net/e/music.jimmyv4v.com/bands/jimmy-v/jimmy-v-collection/Pour_Me_Some_Water.mp3",
+        "duration": 190,
+        "pubDate": "2024-01-03T22:13:23.000Z"
+      }
+    },
+    {
+      "feedGuid": "ece6541b-984d-5f8f-aa02-bb6d0bb1d0ca",
+      "itemGuid": "548bd314-5e9a-4374-8eae-529ac5628064",
+      "feedResult": {
+        "found": true,
+        "title": "My Man Hates Christmas",
+        "author": "M & The 501s",
+        "url": "https://static.staticsave.com/mspfiles/mmhc.xml",
+        "dead": 0,
+        "lastUpdate": "2024-12-08T18:30:20.000Z",
+        "episodeCount": 1
+      },
+      "itemResult": {
+        "found": true,
+        "method": "feed_episodes",
+        "title": "My Man Hates Christmas",
+        "description": "Written by Emily Whitehurst\nPerformed by M & The 501s\nBass: Derek Badillo\nDrums: Johnny Lightning\nGu...",
+        "audioUrl": "https://static.wixstatic.com/mp3/484406_5377bd9952ce4592bd16887e59fffb64.mp3",
+        "duration": 191,
+        "pubDate": "2024-12-08T18:19:38.000Z"
+      }
+    },
+    {
+      "feedGuid": "ad7fd2ab-ad39-5117-830c-5cfa52883744",
+      "itemGuid": "8f762ac5-3dcd-42ff-81ca-0e9720b16c00",
+      "feedResult": {
+        "error": "Invalid time value"
+      },
+      "itemResult": null
+    },
+    {
+      "feedGuid": "aaeca8b2-4243-59e9-af27-445e1b6ee7ec",
+      "itemGuid": "b2058d9c-ee82-46c5-b619-a5892cf6f0c4",
+      "feedResult": {
+        "error": "Invalid time value"
+      },
+      "itemResult": null
+    }
+  ],
+  "summary": {
+    "feedsFound": 3,
+    "itemsFound": 3,
+    "itemsWithAudio": 3
+  }
+}

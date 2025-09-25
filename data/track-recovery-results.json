@@ -1,0 +1,875 @@
+{
+  "timestamp": "2025-09-25T17:52:03.977Z",
+  "originalMissing": 59,
+  "recovered": 48,
+  "stillMissing": 11,
+  "recoveredTracks": [
+    {
+      "feedGuid": "2cfd7dfd-19e1-545b-b3f3-8465d5d1d362",
+      "itemGuid": "fafc072c-9fd8-4eca-8002-89e4b8787d75",
+      "resolvedData": {
+        "guid": "fafc072c-9fd8-4eca-8002-89e4b8787d75",
+        "title": "Bestlegs",
+        "description": "You've got the bestlegs and an old French head",
+        "audioUrl": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/track%201/Bestlegs.mp3",
+        "duration": 181,
+        "image": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/track%201/album-art.png",
+        "publishedAt": "2025-04-10T04:05:06.000Z",
+        "feedGuid": "2cfd7dfd-19e1-545b-b3f3-8465d5d1d362",
+        "feedTitle": "Midnight Breakheart",
+        "feedImage": "https://rocknrollbreakheart.com/msp/MidnightBreakheart/album-art.png",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "dbad52b9-6253-4a9b-bfab-246b9e839815",
+      "itemGuid": "fabc3e64-e470-4f97-bf4a-3957e481e23b",
+      "resolvedData": {
+        "guid": "fabc3e64-e470-4f97-bf4a-3957e481e23b",
+        "title": "Pour Me Some Water",
+        "description": "<p>Pour Me Some Water Written, recorded and produced by Jimmy V Jimmyv4v.com</p>",
+        "audioUrl": "https://op3.dev/e/ipfspodcasting.net/e/music.jimmyv4v.com/bands/jimmy-v/jimmy-v-collection/Pour_Me_Some_Water.mp3",
+        "duration": 190,
+        "image": "https://music.jimmyv4v.com/bands/jimmy-v/jimmy-v-collection/Pour_Me_Some_Water-500.jpg",
+        "publishedAt": "2024-01-03T22:13:23.000Z",
+        "feedGuid": "dbad52b9-6253-4a9b-bfab-246b9e839815",
+        "feedTitle": "Jimmy V - Music",
+        "feedImage": "https://music.jimmyv4v.com/bands/jimmy-v/jimmy-v-collection/album-1000.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "ece6541b-984d-5f8f-aa02-bb6d0bb1d0ca",
+      "itemGuid": "548bd314-5e9a-4374-8eae-529ac5628064",
+      "resolvedData": {
+        "guid": "548bd314-5e9a-4374-8eae-529ac5628064",
+        "title": "My Man Hates Christmas",
+        "description": "Written by Emily Whitehurst\nPerformed by M & The 501s\nBass: Derek Badillo\nDrums: Johnny Lightning\nGuitar: Aaron Lee Magaña\nPiano: Jaime Ramirez\nSteel Guitar: Travis Vela\nVocals: Emily Whitehurst\n\nRecorded, mixed and mastered by Spencer Ramzel at Blackbuck Recording Haus in Schertz, TX\n\nLYRICS\nI used to walk down Christmastree Lane\nTo see the lights shining and Santa ride in his sleigh\nNow there's a cloud that comes every year\nHe doesn't know how to show holiday cheer\n\nMy man hates Christmas\nMore than anyone I know\nCan't stand the stockings\nAvoids the mistletoe\nMy man hates Christmas\nWe h...",
+        "audioUrl": "https://static.wixstatic.com/mp3/484406_5377bd9952ce4592bd16887e59fffb64.mp3",
+        "duration": 191,
+        "image": "https://static.wixstatic.com/media/484406_c2a40b1bb01244dc9c3d8d2cd19f34fd~mv2.png",
+        "publishedAt": "2024-12-08T18:19:38.000Z",
+        "feedGuid": "ece6541b-984d-5f8f-aa02-bb6d0bb1d0ca",
+        "feedTitle": "My Man Hates Christmas",
+        "feedImage": "https://static.wixstatic.com/media/484406_c2a40b1bb01244dc9c3d8d2cd19f34fd~mv2.png",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "1d764565-d5c2-5f6b-b786-313b8f66b386",
+      "itemGuid": "2c448956-9c91-45d5-bfac-0d6a51f76d64",
+      "resolvedData": {
+        "guid": "2c448956-9c91-45d5-bfac-0d6a51f76d64",
+        "title": "Sippin'",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=1d764565-d5c2-5f6b-b786-313b8f66b386/https://d12wklypp119aj.cloudfront.net/track/2c448956-9c91-45d5-bfac-0d6a51f76d64.mp3",
+        "duration": 163,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/873b1a61-e143-4d1b-8fe8-d679ec7fe9ea.jpg",
+        "publishedAt": "2024-01-12T23:21:43.000Z",
+        "feedGuid": "1d764565-d5c2-5f6b-b786-313b8f66b386",
+        "feedTitle": "Sippin'",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/873b1a61-e143-4d1b-8fe8-d679ec7fe9ea.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "8a58749b-9c93-518d-81ae-638f27284593",
+      "itemGuid": "29b857bd-281d-41bd-8442-aebabee1488c",
+      "resolvedData": {
+        "guid": "29b857bd-281d-41bd-8442-aebabee1488c",
+        "title": "What Keeps You Wanting More",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/29b857bd-281d-41bd-8442-aebabee1488c.mp3",
+        "duration": 205,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/6d492a5e-b413-4300-b7ba-741b0c8ab82f.jpg",
+        "publishedAt": "2023-08-18T20:13:04.000Z",
+        "feedGuid": "8a58749b-9c93-518d-81ae-638f27284593",
+        "feedTitle": "What Keeps You Wanting More",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/6d492a5e-b413-4300-b7ba-741b0c8ab82f.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "6d9d2f51-63fe-5ab4-ab9a-259ea4612560",
+      "itemGuid": "6c46b3de-e188-4a55-9aa0-e9e587326866",
+      "resolvedData": {
+        "guid": "6c46b3de-e188-4a55-9aa0-e9e587326866",
+        "title": "You Are Alone (Cowboy)",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=6d9d2f51-63fe-5ab4-ab9a-259ea4612560/https://d12wklypp119aj.cloudfront.net/track/6c46b3de-e188-4a55-9aa0-e9e587326866.mp3",
+        "duration": 168,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/d86431a1-3931-4e03-91d0-37a7270e97fd.jpg",
+        "publishedAt": "2023-11-02T20:52:39.000Z",
+        "feedGuid": "6d9d2f51-63fe-5ab4-ab9a-259ea4612560",
+        "feedTitle": "BB EP",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/d86431a1-3931-4e03-91d0-37a7270e97fd.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "7f1cfe84-baf5-5477-8cf6-0f1fc4c31e04",
+      "itemGuid": "cf358623-df23-4f3a-b32f-a5fe6d1b1a7e",
+      "resolvedData": {
+        "guid": "cf358623-df23-4f3a-b32f-a5fe6d1b1a7e",
+        "title": "Eulogies",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/cf358623-df23-4f3a-b32f-a5fe6d1b1a7e.mp3",
+        "duration": 197,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/4633fefe-4525-408e-8216-421100516583.jpg",
+        "publishedAt": "2023-06-01T06:39:47.000Z",
+        "feedGuid": "7f1cfe84-baf5-5477-8cf6-0f1fc4c31e04",
+        "feedTitle": "Wishbone",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/4633fefe-4525-408e-8216-421100516583.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "beeeef0b-51e9-52ac-b8d7-9ed54d5be3b0",
+      "itemGuid": "8ed4bcfe-a4f9-42a7-9529-d30c3d634656",
+      "resolvedData": {
+        "guid": "8ed4bcfe-a4f9-42a7-9529-d30c3d634656",
+        "title": "A Chemical to Balance",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/8ed4bcfe-a4f9-42a7-9529-d30c3d634656.mp3",
+        "duration": 164,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e9ae5762-130d-4a16-b8b2-98804cc1802e.jpg",
+        "publishedAt": "2023-11-01T18:49:09.000Z",
+        "feedGuid": "beeeef0b-51e9-52ac-b8d7-9ed54d5be3b0",
+        "feedTitle": "The Sheer Magnitude Of it All",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e9ae5762-130d-4a16-b8b2-98804cc1802e.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "39b799e4-6c5e-5824-8f4f-7312757b9cc0",
+      "itemGuid": "b4cb6a60-36c4-4fd3-a48a-8adeb7123a4e",
+      "resolvedData": {
+        "guid": "b4cb6a60-36c4-4fd3-a48a-8adeb7123a4e",
+        "title": "Chrissy Got Your Keys",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/b4cb6a60-36c4-4fd3-a48a-8adeb7123a4e.mp3",
+        "duration": 258,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/aed257c4-7c2e-4bf2-953b-efcb3f6ee514.jpg",
+        "publishedAt": "2023-08-30T15:21:46.000Z",
+        "feedGuid": "39b799e4-6c5e-5824-8f4f-7312757b9cc0",
+        "feedTitle": "Fresh Slices - Volume 1",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/aed257c4-7c2e-4bf2-953b-efcb3f6ee514.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "3b4ab0e5-ac49-5955-a3b7-f20c1704dd1d",
+      "itemGuid": "e66df19a-0dee-4920-8a73-1f73a3604a5e",
+      "resolvedData": {
+        "guid": "e66df19a-0dee-4920-8a73-1f73a3604a5e",
+        "title": "Male Male",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/e66df19a-0dee-4920-8a73-1f73a3604a5e.mp3",
+        "duration": 176,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/a135c5e4-2762-403e-8479-419749326123.jpg",
+        "publishedAt": "2023-12-02T15:16:42.000Z",
+        "feedGuid": "3b4ab0e5-ac49-5955-a3b7-f20c1704dd1d",
+        "feedTitle": "10 YEARS",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/a135c5e4-2762-403e-8479-419749326123.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "7da968f9-c207-5b8a-b522-690dd425e83d",
+      "itemGuid": "52cf671f-0065-4037-bde4-931b6314ab96",
+      "resolvedData": {
+        "guid": "52cf671f-0065-4037-bde4-931b6314ab96",
+        "title": "Give My Life",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/52cf671f-0065-4037-bde4-931b6314ab96.mp3",
+        "duration": 238,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/bebc84f9-b692-4e37-b297-b4c053e09d88.jpg",
+        "publishedAt": "2023-09-09T19:11:15.000Z",
+        "feedGuid": "7da968f9-c207-5b8a-b522-690dd425e83d",
+        "feedTitle": "Give My Life",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/bebc84f9-b692-4e37-b297-b4c053e09d88.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "0190a191-c158-5efc-bb57-70bf1b7f09a6",
+      "itemGuid": "f625b843-a09e-44b4-853d-0ed729db6708",
+      "resolvedData": {
+        "guid": "f625b843-a09e-44b4-853d-0ed729db6708",
+        "title": "Where Is My Mind?",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/f625b843-a09e-44b4-853d-0ed729db6708.mp3",
+        "duration": 200,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/10612580-e40a-4cec-b26b-db7d9088630b.jpg",
+        "publishedAt": "2023-01-15T21:07:47.000Z",
+        "feedGuid": "0190a191-c158-5efc-bb57-70bf1b7f09a6",
+        "feedTitle": "Where Is My Mind?",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/10612580-e40a-4cec-b26b-db7d9088630b.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "f33e6cd1-8700-5d63-9808-9fb516b1f129",
+      "itemGuid": "50d35948-2b9e-468b-86da-991fe23b18d7",
+      "resolvedData": {
+        "guid": "50d35948-2b9e-468b-86da-991fe23b18d7",
+        "title": "RockStar",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/50d35948-2b9e-468b-86da-991fe23b18d7.mp3",
+        "duration": 164,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/17e847cb-1f80-4a27-a1e0-ef3bab783dce.jpg",
+        "publishedAt": "2023-09-11T20:36:59.000Z",
+        "feedGuid": "f33e6cd1-8700-5d63-9808-9fb516b1f129",
+        "feedTitle": "RockStar",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/17e847cb-1f80-4a27-a1e0-ef3bab783dce.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "272d7c8e-998b-5a6f-b798-f36c263bb5ae",
+      "itemGuid": "1d746c1c-892e-44f5-99cc-aadcab7a1513",
+      "resolvedData": {
+        "guid": "1d746c1c-892e-44f5-99cc-aadcab7a1513",
+        "title": "Past Tense",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/1d746c1c-892e-44f5-99cc-aadcab7a1513.mp3",
+        "duration": 250,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/fc8c0576-b4fb-4104-9b16-306d0cfd2e9a.jpg",
+        "publishedAt": "2023-02-22T19:07:37.000Z",
+        "feedGuid": "272d7c8e-998b-5a6f-b798-f36c263bb5ae",
+        "feedTitle": "Past Tense",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/fc8c0576-b4fb-4104-9b16-306d0cfd2e9a.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "6d9d2f51-63fe-5ab4-ab9a-259ea4612560",
+      "itemGuid": "3dc70935-2f7d-4e5b-93d8-456dde6cab4d",
+      "resolvedData": {
+        "guid": "3dc70935-2f7d-4e5b-93d8-456dde6cab4d",
+        "title": "When It's Over (Pirate)",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=6d9d2f51-63fe-5ab4-ab9a-259ea4612560/https://d12wklypp119aj.cloudfront.net/track/3dc70935-2f7d-4e5b-93d8-456dde6cab4d.mp3",
+        "duration": 187,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/d86431a1-3931-4e03-91d0-37a7270e97fd.jpg",
+        "publishedAt": "2023-11-02T20:52:25.000Z",
+        "feedGuid": "6d9d2f51-63fe-5ab4-ab9a-259ea4612560",
+        "feedTitle": "BB EP",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/d86431a1-3931-4e03-91d0-37a7270e97fd.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "beeeef0b-51e9-52ac-b8d7-9ed54d5be3b0",
+      "itemGuid": "3317db34-c350-45f9-b521-6519fe70022b",
+      "resolvedData": {
+        "guid": "3317db34-c350-45f9-b521-6519fe70022b",
+        "title": "OMG",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/3317db34-c350-45f9-b521-6519fe70022b.mp3",
+        "duration": 144,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e9ae5762-130d-4a16-b8b2-98804cc1802e.jpg",
+        "publishedAt": "2023-11-01T18:48:04.000Z",
+        "feedGuid": "beeeef0b-51e9-52ac-b8d7-9ed54d5be3b0",
+        "feedTitle": "The Sheer Magnitude Of it All",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e9ae5762-130d-4a16-b8b2-98804cc1802e.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "4b356cb6-8e31-55c6-9bf5-4d9fb31d5f2a",
+      "itemGuid": "4214e63e-5f53-465f-b0db-363882ab2bbb",
+      "resolvedData": {
+        "guid": "4214e63e-5f53-465f-b0db-363882ab2bbb",
+        "title": "Angel",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/4214e63e-5f53-465f-b0db-363882ab2bbb.mp3",
+        "duration": 179,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/50e451ca-c060-4ee5-b40e-a559f3e969a8.jpg",
+        "publishedAt": "2023-10-23T04:41:11.000Z",
+        "feedGuid": "4b356cb6-8e31-55c6-9bf5-4d9fb31d5f2a",
+        "feedTitle": "Angel",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/50e451ca-c060-4ee5-b40e-a559f3e969a8.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "295862f8-3bf9-5239-8803-a1cb5e682abc",
+      "itemGuid": "1fc93c1b-3944-4843-bcbe-abb062ea7237",
+      "resolvedData": {
+        "guid": "1fc93c1b-3944-4843-bcbe-abb062ea7237",
+        "title": "LA Sugar",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=295862f8-3bf9-5239-8803-a1cb5e682abc/https://d12wklypp119aj.cloudfront.net/track/1fc93c1b-3944-4843-bcbe-abb062ea7237.mp3",
+        "duration": 221,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/f2492a25-1b2f-4117-8fa2-00fb6a619674.jpg",
+        "publishedAt": "2023-10-28T03:23:00.000Z",
+        "feedGuid": "295862f8-3bf9-5239-8803-a1cb5e682abc",
+        "feedTitle": "LA Sugar",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/f2492a25-1b2f-4117-8fa2-00fb6a619674.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "92c5cecd-c3d2-5d42-b2f8-66c1c459759f",
+      "itemGuid": "96ef67c5-275a-4d34-844b-e45bdf4df2e6",
+      "resolvedData": {
+        "guid": "96ef67c5-275a-4d34-844b-e45bdf4df2e6",
+        "title": "Christmas Time Around The World (2015 Remix)",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=92c5cecd-c3d2-5d42-b2f8-66c1c459759f/https://d12wklypp119aj.cloudfront.net/track/96ef67c5-275a-4d34-844b-e45bdf4df2e6.mp3",
+        "duration": 227,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/d50f4644-fcef-40b3-8a62-5b4b3bff017c.jpg",
+        "publishedAt": "2023-11-29T23:55:12.000Z",
+        "feedGuid": "92c5cecd-c3d2-5d42-b2f8-66c1c459759f",
+        "feedTitle": "Christmas Time Around The World (2015 Remix)",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/d50f4644-fcef-40b3-8a62-5b4b3bff017c.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "558a4815-d10e-527a-928a-14dc4509ce6b",
+      "itemGuid": "4b748990-3e50-4150-bee4-daf4a2ac68e5",
+      "resolvedData": {
+        "guid": "4b748990-3e50-4150-bee4-daf4a2ac68e5",
+        "title": "Zat You Santa Claus",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=558a4815-d10e-527a-928a-14dc4509ce6b/https://d12wklypp119aj.cloudfront.net/track/4b748990-3e50-4150-bee4-daf4a2ac68e5.mp3",
+        "duration": 173,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e2fcae4e-e631-469f-85ea-982434567ba5.jpg",
+        "publishedAt": "2023-11-29T17:51:42.000Z",
+        "feedGuid": "558a4815-d10e-527a-928a-14dc4509ce6b",
+        "feedTitle": "A Swingin' Christmas",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e2fcae4e-e631-469f-85ea-982434567ba5.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "d141d44a-28ae-5308-82e4-d4781918a2f4",
+      "itemGuid": "5d865b45-e091-458e-ac82-a443ed274a40",
+      "resolvedData": {
+        "guid": "5d865b45-e091-458e-ac82-a443ed274a40",
+        "title": "Christmas (Baby Please Come Home)",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/5d865b45-e091-458e-ac82-a443ed274a40.mp3",
+        "duration": 191,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+        "publishedAt": "2023-08-31T19:10:45.000Z",
+        "feedGuid": "d141d44a-28ae-5308-82e4-d4781918a2f4",
+        "feedTitle": "Yuletide In My Doublewide",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e954a4c4-69d2-4ac3-8b86-fe5469f6c9df.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "558a4815-d10e-527a-928a-14dc4509ce6b",
+      "itemGuid": "9fad590e-26ac-4901-bfb2-92ccc494ff8f",
+      "resolvedData": {
+        "guid": "9fad590e-26ac-4901-bfb2-92ccc494ff8f",
+        "title": "A Charlie Brown Christmas",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=558a4815-d10e-527a-928a-14dc4509ce6b/https://d12wklypp119aj.cloudfront.net/track/9fad590e-26ac-4901-bfb2-92ccc494ff8f.mp3",
+        "duration": 274,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e2fcae4e-e631-469f-85ea-982434567ba5.jpg",
+        "publishedAt": "2023-11-29T17:51:11.000Z",
+        "feedGuid": "558a4815-d10e-527a-928a-14dc4509ce6b",
+        "feedTitle": "A Swingin' Christmas",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e2fcae4e-e631-469f-85ea-982434567ba5.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "25f1fcbf-d7d6-57c9-9e0d-f33bca68ea2a",
+      "itemGuid": "553ce45c-b550-4c10-89a1-e03ca2a4d057",
+      "resolvedData": {
+        "guid": "553ce45c-b550-4c10-89a1-e03ca2a4d057",
+        "title": "WE WISH YOU A MERRY BITMASS",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/553ce45c-b550-4c10-89a1-e03ca2a4d057.mp3",
+        "duration": 120,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/4a17fcb3-e376-4db4-8eda-390f98921ebe.jpg",
+        "publishedAt": "2023-11-30T23:14:29.000Z",
+        "feedGuid": "25f1fcbf-d7d6-57c9-9e0d-f33bca68ea2a",
+        "feedTitle": "WE WISH YOU A MERRY BITMASS",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/4a17fcb3-e376-4db4-8eda-390f98921ebe.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "44895130-a46d-57cb-a6b9-ee5d5c590318",
+      "itemGuid": "8420d8e4-9d23-47e2-a5d4-85ab967aec3a",
+      "resolvedData": {
+        "guid": "8420d8e4-9d23-47e2-a5d4-85ab967aec3a",
+        "title": "Christmas All Over Again",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/8420d8e4-9d23-47e2-a5d4-85ab967aec3a.mp3",
+        "duration": 239,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/39699072-a7a2-4e74-a69f-7d7360c2bb8e.jpg",
+        "publishedAt": "2023-11-30T07:40:10.000Z",
+        "feedGuid": "44895130-a46d-57cb-a6b9-ee5d5c590318",
+        "feedTitle": "Christmas All Over Again",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/39699072-a7a2-4e74-a69f-7d7360c2bb8e.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "3990c8ab-6a29-58de-8471-7079b5ef1673",
+      "itemGuid": "a782fb09-fdf4-4812-a6db-9d933c5e5528",
+      "resolvedData": {
+        "guid": "a782fb09-fdf4-4812-a6db-9d933c5e5528",
+        "title": "Silverballs",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/a782fb09-fdf4-4812-a6db-9d933c5e5528.mp3",
+        "duration": 191,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/e60a803c-bc33-4b71-82bc-cb58c3cd2ef3.jpg",
+        "publishedAt": "2023-11-22T16:39:02.000Z",
+        "feedGuid": "3990c8ab-6a29-58de-8471-7079b5ef1673",
+        "feedTitle": "Silverballs",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/e60a803c-bc33-4b71-82bc-cb58c3cd2ef3.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "eb7142e1-ae26-51cb-b97b-2d189f4ed113",
+      "itemGuid": "2727a8b3-aa04-4e7c-91a2-ca120e0f613c",
+      "resolvedData": {
+        "guid": "2727a8b3-aa04-4e7c-91a2-ca120e0f613c",
+        "title": "Merry Christmas",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/2727a8b3-aa04-4e7c-91a2-ca120e0f613c.mp3",
+        "duration": 48,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/81351a09-d1f8-46a4-85c0-f7cb32223d64.jpg",
+        "publishedAt": "2023-12-07T22:17:23.000Z",
+        "feedGuid": "eb7142e1-ae26-51cb-b97b-2d189f4ed113",
+        "feedTitle": "In The Valley",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/81351a09-d1f8-46a4-85c0-f7cb32223d64.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "85c8ca15-bbeb-5c29-a009-782c0c46f148",
+      "itemGuid": "3f4b013e-313e-4851-91b4-183e0cdfcb00",
+      "resolvedData": {
+        "guid": "3f4b013e-313e-4851-91b4-183e0cdfcb00",
+        "title": "Elf",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/3f4b013e-313e-4851-91b4-183e0cdfcb00.mp3",
+        "duration": 163,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/1758ea42-76cc-4634-83d3-5cf6d3406047.jpg",
+        "publishedAt": "2023-12-13T22:08:42.000Z",
+        "feedGuid": "85c8ca15-bbeb-5c29-a009-782c0c46f148",
+        "feedTitle": "Elf",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/1758ea42-76cc-4634-83d3-5cf6d3406047.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "befcdf32-8d45-5c35-a895-b28ddd475296",
+      "itemGuid": "ca29855d-7c04-424a-958e-7af040ae676c",
+      "resolvedData": {
+        "guid": "ca29855d-7c04-424a-958e-7af040ae676c",
+        "title": "Anne-Cecilia",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/ca29855d-7c04-424a-958e-7af040ae676c.mp3",
+        "duration": 184,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/209339e5-4dc0-4715-8d3d-2b9bcdd74547.jpg",
+        "publishedAt": "2023-08-13T16:57:25.000Z",
+        "feedGuid": "befcdf32-8d45-5c35-a895-b28ddd475296",
+        "feedTitle": "Can't Take 'em Out",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/209339e5-4dc0-4715-8d3d-2b9bcdd74547.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "fa2c0d92-9380-5a8e-8167-e831a9fc3ca2",
+      "itemGuid": "7a955805-29d3-4765-94ec-6a84386d8c4f",
+      "resolvedData": {
+        "guid": "7a955805-29d3-4765-94ec-6a84386d8c4f",
+        "title": "Wheels",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/7a955805-29d3-4765-94ec-6a84386d8c4f.mp3",
+        "duration": 226,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/87a7ebee-2bce-47f5-90eb-950702e3e7a3.jpg",
+        "publishedAt": "2023-08-31T18:57:25.000Z",
+        "feedGuid": "fa2c0d92-9380-5a8e-8167-e831a9fc3ca2",
+        "feedTitle": "Wheels",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/87a7ebee-2bce-47f5-90eb-950702e3e7a3.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "43b23714-0eed-5066-8641-184ad10de007",
+      "itemGuid": "faa80ea9-8c6b-4085-8941-766673fca476",
+      "resolvedData": {
+        "guid": "faa80ea9-8c6b-4085-8941-766673fca476",
+        "title": "LET IT SNOW",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/faa80ea9-8c6b-4085-8941-766673fca476.mp3",
+        "duration": 58,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/bbe8674f-c398-4d47-b413-cddd64ba86b1.jpg",
+        "publishedAt": "2023-11-29T12:50:48.000Z",
+        "feedGuid": "43b23714-0eed-5066-8641-184ad10de007",
+        "feedTitle": "LET IT SNOW",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/bbe8674f-c398-4d47-b413-cddd64ba86b1.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "c6b982b9-a518-5017-82cb-fa1efea7ff90",
+      "itemGuid": "ef26b849-d543-4aef-b569-4e0732a69123",
+      "resolvedData": {
+        "guid": "ef26b849-d543-4aef-b569-4e0732a69123",
+        "title": "Moonchild",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=c6b982b9-a518-5017-82cb-fa1efea7ff90/https://d12wklypp119aj.cloudfront.net/track/ef26b849-d543-4aef-b569-4e0732a69123.mp3",
+        "duration": 176,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/91246b16-5f5d-4a68-937a-5b4f8dfeb3a8.jpg",
+        "publishedAt": "2023-12-02T21:03:53.000Z",
+        "feedGuid": "c6b982b9-a518-5017-82cb-fa1efea7ff90",
+        "feedTitle": "Moonchild",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/91246b16-5f5d-4a68-937a-5b4f8dfeb3a8.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "3b4ab0e5-ac49-5955-a3b7-f20c1704dd1d",
+      "itemGuid": "3f392235-5e21-43c0-9c14-bacc07028c32",
+      "resolvedData": {
+        "guid": "3f392235-5e21-43c0-9c14-bacc07028c32",
+        "title": "Vecchie Borchie",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/3f392235-5e21-43c0-9c14-bacc07028c32.mp3",
+        "duration": 154,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/a135c5e4-2762-403e-8479-419749326123.jpg",
+        "publishedAt": "2023-12-02T15:15:48.000Z",
+        "feedGuid": "3b4ab0e5-ac49-5955-a3b7-f20c1704dd1d",
+        "feedTitle": "10 YEARS",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/a135c5e4-2762-403e-8479-419749326123.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "f6a88f0e-5cbe-5bde-a7e8-7617c5b9628c",
+      "itemGuid": "f0d2fb39-7cca-403c-97e8-bdfb288ac004",
+      "resolvedData": {
+        "guid": "f0d2fb39-7cca-403c-97e8-bdfb288ac004",
+        "title": "Hanging Strings",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/f0d2fb39-7cca-403c-97e8-bdfb288ac004.mp3",
+        "duration": 154,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/19803acd-4989-4482-86f7-030ad1533dd8.jpg",
+        "publishedAt": "2023-12-03T17:41:57.000Z",
+        "feedGuid": "f6a88f0e-5cbe-5bde-a7e8-7617c5b9628c",
+        "feedTitle": "Hanging Strings",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/19803acd-4989-4482-86f7-030ad1533dd8.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "5831a12c-bf1c-5e89-bb74-0ca95091a747",
+      "itemGuid": "f1636503-111b-4fc1-bc5f-eb2c1a3b8382",
+      "resolvedData": {
+        "guid": "f1636503-111b-4fc1-bc5f-eb2c1a3b8382",
+        "title": "Gold",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/f1636503-111b-4fc1-bc5f-eb2c1a3b8382.mp3",
+        "duration": 108,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/c3c9f94a-21ba-4042-a177-59cb48f6fe2b.jpg",
+        "publishedAt": "2023-10-23T04:45:18.000Z",
+        "feedGuid": "5831a12c-bf1c-5e89-bb74-0ca95091a747",
+        "feedTitle": "Gold",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/c3c9f94a-21ba-4042-a177-59cb48f6fe2b.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "1ef4425d-9309-5574-b87b-bea82a6dda63",
+      "itemGuid": "4ac6c817-187d-47b8-89cb-afde1b944f62",
+      "resolvedData": {
+        "guid": "4ac6c817-187d-47b8-89cb-afde1b944f62",
+        "title": "Makwe",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/4ac6c817-187d-47b8-89cb-afde1b944f62.mp3",
+        "duration": 148,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/1c67e81e-d1cc-43ea-8adf-fc67404ec4e8.jpg",
+        "publishedAt": "2023-03-27T13:27:27.000Z",
+        "feedGuid": "1ef4425d-9309-5574-b87b-bea82a6dda63",
+        "feedTitle": "Makwe",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/1c67e81e-d1cc-43ea-8adf-fc67404ec4e8.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "553c2270-4bbd-5948-b0ce-ef11c6960e2a",
+      "itemGuid": "efd11e1d-2866-4751-82d0-a86da29eedc1",
+      "resolvedData": {
+        "guid": "efd11e1d-2866-4751-82d0-a86da29eedc1",
+        "title": "Stronger Than Ever",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/efd11e1d-2866-4751-82d0-a86da29eedc1.mp3",
+        "duration": 229,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/1cd41401-2afb-4f8b-8ff6-200a04534278.jpg",
+        "publishedAt": "2023-05-02T12:15:06.000Z",
+        "feedGuid": "553c2270-4bbd-5948-b0ce-ef11c6960e2a",
+        "feedTitle": "Unbroken",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/1cd41401-2afb-4f8b-8ff6-200a04534278.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "2a1954a4-b620-5ca9-b390-0785aa9c0119",
+      "itemGuid": "0c85e7c7-cdd5-4a02-b847-be16bc3dc228",
+      "resolvedData": {
+        "guid": "0c85e7c7-cdd5-4a02-b847-be16bc3dc228",
+        "title": "Larvae - Fliptrix ft Jam Baxter - Rebs remix",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/0c85e7c7-cdd5-4a02-b847-be16bc3dc228.mp3",
+        "duration": 245,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/35347192-76d2-4144-a2b9-ea845f790c3d.jpg",
+        "publishedAt": "2023-08-21T17:28:55.000Z",
+        "feedGuid": "2a1954a4-b620-5ca9-b390-0785aa9c0119",
+        "feedTitle": "Rebs Hiphop remixes",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/35347192-76d2-4144-a2b9-ea845f790c3d.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "4b8b9f8d-da18-5a9f-91d7-750fa853daa1",
+      "itemGuid": "3eedaf1a-bac8-4f3e-b895-7c263ef0be6c",
+      "resolvedData": {
+        "guid": "3eedaf1a-bac8-4f3e-b895-7c263ef0be6c",
+        "title": "Triple x ( Tyrant )",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/3eedaf1a-bac8-4f3e-b895-7c263ef0be6c.mp3",
+        "duration": 267,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/63e4cd00-1855-4bb8-ad58-9ec742e078ec.jpg",
+        "publishedAt": "2023-08-22T10:18:17.000Z",
+        "feedGuid": "4b8b9f8d-da18-5a9f-91d7-750fa853daa1",
+        "feedTitle": "Basheba - Triple x ( Tyrant )",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/63e4cd00-1855-4bb8-ad58-9ec742e078ec.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "43f97fb8-3b8b-5d7b-93d8-453bda40f033",
+      "itemGuid": "f7bfe8c8-3a1f-4871-848d-bf98e8bb04e4",
+      "resolvedData": {
+        "guid": "f7bfe8c8-3a1f-4871-848d-bf98e8bb04e4",
+        "title": "Loan Me Your Faith",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/f7bfe8c8-3a1f-4871-848d-bf98e8bb04e4.mp3",
+        "duration": 239,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/83a22677-b29a-499e-bf3c-daddb21015fd.jpg",
+        "publishedAt": "2023-08-18T02:31:18.000Z",
+        "feedGuid": "43f97fb8-3b8b-5d7b-93d8-453bda40f033",
+        "feedTitle": "Loan Me Your Faith",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/83a22677-b29a-499e-bf3c-daddb21015fd.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "328423fb-1649-535b-b0dd-6b1a3eb08ec9",
+      "itemGuid": "10099de9-908f-4dac-9907-e0a50479b12b",
+      "resolvedData": {
+        "guid": "10099de9-908f-4dac-9907-e0a50479b12b",
+        "title": "Run From Problems",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/10099de9-908f-4dac-9907-e0a50479b12b.mp3",
+        "duration": 187,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/bae7d9d1-35f1-41fb-84b7-1e91a3388713.jpg",
+        "publishedAt": "2023-11-12T03:58:22.000Z",
+        "feedGuid": "328423fb-1649-535b-b0dd-6b1a3eb08ec9",
+        "feedTitle": "Run From Problems",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/bae7d9d1-35f1-41fb-84b7-1e91a3388713.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "0c402a88-3bbf-5fa6-8eda-8a9804d6155b",
+      "itemGuid": "54122d3e-b197-4c54-8f0c-a108266464f9",
+      "resolvedData": {
+        "guid": "54122d3e-b197-4c54-8f0c-a108266464f9",
+        "title": "Depression",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/54122d3e-b197-4c54-8f0c-a108266464f9.mp3",
+        "duration": 143,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/24c81bb7-f768-47cb-af77-c0971ef2fa15.jpg",
+        "publishedAt": "2023-11-13T19:51:01.000Z",
+        "feedGuid": "0c402a88-3bbf-5fa6-8eda-8a9804d6155b",
+        "feedTitle": "Depression",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/24c81bb7-f768-47cb-af77-c0971ef2fa15.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "087540ea-d523-57ed-b80b-50de06f79138",
+      "itemGuid": "a9a48943-66a7-42c2-b18c-23f835a841b5",
+      "resolvedData": {
+        "guid": "a9a48943-66a7-42c2-b18c-23f835a841b5",
+        "title": "Uncertain",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/a9a48943-66a7-42c2-b18c-23f835a841b5.mp3",
+        "duration": 231,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/9aeecb68-f995-4676-8f35-19ba74e12073.jpg",
+        "publishedAt": "2023-10-18T00:10:33.000Z",
+        "feedGuid": "087540ea-d523-57ed-b80b-50de06f79138",
+        "feedTitle": "Vestiges - EP",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/9aeecb68-f995-4676-8f35-19ba74e12073.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "7f1cfe84-baf5-5477-8cf6-0f1fc4c31e04",
+      "itemGuid": "1cb0f58c-ae0f-411d-8a2f-8a2161f970e3",
+      "resolvedData": {
+        "guid": "1cb0f58c-ae0f-411d-8a2f-8a2161f970e3",
+        "title": "Past Is Pain",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/1cb0f58c-ae0f-411d-8a2f-8a2161f970e3.mp3",
+        "duration": 217,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/4633fefe-4525-408e-8216-421100516583.jpg",
+        "publishedAt": "2023-06-01T06:43:12.000Z",
+        "feedGuid": "7f1cfe84-baf5-5477-8cf6-0f1fc4c31e04",
+        "feedTitle": "Wishbone",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/4633fefe-4525-408e-8216-421100516583.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "cf42749c-9318-5fb8-9e8b-860719708e2f",
+      "itemGuid": "ad29075e-6cba-4244-b8fd-5b9aac2e0907",
+      "resolvedData": {
+        "guid": "ad29075e-6cba-4244-b8fd-5b9aac2e0907",
+        "title": "Interstellar",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/ad29075e-6cba-4244-b8fd-5b9aac2e0907.mp3",
+        "duration": 364,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/9aec3cfc-1ebd-4bc4-b401-0d8399808b46.jpg",
+        "publishedAt": "2023-01-24T20:36:06.000Z",
+        "feedGuid": "cf42749c-9318-5fb8-9e8b-860719708e2f",
+        "feedTitle": "Interstellar",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/9aec3cfc-1ebd-4bc4-b401-0d8399808b46.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "af147c78-475f-5d7f-8c65-c4928e263acc",
+      "itemGuid": "91e2a371-fc45-4106-9217-e28473ac88cf",
+      "resolvedData": {
+        "guid": "91e2a371-fc45-4106-9217-e28473ac88cf",
+        "title": "Driveway Speeding - Cabbage Case (LEATHERFACE)",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/91e2a371-fc45-4106-9217-e28473ac88cf.mp3",
+        "duration": 223,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/c07c2f05-769f-479e-8bfc-a7688f4261f8.jpg",
+        "publishedAt": "2023-11-06T05:05:12.000Z",
+        "feedGuid": "af147c78-475f-5d7f-8c65-c4928e263acc",
+        "feedTitle": "A Tribute to Leatherface (2008)",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/c07c2f05-769f-479e-8bfc-a7688f4261f8.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "eb7142e1-ae26-51cb-b97b-2d189f4ed113",
+      "itemGuid": "a871edbd-0dd1-43f3-a400-b50652d8adfb",
+      "resolvedData": {
+        "guid": "a871edbd-0dd1-43f3-a400-b50652d8adfb",
+        "title": "In The Valley",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/a871edbd-0dd1-43f3-a400-b50652d8adfb.mp3",
+        "duration": 142,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/81351a09-d1f8-46a4-85c0-f7cb32223d64.jpg",
+        "publishedAt": "2023-08-01T16:08:06.000Z",
+        "feedGuid": "eb7142e1-ae26-51cb-b97b-2d189f4ed113",
+        "feedTitle": "In The Valley",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/81351a09-d1f8-46a4-85c0-f7cb32223d64.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "7c70fc65-c526-5689-a00c-f72485f52d92",
+      "itemGuid": "39f0b49c-e852-4adc-a50d-e92d746f206f",
+      "resolvedData": {
+        "guid": "39f0b49c-e852-4adc-a50d-e92d746f206f",
+        "title": "1976",
+        "description": "",
+        "audioUrl": "https://op3.dev/e,pg=7c70fc65-c526-5689-a00c-f72485f52d92/https://d12wklypp119aj.cloudfront.net/track/39f0b49c-e852-4adc-a50d-e92d746f206f.mp3",
+        "duration": 191,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/0938d1b4-3b78-4a1b-b94a-819afde3d924.jpg",
+        "publishedAt": "2023-10-18T01:38:47.000Z",
+        "feedGuid": "7c70fc65-c526-5689-a00c-f72485f52d92",
+        "feedTitle": "Transistor Radio",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/0938d1b4-3b78-4a1b-b94a-819afde3d924.jpg",
+        "method": "feed_lookup"
+      }
+    },
+    {
+      "feedGuid": "a2abeb4a-d25a-5e32-9ed4-17831dd281b2",
+      "itemGuid": "f3598cbb-aaf5-4623-905f-4b473d49ba9c",
+      "resolvedData": {
+        "guid": "f3598cbb-aaf5-4623-905f-4b473d49ba9c",
+        "title": "Honestly",
+        "description": "",
+        "audioUrl": "https://d12wklypp119aj.cloudfront.net/track/f3598cbb-aaf5-4623-905f-4b473d49ba9c.mp3",
+        "duration": 201,
+        "image": "https://d12wklypp119aj.cloudfront.net/image/440e3c88-bb82-4893-9a5c-3444f97a535a.jpg",
+        "publishedAt": "2023-08-18T20:20:35.000Z",
+        "feedGuid": "a2abeb4a-d25a-5e32-9ed4-17831dd281b2",
+        "feedTitle": "Honestly",
+        "feedImage": "https://d12wklypp119aj.cloudfront.net/image/440e3c88-bb82-4893-9a5c-3444f97a535a.jpg",
+        "method": "feed_lookup"
+      }
+    }
+  ],
+  "stillMissingItems": [
+    {
+      "feedGuid": "ad7fd2ab-ad39-5117-830c-5cfa52883744",
+      "itemGuid": "8f762ac5-3dcd-42ff-81ca-0e9720b16c00"
+    },
+    {
+      "feedGuid": "aaeca8b2-4243-59e9-af27-445e1b6ee7ec",
+      "itemGuid": "b2058d9c-ee82-46c5-b619-a5892cf6f0c4"
+    },
+    {
+      "feedGuid": "2469622b-0d8b-5e21-a9b1-e64416cbf3eb",
+      "itemGuid": "34f3a84c-39c8-4c51-a961-dda59eb1597c"
+    },
+    {
+      "feedGuid": "bc30b47a-dcee-5e0b-ad29-ab71463c03cf",
+      "itemGuid": "abe404a5-673b-49c0-8b6b-3d42dc4be756"
+    },
+    {
+      "feedGuid": "78c3c29b-f784-565a-9496-05aa84267e42",
+      "itemGuid": "f564a530-aa1e-4229-8720-c070b3483fcf"
+    },
+    {
+      "feedGuid": "badecf00-e536-5fa7-bfd0-f2a1d0bd8f76",
+      "itemGuid": "cd815f0b-ef49-41b4-b45e-74f38b7ac919"
+    },
+    {
+      "feedGuid": "3ba5caf2-4cfb-598b-8975-f08d4438d2fa",
+      "itemGuid": "1f00dda1-1fac-4cb9-b346-7c1fce126f4d"
+    },
+    {
+      "feedGuid": "3294e765-89de-5ead-987b-1e14fbe83bf1",
+      "itemGuid": "c2fedc3f-d1ef-42d8-840f-d3c89448dbcb"
+    },
+    {
+      "feedGuid": "69c634ad-afea-5826-ad9a-8e1f06d6470b",
+      "itemGuid": "3e6f8ce6-8996-4329-92f6-e7af3cacef24"
+    },
+    {
+      "feedGuid": "c0c7e0bd-de72-54d0-a112-3345d6f4cd76",
+      "itemGuid": "8901011c-13e9-4c00-b6ab-6f02a8d89036"
+    },
+    {
+      "feedGuid": "69c634ad-afea-5826-ad9a-8e1f06d6470b",
+      "itemGuid": "06bc2b9d-db3c-4b6c-8cbf-c3ec814518b7"
+    }
+  ],
+  "updatedStats": {
+    "totalOriginal": 554,
+    "totalResolved": 543,
+    "resolutionRate": 98
+  }
+}
