@@ -214,64 +214,86 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
     const { apiKey, apiSecret } = getApiKeys();
     const headers = await generateHeaders(apiKey, apiSecret);
     
-    // First, resolve the feed GUID to get feed ID
+    // Approach 1: Try to resolve via feed GUID first
+    console.log(`📡 Approach 1: Feed-based lookup`);
     const feedResponse = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
       headers
     });
     
-    if (!feedResponse.ok) {
-      console.log(`❌ Feed lookup failed: ${feedResponse.status}`);
-      return null;
+    if (feedResponse.ok) {
+      const feedData = await feedResponse.json();
+      
+      // Handle different response structures
+      let feed = null;
+      if (feedData.status === 'true') {
+        feed = feedData.feed || (feedData.feeds && feedData.feeds[0]);
+      }
+      
+      if (feed && feed.id) {
+        const feedId = feed.id;
+        const feedTitle = feed.title;
+        console.log(`✅ Found feed: ${feedTitle} (ID: ${feedId})`);
+        
+        // Get episodes from this feed
+        const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=1000`, {
+          headers
+        });
+        
+        if (episodesResponse.ok) {
+          const episodesData = await episodesResponse.json();
+          if (episodesData.status === 'true' && episodesData.items && episodesData.items.length > 0) {
+            console.log(`📊 Found ${episodesData.items.length} episodes in feed`);
+            
+            // Find the specific episode by GUID
+            const episode = episodesData.items.find((ep: any) => ep.guid === itemGuid);
+            if (episode) {
+              console.log(`✅ Found episode via feed lookup: ${episode.title}`);
+              return {
+                guid: episode.guid,
+                title: episode.title,
+                description: episode.description || '',
+                audioUrl: episode.enclosureUrl || '',
+                duration: episode.duration || 0,
+                image: episode.image || feed.image || '/placeholder-podcast.jpg',
+                publishedAt: new Date(episode.datePublished * 1000),
+                feedGuid: feedGuid,
+                feedTitle: feedTitle,
+                feedImage: feed.image
+              };
+            }
+          }
+        }
+      }
     }
     
-    const feedData = await feedResponse.json();
-    if (feedData.status !== 'true' || !feedData.feed) {
-      console.log(`❌ No feed found for GUID: ${feedGuid}`);
-      return null;
-    }
-    
-    const feedId = feedData.feed.id;
-    const feedTitle = feedData.feed.title;
-    console.log(`✅ Found feed: ${feedTitle} (ID: ${feedId})`);
-    
-    // Now get episodes from this feed
-    const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=1000`, {
+    // Approach 2: Direct episode GUID lookup as fallback
+    console.log(`📡 Approach 2: Direct episode GUID lookup`);
+    const episodeResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}`, {
       headers
     });
     
-    if (!episodesResponse.ok) {
-      console.log(`❌ Episodes lookup failed: ${episodesResponse.status}`);
-      return null;
+    if (episodeResponse.ok) {
+      const episodeData = await episodeResponse.json();
+      if (episodeData.status === 'true' && episodeData.episode) {
+        const episode = episodeData.episode;
+        console.log(`✅ Found episode via direct GUID lookup: ${episode.title}`);
+        return {
+          guid: episode.guid,
+          title: episode.title,
+          description: episode.description || '',
+          audioUrl: episode.enclosureUrl || '',
+          duration: episode.duration || 0,
+          image: episode.image || '/placeholder-podcast.jpg',
+          publishedAt: new Date(episode.datePublished * 1000),
+          feedGuid: episode.feedGuid || feedGuid,
+          feedTitle: episode.feedTitle || 'Unknown Feed',
+          feedImage: episode.feedImage
+        };
+      }
     }
     
-    const episodesData = await episodesResponse.json();
-    if (episodesData.status !== 'true' || !episodesData.items) {
-      console.log(`❌ No episodes found for feed ${feedId}`);
-      return null;
-    }
-    
-    console.log(`📊 Found ${episodesData.items.length} episodes in feed`);
-    
-    // Find the specific episode by GUID
-    const episode = episodesData.items.find((ep: any) => ep.guid === itemGuid);
-    if (!episode) {
-      console.log(`❌ Episode ${itemGuid} not found in ${episodesData.items.length} episodes`);
-      return null;
-    }
-    
-    console.log(`✅ Found episode: ${episode.title}`);
-    return {
-      guid: episode.guid,
-      title: episode.title,
-      description: episode.description || '',
-      audioUrl: episode.enclosureUrl || '',
-      duration: episode.duration || 0,
-      image: episode.image || feedData.feed.image || '/placeholder-podcast.jpg',
-      publishedAt: new Date(episode.datePublished * 1000),
-      feedGuid: feedGuid,
-      feedTitle: feedTitle,
-      feedImage: feedData.feed.image
-    };
+    console.log(`❌ Could not resolve ${itemGuid} via any method`);
+    return null;
   } catch (error) {
     console.error(`❌ Error resolving item GUID ${itemGuid}:`, error);
     return null;
