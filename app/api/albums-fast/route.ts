@@ -65,6 +65,15 @@ async function getPlaylistAlbums() {
       }
     }
     
+    // Fetch Flowgnar playlist
+    const flowgnarResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/flowgnar`);
+    if (flowgnarResponse.ok) {
+      const flowgnarData = await flowgnarResponse.json();
+      if (flowgnarData.success && flowgnarData.albums && flowgnarData.albums.length > 0) {
+        playlistAlbums.push(flowgnarData.albums[0]);
+      }
+    }
+    
     // Cache the results
     playlistCache = playlistAlbums;
     playlistCacheTimestamp = now;

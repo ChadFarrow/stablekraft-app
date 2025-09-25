@@ -221,6 +221,28 @@ export async function GET() {
           source: 'sas-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml'
         }
+      },
+      {
+        id: 'flowgnar-playlist',
+        title: 'Flowgnar Music Playlist',
+        artist: 'Various Artists',
+        album: 'Flowgnar Music Playlist',
+        description: 'Curated playlist from Flowgnar podcast featuring outdoor adventure music',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist-art.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist-art.webp',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml',
+        feedId: 'flowgnar-playlist',
+        type: 'playlist',
+        totalTracks: 200, // Estimated based on analysis
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/flowgnar',
+        albumUrl: '/playlist/flowgnar',
+        playlistContext: {
+          source: 'flowgnar-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml'
+        }
       }
     ];
 

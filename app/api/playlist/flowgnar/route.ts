@@ -23,47 +23,74 @@ export async function GET() {
     // Get tracks for this playlist
     const playlistTracks = await prisma.playlistTrack.findMany({
       where: { playlistId: playlist.id },
-      include: {
-        track: {
-          include: {
-            feed: true
-          }
-        }
-      },
       orderBy: {
         position: 'asc'
       }
     });
 
-    const formattedTracks = playlistTracks.map(pt => ({
-      id: pt.track.id,
-      title: pt.track.title,
-      artist: pt.track.artist || pt.track.feed.artist || 'Unknown Artist',
-      audioUrl: pt.track.audioUrl,
-      duration: pt.track.duration || 0,
-      image: pt.track.image || pt.track.feed.image,
-      album: pt.track.album || pt.track.feed.title,
-      startTime: pt.track.startTime,
-      endTime: pt.track.endTime,
-      publishedAt: pt.track.publishedAt?.toISOString(),
-      feedTitle: pt.track.feed.title,
-      position: pt.position
-    }));
+    // Get track details for each playlist track
+    const trackIds = playlistTracks.map(pt => pt.trackId);
+    const tracks = await prisma.track.findMany({
+      where: {
+        id: {
+          in: trackIds
+        }
+      },
+      include: {
+        feed: true
+      }
+    });
+
+    // Create a map for quick track lookup
+    const trackMap = new Map(tracks.map(track => [track.id, track]));
+
+    const formattedTracks = playlistTracks.map(pt => {
+      const track = trackMap.get(pt.trackId);
+      if (!track) return null;
+      
+      return {
+        id: track.id,
+        title: track.title,
+        artist: track.artist || track.feed.artist || 'Unknown Artist',
+        audioUrl: track.audioUrl,
+        duration: track.duration || 0,
+        image: track.image || track.feed.image,
+        album: track.album || track.feed.title,
+        startTime: track.startTime,
+        endTime: track.endTime,
+        publishedAt: track.publishedAt?.toISOString(),
+        feedTitle: track.feed.title,
+        position: pt.position
+      };
+    }).filter(Boolean); // Remove null entries
+
+    // Format as album for compatibility with other playlist endpoints
+    const album = {
+      id: playlist.id,
+      title: playlist.name,
+      artist: 'Various Artists',
+      album: playlist.name,
+      description: playlist.description,
+      image: playlist.image,
+      coverArt: playlist.image,
+      url: `/playlist/flowgnar`,
+      feedId: playlist.id,
+      type: 'playlist',
+      totalTracks: formattedTracks.length,
+      tracks: formattedTracks,
+      publishedAt: playlist.createdAt.toISOString(),
+      isPlaylistCard: true,
+      playlistUrl: `/playlist/flowgnar`,
+      albumUrl: `/playlist/flowgnar`,
+      playlistContext: {
+        source: 'flowgnar-playlist',
+        originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml'
+      }
+    };
 
     return NextResponse.json({
       success: true,
-      data: {
-        playlist: {
-          id: playlist.id,
-          name: playlist.name,
-          description: playlist.description,
-          image: playlist.image,
-          isPublic: playlist.isPublic,
-          createdAt: playlist.createdAt.toISOString(),
-          trackCount: formattedTracks.length
-        },
-        tracks: formattedTracks
-      }
+      albums: [album]
     });
 
   } catch (error) {
