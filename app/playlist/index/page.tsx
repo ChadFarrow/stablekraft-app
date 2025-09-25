@@ -131,8 +131,16 @@ function PlaylistContent() {
       'hgh': 'bg-purple-600',
       'lightning-thrashes': 'bg-red-600',
       'top100-music': 'bg-yellow-600',
-      'upbeats': 'bg-green-600'
+      'upbeats': 'bg-green-600',
+      'flowgnar': 'bg-teal-600'
     };
+    
+    // Check if playlist name contains key identifiers
+    const name = id.toLowerCase();
+    if (name.includes('flowgnar')) return 'bg-teal-600';
+    if (name.includes('upbeats')) return 'bg-green-600';
+    if (name.includes('behind') || name.includes('b4ts') || name.includes('sch3m3s')) return 'bg-orange-600';
+    
     return colors[id as keyof typeof colors] || 'bg-gray-600';
   };
 
@@ -251,6 +259,12 @@ function PlaylistContent() {
               className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open B4TS Player
+            </Link>
+            <Link
+              href="/playlist/flowgnar"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open Flowgnar Player
             </Link>
             <a
               href="/api/playlist/itdv-rss"
