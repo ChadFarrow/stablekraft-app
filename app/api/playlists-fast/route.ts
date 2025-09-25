@@ -62,7 +62,6 @@ export async function GET() {
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/iam',
-        albumUrl: '/album/its-a-mood-music-playlist',
         playlistContext: {
           source: 'iam-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml'
@@ -84,7 +83,6 @@ export async function GET() {
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/itdv',
-        albumUrl: '/album/into-the-valueverse-playlist',
         playlistContext: {
           source: 'itdv-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml'
@@ -106,7 +104,6 @@ export async function GET() {
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/hgh',
-        albumUrl: '/album/homegrown-hits-playlist',
         playlistContext: {
           source: 'hgh-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml'
@@ -128,7 +125,6 @@ export async function GET() {
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmm',
-        albumUrl: '/album/modern-music-movements-playlist',
         playlistContext: {
           source: 'mmm-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml'

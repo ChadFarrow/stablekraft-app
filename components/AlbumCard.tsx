@@ -81,7 +81,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     if (isPublisherCard) {
       albumUrl = (album as any).publisherUrl || `/publisher/${album.id}`;
     } else if (isPlaylistCard) {
-      albumUrl = (album as any).albumUrl || (album as any).playlistUrl;
+      albumUrl = (album as any).playlistUrl || (album as any).albumUrl;
     } else {
       albumUrl = generateAlbumUrl(album.title);
     }
