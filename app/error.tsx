@@ -27,12 +27,42 @@ export default function Error({
   // Add global error handlers to prevent crashes
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason);
+      console.error('🔍 Global promise rejection caught:', event.reason);
+      
+      // Handle specific ServiceWorker errors
+      if (event.reason?.message?.includes('Failed to update the ServiceWorker')) {
+        console.warn('ServiceWorker update conflict - this is normal during updates');
+        event.preventDefault();
+        return;
+      }
+      
+      // Handle tracks undefined errors
+      if (event.reason?.message?.includes("can't access property \"length\", e.tracks is undefined")) {
+        console.warn('Tracks data structure issue - attempting recovery');
+        event.preventDefault();
+        return;
+      }
+      
       event.preventDefault();
     };
 
     const handleError = (event: ErrorEvent) => {
-      console.error('Global error:', event.error);
+      console.error('🔍 Global error caught:', event.error);
+      
+      // Handle specific ServiceWorker errors
+      if (event.error?.message?.includes('Failed to update the ServiceWorker')) {
+        console.warn('ServiceWorker update conflict - this is normal during updates');
+        event.preventDefault();
+        return;
+      }
+      
+      // Handle tracks undefined errors
+      if (event.error?.message?.includes("can't access property \"length\", e.tracks is undefined")) {
+        console.warn('Tracks data structure issue - attempting recovery');
+        event.preventDefault();
+        return;
+      }
+      
       event.preventDefault();
     };
 

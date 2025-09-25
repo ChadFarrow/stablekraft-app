@@ -18,6 +18,7 @@ export default function ServiceWorkerRegistration() {
     
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       let registration: ServiceWorkerRegistration;
+      let updateInterval: NodeJS.Timeout | null = null;
 
       // Register service worker with cache busting
       const swUrl = `/sw.js?v=${Date.now()}`;
@@ -30,23 +31,35 @@ export default function ServiceWorkerRegistration() {
           registration = reg;
           console.log('✅ Service Worker registered successfully:', reg);
           
-          // Check for updates immediately
-          reg.update();
+          // Check for updates immediately, but only if no update is already in progress
+          if (!registration.installing && !registration.waiting) {
+            reg.update().catch((error) => {
+              // Ignore update errors to prevent race conditions
+              console.warn('Service worker update skipped:', error.message);
+            });
+          }
           
-          // Check for updates every 60 seconds when app is active (less frequent)
-          const updateInterval = setInterval(() => {
-            if (document.visibilityState === 'visible') {
-              reg.update();
+          // Check for updates every 5 minutes when app is active (less frequent to prevent race conditions)
+          updateInterval = setInterval(() => {
+            if (document.visibilityState === 'visible' && registration && !registration.installing && !registration.waiting) {
+              registration.update().catch((error) => {
+                // Ignore update errors to prevent race conditions
+                console.warn('Service worker update skipped:', error.message);
+              });
             }
-          }, 60000);
-
-          // Clean up interval
-          return () => clearInterval(updateInterval);
+          }, 300000); // 5 minutes instead of 60 seconds
         })
         .catch((error) => {
           console.error('❌ Service Worker registration failed:', error);
           // Don't throw - allow the app to continue without service worker
         });
+
+      // Clean up interval on unmount
+      return () => {
+        if (updateInterval) {
+          clearInterval(updateInterval);
+        }
+      };
 
       // Listen for service worker updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {

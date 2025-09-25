@@ -760,37 +760,42 @@ export default function HomePage() {
     }, {});
 
     // Convert episode groups to album format
-    return Object.values(episodeGroups).map((episode: any, index: number) => ({
-      id: `music-episode-${episode.episodeId}`,
-      title: episode.episodeTitle,
-      artist: episode.tracks?.length > 0 ? episode.tracks[0].artist : 'From RSS Feed',
-      description: `Music tracks from ${episode.episodeTitle}`,
-      coverArt: episode.tracks?.length > 0 ? (episode.tracks[0].artworkUrl || episode.tracks[0].image || '') : '',
-      releaseDate: episode.episodeDate,
-      feedId: 'music-rss',
-      tracks: episode.tracks.map((track: any, trackIndex: number) => ({
-        title: track.title,
-        artist: track.artist,
-        duration: track.duration,
-        url: track.audioUrl || '',
-        trackNumber: trackIndex + 1,
-        subtitle: track.episodeTitle,
-        summary: track.description || '',
-        image: track.artworkUrl || track.image || '',
-        explicit: false,
-        keywords: [],
-        // Add music track specific fields
-        musicTrack: true,
-        episodeId: track.episodeId,
-        episodeDate: track.episodeDate,
-        source: track.source,
-        startTime: track.startTime,
-        endTime: track.endTime
-      })),
-      // Mark as music track album
-      isMusicTrackAlbum: true,
-      source: 'rss-feed'
-    }));
+    return Object.values(episodeGroups).map((episode: any, index: number) => {
+      // Ensure tracks array exists and is valid
+      const tracks = episode.tracks || [];
+      
+      return {
+        id: `music-episode-${episode.episodeId}`,
+        title: episode.episodeTitle,
+        artist: tracks.length > 0 ? tracks[0].artist : 'From RSS Feed',
+        description: `Music tracks from ${episode.episodeTitle}`,
+        coverArt: tracks.length > 0 ? (tracks[0].artworkUrl || tracks[0].image || '') : '',
+        releaseDate: episode.episodeDate,
+        feedId: 'music-rss',
+        tracks: tracks.map((track: any, trackIndex: number) => ({
+          title: track.title,
+          artist: track.artist,
+          duration: track.duration,
+          url: track.audioUrl || '',
+          trackNumber: trackIndex + 1,
+          subtitle: track.episodeTitle,
+          summary: track.description || '',
+          image: track.artworkUrl || track.image || '',
+          explicit: false,
+          keywords: [],
+          // Add music track specific fields
+          musicTrack: true,
+          episodeId: track.episodeId,
+          episodeDate: track.episodeDate,
+          source: track.source,
+          startTime: track.startTime,
+          endTime: track.endTime
+        })),
+        // Mark as music track album
+        isMusicTrackAlbum: true,
+        source: 'rss-feed'
+      };
+    });
   };
 
   const playMusicTrack = async (track: any) => {
