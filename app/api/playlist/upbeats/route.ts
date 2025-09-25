@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
+import { resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
+import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 
 const prisma = new PrismaClient();
 
@@ -100,26 +101,15 @@ export async function GET(request: Request) {
     console.log('📋 Found remote items:', remoteItems.length);
     console.log('🎨 Found artwork URL:', artworkUrl);
 
-    // Resolve playlist items to get actual track data from the database
     console.log('🔍 Resolving playlist items to actual tracks...');
+    
+    // AUTOMATIC FEED POPULATION - This is now automatic for all playlists!
+    const allFeedGuids = parseRemoteItemsForFeeds(xmlText);
+    await autoPopulateFeeds(allFeedGuids, 'Upbeats');
+    
+    // Resolve playlist items to get actual track data from the database
     const resolvedTracks = await resolvePlaylistItems(remoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
-
-    // Auto-discover and add unresolved feeds to database
-    const unresolvedItems = remoteItems.filter(item => {
-      return !resolvedTracks.find(track => track.playlistContext?.itemGuid === item.itemGuid);
-    });
-    
-    if (unresolvedItems.length > 0) {
-      console.log(`🔍 Processing ${unresolvedItems.length} unresolved items for feed discovery...`);
-      try {
-        const addedFeedsCount = await processPlaylistFeedDiscovery(unresolvedItems);
-        console.log(`✅ Feed discovery: ${addedFeedsCount} new feeds added to database`);
-      } catch (error) {
-        console.error('❌ Error during feed discovery:', error);
-        // Continue with playlist creation even if feed discovery fails
-      }
-    }
 
     // Create a map of resolved tracks by itemGuid for quick lookup
     const resolvedTrackMap = new Map(

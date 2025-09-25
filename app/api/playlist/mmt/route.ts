@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { playlistCache } from '@/lib/playlist-cache';
 import { headers } from 'next/headers';
+import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 
 const MMT_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml';
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
@@ -166,6 +167,10 @@ export async function GET(request: NextRequest) {
     console.log(`🎨 Found artwork URL: ${artworkUrl}`);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
+    
+    // AUTOMATIC FEED POPULATION - This is now automatic for all playlists!
+    const allFeedGuids = parseRemoteItemsForFeeds(xmlText);
+    await autoPopulateFeeds(allFeedGuids, 'MMT');
     
     // Get unique track GUIDs for database lookup
     const itemGuids = remoteItems.map(item => item.itemGuid);

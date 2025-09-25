@@ -4,7 +4,7 @@ import { playlistCache } from '@/lib/playlist-cache';
 import { headers } from 'next/headers';
 import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 
-const SAS_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml';
+const FLOWGNAR_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-music-playlist.xml';
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
 
@@ -21,7 +21,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-SAS-Resolver/1.0'
+    'User-Agent': 'FUCKIT-Flowgnar-Resolver/1.0'
   };
 }
 
@@ -139,14 +139,14 @@ export async function GET(request: NextRequest) {
     const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     
-    console.log('🎵 Fetching SAS playlist...', { userAgent });
+    console.log('🎵 Fetching Flowgnar playlist...', { userAgent });
 
     const { searchParams } = new URL(request.url);
     const refresh = searchParams.get('refresh') === 'true';
 
     // Check cache first (unless refresh requested)
-    if (!refresh && playlistCache.isCacheValid('sas-playlist')) {
-      const cachedData = playlistCache.getCachedData('sas-playlist');
+    if (!refresh && playlistCache.isCacheValid('flowgnar-playlist')) {
+      const cachedData = playlistCache.getCachedData('flowgnar-playlist');
       if (cachedData) {
         console.log('⚡ Using persistent cached playlist data');
         return NextResponse.json(cachedData);
@@ -154,23 +154,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch playlist XML
-    const xmlText = await fetchPlaylistXML(SAS_PLAYLIST_URL);
+    const xmlText = await fetchPlaylistXML(FLOWGNAR_PLAYLIST_URL);
     console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
     
     // Parse remote items
     const remoteItems = parseRemoteItems(xmlText);
     console.log(`📋 Found remote items: ${remoteItems.length}`);
     
-    // Extract artwork URL
-    const artworkMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
-    const artworkUrl = artworkMatch ? artworkMatch[1] : 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/SAS-playlist-art%20.webp';
+    // Extract artwork URL - try both formats
+    let artworkUrl = null;
+    const itunesMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
+    const imageUrlMatch = xmlText.match(/<image>\s*<url>(.*?)<\/url>\s*<\/image>/s);
+    
+    if (itunesMatch) {
+      artworkUrl = itunesMatch[1];
+    } else if (imageUrlMatch) {
+      artworkUrl = imageUrlMatch[1].trim();
+    }
     console.log(`🎨 Found artwork URL: ${artworkUrl}`);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
     
     // AUTOMATIC FEED POPULATION - This is now automatic for all playlists!
     const allFeedGuids = parseRemoteItemsForFeeds(xmlText);
-    await autoPopulateFeeds(allFeedGuids, 'SAS');
+    await autoPopulateFeeds(allFeedGuids, 'Flowgnar');
     
     // Get unique track GUIDs for database lookup
     const itemGuids = remoteItems.map(item => item.itemGuid);
@@ -216,7 +223,7 @@ export async function GET(request: NextRequest) {
           image: dbTrack.image || dbTrack.feed?.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Sats and Sounds podcast`,
+          description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Flowgnar podcast`,
           albumTitle: dbTrack.feed?.title || 'Unknown Album',
           feedTitle: dbTrack.feed?.title || 'Unknown Feed',
           guid: dbTrack.guid
@@ -237,7 +244,7 @@ export async function GET(request: NextRequest) {
           image: resolvedData.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in Sats and Sounds podcast`,
+          description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in Flowgnar podcast`,
           albumTitle: resolvedData.feedTitle,
           feedTitle: resolvedData.feedTitle,
           guid: resolvedData.guid
@@ -256,7 +263,7 @@ export async function GET(request: NextRequest) {
         image: artworkUrl || '/placeholder-podcast.jpg',
         feedGuid: item.feedGuid,
         itemGuid: item.itemGuid,
-        description: `Music track referenced in Sats and Sounds podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+        description: `Music track referenced in Flowgnar podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
       };
     }));
 
@@ -267,27 +274,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`🎯 Filtered tracks: ${tracksAll.length} -> ${tracks.length} (removed ${tracksAll.length - tracks.length} tracks without audio)`);
 
-    // Create a single virtual album that represents the SAS playlist
+    // Create a single virtual album that represents the Flowgnar playlist
     const playlistAlbum = {
-      id: 'sas-playlist',
-      title: 'Sats and Sounds Music Playlist',
+      id: 'flowgnar-playlist',
+      title: 'Flowgnar Music Playlist',
       artist: 'Various Artists',
-      album: 'Sats and Sounds Music Playlist',
-      description: 'Curated playlist from Sats and Sounds podcast featuring Value4Value independent artists',
+      album: 'Flowgnar Music Playlist',
+      description: 'Curated playlist from Flowgnar podcast featuring independent artists',
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg',
-      url: SAS_PLAYLIST_URL,
+      url: FLOWGNAR_PLAYLIST_URL,
       tracks: tracks,
-      feedId: 'sas-playlist',
+      feedId: 'flowgnar-playlist',
       type: 'playlist',
       totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
       isPlaylistCard: true,
-      playlistUrl: '/playlist/sas',
-      albumUrl: '/album/sas-playlist',
+      playlistUrl: '/playlist/flowgnar',
+      albumUrl: '/album/flowgnar-playlist',
       playlistContext: {
-        source: 'sas-playlist',
-        originalUrl: SAS_PLAYLIST_URL,
+        source: 'flowgnar-playlist',
+        originalUrl: FLOWGNAR_PLAYLIST_URL,
         resolvedTracks: dbTracks.length,
         totalRemoteItems: remoteItems.length
       }
@@ -300,19 +307,19 @@ export async function GET(request: NextRequest) {
       albums: [playlistAlbum],
       totalCount: 1,
       playlist: {
-        title: 'Sats and Sounds Music Playlist',
+        title: 'Flowgnar Music Playlist',
         items: [playlistAlbum]
       }
     };
 
     // Cache the response
-    playlistCache.setCachedData('sas-playlist', responseData);
+    playlistCache.setCachedData('flowgnar-playlist', responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error('❌ Error fetching SAS playlist:', error);
+    console.error('❌ Error fetching Flowgnar playlist:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch SAS playlist' },
+      { error: 'Failed to fetch Flowgnar playlist' },
       { status: 500 }
     );
   }
