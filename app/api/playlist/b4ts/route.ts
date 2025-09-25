@@ -315,7 +315,10 @@ export async function GET(request: NextRequest) {
     // Cache the response
     playlistCache.setCachedData('b4ts-playlist', responseData);
 
-    return NextResponse.json(responseData);
+    return NextResponse.json({
+      success: true,
+      tracks: playlistAlbum.tracks // Return tracks directly for PlaylistTemplate compatibility
+    });
   } catch (error) {
     console.error('❌ Error fetching B4TS playlist:', error);
     return NextResponse.json(
