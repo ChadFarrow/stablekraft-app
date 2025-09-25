@@ -29,6 +29,17 @@ const staticPlaylists: PlaylistItem[] = [
     medium: 'musicL'
   },
   {
+    id: 'b4ts',
+    title: 'Behind the Sch3m3s Music Playlist',
+    description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
+    trackCount: 565,
+    episodes: '565 remote items',
+    href: '/playlist/b4ts',
+    type: 'rss',
+    color: 'bg-orange-600',
+    medium: 'musicL'
+  },
+  {
     id: 'itdv-rss',
     title: 'ITDV RSS Feed',
     description: 'Podcasting 2.0 compliant RSS feed for music discovery',
@@ -212,6 +223,12 @@ function PlaylistContent() {
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open Upbeats Player
+            </Link>
+            <Link
+              href="/playlist/b4ts"
+              className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open B4TS Player
             </Link>
             <a
               href="/api/playlist/itdv-rss"
