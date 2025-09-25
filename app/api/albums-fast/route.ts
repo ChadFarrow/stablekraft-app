@@ -38,6 +38,24 @@ async function getPlaylistAlbums() {
     console.log('🔄 Fetching playlist data...');
     const playlistAlbums = [];
     
+    // Fetch Upbeats playlist
+    const upbeatsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/upbeats`);
+    if (upbeatsResponse.ok) {
+      const upbeatsData = await upbeatsResponse.json();
+      if (upbeatsData.success && upbeatsData.albums && upbeatsData.albums.length > 0) {
+        playlistAlbums.push(upbeatsData.albums[0]);
+      }
+    }
+    
+    // Fetch B4TS playlist
+    const b4tsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/b4ts`);
+    if (b4tsResponse.ok) {
+      const b4tsData = await b4tsResponse.json();
+      if (b4tsData.success && b4tsData.albums && b4tsData.albums.length > 0) {
+        playlistAlbums.push(b4tsData.albums[0]);
+      }
+    }
+    
     // Fetch HGH playlist
     const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/hgh`);
     if (hghResponse.ok) {
@@ -71,6 +89,33 @@ async function getPlaylistAlbums() {
       const flowgnarData = await flowgnarResponse.json();
       if (flowgnarData.success && flowgnarData.albums && flowgnarData.albums.length > 0) {
         playlistAlbums.push(flowgnarData.albums[0]);
+      }
+    }
+    
+    // Fetch MMM playlist
+    const mmmResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/mmm`);
+    if (mmmResponse.ok) {
+      const mmmData = await mmmResponse.json();
+      if (mmmData.success && mmmData.albums && mmmData.albums.length > 0) {
+        playlistAlbums.push(mmmData.albums[0]);
+      }
+    }
+    
+    // Fetch MMT playlist
+    const mmtResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/mmt`);
+    if (mmtResponse.ok) {
+      const mmtData = await mmtResponse.json();
+      if (mmtData.success && mmtData.albums && mmtData.albums.length > 0) {
+        playlistAlbums.push(mmtData.albums[0]);
+      }
+    }
+    
+    // Fetch SAS playlist
+    const sasResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/sas`);
+    if (sasResponse.ok) {
+      const sasData = await sasResponse.json();
+      if (sasData.success && sasData.albums && sasData.albums.length > 0) {
+        playlistAlbums.push(sasData.albums[0]);
       }
     }
     

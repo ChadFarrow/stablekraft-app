@@ -520,15 +520,41 @@ export default function HomePage() {
           console.warn('⚠️ Fast playlist endpoint failed, falling back to individual APIs');
           
           // Fallback to individual playlist APIs if fast endpoint fails
-          const [itdvResponse, hghResponse, iamResponse, mmmResponse, flowgnarResponse] = await Promise.allSettled([
+          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse] = await Promise.allSettled([
+            fetch('/api/playlist/upbeats'),
+            fetch('/api/playlist/b4ts'),
             fetch('/api/playlist/itdv'),
             fetch('/api/playlist/hgh'),
             fetch('/api/playlist/iam'),
             fetch('/api/playlist/mmm'),
+            fetch('/api/playlist/mmt'),
+            fetch('/api/playlist/sas'),
             fetch('/api/playlist/flowgnar')
           ]);
 
           const allAlbums: any[] = [];
+
+          // Process Upbeats playlist
+          if (upbeatsResponse.status === 'fulfilled' && upbeatsResponse.value.ok) {
+            const upbeatsData = await upbeatsResponse.value.json();
+            if (upbeatsData.success && upbeatsData.albums) {
+              allAlbums.push(...upbeatsData.albums);
+              console.log(`✅ Loaded ${upbeatsData.albums.length} Upbeats playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load Upbeats playlist');
+          }
+
+          // Process B4TS playlist
+          if (b4tsResponse.status === 'fulfilled' && b4tsResponse.value.ok) {
+            const b4tsData = await b4tsResponse.value.json();
+            if (b4tsData.success && b4tsData.albums) {
+              allAlbums.push(...b4tsData.albums);
+              console.log(`✅ Loaded ${b4tsData.albums.length} B4TS playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load B4TS playlist');
+          }
 
           // Process ITDV playlist
           if (itdvResponse.status === 'fulfilled' && itdvResponse.value.ok) {
@@ -583,6 +609,28 @@ export default function HomePage() {
             }
           } else {
             console.warn('⚠️ Failed to load Flowgnar playlist');
+          }
+
+          // Process MMT playlist
+          if (mmtResponse.status === 'fulfilled' && mmtResponse.value.ok) {
+            const mmtData = await mmtResponse.value.json();
+            if (mmtData.success && mmtData.albums) {
+              allAlbums.push(...mmtData.albums);
+              console.log(`✅ Loaded ${mmtData.albums.length} MMT playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load MMT playlist');
+          }
+
+          // Process SAS playlist
+          if (sasResponse.status === 'fulfilled' && sasResponse.value.ok) {
+            const sasData = await sasResponse.value.json();
+            if (sasData.success && sasData.albums) {
+              allAlbums.push(...sasData.albums);
+              console.log(`✅ Loaded ${sasData.albums.length} SAS playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load SAS playlist');
           }
 
           return allAlbums;
