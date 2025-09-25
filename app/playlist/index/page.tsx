@@ -18,6 +18,17 @@ interface PlaylistItem {
 // Static playlists - RSS feeds that are musicL compliant
 const staticPlaylists: PlaylistItem[] = [
   {
+    id: 'upbeats',
+    title: 'Upbeats Playlist',
+    description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+    trackCount: 495,
+    episodes: '554 remote items',
+    href: '/playlist/upbeats',
+    type: 'rss',
+    color: 'bg-green-600',
+    medium: 'musicL'
+  },
+  {
     id: 'itdv-rss',
     title: 'ITDV RSS Feed',
     description: 'Podcasting 2.0 compliant RSS feed for music discovery',
@@ -25,7 +36,7 @@ const staticPlaylists: PlaylistItem[] = [
     episodes: 'Episodes 31-56',
     href: '/playlist/itdv-rss',
     type: 'rss',
-    color: 'bg-green-600',
+    color: 'bg-blue-600',
     medium: 'musicL'
   },
   {
@@ -196,10 +207,16 @@ function PlaylistContent() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
           <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              href="/playlist/upbeats"
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open Upbeats Player
+            </Link>
             <a
               href="/api/playlist/itdv-rss"
               download="ITDV-playlist.xml"
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               📥 Download ITDV RSS
             </a>
