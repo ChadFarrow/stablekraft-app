@@ -199,6 +199,28 @@ export async function GET() {
           source: 'mmt-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml'
         }
+      },
+      {
+        id: 'sas-playlist',
+        title: 'Sats and Sounds Music Playlist',
+        artist: 'Various Artists',
+        album: 'Sats and Sounds Music Playlist',
+        description: 'Curated playlist from Sats and Sounds podcast featuring Value4Value independent artists',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/SAS-playlist-art%20.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/SAS-playlist-art%20.webp',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml',
+        feedId: 'sas-playlist',
+        type: 'playlist',
+        totalTracks: 500, // Estimated based on analysis
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/sas',
+        albumUrl: '/playlist/sas',
+        playlistContext: {
+          source: 'sas-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml'
+        }
       }
     ];
 

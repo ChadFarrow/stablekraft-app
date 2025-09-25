@@ -71,6 +71,17 @@ const staticPlaylists: PlaylistItem[] = [
     type: 'rss',
     color: 'bg-indigo-600',
     medium: 'musicL'
+  },
+  {
+    id: 'sas',
+    title: 'Sats and Sounds Music Playlist',
+    description: 'Curated playlist from Sats and Sounds podcast featuring Value4Value independent artists',
+    trackCount: 500,
+    episodes: '500+ remote items',
+    href: '/playlist/sas',
+    type: 'rss',
+    color: 'bg-orange-500',
+    medium: 'musicL'
   }
 ];
 
@@ -265,6 +276,12 @@ function PlaylistContent() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open MMT Player
+            </Link>
+            <Link
+              href="/playlist/sas"
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open SAS Player
             </Link>
             <Link
               href="/playlist/maker"
