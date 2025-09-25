@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PlaylistTemplate } from '@/components/PlaylistTemplate';
+import PlaylistTemplate from '@/components/PlaylistTemplate';
 
 interface Track {
   id: string;
@@ -92,6 +92,9 @@ export default function FlowgnarPlaylistPage() {
   }
 
   const config = {
+    cacheKey: 'flowgnar-playlist',
+    cacheDuration: 5 * 60 * 1000, // 5 minutes
+    apiEndpoint: '/api/playlist/flowgnar',
     title: playlist.name,
     description: playlist.description,
     coverArt: playlist.image || 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist-art.webp',
@@ -103,7 +106,6 @@ export default function FlowgnarPlaylistPage() {
   return (
     <PlaylistTemplate
       config={config}
-      initialTracks={tracks}
     />
   );
 }
