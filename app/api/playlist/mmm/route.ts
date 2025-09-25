@@ -128,7 +128,7 @@ export async function GET(request: Request) {
     );
 
     // Create tracks for ALL remote items, using resolved data when available
-    const tracks = remoteItems.map((item, index) => {
+    const tracksAll = remoteItems.map((item, index) => {
       const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
 
       if (resolvedTrack) {
@@ -166,6 +166,13 @@ export async function GET(request: Request) {
         };
       }
     });
+
+    // Filter out tracks without audio URLs and prioritize resolved tracks
+    const tracks = tracksAll.filter(track => 
+      track.audioUrl && track.audioUrl.length > 0 && !track.audioUrl.includes('placeholder')
+    );
+
+    console.log(`🎯 Filtered tracks: ${tracksAll.length} -> ${tracks.length} (removed ${tracksAll.length - tracks.length} tracks without audio)`);
 
     // Create a single virtual album that represents the MMM playlist
     const playlistAlbum = {
@@ -302,9 +309,9 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     if (unresolvedItems.length > 0) {
       console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
       
-      // Process limited items for faster response
+      // Process more items for better resolution
       let processedCount = 0;
-      const maxToProcess = Math.min(25, unresolvedItems.length); // Process max 25 items via API for better resolution
+      const maxToProcess = Math.min(100, unresolvedItems.length); // Process max 100 items via API for better resolution
       
       for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
         let apiResult = null;

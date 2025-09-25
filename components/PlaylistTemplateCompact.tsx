@@ -37,11 +37,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
     const loadCachedData = () => {
       try {
-        // TEMP: Clear cache to force fresh fetch for all playlists
-        console.log(`🗑️ TEMP: Clearing cache for debugging ${config.title}`);
-        localStorage.removeItem(config.cacheKey);
-        return false;
-
         const cached = localStorage.getItem(config.cacheKey);
         if (cached && cached !== null) {
           const data: CachedData = JSON.parse(cached as string);
