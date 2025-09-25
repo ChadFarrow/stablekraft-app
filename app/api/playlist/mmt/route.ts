@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { playlistCache } from '@/lib/playlist-cache';
 import { headers } from 'next/headers';
 
-const B4TS_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml';
+const MMT_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml';
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
 
@@ -20,7 +20,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-B4TS-Resolver/1.0'
+    'User-Agent': 'FUCKIT-MMT-Resolver/1.0'
   };
 }
 
@@ -138,14 +138,14 @@ export async function GET(request: NextRequest) {
     const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     
-    console.log('🎵 Fetching B4TS playlist...', { userAgent });
+    console.log('🎵 Fetching MMT playlist...', { userAgent });
 
     const { searchParams } = new URL(request.url);
     const refresh = searchParams.get('refresh') === 'true';
 
     // Check cache first (unless refresh requested)
-    if (!refresh && playlistCache.isCacheValid('b4ts-playlist')) {
-      const cachedData = playlistCache.getCachedData('b4ts-playlist');
+    if (!refresh && playlistCache.isCacheValid('mmt-playlist')) {
+      const cachedData = playlistCache.getCachedData('mmt-playlist');
       if (cachedData) {
         console.log('⚡ Using persistent cached playlist data');
         return NextResponse.json(cachedData);
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch playlist XML
-    const xmlText = await fetchPlaylistXML(B4TS_PLAYLIST_URL);
+    const xmlText = await fetchPlaylistXML(MMT_PLAYLIST_URL);
     console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
     
     // Parse remote items
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     
     // Extract artwork URL
     const artworkMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
-    const artworkUrl = artworkMatch ? artworkMatch[1] : null;
+    const artworkUrl = artworkMatch ? artworkMatch[1] : 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/MMT-playlist-art.webp';
     console.log(`🎨 Found artwork URL: ${artworkUrl}`);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
           image: dbTrack.image || dbTrack.feed?.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in B4TS podcast`,
+          description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Mike's Mix Tape podcast`,
           albumTitle: dbTrack.feed?.title || 'Unknown Album',
           feedTitle: dbTrack.feed?.title || 'Unknown Feed',
           guid: dbTrack.guid
@@ -232,7 +232,7 @@ export async function GET(request: NextRequest) {
           image: resolvedData.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in B4TS podcast`,
+          description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in Mike's Mix Tape podcast`,
           albumTitle: resolvedData.feedTitle,
           feedTitle: resolvedData.feedTitle,
           guid: resolvedData.guid
@@ -251,7 +251,7 @@ export async function GET(request: NextRequest) {
         image: artworkUrl || '/placeholder-podcast.jpg',
         feedGuid: item.feedGuid,
         itemGuid: item.itemGuid,
-        description: `Music track referenced in B4TS podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+        description: `Music track referenced in Mike's Mix Tape podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
       };
     }));
 
@@ -262,27 +262,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`🎯 Filtered tracks: ${tracksAll.length} -> ${tracks.length} (removed ${tracksAll.length - tracks.length} tracks without audio)`);
 
-    // Create a single virtual album that represents the B4TS playlist
+    // Create a single virtual album that represents the MMT playlist
     const playlistAlbum = {
-      id: 'b4ts-playlist',
-      title: 'Behind the Sch3m3s Music Playlist',
+      id: 'mmt-playlist',
+      title: "Mike's Mix Tape Music Playlist",
       artist: 'Various Artists',
-      album: 'Behind the Sch3m3s Music Playlist',
-      description: 'Curated playlist from Behind the Sch3m3s podcast featuring independent artists',
+      album: "Mike's Mix Tape Music Playlist",
+      description: 'Curated playlist from Mike\'s Mix Tape podcast featuring Value4Value independent artists',
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg',
-      url: B4TS_PLAYLIST_URL,
+      url: MMT_PLAYLIST_URL,
       tracks: tracks,
-      feedId: 'b4ts-playlist',
+      feedId: 'mmt-playlist',
       type: 'playlist',
       totalTracks: tracks.length,
       publishedAt: new Date().toISOString(),
       isPlaylistCard: true,
-      playlistUrl: '/playlist/b4ts',
-      albumUrl: '/album/b4ts-playlist',
+      playlistUrl: '/playlist/mmt',
+      albumUrl: '/album/mmt-playlist',
       playlistContext: {
-        source: 'b4ts-playlist',
-        originalUrl: B4TS_PLAYLIST_URL,
+        source: 'mmt-playlist',
+        originalUrl: MMT_PLAYLIST_URL,
         resolvedTracks: dbTracks.length,
         totalRemoteItems: remoteItems.length
       }
@@ -295,19 +295,19 @@ export async function GET(request: NextRequest) {
       albums: [playlistAlbum],
       totalCount: 1,
       playlist: {
-        title: 'Behind the Sch3m3s Music Playlist',
+        title: "Mike's Mix Tape Music Playlist",
         items: [playlistAlbum]
       }
     };
 
     // Cache the response
-    playlistCache.setCachedData('b4ts-playlist', responseData);
+    playlistCache.setCachedData('mmt-playlist', responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error('❌ Error fetching B4TS playlist:', error);
+    console.error('❌ Error fetching MMT playlist:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch B4TS playlist' },
+      { error: 'Failed to fetch MMT playlist' },
       { status: 500 }
     );
   }

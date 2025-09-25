@@ -177,6 +177,28 @@ export async function GET() {
           source: 'mmm-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml'
         }
+      },
+      {
+        id: 'mmt-playlist',
+        title: "Mike's Mix Tape Music Playlist",
+        artist: 'Various Artists',
+        album: "Mike's Mix Tape Music Playlist",
+        description: 'Curated playlist from Mike\'s Mix Tape podcast featuring Value4Value independent artists',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/MMT-playlist-art.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/MMT-playlist-art.webp',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml',
+        feedId: 'mmt-playlist',
+        type: 'playlist',
+        totalTracks: 146,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/mmt',
+        albumUrl: '/playlist/mmt',
+        playlistContext: {
+          source: 'mmt-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml'
+        }
       }
     ];
 

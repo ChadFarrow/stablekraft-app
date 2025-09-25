@@ -60,6 +60,17 @@ const staticPlaylists: PlaylistItem[] = [
     type: 'rss',
     color: 'bg-purple-600',
     medium: 'musicL'
+  },
+  {
+    id: 'mmt',
+    title: "Mike's Mix Tape Music Playlist",
+    description: 'Curated playlist from Mike\'s Mix Tape podcast featuring Value4Value independent artists',
+    trackCount: 146,
+    episodes: '146 remote items',
+    href: '/playlist/mmt',
+    type: 'rss',
+    color: 'bg-indigo-600',
+    medium: 'musicL'
   }
 ];
 
@@ -248,6 +259,12 @@ function PlaylistContent() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open HGH Player
+            </Link>
+            <Link
+              href="/playlist/mmt"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open MMT Player
             </Link>
             <Link
               href="/playlist/maker"
