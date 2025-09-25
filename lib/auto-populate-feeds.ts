@@ -35,11 +35,11 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
     
     // Check which feeds already exist
     const existingFeeds = await prisma.feed.findMany({
-      where: { feedGuid: { in: feedGuids } },
-      select: { feedGuid: true, id: true }
+      where: { id: { in: feedGuids } },
+      select: { id: true }
     });
     
-    const existingFeedGuids = new Set(existingFeeds.map(f => f.feedGuid).filter(Boolean));
+    const existingFeedGuids = new Set(existingFeeds.map(f => f.id).filter(Boolean));
     const missingFeedGuids = feedGuids.filter(guid => !existingFeedGuids.has(guid));
     
     if (missingFeedGuids.length === 0) {
@@ -69,7 +69,6 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                 await prisma.feed.create({
                   data: {
                     id: feedGuid,
-                    feedGuid: feedGuid,
                     title: feedData.title || 'Unknown Feed',
                     description: feedData.description || null,
                     artist: feedData.author || null,

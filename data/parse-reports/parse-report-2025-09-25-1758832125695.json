@@ -1,0 +1,70 @@
+{
+  "totalFeeds": 572,
+  "successfulParses": 555,
+  "failedParses": 17,
+  "albumsFound": 545,
+  "publishersFound": 10,
+  "totalTracks": 2653,
+  "totalDuration": "NaN:NaN",
+  "podRollFeeds": 0,
+  "fundingFeeds": 0,
+  "parseTime": 325246,
+  "timestamp": "2025-09-25T20:28:45.695Z",
+  "errors": [
+    {
+      "feedId": "wavlake-album-17",
+      "feedUrl": "https://wavlake.com/feed/music/b54b9a19-b6ed-46c1-806c-7e82f7550edc",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "example-com-test-feed-xml",
+      "feedUrl": "https://example.com/test-feed.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "ollie-i-never-thought-things-would-be-different",
+      "feedUrl": "https://wavlake.com/feed/music/6c756ed0-6c1a-4473-86a8-9d30124fa01c",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "lara-j-abyss-quiet-day",
+      "feedUrl": "https://wavlake.com/feed/music/79f5f4f0-a774-40ed-abdf-90ada1980a71",
+      "error": "Rate limited while fetching RSS feed"
+    },
+    {
+      "feedId": "rock-n-roll-breakheart-2-crystal-balls",
+      "feedUrl": "https://rocknrollbreakheart.com/msp/2CrystalBalls/2 crystal balls.xml",
+      "error": "Failed to parse XML content"
+    },
+    {
+      "feedId": "ariel-powell-the-leaves-shimmering-gold",
+      "feedUrl": "https://assets.libsyn.com/show/465249/the_leaves_shimmering_gold.xml",
+      "error": "Invalid RSS content received"
+    },
+    {
+      "feedId": "ariel-powell-you-re-ok-single-",
+      "feedUrl": "https://thebearsnare.com/youreok2.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    },
+    {
+      "feedId": "daniel-aragay-protologic-music",
+      "feedUrl": "https://www.haciendoelsueco.com/feed/protologic/",
+      "error": "Failed to fetch RSS feed"
+    },
+    {
+      "feedId": "torcon-7-torcon-vii",
+      "feedUrl": "https://feeds.podcastindex.org/Album-TourconVII.xml",
+      "error": "Failed to fetch RSS feed: 403"
+    },
+    {
+      "feedId": "able-kirby-november-ep",
+      "feedUrl": "https://bobcatindex.us-southeast-1.linodeobjects.com/AbleKirby_NovemberEP.xml",
+      "error": "Failed to fetch RSS feed: 404"
+    }
+  ]
+}
