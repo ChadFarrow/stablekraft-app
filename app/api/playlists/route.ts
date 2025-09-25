@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       id: playlist.id,
       name: playlist.name,
       description: playlist.description,
+      image: playlist.image,
       coverImage: playlist.image,
       isPublic: playlist.isPublic,
       createdBy: playlist.createdBy,

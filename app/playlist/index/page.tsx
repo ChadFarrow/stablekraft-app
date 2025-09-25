@@ -13,6 +13,7 @@ interface PlaylistItem {
   type: 'web' | 'rss';
   color: string;
   medium?: 'musicL' | 'podcast';
+  image?: string;
 }
 
 // Static playlists - RSS feeds that are musicL compliant
@@ -111,7 +112,8 @@ function PlaylistContent() {
         href: `/playlist/${playlist.id}`,
         type: 'web' as const,
         color: getColorForPlaylist(playlist.id),
-        medium: 'musicL' as const
+        medium: 'musicL' as const,
+        image: playlist.image
       }));
       
       // Combine database playlists with static RSS feeds
@@ -186,6 +188,21 @@ function PlaylistContent() {
                 </span>
                 <div className={`w-3 h-3 rounded-full ${playlist.color}`}></div>
               </div>
+
+              {/* Playlist Artwork */}
+              {playlist.image && (
+                <div className="mb-4">
+                  <img 
+                    src={playlist.image} 
+                    alt={`${playlist.title} artwork`}
+                    className="w-full h-48 object-cover rounded-lg"
+                    onError={(e) => {
+                      // Fallback to color indicator if image fails
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Title and Description */}
               <h3 className="text-xl font-bold mb-2">{playlist.title}</h3>
