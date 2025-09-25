@@ -40,7 +40,7 @@ export async function GET() {
     console.log(`🎵 Resolving audio URLs for ${resolvedSongsData.length} ITDV tracks`);
     
     // Call the resolve-audio-urls API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/resolve-audio-urls`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/resolve-audio-urls`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

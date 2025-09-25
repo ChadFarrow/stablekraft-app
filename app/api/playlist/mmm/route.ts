@@ -8,8 +8,8 @@ const prisma = new PrismaClient();
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 // Force recompilation
 
-// Persistent cache duration - 90 days for static playlists (manual refresh when needed)
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
+// Persistent cache duration - 7 days for faster responses 
+const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 interface RemoteItem {
   feedGuid: string;
@@ -170,10 +170,10 @@ export async function GET(request: Request) {
     // Create a single virtual album that represents the MMM playlist
     const playlistAlbum = {
       id: 'mmm-playlist',
-      title: 'Modern Music Movements Playlist',
+      title: 'Mutton, Mead & Music Playlist',
       artist: 'Various Artists',
-      album: 'Modern Music Movements Playlist',
-      description: 'Every music reference from the Modern Music Movements podcast',
+      album: 'Mutton, Mead & Music Playlist',
+      description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
       url: MMM_PLAYLIST_URL,
@@ -200,8 +200,8 @@ export async function GET(request: Request) {
       albums: [playlistAlbum], // Return as single album
       totalCount: 1,
       playlist: {
-        title: 'Modern Music Movements Playlist',
-        description: 'Every music reference from the Modern Music Movements podcast',
+        title: 'Mutton, Mead & Music Playlist',
+        description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
         author: 'ChadF',
         totalItems: 1,
         items: [playlistAlbum]
@@ -247,6 +247,15 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     });
 
     console.log(`📊 Found ${tracks.length} matching tracks in database`);
+    console.log(`🔍 Sample playlist GUIDs: ${itemGuids.slice(0, 10).join(', ')}`);
+    console.log(`🔍 Sample found track GUIDs: ${tracks.slice(0, 10).map(t => t.guid).join(', ')}`);
+    
+    // Debug: Check if any missing GUIDs exist in database without feed restrictions
+    const sampleMissingGuids = itemGuids.slice(5, 10);
+    const unrestricted = await prisma.track.findMany({
+      where: { guid: { in: sampleMissingGuids } }
+    });
+    console.log(`🔍 Found ${unrestricted.length} of ${sampleMissingGuids.length} sample GUIDs without feed restrictions`);
 
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
@@ -289,12 +298,13 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     console.log(`📊 Found ${resolvedTracks.length} tracks in database, ${unresolvedItems.length} need API resolution`);
 
     // Second pass: resolve unresolved items using Podcast Index API
+    // RE-ENABLED: Database is empty, need to populate it
     if (unresolvedItems.length > 0) {
       console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
       
-      // Process ALL unresolved items for maximum resolution - NO LIMITS
+      // Process limited items for faster response
       let processedCount = 0;
-      const maxToProcess = unresolvedItems.length; // Process ALL items via API
+      const maxToProcess = Math.min(25, unresolvedItems.length); // Process max 25 items via API for better resolution
       
       for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
         let apiResult = null;
@@ -401,8 +411,8 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
         }
         
-        // Reduce delay to 10ms - maximum speed while respecting rate limits
-        await new Promise(resolve => setTimeout(resolve, 10));
+        // Reduce delay to 5ms for faster response
+        // Remove delay for faster processing
       }
     }
 
@@ -420,7 +430,10 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     console.log(`📊 Placeholders: ${placeholderCount} (${((placeholderCount/remoteItems.length)*100).toFixed(1)}%)`);
     console.log(`📊 TOTAL RESOLUTION: ${totalResolved}/${remoteItems.length} (${finalResolutionRate}%)`);
 
-    return resolvedTracks;
+    // Return all successfully resolved tracks (database + API resolved, excluding placeholders)
+    const successfullyResolvedTracks = resolvedTracks.filter(t => !t.playlistContext?.isPlaceholder);
+    console.log(`🎯 Returning ${successfullyResolvedTracks.length} successfully resolved tracks (${resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length} from DB, ${resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.playlistContext?.isPlaceholder).length} from API)`);
+    return successfullyResolvedTracks;
   } catch (error) {
     console.error('❌ Error resolving playlist items:', error);
     return [];

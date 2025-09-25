@@ -107,7 +107,7 @@ export class PlaylistAPIHandler {
       }
 
       // Load ITDV tracks
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/itdv-resolved-songs`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/itdv-resolved-songs`);
       const data = await response.json();
 
       if (!data.success) {
@@ -152,7 +152,7 @@ export class PlaylistAPIHandler {
       }
 
       // Load HGH tracks
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/hgh-songs-list`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/hgh-songs-list`);
       const data = await response.json();
 
       if (!data.success) {
@@ -209,7 +209,7 @@ export class PlaylistAPIHandler {
   private static async handleTop100Playlist(params: PlaylistRequestParams): Promise<NextResponse> {
     try {
       // Load top 100 tracks
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/top100-music`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/top100-music`);
       const data = await response.json();
 
       return NextResponse.json({
@@ -302,7 +302,7 @@ export class PlaylistAPIHandler {
       const { type, title, description, tracks } = body;
 
       // Delegate to the RSS generation endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/generate-playlist-rss`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/generate-playlist-rss`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, title, description, tracks })
@@ -324,7 +324,7 @@ export class PlaylistAPIHandler {
 
   // RSS generation helpers
   private static async generateITDVRSS(): Promise<NextResponse> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/itdv-rss`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/itdv-rss`);
     const rssContent = await response.text();
 
     return new NextResponse(rssContent, {
@@ -336,7 +336,7 @@ export class PlaylistAPIHandler {
   }
 
   private static async generateHGHRSS(): Promise<NextResponse> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/hgh-rss`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/hgh-rss`);
     const rssContent = await response.text();
 
     return new NextResponse(rssContent, {
@@ -348,7 +348,7 @@ export class PlaylistAPIHandler {
   }
 
   private static async generateLightningThrashesRSS(): Promise<NextResponse> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/playlist/lightning-thrashes-rss`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/lightning-thrashes-rss`);
     const rssContent = await response.text();
 
     return new NextResponse(rssContent, {
