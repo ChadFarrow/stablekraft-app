@@ -547,6 +547,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             })}
           </div>
 
+
           {filteredTracks.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -560,5 +561,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           )}
         </div>
       </div>
+    </div>
   );
 }
