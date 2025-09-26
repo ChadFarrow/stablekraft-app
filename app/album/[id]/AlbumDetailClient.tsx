@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
-import { generateAlbumUrl, generateAlbumSlug, generatePublisherSlug } from '@/lib/url-utils';
+import { generateAlbumUrl, generateAlbumSlug, generatePublisherSlug, getPublisherInfo } from '@/lib/url-utils';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import ControlsBar from '@/components/ControlsBar';
@@ -781,18 +781,23 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             )}
 
             {/* Publisher Information */}
-            {album.publisher && (
-              <div className="flex items-center justify-center lg:justify-start gap-2 text-sm text-gray-400">
-                <span>More from this artist:</span>
-                <Link
-                  href={`/publisher/${generatePublisherSlug({ artist: album.artist, feedGuid: album.publisher.feedGuid })}`}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  View Discography
-                </Link>
-                <span className="text-xs bg-gray-600 px-2 py-1 rounded">PC 2.0</span>
-              </div>
-            )}
+            {album.publisher && (() => {
+              const publisherSlug = generatePublisherSlug({ artist: album.artist, feedGuid: album.publisher.feedGuid });
+              const publisherExists = getPublisherInfo(publisherSlug) !== null;
+              
+              return publisherExists ? (
+                <div className="flex items-center justify-center lg:justify-start gap-2 text-sm text-gray-400">
+                  <span>More from this artist:</span>
+                  <Link
+                    href={`/publisher/${publisherSlug}`}
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    View Discography
+                  </Link>
+                  <span className="text-xs bg-gray-600 px-2 py-1 rounded">PC 2.0</span>
+                </div>
+              ) : null;
+            })()}
 
             {/* Funding Information */}
             {album.funding && album.funding.length > 0 && (
