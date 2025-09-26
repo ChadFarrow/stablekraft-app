@@ -200,72 +200,84 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 Sample playlist GUIDs: ${itemGuids.slice(0, 10).join(', ')}`);
     console.log(`🔍 Sample found track GUIDs: ${dbTracks.slice(0, 10).map(t => t.guid).join(', ')}`);
 
-    // Resolve all tracks (database first, then API fallback)
-    const tracksAll = await Promise.all(remoteItems.map(async (item, index) => {
-      // Check database first
-      const dbTrack = dbTrackMap.get(item.itemGuid);
-      if (dbTrack && dbTrack.audioUrl && dbTrack.audioUrl.length > 0) {
+    // Process tracks in parallel batches for better performance
+    const batchSize = 10; // Process 10 tracks at a time to avoid overwhelming API
+    const trackBatches = [];
+    
+    for (let i = 0; i < remoteItems.length; i += batchSize) {
+      trackBatches.push(remoteItems.slice(i, i + batchSize));
+    }
+    
+    const tracksAll = [];
+    let processedCount = 0;
+    
+    for (const batch of trackBatches) {
+      console.log(`🔄 Processing batch ${Math.floor(processedCount / batchSize) + 1}/${trackBatches.length} (${batch.length} tracks)`);
+      
+      const batchTracks = await Promise.all(batch.map(async (item) => {
+        // Check database first
+        const dbTrack = dbTrackMap.get(item.itemGuid);
+        if (dbTrack && dbTrack.audioUrl && dbTrack.audioUrl.length > 0) {
+          return {
+            id: dbTrack.id,
+            title: dbTrack.title,
+            artist: dbTrack.artist || dbTrack.feed?.title || 'Unknown Artist',
+            audioUrl: dbTrack.audioUrl,
+            url: dbTrack.audioUrl,
+            duration: dbTrack.duration || 0,
+            publishedAt: dbTrack.publishedAt?.toISOString() || new Date().toISOString(),
+            image: dbTrack.image || dbTrack.feed?.image || artworkUrl || '/placeholder-podcast.jpg',
+            feedGuid: item.feedGuid,
+            itemGuid: item.itemGuid,
+            description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Mike's Mix Tape podcast`,
+            albumTitle: dbTrack.feed?.title || 'Unknown Album',
+            feedTitle: dbTrack.feed?.title || 'Unknown Feed',
+            guid: dbTrack.guid
+          };
+        }
+
+        // For missing tracks, skip API resolution for now to improve performance
+        // Return placeholder that can be resolved lazily later
         return {
-          id: dbTrack.id,
-          title: dbTrack.title,
-          artist: dbTrack.artist || dbTrack.feed?.title || 'Unknown Artist',
-          audioUrl: dbTrack.audioUrl,
-          url: dbTrack.audioUrl,
-          duration: dbTrack.duration || 0,
-          publishedAt: dbTrack.publishedAt?.toISOString() || new Date().toISOString(),
-          image: dbTrack.image || dbTrack.feed?.image || artworkUrl || '/placeholder-podcast.jpg',
+          id: `placeholder-${item.itemGuid}`,
+          title: `Loading... (${item.itemGuid.slice(-8)})`,
+          artist: 'Resolving...',
+          audioUrl: '',
+          url: '',
+          duration: 0,
+          publishedAt: new Date().toISOString(),
+          image: artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Mike's Mix Tape podcast`,
-          albumTitle: dbTrack.feed?.title || 'Unknown Album',
-          feedTitle: dbTrack.feed?.title || 'Unknown Feed',
-          guid: dbTrack.guid
+          description: `Music track from Mike's Mix Tape podcast - resolving metadata...`,
+          albumTitle: 'Mike\'s Mix Tape',
+          feedTitle: 'Mike\'s Mix Tape',
+          guid: item.itemGuid,
+          needsResolution: true // Flag for lazy loading
         };
+      }));
+      
+      tracksAll.push(...batchTracks);
+      processedCount += batch.length;
+      
+      // Small delay between batches to be nice to APIs
+      if (trackBatches.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
+    }
 
-      // API fallback for missing tracks
-      const resolvedData = await resolveItemGuid(item.feedGuid, item.itemGuid);
-      if (resolvedData && resolvedData.audioUrl && resolvedData.audioUrl.length > 0) {
-        return {
-          id: `api-${resolvedData.guid}`,
-          title: resolvedData.title,
-          artist: resolvedData.feedTitle,
-          audioUrl: resolvedData.audioUrl,
-          url: resolvedData.audioUrl,
-          duration: resolvedData.duration,
-          publishedAt: resolvedData.publishedAt.toISOString(),
-          image: resolvedData.image || artworkUrl || '/placeholder-podcast.jpg',
-          feedGuid: item.feedGuid,
-          itemGuid: item.itemGuid,
-          description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in Mike's Mix Tape podcast`,
-          albumTitle: resolvedData.feedTitle,
-          feedTitle: resolvedData.feedTitle,
-          guid: resolvedData.guid
-        };
-      }
-
-      // Return placeholder if neither database nor API resolved the track
-      return {
-        id: `api-${item.itemGuid}`,
-        title: `Music Track (${item.itemGuid.slice(-8)})`,
-        artist: 'Unknown Podcast',
-        audioUrl: '',
-        url: '',
-        duration: 0,
-        publishedAt: new Date().toISOString(),
-        image: artworkUrl || '/placeholder-podcast.jpg',
-        feedGuid: item.feedGuid,
-        itemGuid: item.itemGuid,
-        description: `Music track referenced in Mike's Mix Tape podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
-      };
-    }));
-
-    // Filter out tracks without audio URLs and prioritize resolved tracks
-    const tracks = tracksAll.filter(track => 
+    // Include both resolved and placeholder tracks, but prioritize resolved ones
+    const resolvedTracks = tracksAll.filter(track => 
       track.audioUrl && track.audioUrl.length > 0 && !track.audioUrl.includes('placeholder')
     );
+    
+    const placeholderTracks = tracksAll.filter(track => track.needsResolution);
+    
+    // Combine tracks: resolved first, then placeholders up to a reasonable limit
+    const maxPlaceholders = Math.min(placeholderTracks.length, 50); // Limit placeholders
+    const tracks = [...resolvedTracks, ...placeholderTracks.slice(0, maxPlaceholders)];
 
-    console.log(`🎯 Filtered tracks: ${tracksAll.length} -> ${tracks.length} (removed ${tracksAll.length - tracks.length} tracks without audio)`);
+    console.log(`🎯 Track processing results: ${resolvedTracks.length} resolved, ${placeholderTracks.length} placeholders, showing ${tracks.length} total`);
 
     // Create a single virtual album that represents the MMT playlist
     const playlistAlbum = {

@@ -85,6 +85,8 @@ export async function GET() {
         isPlaylistCard: true,
         playlistUrl: '/playlist/b4ts',
         albumUrl: '/playlist/b4ts',
+        isLoading: true, // Flag for fast-loading
+        fullDataUrl: '/api/playlist/b4ts', // URL for full data
         playlistContext: {
           source: 'b4ts-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml'
@@ -195,6 +197,8 @@ export async function GET() {
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmt',
         albumUrl: '/playlist/mmt',
+        isLoading: true, // Flag for fast-loading
+        fullDataUrl: '/api/playlist/mmt', // URL for full data
         playlistContext: {
           source: 'mmt-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml'
@@ -217,6 +221,8 @@ export async function GET() {
         isPlaylistCard: true,
         playlistUrl: '/playlist/sas',
         albumUrl: '/playlist/sas',
+        isLoading: true, // Flag for fast-loading
+        fullDataUrl: '/api/playlist/sas', // URL for full data
         playlistContext: {
           source: 'sas-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml'

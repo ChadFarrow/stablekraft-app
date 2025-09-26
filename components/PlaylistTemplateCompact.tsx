@@ -140,13 +140,41 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       setTracks(tracksData);
       setCacheStatus('fresh');
 
-      // Cache the data
-      const cacheData: CachedData = {
-        tracks: tracksData,
-        timestamp: Date.now(),
-        feedUrl: config.feedUrl || ''
-      };
-      localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
+      // Check if this is a fast-loading playlist that needs full data
+      if (data.albums && data.albums[0] && data.albums[0].isLoading && data.albums[0].fullDataUrl) {
+        console.log(`🔄 Fast-loaded playlist detected, loading full data from ${data.albums[0].fullDataUrl}`);
+        // Load full data in background after fast load
+        setTimeout(async () => {
+          try {
+            const fullResponse = await fetch(data.albums[0].fullDataUrl);
+            if (fullResponse.ok) {
+              const fullData = await fullResponse.json();
+              if (fullData.albums && fullData.albums[0] && fullData.albums[0].tracks) {
+                console.log(`✅ Loaded full track data: ${fullData.albums[0].tracks.length} tracks`);
+                setTracks(fullData.albums[0].tracks);
+                
+                // Cache the full data
+                const fullCacheData: CachedData = {
+                  tracks: fullData.albums[0].tracks,
+                  timestamp: Date.now(),
+                  feedUrl: config.feedUrl || ''
+                };
+                localStorage.setItem(config.cacheKey, JSON.stringify(fullCacheData));
+              }
+            }
+          } catch (error) {
+            console.error('Failed to load full playlist data:', error);
+          }
+        }, 100); // Small delay to let fast UI load first
+      } else {
+        // Cache the data only if it's not a fast-loading placeholder
+        const cacheData: CachedData = {
+          tracks: tracksData,
+          timestamp: Date.now(),
+          feedUrl: config.feedUrl || ''
+        };
+        localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
+      }
 
     } catch (error) {
       console.log(`🚨 Error in loadTracks for ${config.title}:`, error);
