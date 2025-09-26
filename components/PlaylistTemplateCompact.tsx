@@ -372,20 +372,20 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       {/* Playlist Artwork Background */}
       {playlistArtwork && (
         <div 
-          className="fixed inset-0 z-5 opacity-40 transition-opacity duration-1000"
+          className="fixed inset-0 z-5 opacity-70 transition-opacity duration-1000"
           style={{
             backgroundImage: `url(${playlistArtwork})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            filter: 'blur(15px) brightness(0.6) saturate(1.3)',
+            filter: 'blur(12px) brightness(0.8) saturate(1.4)',
             transform: 'scale(1.1)'
           }}
         />
       )}
 
       {/* Dark Overlay for Better Text Readability */}
-      <div className="fixed inset-0 z-10 bg-black/30" />
+      <div className="fixed inset-0 z-10 bg-black/20" />
 
       {/* Content overlay */}
       <div className="relative z-20">
