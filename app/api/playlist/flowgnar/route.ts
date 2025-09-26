@@ -90,7 +90,21 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      tracks: formattedTracks
+      data: {
+        playlist: {
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description,
+          image: playlist.image
+        }
+      },
+      tracks: formattedTracks,
+      albums: [album],
+      totalCount: 1,
+      playlist: {
+        title: playlist.name,
+        items: [album]
+      }
     });
 
   } catch (error) {

@@ -193,16 +193,19 @@ export async function GET(request: Request) {
 
     const responseData = {
       success: true,
-      tracks: tracks // Return tracks directly for PlaylistTemplate compatibility
+      albums: [playlistAlbum],
+      totalCount: 1,
+      playlist: {
+        title: 'Upbeats Playlist',
+        items: [playlistAlbum]
+      },
+      tracks: tracks // Also include tracks for backward compatibility
     };
 
     // Cache the response to persistent storage
     playlistCache.setCachedData('upbeats-playlist', responseData);
 
-    return NextResponse.json({
-      success: true,
-      tracks: tracks // Return tracks directly for PlaylistTemplate compatibility
-    });
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('❌ Error fetching Upbeats playlist:', error);
