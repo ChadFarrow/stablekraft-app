@@ -363,32 +363,29 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden">
-      {/* Navy Background Base */}
-      <div className="fixed inset-0 z-0" style={{
-        background: 'linear-gradient(to right, #0a0f1a, #0f1419, #0a0f1a)',
-        backgroundColor: '#0a0f1a'
-      }} />
-
-      {/* Playlist Artwork Background */}
-      {playlistArtwork && (
-        <div 
-          className="fixed inset-0 z-5 opacity-70 transition-opacity duration-1000"
-          style={{
-            backgroundImage: `url(${playlistArtwork})`,
+      {/* Background layer - similar to album pages */}
+      <div 
+        className="fixed inset-0"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0, 
+          bottom: 0,
+          zIndex: 1,
+          ...(playlistArtwork ? {
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${playlistArtwork}')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(12px) brightness(0.8) saturate(1.4)',
-            transform: 'scale(1.1)'
-          }}
-        />
-      )}
+            backgroundAttachment: 'fixed'
+          } : {
+            background: 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55), rgb(17, 24, 39))'
+          })
+        }}
+      />
 
-      {/* Dark Overlay for Better Text Readability */}
-      <div className="fixed inset-0 z-10 bg-black/20" />
-
-      {/* Content overlay */}
-      <div className="relative z-20">
+      {/* Content overlay - positioned above background like album pages */}
+      <div className="min-h-screen text-white relative z-10">
         {/* Back to Albums Link */}
         <div className="container mx-auto px-6 pt-6">
           <Link
@@ -563,6 +560,5 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           )}
         </div>
       </div>
-    </div>
   );
 }
