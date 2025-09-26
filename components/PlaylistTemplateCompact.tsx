@@ -369,6 +369,24 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         backgroundColor: '#0a0f1a'
       }} />
 
+      {/* Playlist Artwork Background */}
+      {playlistArtwork && (
+        <div 
+          className="fixed inset-0 z-5 opacity-15 transition-opacity duration-1000"
+          style={{
+            backgroundImage: `url(${playlistArtwork})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(20px) brightness(0.3) saturate(1.2)',
+            transform: 'scale(1.1)'
+          }}
+        />
+      )}
+
+      {/* Dark Overlay for Better Text Readability */}
+      <div className="fixed inset-0 z-10 bg-black/40" />
+
       {/* Content overlay */}
       <div className="relative z-20">
         {/* Back to Albums Link */}
