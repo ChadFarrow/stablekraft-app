@@ -133,6 +133,18 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     console.log('🎯 This should appear in the browser console!');
     console.log('📋 initialData:', initialData);
     
+    // Prevent infinite loops by checking if we already have data and are not currently loading
+    if (publisherInfo && publisherInfo.title && !isLoading) {
+      console.log('🎯 Already have publisher info, skipping useEffect');
+      return;
+    }
+    
+    // Also prevent execution if we're already in the loading process
+    if (isLoading && publisherInfo) {
+      console.log('🎯 Already loading with publisher info, skipping useEffect');
+      return;
+    }
+    
           // If we have initial data, use it and convert publisher items to albums
       if (initialData) {
         console.log('📋 Using initial data for publisher');
@@ -220,7 +232,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         
         if (!publisherInfo) {
           console.error(`❌ Publisher not found: ${publisherId}`);
-          setError('Publisher feed not found');
+          setError(`Publisher "${publisherId}" not found. This publisher might not exist or has been removed from our catalog.`);
           return;
         }
         
@@ -471,7 +483,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
 
     loadPublisher();
     
-  }, [publisherId, initialData]);
+  }, [publisherId]); // Remove initialData from dependencies to prevent infinite loops
 
   // Sort albums: Pin "Stay Awhile" first, then "Bloodshot Lies", then by artist/title
   const sortAlbums = (albums: RSSAlbum[]) => {
@@ -588,11 +600,17 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 py-8">
           <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold mb-4">Error Loading Publisher</h2>
-            <p className="text-gray-400 mb-4">{error}</p>
-            <Link href="/" className="text-blue-400 hover:text-blue-300">
-              ← Back to Home
-            </Link>
+            <Music className="w-16 h-16 text-gray-400 mx-auto mb-6" />
+            <h2 className="text-2xl font-semibold mb-4">Publisher Not Found</h2>
+            <p className="text-gray-400 mb-6 max-w-md mx-auto">{error}</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/" className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                ← Back to Home
+              </Link>
+              <Link href="/search" className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                🔍 Search Music
+              </Link>
+            </div>
           </div>
         </div>
       </div>
