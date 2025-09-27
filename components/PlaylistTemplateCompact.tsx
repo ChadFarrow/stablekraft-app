@@ -426,7 +426,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           bottom: 0,
           zIndex: 1,
           ...(playlistArtwork ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${playlistArtwork}')`,
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.85)), url('${playlistArtwork}')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed'
@@ -454,7 +454,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           <div className="flex flex-col md:flex-row items-start md:items-end gap-6 mb-8">
             {/* Album Art */}
             <div
-              className="w-48 h-48 bg-gray-800/50 rounded-lg flex-shrink-0 overflow-hidden relative group cursor-pointer transform transition-transform hover:scale-105"
+              className="w-48 h-48 bg-gray-900/60 backdrop-blur-sm rounded-lg flex-shrink-0 overflow-hidden relative group cursor-pointer transform transition-transform hover:scale-105"
               onClick={() => {
                 if (filteredTracks.length > 0) {
                   handlePlay(filteredTracks[0]);
@@ -514,32 +514,34 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             </div>
           </div>
 
-          {/* Search */}
-          <div className="mb-6">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search tracks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-gray-400"
-              />
+          {/* Search and Tracks Container */}
+          <div className="bg-black/80 backdrop-blur-md rounded-xl p-6 border border-gray-800">
+            {/* Search */}
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search tracks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-700 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-gray-400"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Tracks Header */}
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              Tracks
-              <span className="text-sm text-gray-400 bg-gray-800/50 px-2 py-1 rounded">
-                {filteredTracks.length}
-              </span>
-            </h2>
-          </div>
+            {/* Tracks Header */}
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                Tracks
+                <span className="text-sm text-gray-300 bg-gray-800/80 px-2 py-1 rounded">
+                  {filteredTracks.length}
+                </span>
+              </h2>
+            </div>
 
-          {/* Track List */}
-          <div className="space-y-1">
+            {/* Track List */}
+            <div className="space-y-1">
             {filteredTracks.map((track, index) => {
               const isCurrentTrack = shouldUseAudioContext ?
                 (audioContext?.currentPlayingAlbum?.id === `${config.cacheKey}-playlist` && audioContext?.currentTrackIndex === index) :
@@ -549,8 +551,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               return (
                 <div
                   key={`${track.id}-${index}`}
-                  className={`group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors ${
-                    isCurrentTrack ? 'bg-stablekraft-teal/10' : ''
+                  className={`group flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                    isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
                   }`}
                 >
                   {/* Track Number / Play Button */}
@@ -611,20 +613,20 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 </div>
               );
             })}
-          </div>
-
-
-          {filteredTracks.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
-              <p className="text-gray-400">
-                {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
-              </p>
             </div>
-          )}
+
+            {filteredTracks.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
+                <p className="text-gray-400">
+                  {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
