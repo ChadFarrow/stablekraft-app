@@ -5,6 +5,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { extractDominantColor, adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
+import { colorCache } from '@/lib/color-cache';
 
 interface NowPlayingScreenProps {
   isOpen?: boolean;
@@ -106,6 +107,18 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         });
       }
 
+      // Check cache first
+      const cachedColors = colorCache.get(originalImageUrl);
+      if (cachedColors) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎨 Using cached colors for:', currentTrack?.title);
+        }
+        setDominantColor(cachedColors.enhancedColor);
+        setContrastColors(cachedColors.contrastColors);
+        return;
+      }
+
+      // Extract color if not cached
       extractDominantColor(albumArt)
         .then(color => {
           if (process.env.NODE_ENV === 'development') {
@@ -161,6 +174,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           setDominantColor(brightenedColor);
           const colors = ensureGoodContrast(brightenedColor);
           setContrastColors(colors);
+
+          // Cache the extracted and processed colors
+          colorCache.set(originalImageUrl, {
+            originalColor: color,
+            enhancedColor: brightenedColor,
+            contrastColors: colors
+          });
         })
         .catch((error) => {
           if (process.env.NODE_ENV === 'development') {
