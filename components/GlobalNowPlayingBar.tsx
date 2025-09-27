@@ -66,26 +66,44 @@ const GlobalNowPlayingBar: React.FC = () => {
     setRepeatMode(nextMode);
   };
 
+  // Helper function to proxy external image URLs
+  const getProxiedImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '';
+
+    // If it's already a local/proxied URL, return as-is
+    if (imageUrl.startsWith('/') || imageUrl.includes('/api/proxy-image')) {
+      return imageUrl;
+    }
+
+    // Proxy external URLs to avoid CORS issues
+    return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+  };
+
   // Create track object for NowPlaying component
   const currentTrack = {
     title: currentPlayingAlbum.tracks?.[currentTrackIndex]?.title || `Track ${currentTrackIndex + 1}`,
     artist: currentPlayingAlbum.artist,
     albumTitle: currentPlayingAlbum.title,
     duration: duration || 0,
-    // Prioritize individual track image, fallback to album coverArt
-    albumArt: currentPlayingAlbum.tracks?.[currentTrackIndex]?.image || currentPlayingAlbum.coverArt || ''
+    // Prioritize individual track image, fallback to album coverArt, and proxy external URLs
+    albumArt: getProxiedImageUrl(
+      currentPlayingAlbum.tracks?.[currentTrackIndex]?.image || currentPlayingAlbum.coverArt || ''
+    )
   };
 
   // Debug logging for artwork troubleshooting
   if (process.env.NODE_ENV === 'development' && currentPlayingAlbum.tracks?.[currentTrackIndex]) {
     const track = currentPlayingAlbum.tracks[currentTrackIndex];
+    const originalUrl = track.image || currentPlayingAlbum.coverArt || '';
     console.log('🎨 Now Playing Artwork Debug:', {
       trackTitle: track.title,
       trackImage: track.image,
       albumCoverArt: currentPlayingAlbum.coverArt,
-      finalAlbumArt: currentTrack.albumArt,
+      originalUrl: originalUrl,
+      proxiedUrl: currentTrack.albumArt,
       hasTrackImage: !!track.image,
-      hasAlbumCoverArt: !!currentPlayingAlbum.coverArt
+      hasAlbumCoverArt: !!currentPlayingAlbum.coverArt,
+      isExternalUrl: originalUrl && !originalUrl.startsWith('/') && !originalUrl.includes('/api/proxy-image')
     });
   }
 
