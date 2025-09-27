@@ -712,13 +712,29 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     };
   }, [isVideoMode, currentPlayingAlbum, currentTrackIndex]); // Add necessary dependencies but avoid functions that change frequently
 
+  // Helper function to proxy external image URLs for media session
+  const getProxiedMediaImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '/stablekraft-rocket.png';
+
+    // If it's already a local/proxied URL, return as-is
+    if (imageUrl.startsWith('/') || imageUrl.includes('/api/proxy-image')) {
+      return imageUrl;
+    }
+
+    // Proxy external URLs to avoid CORS issues
+    return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+  };
+
   // Helper function to update media session metadata
   const updateMediaSession = (album: RSSAlbum, track: any) => {
     if ('mediaSession' in navigator && navigator.mediaSession) {
       try {
         // Ensure we have valid artwork URL - prefer track image, then album cover
-        let artworkUrl = track.image || album.coverArt || '/stablekraft-rocket.png';
-        
+        let originalArtworkUrl = track.image || album.coverArt || '/stablekraft-rocket.png';
+
+        // Proxy external URLs to avoid CORS issues
+        let artworkUrl = getProxiedMediaImageUrl(originalArtworkUrl);
+
         // If the URL is relative, make it absolute
         if (artworkUrl.startsWith('/')) {
           const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://music.podtards.com';
@@ -812,7 +828,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           title: track.title,
           artist: album.artist,
           album: album.title,
-          artwork: artworkUrl,
+          originalArtwork: originalArtworkUrl,
+          proxiedArtwork: artworkUrl,
           playbackState: navigator.mediaSession.playbackState
         });
       } catch (error) {

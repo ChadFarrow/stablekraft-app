@@ -40,25 +40,107 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   // Get current track info
   const currentTrack = currentPlayingAlbum?.tracks?.[currentTrackIndex];
-  
-  // Prioritize track image, fallback to album coverArt
-  const albumArt = currentTrack?.image 
-    ? getAlbumArtworkUrl(currentTrack.image, 'xl')
-    : currentPlayingAlbum?.coverArt 
-    ? getAlbumArtworkUrl(currentPlayingAlbum.coverArt, 'xl')
+
+  // Helper function to proxy external image URLs (same as GlobalNowPlayingBar)
+  const getProxiedImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '';
+
+    // If it's already a local/proxied URL, return as-is
+    if (imageUrl.startsWith('/') || imageUrl.includes('/api/proxy-image')) {
+      return imageUrl;
+    }
+
+    // Proxy external URLs to avoid CORS issues
+    return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+  };
+
+  // Helper function to brighten a hex color
+  const brightenColor = (hex: string, percent: number): string => {
+    // Remove # if present
+    const color = hex.replace('#', '');
+
+    // Parse RGB values
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+
+    // Brighten each component
+    const brightenComponent = (component: number): number => {
+      // If the component is very dark, boost it much more aggressively
+      if (component < 30) {
+        return Math.min(255, component + (255 - component) * (percent / 100) + 120);
+      }
+      // For dark components, still boost significantly
+      if (component < 80) {
+        return Math.min(255, component + (255 - component) * (percent / 100) + 60);
+      }
+      // For brighter components, use standard brightening
+      return Math.min(255, component + (255 - component) * (percent / 100));
+    };
+
+    const newR = Math.round(brightenComponent(r));
+    const newG = Math.round(brightenComponent(g));
+    const newB = Math.round(brightenComponent(b));
+
+    // Convert back to hex
+    const toHex = (n: number): string => n.toString(16).padStart(2, '0');
+    return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+  };
+
+  // Prioritize track image, fallback to album coverArt, and proxy external URLs
+  const originalImageUrl = currentTrack?.image || currentPlayingAlbum?.coverArt || '';
+  const albumArt = originalImageUrl
+    ? getProxiedImageUrl(originalImageUrl)
     : '/api/placeholder/400/400';
 
   // Extract dominant color from album art and ensure good contrast
   useEffect(() => {
     if (albumArt && !albumArt.includes('/api/placeholder/')) {
+      // Debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎨 Fullscreen Color Extraction Debug:', {
+          originalImageUrl,
+          proxiedAlbumArt: albumArt,
+          trackTitle: currentTrack?.title,
+          isProxied: albumArt.includes('/api/proxy-image')
+        });
+      }
+
       extractDominantColor(albumArt)
         .then(color => {
-          setDominantColor(color);
-          const colors = ensureGoodContrast(color);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🎨 Extracted dominant color:', color);
+          }
+
+          // If color is too dark (near black), use a vibrant alternative
+          if (color === '#000000' || color === '#010101' || color === '#020202') {
+            // Generate a vibrant color based on track position or use preset colors
+            const vibrantColors = ['#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16'];
+            const colorIndex = (currentTrackIndex || 0) % vibrantColors.length;
+            color = vibrantColors[colorIndex];
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🎨 Using vibrant fallback color:', color);
+            }
+          }
+
+          // Brighten colors to make backgrounds more vibrant
+          const brightenedColor = brightenColor(color, 70); // Increase brightness by 70%
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🎨 Brightened color:', brightenedColor, 'from original:', color);
+          }
+
+          setDominantColor(brightenedColor);
+          const colors = ensureGoodContrast(brightenedColor);
           setContrastColors(colors);
         })
-        .catch(() => {
-          const fallbackColor = '#1A252F';
+        .catch((error) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('🎨 Color extraction failed:', error);
+          }
+          // Use a brighter fallback color instead of dark gray
+          const fallbackColor = '#4F46E5'; // Bright indigo
           setDominantColor(fallbackColor);
           setContrastColors({ backgroundColor: fallbackColor, textColor: '#ffffff' });
         });
@@ -67,7 +149,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       setDominantColor(fallbackColor);
       setContrastColors({ backgroundColor: fallbackColor, textColor: '#ffffff' });
     }
-  }, [albumArt, currentTrackIndex]);
+  }, [albumArt, currentTrackIndex, originalImageUrl, currentTrack?.title]);
 
   // Handle progress bar interaction
   const handleProgressClick = (e: React.MouseEvent) => {

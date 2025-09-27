@@ -28,32 +28,59 @@ export const extractDominantColor = async (imageUrl: string): Promise<string> =>
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         
-        // Sample pixels to find dominant color
+        // Sample pixels to find vibrant colors
         const colorCounts: { [key: string]: number } = {};
-        
-        // Sample every 10th pixel for performance
-        for (let i = 0; i < data.length; i += 40) {
+        const vibrantColors: { [key: string]: number } = {};
+
+        // Sample every 8th pixel for better coverage
+        for (let i = 0; i < data.length; i += 32) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
           const a = data[i + 3];
-          
+
           // Skip transparent pixels
           if (a < 128) continue;
-          
+
+          // Skip very dark pixels (they make poor backgrounds)
+          if (r < 20 && g < 20 && b < 20) continue;
+
           // Convert to hex
           const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
           colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+
+          // Calculate color vibrancy (saturation)
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const saturation = max === 0 ? 0 : (max - min) / max;
+          const brightness = max / 255;
+
+          // Prefer colors that are both vibrant and reasonably bright
+          if (saturation > 0.3 || brightness > 0.3) {
+            const vibrancyScore = saturation * brightness * 100;
+            vibrantColors[hex] = (vibrantColors[hex] || 0) + vibrancyScore;
+          }
         }
-        
-        // Find most common color
+
+        // First try to find the most vibrant color
         let dominantColor = '#1f2937';
-        let maxCount = 0;
-        
-        for (const [color, count] of Object.entries(colorCounts)) {
-          if (count > maxCount) {
-            maxCount = count;
+        let maxVibrancy = 0;
+
+        for (const [color, vibrancy] of Object.entries(vibrantColors)) {
+          if (vibrancy > maxVibrancy) {
+            maxVibrancy = vibrancy;
             dominantColor = color;
+          }
+        }
+
+        // If no vibrant colors found, fall back to most common color (excluding very dark ones)
+        if (maxVibrancy === 0) {
+          let maxCount = 0;
+          for (const [color, count] of Object.entries(colorCounts)) {
+            if (count > maxCount) {
+              maxCount = count;
+              dominantColor = color;
+            }
           }
         }
         
