@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MusicTrack } from '@/lib/music-track-parser';
 import MusicTrackCard from './MusicTrackCard';
 import LoadingSpinner from './LoadingSpinner';
+import { BoostButton } from './Lightning/BoostButton';
 import { Search, Filter, ChevronDown, X } from 'lucide-react';
 
 interface MusicTrackListProps {
@@ -390,17 +391,27 @@ export default function MusicTrackList({ initialFeedUrls = [], onPlayTrack, sele
                   onPlay={onPlayTrack}
                   onViewDetails={handleViewTrackDetails}
                   selected={isSelected}
-                  actions={selectable && onToggleSelect ? (
-                    <label className="inline-flex items-center gap-2 text-xs text-gray-300">
-                      <input
-                        type="checkbox"
-                        className="accent-blue-500"
-                        checked={isSelected}
-                        onChange={(e) => onToggleSelect(track, e.target.checked)}
+                  actions={
+                    <div className="flex items-center gap-2">
+                      <BoostButton
+                        trackId={track.id}
+                        trackTitle={track.title}
+                        artistName={track.artist}
+                        className="px-2 py-1 text-xs"
                       />
-                      Add
-                    </label>
-                  ) : null}
+                      {selectable && onToggleSelect && (
+                        <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+                          <input
+                            type="checkbox"
+                            className="accent-blue-500"
+                            checked={isSelected}
+                            onChange={(e) => onToggleSelect(track, e.target.checked)}
+                          />
+                          Add
+                        </label>
+                      )}
+                    </div>
+                  }
                 />
               );
             })}

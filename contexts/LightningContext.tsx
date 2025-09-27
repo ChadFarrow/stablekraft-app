@@ -1,12 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
+import { BitcoinConnectProvider } from '@/components/Lightning/BitcoinConnectProvider';
 
-// Stub Lightning Context for Bitcoin payments - removes ITDV-Lightning dependency
-// This provides compatibility for code that was ported from ITDV-Lightning project
-
+// Lightning Context for Bitcoin payments using Bitcoin Connect
 interface LightningContextType {
-  // Stub Lightning payment functions
   sendPayment?: (invoice: string) => Promise<any>;
   generateInvoice?: (amount: number, memo?: string) => Promise<any>;
   getBalance?: () => Promise<number>;
@@ -17,16 +15,18 @@ interface LightningContextType {
 const LightningContext = createContext<LightningContextType | null>(null);
 
 export const LightningProvider = ({ children }: { children: ReactNode }) => {
-  // Stub implementation - no actual Lightning functionality
+  // Provide stub implementation for backward compatibility
   const value: LightningContextType = {
-    sendPayment: async () => ({ success: false, message: 'Lightning payments disabled' }),
-    generateInvoice: async () => ({ success: false, message: 'Lightning payments disabled' }),
+    sendPayment: async () => ({ success: false, message: 'Use BitcoinConnect directly' }),
+    generateInvoice: async () => ({ success: false, message: 'Use BitcoinConnect directly' }),
     getBalance: async () => 0,
   };
 
   return (
     <LightningContext.Provider value={value}>
-      {children}
+      <BitcoinConnectProvider>
+        {children}
+      </BitcoinConnectProvider>
     </LightningContext.Provider>
   );
 };
