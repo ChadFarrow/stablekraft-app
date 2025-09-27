@@ -161,9 +161,25 @@ export async function GET(request: NextRequest) {
     const remoteItems = parseRemoteItems(xmlText);
     console.log(`📋 Found remote items: ${remoteItems.length}`);
     
-    // Extract artwork URL
-    const artworkMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
-    const artworkUrl = artworkMatch ? artworkMatch[1] : 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/SAS-playlist-art%20.webp';
+    // Extract artwork URL - try both formats
+    let artworkUrl = null;
+    const itunesMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
+    const imageUrlMatch = xmlText.match(/<image>\s*<url>(.*?)<\/url>\s*<\/image>/s);
+    
+    if (itunesMatch) {
+      artworkUrl = itunesMatch[1];
+    } else if (imageUrlMatch) {
+      artworkUrl = imageUrlMatch[1].trim();
+    }
+    
+    // Fallback to default if no artwork found
+    if (!artworkUrl) {
+      artworkUrl = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/SAS-playlist-art%20.webp';
+    }
+    
+    // Decode URL encoding
+    artworkUrl = decodeURIComponent(artworkUrl);
+    
     console.log(`🎨 Found artwork URL: ${artworkUrl}`);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
