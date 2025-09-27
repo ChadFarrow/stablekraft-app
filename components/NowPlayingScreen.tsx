@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
-import { extractDominantColor, adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
+import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
 
 interface NowPlayingScreenProps {
@@ -96,101 +96,84 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   // Extract dominant color from album art and ensure good contrast
   useEffect(() => {
+    console.log('🎨 useEffect triggered:', { albumArt, originalImageUrl, currentTrack: currentTrack?.title });
+
     if (albumArt && !albumArt.includes('/api/placeholder/')) {
       // Debug logging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎨 Fullscreen Color Extraction Debug:', {
-          originalImageUrl,
-          proxiedAlbumArt: albumArt,
-          trackTitle: currentTrack?.title,
-          isProxied: albumArt.includes('/api/proxy-image')
-        });
-      }
+      console.log('🎨 Fullscreen Color Extraction Debug:', {
+        originalImageUrl,
+        proxiedAlbumArt: albumArt,
+        trackTitle: currentTrack?.title,
+        isProxied: albumArt.includes('/api/proxy-image')
+      });
 
-      // Check cache first
-      const cachedColors = colorCache.get(originalImageUrl);
-      if (cachedColors) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🎨 Using cached colors for:', currentTrack?.title);
-        }
-        setDominantColor(cachedColors.enhancedColor);
-        setContrastColors(cachedColors.contrastColors);
-        return;
-      }
+      // Check database first
+      const fetchColors = async () => {
+        try {
+          // First try to get from database
+          const response = await fetch(`/api/artwork-colors?imageUrl=${encodeURIComponent(originalImageUrl)}`);
 
-      // Extract color if not cached
-      extractDominantColor(albumArt)
-        .then(color => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🎨 Extracted dominant color:', color);
-          }
-
-          // Helper function to check if a color is appealing for backgrounds
-          const isAppealingColor = (hexColor: string): boolean => {
-            const rgb = parseInt(hexColor.replace('#', ''), 16);
-            const r = (rgb >> 16) & 0xff;
-            const g = (rgb >> 8) & 0xff;
-            const b = (rgb >> 0) & 0xff;
-
-            // Calculate HSL values for better color assessment
-            const max = Math.max(r, g, b) / 255;
-            const min = Math.min(r, g, b) / 255;
-            const diff = max - min;
-
-            const lightness = (max + min) / 2;
-            const saturation = diff === 0 ? 0 : diff / (1 - Math.abs(2 * lightness - 1));
-
-            // Avoid very dark colors, very muddy colors, and browns/grays
-            if (lightness < 0.15) return false; // Too dark
-            if (saturation < 0.2) return false; // Too gray/muddy
-
-            // Avoid muddy browns and reddish-browns
-            if (r > g && r > b && g < 100 && b < 100) return false; // Muddy reds/browns
-            if (r > 120 && g < r * 0.7 && b < r * 0.7) return false; // Brownish tones
-
-            return true;
-          };
-
-          // If color is too dark (near black) or not appealing, use a vibrant alternative
-          if (color === '#000000' || color === '#010101' || color === '#020202' || !isAppealingColor(color)) {
-            // Generate a vibrant color based on track position or use preset colors
-            const vibrantColors = ['#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16', '#EC4899', '#10B981'];
-            const colorIndex = (currentTrackIndex || 0) % vibrantColors.length;
-            color = vibrantColors[colorIndex];
-
+          if (response.ok) {
+            const { data } = await response.json();
             if (process.env.NODE_ENV === 'development') {
-              console.log('🎨 Using vibrant fallback color (unappealing original):', color);
+              console.log('🎨 Using database colors for:', currentTrack?.title);
             }
+            setDominantColor(data.enhancedColor);
+            setContrastColors({
+              backgroundColor: data.backgroundColor,
+              textColor: data.textColor
+            });
+            return;
           }
 
-          // Brighten colors to make backgrounds more vibrant, but less aggressively for already good colors
-          const brightenAmount = isAppealingColor(color) ? 40 : 70; // Less brightening for already good colors
+          // If not in database, process and store it
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🎨 Processing new color for database:', currentTrack?.title);
+          }
+
+          const processResponse = await fetch('/api/artwork-colors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: originalImageUrl })
+          });
+
+          if (processResponse.ok) {
+            const { data } = await processResponse.json();
+            setDominantColor(data.enhancedColor);
+            setContrastColors({
+              backgroundColor: data.backgroundColor,
+              textColor: data.textColor
+            });
+          } else {
+            throw new Error('Failed to process color');
+          }
+
+        } catch (error) {
+          console.warn('🎨 Database color processing failed, using fallback color:', error);
+
+          // Use a deterministic fallback color based on track position
+          const vibrantColors = ['#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16', '#EC4899', '#10B981'];
+          const colorIndex = (currentTrackIndex || 0) % vibrantColors.length;
+          const color = vibrantColors[colorIndex];
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🎨 Using deterministic fallback color:', color);
+          }
+
+          const brightenAmount = 40;
           const brightenedColor = brightenColor(color, brightenAmount);
 
           if (process.env.NODE_ENV === 'development') {
-            console.log('🎨 Brightened color:', brightenedColor, 'from original:', color, 'brighten amount:', brightenAmount);
+            console.log('🎨 Brightened fallback color:', brightenedColor, 'from original:', color);
           }
 
           setDominantColor(brightenedColor);
           const colors = ensureGoodContrast(brightenedColor);
           setContrastColors(colors);
+        }
+      };
 
-          // Cache the extracted and processed colors
-          colorCache.set(originalImageUrl, {
-            originalColor: color,
-            enhancedColor: brightenedColor,
-            contrastColors: colors
-          });
-        })
-        .catch((error) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('🎨 Color extraction failed:', error);
-          }
-          // Use a brighter fallback color instead of dark gray
-          const fallbackColor = '#4F46E5'; // Bright indigo
-          setDominantColor(fallbackColor);
-          setContrastColors({ backgroundColor: fallbackColor, textColor: '#ffffff' });
-        });
+      fetchColors();
     } else {
       const fallbackColor = '#1A252F';
       setDominantColor(fallbackColor);
@@ -219,7 +202,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   // Use isFullscreenMode from AudioContext if isOpen prop is not provided
   const shouldShow = isOpen !== undefined ? isOpen : isFullscreenMode;
-  
+
+
   if (!shouldShow || !currentPlayingAlbum || !currentTrack) {
     return null;
   }
