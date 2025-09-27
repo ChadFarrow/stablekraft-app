@@ -177,6 +177,8 @@ export async function GET() {
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmm',
         albumUrl: '/playlist/mmm',
+        isLoading: true, // Flag for fast-loading
+        fullDataUrl: '/api/playlist/mmm', // URL for full data
         playlistContext: {
           source: 'mmm-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml'

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Play, Pause, Search, ChevronLeft, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
+import { Play, Pause, Search, ChevronLeft, Loader2, AlertCircle, Info } from 'lucide-react';
 import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
@@ -22,7 +22,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [audioLoading, setAudioLoading] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(null);
   const [playlistArtwork, setPlaylistArtwork] = useState<string | null>(null);
-  const [playlistLink, setPlaylistLink] = useState<string | null>(null);
 
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,15 +66,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             console.log(`🔍 Cache data for ${config.title}:`, data.tracks.length, 'tracks');
             console.log(`🔍 First cached track:`, data.tracks[0]);
             setTracks(data.tracks);
-            
-            // Load artwork and link from cache if available
-            if (data.artwork) {
-              setPlaylistArtwork(data.artwork);
-            }
-            if (data.link) {
-              setPlaylistLink(data.link);
-            }
-            
             setLoading(false);
             setCacheStatus('cached');
             return true; // Cache was used
@@ -140,14 +130,9 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         tracksData = [];
       }
 
-      // Store playlist artwork and link
+      // Store playlist artwork
       if (artworkUrl) {
         setPlaylistArtwork(artworkUrl);
-      }
-      
-      // Store playlist link from API response
-      if (data.albums && data.albums[0] && data.albums[0].link) {
-        setPlaylistLink(data.albums[0].link);
       }
 
       logger.info(`✅ Loaded ${tracksData.length} tracks for ${config.title}`);
@@ -155,50 +140,13 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       setTracks(tracksData);
       setCacheStatus('fresh');
 
-      // Check if this is a fast-loading playlist that needs full data
-      if (data.albums && data.albums[0] && data.albums[0].isLoading && data.albums[0].fullDataUrl) {
-        console.log(`🔄 Fast-loaded playlist detected, loading full data from ${data.albums[0].fullDataUrl}`);
-        // Load full data in background after fast load
-        setTimeout(async () => {
-          try {
-            const fullResponse = await fetch(data.albums[0].fullDataUrl);
-            if (fullResponse.ok) {
-              const fullData = await fullResponse.json();
-              if (fullData.albums && fullData.albums[0] && fullData.albums[0].tracks) {
-                console.log(`✅ Loaded full track data: ${fullData.albums[0].tracks.length} tracks`);
-                setTracks(fullData.albums[0].tracks);
-                
-                // Update playlist link if available in full data
-                if (fullData.albums[0].link) {
-                  setPlaylistLink(fullData.albums[0].link);
-                }
-                
-                // Cache the full data
-                const fullCacheData: CachedData = {
-                  tracks: fullData.albums[0].tracks,
-                  timestamp: Date.now(),
-                  feedUrl: config.feedUrl || '',
-                  artwork: fullData.albums[0].coverArt || fullData.albums[0].image,
-                  link: fullData.albums[0].link
-                };
-                localStorage.setItem(config.cacheKey, JSON.stringify(fullCacheData));
-              }
-            }
-          } catch (error) {
-            console.error('Failed to load full playlist data:', error);
-          }
-        }, 100); // Small delay to let fast UI load first
-      } else {
-        // Cache the data only if it's not a fast-loading placeholder
-        const cacheData: CachedData = {
-          tracks: tracksData,
-          timestamp: Date.now(),
-          feedUrl: config.feedUrl || '',
-          artwork: artworkUrl,
-          link: data.albums && data.albums[0] ? data.albums[0].link : null
-        };
-        localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
-      }
+      // Cache the data
+      const cacheData: CachedData = {
+        tracks: tracksData,
+        timestamp: Date.now(),
+        feedUrl: config.feedUrl || ''
+      };
+      localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
 
     } catch (error) {
       console.log(`🚨 Error in loadTracks for ${config.title}:`, error);
@@ -486,21 +434,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
             {/* Album Info */}
             <div className="flex-1">
-              <div className="flex items-start gap-4 mb-2">
-                <h1 className="text-4xl font-bold flex-1">{config.title}</h1>
-                {playlistLink && (
-                  <a
-                    href={playlistLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 text-white/80 hover:text-white"
-                    title="Visit playlist website"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="text-sm font-medium">Website</span>
-                  </a>
-                )}
-              </div>
+              <h1 className="text-4xl font-bold mb-2">{config.title}</h1>
               <p className="text-gray-400 mb-4">{config.description}</p>
               {stats && (
                 <div className="flex flex-wrap gap-4 text-sm text-gray-400">
@@ -613,7 +547,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             })}
           </div>
 
-
           {filteredTracks.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -625,6 +558,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               </p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

@@ -34,6 +34,8 @@ export interface CachedData {
   tracks: Track[];
   timestamp: number;
   feedUrl: string;
+  artwork?: string;
+  link?: string;
 }
 
 export interface PlaylistConfig {
