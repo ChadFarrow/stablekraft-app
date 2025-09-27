@@ -64,15 +64,24 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Cache static assets
+      // Use NetworkFirst for external images to avoid CORS/blocking issues
       urlPattern: /^https?.*\.(png|jpg|jpeg|svg|gif|webp|ico)$/i,
-      handler: 'CacheFirst',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'static-images-cache',
         expiration: {
           maxEntries: 100,
           maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
         },
+        networkTimeoutSeconds: 5,
+        plugins: [
+          {
+            handlerDidError: async ({ request }) => {
+              // Fallback to direct network fetch on SW error
+              return fetch(request);
+            },
+          },
+        ],
       },
     },
     {
