@@ -20,6 +20,8 @@ interface PlaylistSummary {
   isPlaylistCard: boolean;
   playlistUrl: string;
   albumUrl: string;
+  isLoading?: boolean; // Optional flag for fast-loading playlists
+  fullDataUrl?: string; // Optional URL for full data loading
   playlistContext: {
     source: string;
     originalUrl: string;
