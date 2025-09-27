@@ -426,7 +426,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           bottom: 0,
           zIndex: 1,
           ...(playlistArtwork ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.85)), url('${playlistArtwork}')`,
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${playlistArtwork}')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed'
@@ -515,7 +515,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           </div>
 
           {/* Search and Tracks Container */}
-          <div className="bg-black/80 backdrop-blur-md rounded-xl p-6 border border-gray-800">
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
             {/* Search */}
             <div className="mb-6">
               <div className="relative max-w-md">
@@ -525,7 +525,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   placeholder="Search tracks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-900/90 border border-gray-700 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-gray-400"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-600/50 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-gray-300"
                 />
               </div>
             </div>
@@ -534,7 +534,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Tracks
-                <span className="text-sm text-gray-300 bg-gray-800/80 px-2 py-1 rounded">
+                <span className="text-sm text-gray-200 bg-gray-800/60 px-2 py-1 rounded">
                   {filteredTracks.length}
                 </span>
               </h2>
