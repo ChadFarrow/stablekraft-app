@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 // Force recompilation
@@ -151,32 +149,38 @@ export async function GET(request: Request) {
           id: resolvedTrack.id,
           title: resolvedTrack.title,
           artist: resolvedTrack.artist,
+          episodeTitle: resolvedTrack.feedTitle || "Mutton, Mead & Music",
           audioUrl: resolvedTrack.audioUrl || '',
-          url: resolvedTrack.audioUrl || '', // Add url property for compatibility
+          startTime: 0,
+          endTime: resolvedTrack.duration || 180,
           duration: resolvedTrack.duration || 180,
-          publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
+          source: 'database',
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Modern Music Movements podcast`,
+          description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Mutton, Mead & Music podcast`,
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
-          guid: resolvedTrack.guid
+          guid: resolvedTrack.guid,
+          resolved: true
         };
       } else {
         // Use placeholder data
         return {
           id: `mmm-track-${index + 1}`,
           title: `Music Reference #${index + 1}`,
-          artist: 'Featured in Modern Music Movements Podcast',
+          artist: 'Featured in Mutton, Mead & Music Podcast',
+          episodeTitle: "Mutton, Mead & Music",
           audioUrl: '',
-          url: '', // Add url property for compatibility
+          startTime: 0,
+          endTime: 180,
           duration: 180,
-          publishedAt: new Date().toISOString(),
+          source: 'placeholder',
           image: artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
-          description: `Music track referenced in Modern Music Movements podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+          description: `Music track referenced in Mutton, Mead & Music podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`,
+          resolved: false
         };
       }
     });

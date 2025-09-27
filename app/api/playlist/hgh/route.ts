@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
 
