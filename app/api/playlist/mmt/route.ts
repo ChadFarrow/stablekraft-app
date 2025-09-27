@@ -227,17 +227,20 @@ export async function GET(request: NextRequest) {
             id: dbTrack.id,
             title: dbTrack.title,
             artist: dbTrack.artist || dbTrack.feed?.title || 'Unknown Artist',
+            episodeTitle: dbTrack.feed?.title || "Mike's Mix Tape",
             audioUrl: dbTrack.audioUrl,
-            url: dbTrack.audioUrl,
+            startTime: dbTrack.startTime || 0,
+            endTime: dbTrack.endTime || dbTrack.duration || 0,
             duration: dbTrack.duration || 0,
-            publishedAt: dbTrack.publishedAt?.toISOString() || new Date().toISOString(),
+            source: 'database',
             image: dbTrack.image || dbTrack.feed?.image || artworkUrl || '/placeholder-podcast.jpg',
             feedGuid: item.feedGuid,
             itemGuid: item.itemGuid,
             description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in Mike's Mix Tape podcast`,
             albumTitle: dbTrack.feed?.title || 'Unknown Album',
             feedTitle: dbTrack.feed?.title || 'Unknown Feed',
-            guid: dbTrack.guid
+            guid: dbTrack.guid,
+            resolved: true
           };
         }
 
@@ -247,10 +250,12 @@ export async function GET(request: NextRequest) {
           id: `placeholder-${item.itemGuid}`,
           title: `Loading... (${item.itemGuid.slice(-8)})`,
           artist: 'Resolving...',
+          episodeTitle: "Mike's Mix Tape",
           audioUrl: '',
-          url: '',
+          startTime: 0,
+          endTime: 0,
           duration: 0,
-          publishedAt: new Date().toISOString(),
+          source: 'placeholder',
           image: artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
@@ -258,6 +263,7 @@ export async function GET(request: NextRequest) {
           albumTitle: 'Mike\'s Mix Tape',
           feedTitle: 'Mike\'s Mix Tape',
           guid: item.itemGuid,
+          resolved: false,
           needsResolution: true // Flag for lazy loading
         };
       }));
@@ -306,7 +312,7 @@ export async function GET(request: NextRequest) {
       playlistContext: {
         source: 'mmt-playlist',
         originalUrl: MMT_PLAYLIST_URL,
-        resolvedTracks: dbTracks.length,
+        resolvedTracks: resolvedTracks.length,
         totalRemoteItems: remoteItems.length
       }
     };
