@@ -165,6 +165,11 @@ export async function GET(request: NextRequest) {
     const artworkMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
     const artworkUrl = artworkMatch ? artworkMatch[1] : 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/MMT-playlist-art.webp';
     console.log(`🎨 Found artwork URL: ${artworkUrl}`);
+    
+    // Extract playlist link
+    const linkMatch = xmlText.match(/<link>(.*?)<\/link>/);
+    const playlistLink = linkMatch ? linkMatch[1].trim() : null;
+    console.log(`🔗 Found playlist link: ${playlistLink}`);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
     
@@ -289,6 +294,7 @@ export async function GET(request: NextRequest) {
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg',
       url: MMT_PLAYLIST_URL,
+      link: playlistLink, // Website link from the playlist feed
       tracks: tracks,
       feedId: 'mmt-playlist',
       type: 'playlist',

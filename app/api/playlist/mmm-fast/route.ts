@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         albumUrl: '/album/mmm-playlist',
         isLoading: true, // Flag to indicate this is fast-loading data
         fullDataUrl: '/api/playlist/mmm', // URL to fetch full data
+        link: 'https://mmmusic.show/', // Playlist website link
         playlistContext: {
           source: 'mmm-playlist-fast',
           originalUrl: MMM_PLAYLIST_URL

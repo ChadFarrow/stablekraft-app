@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         albumUrl: '/album/b4ts-playlist',
         isLoading: true, // Flag to indicate this is fast-loading data
         fullDataUrl: '/api/playlist/b4ts', // URL to fetch full data
+        link: 'https://music.behindthesch3m3s.com/', // Playlist website link
         playlistContext: {
           source: 'b4ts-playlist-fast',
           originalUrl: B4TS_PLAYLIST_URL

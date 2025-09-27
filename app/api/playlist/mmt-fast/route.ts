@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         albumUrl: '/album/mmt-playlist',
         isLoading: true, // Flag to indicate this is fast-loading data
         fullDataUrl: '/api/playlist/mmt', // URL to fetch full data
+        link: 'https://mikesmixtape.com/', // Playlist website link
         playlistContext: {
           source: 'mmt-playlist-fast',
           originalUrl: MMT_PLAYLIST_URL

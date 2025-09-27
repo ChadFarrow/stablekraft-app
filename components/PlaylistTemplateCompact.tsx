@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Play, Pause, Search, ChevronLeft, Loader2, AlertCircle, Info } from 'lucide-react';
+import { Play, Pause, Search, ChevronLeft, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
@@ -22,6 +22,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [audioLoading, setAudioLoading] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(null);
   const [playlistArtwork, setPlaylistArtwork] = useState<string | null>(null);
+  const [playlistLink, setPlaylistLink] = useState<string | null>(null);
 
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,9 +131,14 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         tracksData = [];
       }
 
-      // Store playlist artwork
+      // Store playlist artwork and link
       if (artworkUrl) {
         setPlaylistArtwork(artworkUrl);
+      }
+      
+      // Store playlist link from API response
+      if (data.albums && data.albums[0] && data.albums[0].link) {
+        setPlaylistLink(data.albums[0].link);
       }
 
       logger.info(`✅ Loaded ${tracksData.length} tracks for ${config.title}`);
@@ -462,7 +468,21 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
             {/* Album Info */}
             <div className="flex-1">
-              <h1 className="text-4xl font-bold mb-2">{config.title}</h1>
+              <div className="flex items-start gap-4 mb-2">
+                <h1 className="text-4xl font-bold flex-1">{config.title}</h1>
+                {playlistLink && (
+                  <a
+                    href={playlistLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 text-white/80 hover:text-white"
+                    title="Visit playlist website"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm font-medium">Website</span>
+                  </a>
+                )}
+              </div>
               <p className="text-gray-400 mb-4">{config.description}</p>
               {stats && (
                 <div className="flex flex-wrap gap-4 text-sm text-gray-400">
