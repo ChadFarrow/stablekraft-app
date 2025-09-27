@@ -159,6 +159,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 console.log(`✅ Loaded full track data: ${fullData.albums[0].tracks.length} tracks`);
                 setTracks(fullData.albums[0].tracks);
                 
+                // Update playlist link if available in full data
+                if (fullData.albums[0].link) {
+                  setPlaylistLink(fullData.albums[0].link);
+                }
+                
                 // Cache the full data
                 const fullCacheData: CachedData = {
                   tracks: fullData.albums[0].tracks,

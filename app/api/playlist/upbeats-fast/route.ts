@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         albumUrl: '/album/upbeats-playlist',
         isLoading: true, // Flag to indicate this is fast-loading data
         fullDataUrl: '/api/playlist/upbeats', // URL to fetch full data
-        link: 'https://www.doerfelverse.com/', // Playlist website link
+        link: 'https://upbeatspodcast.com/', // Playlist website link
         playlistContext: {
           source: 'upbeats-playlist-fast',
           originalUrl: UPBEATS_PLAYLIST_URL

@@ -43,6 +43,18 @@ function parseArtworkUrl(xmlText: string): string | null {
   return null;
 }
 
+function parsePlaylistLink(xmlText: string): string | null {
+  // Parse the <link>...</link> element
+  const linkRegex = /<link>(.*?)<\/link>/;
+  const match = xmlText.match(linkRegex);
+
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  return null;
+}
+
 function parseRemoteItems(xmlText: string): RemoteItem[] {
   const remoteItems: RemoteItem[] = [];
 
@@ -95,11 +107,13 @@ export async function GET(request: Request) {
     const xmlText = await response.text();
     console.log('📄 Fetched playlist XML, length:', xmlText.length);
 
-    // Parse the XML to extract remote items and artwork
+    // Parse the XML to extract remote items, artwork, and playlist link
     const remoteItems = parseRemoteItems(xmlText);
     const artworkUrl = parseArtworkUrl(xmlText);
+    const playlistLink = parsePlaylistLink(xmlText);
     console.log('📋 Found remote items:', remoteItems.length);
     console.log('🎨 Found artwork URL:', artworkUrl);
+    console.log('🔗 Found playlist link:', playlistLink);
 
     console.log('🔍 Resolving playlist items to actual tracks...');
     
@@ -173,6 +187,7 @@ export async function GET(request: Request) {
       image: artworkUrl || '/placeholder-podcast.jpg',
       coverArt: artworkUrl || '/placeholder-podcast.jpg', // Add coverArt field for consistency
       url: UPBEATS_PLAYLIST_URL,
+      link: playlistLink, // Website link from the playlist feed
       tracks: tracks,
       feedId: 'upbeats-playlist',
       type: 'playlist',
