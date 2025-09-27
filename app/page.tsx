@@ -271,8 +271,24 @@ export default function HomePage() {
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
       const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
       
-      // Set albums directly - show first 12 immediately, then rest
-      setCriticalAlbums(pageAlbums.slice(0, 12));
+      // For 'all' filter, prioritize albums in critical loading to ensure they appear first
+      if (activeFilter === 'all') {
+        // Separate albums (>6 tracks) and EPs/singles (≤6 tracks) for proper loading order
+        const albumsWithMultipleTracks = pageAlbums.filter((album: any) => (album.tracks?.length || 0) > 6);
+        const epsAndSingles = pageAlbums.filter((album: any) => (album.tracks?.length || 0) <= 6);
+
+        // For critical loading, show first 8 albums + first 4 EPs/singles to ensure albums appear
+        const criticalContent = [
+          ...albumsWithMultipleTracks.slice(0, 8),
+          ...epsAndSingles.slice(0, 4)
+        ];
+
+        setCriticalAlbums(criticalContent);
+      } else {
+        // For other filters, show first 12 items normally
+        setCriticalAlbums(pageAlbums.slice(0, 12));
+      }
+
       setEnhancedAlbums(pageAlbums);
       setDisplayedAlbums(pageAlbums);
       setAlbums(pageAlbums); // Also set the main albums state

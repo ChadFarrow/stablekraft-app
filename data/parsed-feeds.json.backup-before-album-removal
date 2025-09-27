@@ -12552,6 +12552,275 @@
       "keywords": []
     },
     {
+      "id": "unwound",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/unwound.xml",
+      "type": "album",
+      "title": "unwound",
+      "priority": "extended",
+      "status": "active",
+      "addedAt": "2025-01-27T00:00:00.000Z",
+      "lastUpdated": "2025-01-27T00:00:00.000Z",
+      "parseStatus": "success",
+      "lastParsed": "2025-09-25T20:24:49.430Z",
+      "parsedData": {
+        "album": {
+          "title": "bitpunk.fm unwound",
+          "artist": "Josh Datko",
+          "description": "Behind the scenes of bitpunk.fm. An audio log of making a value-for-value tapezine. Covers v4v, self hosting, audio, making cassettes, and some behind the scenes of how the zine is made.Minimal editing, maximum rawness. Shall not exceed 30 minutes so that two episodes can fit on one C60.",
+          "coverArt": "https://files.bitpunk.fm/unwound_cover_png.png",
+          "tracks": [
+            {
+              "title": "v4v music models bandcamp vs spotify",
+              "duration": "3331",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-20.mp3",
+              "trackNumber": 1,
+              "summary": "After the podcast-podcast talking about v4v music models and new apps.",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Live with Lightning from Dev Hack Day 2025",
+              "duration": "1859",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-19.mp3",
+              "trackNumber": 2,
+              "summary": "The talk I gave at dev hack day in Prague 2025 on livestreaming with lightning.",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "BTC Prague Report",
+              "duration": "2721",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-18.mp3",
+              "trackNumber": 3,
+              "summary": "Thoughts on BTC Prague, Cypherpunk Meetup and dev hack day",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "SecureRSS, Nostr, and Satellite Skirmish",
+              "duration": "2549",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-17.mp3",
+              "trackNumber": 4,
+              "summary": "Strong opinions, loosely held. As I get into audiobooks I call for the end of this stupid SecureRSS name. I discuss some of my frustrations with nostr, and talk about the latest Satellite Skirmish.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Live on radio.bitpunk.fm!",
+              "duration": "1532",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-16.mp3",
+              "trackNumber": 5,
+              "summary": "Now broadcasting on radio.bitpunk.fm I discuss LIT wrappers around 24x7 Internet Radio Stations and live call in some more.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "LIT Phones on the Radio",
+              "duration": "1782",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-15.mp3",
+              "trackNumber": 6,
+              "summary": "In which I discuss:LIT video shows re-broadcast to PC 2.0 and other platformsVoiP FunPodcasting and Radio mediumsHere’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "New Year Updates",
+              "duration": "636",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-14.mp3",
+              "trackNumber": 7,
+              "summary": "Just some January updates on a few topics and upcoming podcasts.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "The Albycalypse is near- The LoFi version (collab with Juraj Bednar)",
+              "duration": "9233",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-13.mp3",
+              "trackNumber": 8,
+              "summary": "This is the LoFi version.See Juraj’s shownotes: https://hackyourself.io/2024/12/05/the-albycalypse-is-near-the-present-and-future-of-lightning-payments-in-the-value4value-and-nostr-ecosystems-ft-josh-bitpunk-fm/Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "End of Year Updates",
+              "duration": "2658",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-12.mp3",
+              "trackNumber": 9,
+              "summary": "Main topics:Update on bitpunk.fm studiosIssue 0.5 updatesSend moar postcards (tapes make good holiday gifts)Upcoming Podcast with Juraj BednarHome Grown Hits is hitting it out of the park!Thanks for the givingI’ll be on a Satellite Skirmish!I’ll soon have a cassette answering machine. Call toll free: 1-877-BIT-LOFINew AM radio station?Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Relationship markets vs Effecient markets",
+              "duration": "1319",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-11.mp3",
+              "trackNumber": 10,
+              "summary": "Ok, first of all, I tried to record to this to cassette first. It shows – it’s a little dirty audio. I think I pushed it too much, but idk, let me know.Otherwise, I discuss some updates and then add some comments on what V4V means to me as I see it.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Mailorder Mixtapes",
+              "duration": "792",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-10.mp3",
+              "trackNumber": 11,
+              "summary": "Send me a postcard with a track list from LNBeats, I will mail you a mixtape. Return the value to me and the artists.More info here: https://zine.bitpunk.fm/lnbeats-mixtape-mailbox/Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "V4V Tape Protocol (how to get a tape)",
+              "duration": "1155",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-09.mp3",
+              "trackNumber": 12,
+              "summary": "I explain how to get a physical copy of the next bitpunk.fm since I will not be at a conference to distribute them. Here’s the protocol summary:Mail me a postcardI mail you a tapeReturn the value with time.talent,treasureI acknowledge you by adding you to the producer creditsMail a postcard to:P.O. Box 273029\n                         Fort Collins, CO 80525Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Poetry and Podcasting 2.0 - mixing audio setup and ideas",
+              "duration": "1466",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-08.mp3",
+              "trackNumber": 13,
+              "summary": "To my new substack poets, I explain my audio setup. I also encourage said poets to get a new podcast app (https://podcastindex.org/apps?appTypes=app) so that they can click the links to references, as I talk to them.To my podcasting 2.0 peeps I talk about how cool it is to drip a DeMu album. Although, I still say DeMu wrong.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "DeMu -- Decentralized Music",
+              "duration": "1561",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-07.mp3",
+              "trackNumber": 14,
+              "summary": "I talk about DeMu – Decentralized Music. How to set it up, how to play it, and the experiment I’m running.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Podcasting 2.0 is the modern cassette",
+              "duration": "1639",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-06.mp3",
+              "trackNumber": 15,
+              "summary": "Shout out to Sir Spencer and Laurien! They kicked the hornets nest while I was by it in my hammock, but it’s all good :)Update on my albyhub progress.My upcoming talk about cassettes to a bunch of hackers.Rebrand physicalItemTag to mediaItemTag (MIX – rotate the ‘t’).Why I think podcasting 2.0 is like the modern cassette.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "My first nostr drama",
+              "duration": "1520",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-05.mp3",
+              "trackNumber": 16,
+              "summary": "I caused some minor nostr drama today when Wavlake implemented a feature on the website that I asked for. There was some very strong feelings and now I feel sad.Maybe I should just stay with cassettes?Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Buy a PIT -- Proposoal for Physical Item Tag in PC 2.0",
+              "duration": "972",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-04.mp3",
+              "trackNumber": 17,
+              "summary": "ProposalAdd the physicalItemTag to Podcasting 2.0. Similar to LIT, it would have the physicalItemSplits. It should fit on a NFC/QR sticker and allow podcast clients to send boost for physical media.It provides the following benefits:Allows the cost of physical media to go down as the licensing fee is not baked inAllows for listener to send value directly to artistsAllows artist to receive value in a secondary salePhysical media is punk.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "I made a tape loop mix live with LIT",
+              "duration": "1454",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-03.mp3",
+              "trackNumber": 18,
+              "summary": "Post show thoughts on making bitpunk.fm live. What I did, what I screwed up, and how I felt about it.Should be useful to someone wanting to try live podcasting 2.0.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://www.bitpunk.fm/media/podcasts/bitpunkfm_unwound/i-made-a-tape-loop-mix-live-with-lit_feed.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "Anarchist Guide to Live Podcasting Part I",
+              "duration": "1534",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-02.mp3",
+              "trackNumber": 19,
+              "summary": "Anarchist Guide to Self Hosting Live PodcastsSee chapters for segments. Here are a bunch of super helpful linksThe SpecObviously start here. But sadly, your journey doesn’t end here.SpecGuideThis blogpost describes a dude going through the same pain, including cloudflare streaming.GuideValidatorMost helpful validator I’ve found.validatorGuid generatorDoes UUID version 5guid generatorTimestamp tooltimestamp toolXML exampleVery well documented example of how to do a album feed. xmlHere’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            },
+            {
+              "title": "valueTimeSplits",
+              "duration": "1629",
+              "url": "https://files.bitpunk.fm/bitpunk-fm-unwound-1-01.mp3",
+              "trackNumber": 20,
+              "summary": "Initial episode. Talking mainly about valueTimeSplits and the headache it caused.Here’s how you can get a tape:https://zine.bitpunk.fm/how-to-get-a-bitpunk-fm-tape/",
+              "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+              "explicit": false,
+              "keywords": [],
+              "musicTrack": true
+            }
+          ],
+          "releaseDate": "2025-08-09",
+          "duration": "11:29:02",
+          "link": "https://zine.bitpunk.fm/podcasts",
+          "funding": [],
+          "summary": "Behind the scenes of bitpunk.fm. An audio log of making a value-for-value tapezine. Covers v4v, self hosting, audio, making cassettes, and some behind the scenes of how the zine is made.Minimal editing, maximum rawness. Shall not exceed 30 minutes so that two episodes can fit on one C60.",
+          "keywords": [],
+          "categories": [
+            "Education"
+          ],
+          "explicit": false,
+          "language": "en",
+          "owner": {
+            "name": "Josh Datko",
+            "email": "onlybotsemailthis@bitpunk.fm"
+          },
+          "podroll": [],
+          "isMusicTrackAlbum": true,
+          "source": "https://zine.bitpunk.fm/feeds/unwound.xml",
+          "id": "bitpunk-fm-unwound-josh-datko",
+          "feedId": "https://zine.bitpunk.fm/feeds/unwound.xml"
+        }
+      },
+      "trackCount": 20,
+      "duration": "11:29:02",
+      "hasPodRoll": false,
+      "hasFunding": false,
+      "categories": [
+        "Education"
+      ],
+      "keywords": []
+    },
+    {
       "id": "vance-latta-love-in-its-purest-form",
       "originalUrl": "https://feed.falsefinish.club/Vance Latta/Vance Latta - Love In Its Purest Form/love in its purest form.xml",
       "type": "album",
@@ -38522,6 +38791,81 @@
       ]
     },
     {
+      "id": "mary-kate-ultra-makeheroism-hyper-spaceout",
+      "title": "Hyper SpaceOut",
+      "artist": "Mary-Kate Ultra & makeheroism",
+      "description": "A fun, normal game show where Mary-Kate Ultra and makeheroism dodge psy-ops and bend reality into fun.",
+      "image": "https://feed.falsefinish.club/HSO/Graphics/HSO_TV_LOGO_1.png",
+      "originalUrl": "https://feed.falsefinish.club/HSO/podcast-rss.xml",
+      "feedGuid": "c42a0900-c20e-59a2-a13b-c23b5c04e11f",
+      "guid": "c42a0900-c20e-59a2-a13b-c23b5c04e11f",
+      "priority": 100,
+      "status": "active",
+      "type": "podcast",
+      "explicit": true,
+      "language": "en",
+      "podcastIndexId": 5350892,
+      "medium": "video",
+      "categories": {
+        "16": "Comedy",
+        "18": "Improv"
+      },
+      "discoveredVia": "HGH Playlist",
+      "discoveredAt": "2025-09-22T00:52:29.455Z",
+      "lastFetched": null,
+      "createdAt": "2025-09-22T00:52:29.455Z",
+      "updatedAt": "2025-09-22T00:52:29.455Z",
+      "value": {
+        "model": {
+          "type": "lightning",
+          "method": "keysend",
+          "suggested": "0.000033333"
+        },
+        "destinations": [
+          {
+            "name": "SpaceOut",
+            "type": "node",
+            "address": "0325ab94e785e40877fe7421ec9a523bbb6021663dfb5c18987f40e17d5d507921",
+            "split": 76
+          },
+          {
+            "name": "HSO Alby",
+            "type": "node",
+            "address": "030a58b8653d32b99200a2334cfe913e51dc7d155aa0116c176657a4f1722677a3",
+            "split": 6
+          },
+          {
+            "name": "bowlers",
+            "type": "node",
+            "address": "03ecb3ee55ba6324d40bea174de096dc9134cb35d990235723b37ae9b5c49f4f53",
+            "split": 6
+          },
+          {
+            "name": "cottongin",
+            "type": "node",
+            "address": "028e52a9204ca65def1be9ba56e36c7291e1bf2eaffc93d7850294bc2630eed7ec",
+            "split": 6
+          },
+          {
+            "name": "hitters",
+            "type": "node",
+            "address": "0368fed1c2fc35393228091c3ed1558090bfefc2ba5f57d8e025784f7fbc705dd5",
+            "split": 6
+          },
+          {
+            "name": "Podcastindex.org",
+            "address": "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a",
+            "type": "node",
+            "fee": true,
+            "split": 1
+          }
+        ]
+      },
+      "episodeCount": 3,
+      "parseStatus": "pending",
+      "lastParsed": "2025-09-25T20:27:12.610Z"
+    },
+    {
       "id": "mellow-cassette-pilot",
       "title": "Pilot",
       "artist": "Mellow Cassette",
@@ -60901,6 +61245,113 @@
       "episodeCount": 96,
       "parseStatus": "pending",
       "lastParsed": "2025-09-25T20:27:55.950Z"
+    },
+    {
+      "id": "josh-datko-bitpunk-fm-unwound",
+      "title": "bitpunk.fm unwound",
+      "artist": "Josh Datko",
+      "description": "Behind the scenes of bitpunk.fm. An audio log of making a value-for-value tapezine. Covers v4v, self hosting, audio, making cassettes, and some behind the scenes of how the zine is made.Minimal editing, maximum rawness. Shall not exceed 30 minutes so that two episodes can fit on one C60.\n            ",
+      "image": "https://files.bitpunk.fm/unwound_cover_png.png",
+      "originalUrl": "https://zine.bitpunk.fm/feeds/unwound.xml",
+      "feedGuid": "5eec058a-5e25-597a-a713-f88b166dc2e1",
+      "guid": "5eec058a-5e25-597a-a713-f88b166dc2e1",
+      "priority": 100,
+      "status": "active",
+      "type": "podcast",
+      "explicit": false,
+      "language": "en",
+      "podcastIndexId": 7002958,
+      "medium": "podcast",
+      "categories": {
+        "20": "Education"
+      },
+      "discoveredVia": "HGH Playlist",
+      "discoveredAt": "2025-09-22T00:52:33.593Z",
+      "lastFetched": null,
+      "createdAt": "2025-09-22T00:52:33.593Z",
+      "updatedAt": "2025-09-22T00:52:33.593Z",
+      "value": {
+        "model": {
+          "type": "lightning",
+          "method": "keysend"
+        },
+        "destinations": [
+          {
+            "name": "bitpunk.fm",
+            "type": "node",
+            "address": "0271582af8fedc9354acedec65874ea119c2f14aea7ae462d773bbf8b18269fe60",
+            "split": 84
+          },
+          {
+            "name": "ChadF",
+            "type": "node",
+            "address": "032870511bfa0309bab3ca1832ead69eed848a4abddbc4d50e55bb2157f9525e51",
+            "split": 2
+          },
+          {
+            "name": "DuhLaurien",
+            "type": "node",
+            "address": "0368fed1c2fc35393228091c3ed1558090bfefc2ba5f57d8e025784f7fbc705dd5",
+            "split": 2
+          },
+          {
+            "name": "Spencer",
+            "type": "node",
+            "address": "03ecb3ee55ba6324d40bea174de096dc9134cb35d990235723b37ae9b5c49f4f53",
+            "split": 2
+          },
+          {
+            "name": "StevenB",
+            "type": "node",
+            "address": "035ad2c954e264004986da2d9499e1732e5175e1dcef2453c921c6cdcc3536e9d8",
+            "split": 2
+          },
+          {
+            "name": "ThunderRoad",
+            "type": "node",
+            "address": "03589f3ddb81f3802f3fc9aaa359b684ed19840b55db88f7c9c2cc671e74ac93e2",
+            "split": 2
+          },
+          {
+            "name": "juraj",
+            "type": "node",
+            "address": "02f1246b8fe904a5c5193504d8069532b1fb8692b84fb3eb64318b201238f60ff1",
+            "split": 2
+          },
+          {
+            "name": "marykateultra@fountain.fm",
+            "type": "node",
+            "address": "03b6f613e88bd874177c28c6ad83b3baba43c4c656f56be1f8df84669556054b79",
+            "split": 2,
+            "customKey": "906608",
+            "customValue": "01vI2zSit4cEphEcc8ciDS"
+          },
+          {
+            "name": "voidzero",
+            "type": "node",
+            "address": "03c3a201d80404eebf323384c0406d67290d7540e89e24ce4ceaf2f3c2ada2c209",
+            "split": 1
+          },
+          {
+            "name": "boostbot@fountain.fm",
+            "type": "node",
+            "address": "03b6f613e88bd874177c28c6ad83b3baba43c4c656f56be1f8df84669556054b79",
+            "split": 1,
+            "customKey": "906608",
+            "customValue": "01IMQkt4BFzAiSynxcQQqd"
+          },
+          {
+            "name": "Podcastindex.org",
+            "address": "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a",
+            "type": "node",
+            "fee": true,
+            "split": 1
+          }
+        ]
+      },
+      "episodeCount": 20,
+      "parseStatus": "pending",
+      "lastParsed": "2025-09-25T20:27:56.051Z"
     },
     {
       "id": "empath-eyes-echo-chamber",

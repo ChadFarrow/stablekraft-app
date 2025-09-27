@@ -1101,16 +1101,6 @@
       "lastUpdated": "2025-01-27T00:00:00.000Z"
     },
     {
-      "id": "unwound",
-      "originalUrl": "https://zine.bitpunk.fm/feeds/unwound.xml",
-      "type": "album",
-      "title": "unwound",
-      "priority": "extended",
-      "status": "active",
-      "addedAt": "2025-01-27T00:00:00.000Z",
-      "lastUpdated": "2025-01-27T00:00:00.000Z"
-    },
-    {
       "id": "vance-latta-love-in-its-purest-form",
       "originalUrl": "https://feed.falsefinish.club/Vance Latta/Vance Latta - Love In Its Purest Form/love in its purest form.xml",
       "type": "album",
@@ -20218,111 +20208,6 @@
         ]
       },
       "episodeCount": 96
-    },
-    {
-      "id": "josh-datko-bitpunk-fm-unwound",
-      "title": "bitpunk.fm unwound",
-      "artist": "Josh Datko",
-      "description": "Behind the scenes of bitpunk.fm. An audio log of making a value-for-value tapezine. Covers v4v, self hosting, audio, making cassettes, and some behind the scenes of how the zine is made.Minimal editing, maximum rawness. Shall not exceed 30 minutes so that two episodes can fit on one C60.\n            ",
-      "image": "https://files.bitpunk.fm/unwound_cover_png.png",
-      "originalUrl": "https://zine.bitpunk.fm/feeds/unwound.xml",
-      "feedGuid": "5eec058a-5e25-597a-a713-f88b166dc2e1",
-      "guid": "5eec058a-5e25-597a-a713-f88b166dc2e1",
-      "priority": 100,
-      "status": "active",
-      "type": "podcast",
-      "explicit": false,
-      "language": "en",
-      "podcastIndexId": 7002958,
-      "medium": "podcast",
-      "categories": {
-        "20": "Education"
-      },
-      "discoveredVia": "HGH Playlist",
-      "discoveredAt": "2025-09-22T00:52:33.593Z",
-      "lastFetched": null,
-      "createdAt": "2025-09-22T00:52:33.593Z",
-      "updatedAt": "2025-09-22T00:52:33.593Z",
-      "value": {
-        "model": {
-          "type": "lightning",
-          "method": "keysend"
-        },
-        "destinations": [
-          {
-            "name": "bitpunk.fm",
-            "type": "node",
-            "address": "0271582af8fedc9354acedec65874ea119c2f14aea7ae462d773bbf8b18269fe60",
-            "split": 84
-          },
-          {
-            "name": "ChadF",
-            "type": "node",
-            "address": "032870511bfa0309bab3ca1832ead69eed848a4abddbc4d50e55bb2157f9525e51",
-            "split": 2
-          },
-          {
-            "name": "DuhLaurien",
-            "type": "node",
-            "address": "0368fed1c2fc35393228091c3ed1558090bfefc2ba5f57d8e025784f7fbc705dd5",
-            "split": 2
-          },
-          {
-            "name": "Spencer",
-            "type": "node",
-            "address": "03ecb3ee55ba6324d40bea174de096dc9134cb35d990235723b37ae9b5c49f4f53",
-            "split": 2
-          },
-          {
-            "name": "StevenB",
-            "type": "node",
-            "address": "035ad2c954e264004986da2d9499e1732e5175e1dcef2453c921c6cdcc3536e9d8",
-            "split": 2
-          },
-          {
-            "name": "ThunderRoad",
-            "type": "node",
-            "address": "03589f3ddb81f3802f3fc9aaa359b684ed19840b55db88f7c9c2cc671e74ac93e2",
-            "split": 2
-          },
-          {
-            "name": "juraj",
-            "type": "node",
-            "address": "02f1246b8fe904a5c5193504d8069532b1fb8692b84fb3eb64318b201238f60ff1",
-            "split": 2
-          },
-          {
-            "name": "marykateultra@fountain.fm",
-            "type": "node",
-            "address": "03b6f613e88bd874177c28c6ad83b3baba43c4c656f56be1f8df84669556054b79",
-            "split": 2,
-            "customKey": "906608",
-            "customValue": "01vI2zSit4cEphEcc8ciDS"
-          },
-          {
-            "name": "voidzero",
-            "type": "node",
-            "address": "03c3a201d80404eebf323384c0406d67290d7540e89e24ce4ceaf2f3c2ada2c209",
-            "split": 1
-          },
-          {
-            "name": "boostbot@fountain.fm",
-            "type": "node",
-            "address": "03b6f613e88bd874177c28c6ad83b3baba43c4c656f56be1f8df84669556054b79",
-            "split": 1,
-            "customKey": "906608",
-            "customValue": "01IMQkt4BFzAiSynxcQQqd"
-          },
-          {
-            "name": "Podcastindex.org",
-            "address": "03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a",
-            "type": "node",
-            "fee": true,
-            "split": 1
-          }
-        ]
-      },
-      "episodeCount": 20
     },
     {
       "id": "empath-eyes-echo-chamber",

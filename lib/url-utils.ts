@@ -27,7 +27,6 @@ export function generateAlbumSlug(title: string): string {
     'fountain artist takeover - nate johnivan': 'fountain-artist-takeover-nate-johnivan',
     'rock\'n\'roll breakheart': 'rocknroll-breakheart',
     'thankful (feat. witt lowry)': 'thankful-feat-witt-lowry',
-    'bitpunk.fm unwound': 'bitpunkfm-unwound',
     'aged friends & old whiskey': 'aged-friends-and-old-whiskey'
   };
   
