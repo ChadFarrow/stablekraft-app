@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
           '#F97316', '#3B82F6', '#8B5CF6', '#14B8A6', '#F59E0B',
           '#DC2626', '#7C3AED', '#059669', '#DB2777', '#2563EB'
         ];
-        const urlHash = imageUrl.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+        const urlHash = imageUrl.split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0);
         const colorIndex = Math.abs(urlHash) % vibrantColors.length;
         originalColor = vibrantColors[colorIndex];
       }
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         '#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6',
         '#EF4444', '#06B6D4', '#84CC16', '#EC4899', '#10B981'
       ];
-      const urlHash = imageUrl.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      const urlHash = imageUrl.split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0);
       const colorIndex = Math.abs(urlHash) % vibrantColors.length;
       originalColor = vibrantColors[colorIndex];
     }
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
         '#EF4444', '#06B6D4', '#84CC16', '#EC4899', '#10B981'
       ];
       // Use a deterministic selection based on the image URL
-      const colorIndex = Math.abs(imageUrl.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % vibrantColors.length;
+      const colorIndex = Math.abs(imageUrl.split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0)) % vibrantColors.length;
       finalColor = vibrantColors[colorIndex];
       console.log('🎨 Using vibrant fallback:', finalColor, 'for unappealing original:', originalColor);
     }
