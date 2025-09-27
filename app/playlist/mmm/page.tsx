@@ -6,7 +6,7 @@ import type { PlaylistConfig } from '@/types/playlist';
 const MMM_CONFIG: PlaylistConfig = {
   cacheKey: 'mmm_playlist_cache_v2',
   cacheDuration: 1000 * 60 * 30, // 30 minutes
-  apiEndpoint: '/api/playlist/mmm',
+  apiEndpoint: '/api/playlist/mmm-fast', // Use fast endpoint for initial load
   title: 'Mutton, Mead & Music Playlist',
   description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
   useAudioContext: true
