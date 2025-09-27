@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
-import { Zap, Send, X } from 'lucide-react';
+import { LNURLService } from '@/lib/lightning/lnurl';
+import { Zap, Send, X, Mail } from 'lucide-react';
 
 interface BoostButtonProps {
   trackId?: string;
@@ -16,6 +17,7 @@ interface BoostButtonProps {
     split: number;
     type: 'node' | 'lnaddress';
   }>;
+  lightningAddress?: string; // Primary Lightning Address for this track/artist
   className?: string;
 }
 
@@ -25,9 +27,10 @@ export function BoostButton({
   trackTitle,
   artistName,
   valueSplits = [],
+  lightningAddress,
   className = '',
 }: BoostButtonProps) {
-  const { isConnected, connect, sendKeysend } = useBitcoinConnect();
+  const { isConnected, connect, sendKeysend, sendPayment } = useBitcoinConnect();
   const [showModal, setShowModal] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(100);
   const [customAmount, setCustomAmount] = useState('');
@@ -58,18 +61,46 @@ export function BoostButton({
         return;
       }
 
-      // For now, send to a default address if no value splits
-      // TODO: Implement proper value split payment distribution
-      const defaultAddress = LIGHTNING_CONFIG.platform.nodePublicKey;
+      let result: { preimage?: string; error?: string } = { error: 'No payment method configured' };
 
-      if (!defaultAddress) {
-        setError('No payment destination configured');
-        setIsSending(false);
-        return;
+      // Determine payment destination priority:
+      // 1. Lightning Address (if provided)
+      // 2. Value splits (if configured)
+      // 3. Platform default node pubkey
+
+      if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
+        // Pay to Lightning Address via LNURL-pay
+        console.log(`⚡ Paying via Lightning Address: ${lightningAddress}`);
+
+        try {
+          const { invoice } = await LNURLService.payLightningAddress(
+            lightningAddress,
+            amount,
+            message
+          );
+
+          result = await sendPayment(invoice);
+        } catch (lnurlError) {
+          console.error('Lightning Address payment failed:', lnurlError);
+          result = { error: `Lightning Address payment failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
+        }
+      } else if (valueSplits && valueSplits.length > 0) {
+        // Use value splits for multiple recipients
+        console.log(`⚡ Paying via value splits to ${valueSplits.length} recipients`);
+        result = await sendValueSplitPayments(amount, message);
+      } else {
+        // Fallback to platform default
+        const defaultAddress = LIGHTNING_CONFIG.platform.nodePublicKey;
+
+        if (!defaultAddress) {
+          setError('No payment destination configured');
+          setIsSending(false);
+          return;
+        }
+
+        console.log(`⚡ Paying via keysend to platform: ${defaultAddress.slice(0, 20)}...`);
+        result = await sendKeysend(defaultAddress, amount, message);
       }
-
-      // Send the payment
-      const result = await sendKeysend(defaultAddress, amount, message);
 
       if (result.error) {
         setError(result.error);
@@ -82,6 +113,7 @@ export function BoostButton({
           amount,
           message,
           preimage: result.preimage,
+          paymentMethod: lightningAddress ? 'lightning-address' : valueSplits?.length ? 'value-splits' : 'keysend',
         });
 
         // Close modal after success
@@ -100,12 +132,78 @@ export function BoostButton({
     }
   };
 
+  // Handle value split payments (multiple recipients)
+  const sendValueSplitPayments = async (
+    totalAmount: number,
+    message?: string
+  ): Promise<{ preimage?: string; error?: string }> => {
+    try {
+      const results: Array<{ preimage?: string; error?: string }> = [];
+
+      // Calculate split amounts
+      const totalSplits = valueSplits.reduce((sum, split) => sum + split.split, 0);
+
+      for (const recipient of valueSplits) {
+        const recipientAmount = Math.floor((recipient.split / totalSplits) * totalAmount);
+
+        if (recipientAmount < 1) {
+          console.warn(`Skipping recipient ${recipient.name}: amount too small (${recipientAmount} sats)`);
+          continue;
+        }
+
+        let recipientResult: { preimage?: string; error?: string };
+
+        if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
+          // Pay via Lightning Address
+          try {
+            const { invoice } = await LNURLService.payLightningAddress(
+              recipient.address,
+              recipientAmount,
+              message
+            );
+            recipientResult = await sendPayment(invoice);
+          } catch (lnurlError) {
+            recipientResult = { error: `Lightning Address failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
+          }
+        } else if (recipient.type === 'node') {
+          // Pay via keysend
+          recipientResult = await sendKeysend(recipient.address, recipientAmount, message);
+        } else {
+          recipientResult = { error: `Unsupported recipient type: ${recipient.type}` };
+        }
+
+        results.push(recipientResult);
+
+        console.log(`💸 Sent ${recipientAmount} sats to ${recipient.name || recipient.address.slice(0, 20)}...`,
+                   recipientResult.error ? 'FAILED' : 'SUCCESS');
+      }
+
+      // Check if any payments succeeded
+      const successful = results.filter(r => !r.error);
+      const failed = results.filter(r => r.error);
+
+      if (successful.length === 0) {
+        return { error: `All payments failed. Errors: ${failed.map(f => f.error).join(', ')}` };
+      }
+
+      if (failed.length > 0) {
+        console.warn(`${failed.length} of ${results.length} payments failed`);
+      }
+
+      // Return first successful preimage
+      return { preimage: successful[0].preimage };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Value split payment failed' };
+    }
+  };
+
   const logBoost = async (data: {
     trackId?: string;
     feedId?: string;
     amount: number;
     message?: string;
     preimage?: string;
+    paymentMethod?: string;
   }) => {
     try {
       await fetch('/api/lightning/boost', {
@@ -151,6 +249,26 @@ export function BoostButton({
                 {artistName && (
                   <p className="text-sm text-gray-400">by {artistName}</p>
                 )}
+
+                {/* Payment Method Indicator */}
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  {lightningAddress && LNURLService.isLightningAddress(lightningAddress) ? (
+                    <>
+                      <Mail className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
+                    </>
+                  ) : valueSplits && valueSplits.length > 0 ? (
+                    <>
+                      <Zap className="w-3 h-3 text-yellow-400" />
+                      <span className="text-yellow-400">Value splits to {valueSplits.length} recipients</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-400">Platform keysend</span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

@@ -2,14 +2,12 @@
 
 const { execSync } = require('child_process');
 
-console.log('🚀 Running production database migration...');
+console.log('🚀 Running runtime database migration...');
 
 // Check if DATABASE_URL is available
 if (!process.env.DATABASE_URL) {
-  console.log('⚠️ DATABASE_URL not available during build - skipping database operations');
-  console.log('📝 Database migrations will be handled at runtime');
-  console.log('✅ Build process continuing...');
-  process.exit(0);
+  console.log('❌ DATABASE_URL not available - cannot run migrations');
+  process.exit(1);
 }
 
 try {
@@ -29,15 +27,18 @@ try {
     
     // Mark migrations as applied by creating the migrations table
     console.log('📋 Marking migrations as applied...');
-    execSync('npx prisma migrate resolve --applied 20250919152921_init', { stdio: 'inherit' });
-    execSync('npx prisma migrate resolve --applied 20250920235900_add_track_order', { stdio: 'inherit' });
-    console.log('✅ Migrations marked as applied');
+    try {
+      execSync('npx prisma migrate resolve --applied 20250919152921_init', { stdio: 'inherit' });
+      execSync('npx prisma migrate resolve --applied 20250920235900_add_track_order', { stdio: 'inherit' });
+      console.log('✅ Migrations marked as applied');
+    } catch (resolveError) {
+      console.log('⚠️ Could not mark migrations as applied, but schema is synced');
+    }
   } catch (pushError) {
     console.error('❌ Failed to sync database schema:', pushError.message);
-    // Don't exit with error - let the build continue
-    // The app might still work if the schema is already correct
-    console.log('⚠️ Continuing build despite migration issues...');
+    throw pushError;
   }
 }
 
-console.log('✅ Production migration process complete');
+console.log('✅ Runtime migration process complete');
+
