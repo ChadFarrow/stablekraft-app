@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+  <channel>
+    <title>Lightning Test Podcast</title>
+    <description>Test podcast for Lightning Network value splits</description>
+    <link>https://example.com/podcast</link>
+    <language>en-us</language>
+
+    <!-- Channel-level value tag (applies to all items unless overridden) -->
+    <podcast:value type="lightning" method="keysend" suggested="0.00000100">
+      <podcast:valueRecipient
+        name="Test Podcaster"
+        type="node"
+        address="02d5c1bf8b940dc9cadca86d1b0a3c37fbe39cee4c7e839e33bef9174531d27f52"
+        split="70"/>
+      <podcast:valueRecipient
+        name="Test Music Artist"
+        type="lnaddress"
+        address="artist@getalby.com"
+        split="25"/>
+      <podcast:valueRecipient
+        name="Hosting Platform"
+        type="node"
+        address="03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a"
+        split="5"
+        fee="true"/>
+    </podcast:value>
+
+    <item>
+      <title>Episode 1: Lightning Network Basics</title>
+      <description>Introduction to Lightning Network payments</description>
+      <guid isPermaLink="false">episode-1-lightning-basics</guid>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode1.mp3" length="25000000" type="audio/mpeg"/>
+
+      <!-- This episode uses channel-level value splits -->
+    </item>
+
+    <item>
+      <title>Episode 2: Value4Value Music</title>
+      <description>Featuring special guest artist with custom value splits</description>
+      <guid isPermaLink="false">episode-2-v4v-music</guid>
+      <pubDate>Mon, 08 Jan 2024 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode2.mp3" length="30000000" type="audio/mpeg"/>
+
+      <!-- Item-level value tag overrides channel-level -->
+      <podcast:value type="lightning" method="keysend" suggested="0.00000200">
+        <podcast:valueRecipient
+          name="Guest Music Artist"
+          type="lnaddress"
+          address="musician@strike.me"
+          split="60"
+          customKey="7629169"
+          customValue="Artist Spotlight Episode"/>
+        <podcast:valueRecipient
+          name="Test Podcaster"
+          type="node"
+          address="02d5c1bf8b940dc9cadca86d1b0a3c37fbe39cee4c7e839e33bef9174531d27f52"
+          split="30"/>
+        <podcast:valueRecipient
+          name="Hosting Platform"
+          type="node"
+          address="03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a"
+          split="10"
+          fee="true"/>
+      </podcast:value>
+    </item>
+
+    <item>
+      <title>Episode 3: Lightning Address Demo</title>
+      <description>Demonstrating Lightning Address payments</description>
+      <guid isPermaLink="false">episode-3-lnaddress-demo</guid>
+      <pubDate>Mon, 15 Jan 2024 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode3.mp3" length="28000000" type="audio/mpeg"/>
+
+      <!-- Single Lightning Address recipient -->
+      <podcast:value type="lightning" method="keysend">
+        <podcast:valueRecipient
+          name="Lightning Demo Artist"
+          type="lnaddress"
+          address="demo@ln.tips"
+          split="100"/>
+      </podcast:value>
+    </item>
+
+    <item>
+      <title>Episode 4: Mixed Payment Types</title>
+      <description>Mix of node pubkeys and Lightning addresses</description>
+      <guid isPermaLink="false">episode-4-mixed-payments</guid>
+      <pubDate>Mon, 22 Jan 2024 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode4.mp3" length="32000000" type="audio/mpeg"/>
+
+      <!-- Complex value splits with different types -->
+      <podcast:value type="lightning" method="keysend" suggested="0.00000500">
+        <podcast:valueRecipient
+          name="Primary Artist"
+          type="lnaddress"
+          address="primary@getalby.com"
+          split="40"/>
+        <podcast:valueRecipient
+          name="Secondary Artist"
+          type="node"
+          address="02d5c1bf8b940dc9cadca86d1b0a3c37fbe39cee4c7e839e33bef9174531d27f52"
+          split="30"/>
+        <podcast:valueRecipient
+          name="Producer"
+          type="lnaddress"
+          address="producer@strike.me"
+          split="20"/>
+        <podcast:valueRecipient
+          name="Platform Fee"
+          type="node"
+          address="03ae9f91a0cb8ff43840e3c322c4c61f019d8c1c3cea15a25cfc425ac605e61a4a"
+          split="10"
+          fee="true"/>
+      </podcast:value>
+    </item>
+
+    <item>
+      <title>Episode 5: No Value Tags</title>
+      <description>Episode without value tags (should fall back to channel-level)</description>
+      <guid isPermaLink="false">episode-5-no-value</guid>
+      <pubDate>Mon, 29 Jan 2024 12:00:00 GMT</pubDate>
+      <enclosure url="https://example.com/episode5.mp3" length="27000000" type="audio/mpeg"/>
+
+      <!-- No value tag - should use channel-level defaults -->
+    </item>
+  </channel>
+</rss>
