@@ -112,23 +112,50 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             console.log('🎨 Extracted dominant color:', color);
           }
 
-          // If color is too dark (near black), use a vibrant alternative
-          if (color === '#000000' || color === '#010101' || color === '#020202') {
+          // Helper function to check if a color is appealing for backgrounds
+          const isAppealingColor = (hexColor: string): boolean => {
+            const rgb = parseInt(hexColor.replace('#', ''), 16);
+            const r = (rgb >> 16) & 0xff;
+            const g = (rgb >> 8) & 0xff;
+            const b = (rgb >> 0) & 0xff;
+
+            // Calculate HSL values for better color assessment
+            const max = Math.max(r, g, b) / 255;
+            const min = Math.min(r, g, b) / 255;
+            const diff = max - min;
+
+            const lightness = (max + min) / 2;
+            const saturation = diff === 0 ? 0 : diff / (1 - Math.abs(2 * lightness - 1));
+
+            // Avoid very dark colors, very muddy colors, and browns/grays
+            if (lightness < 0.15) return false; // Too dark
+            if (saturation < 0.2) return false; // Too gray/muddy
+
+            // Avoid muddy browns and reddish-browns
+            if (r > g && r > b && g < 100 && b < 100) return false; // Muddy reds/browns
+            if (r > 120 && g < r * 0.7 && b < r * 0.7) return false; // Brownish tones
+
+            return true;
+          };
+
+          // If color is too dark (near black) or not appealing, use a vibrant alternative
+          if (color === '#000000' || color === '#010101' || color === '#020202' || !isAppealingColor(color)) {
             // Generate a vibrant color based on track position or use preset colors
-            const vibrantColors = ['#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16'];
+            const vibrantColors = ['#E11D48', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16', '#EC4899', '#10B981'];
             const colorIndex = (currentTrackIndex || 0) % vibrantColors.length;
             color = vibrantColors[colorIndex];
 
             if (process.env.NODE_ENV === 'development') {
-              console.log('🎨 Using vibrant fallback color:', color);
+              console.log('🎨 Using vibrant fallback color (unappealing original):', color);
             }
           }
 
-          // Brighten colors to make backgrounds more vibrant
-          const brightenedColor = brightenColor(color, 70); // Increase brightness by 70%
+          // Brighten colors to make backgrounds more vibrant, but less aggressively for already good colors
+          const brightenAmount = isAppealingColor(color) ? 40 : 70; // Less brightening for already good colors
+          const brightenedColor = brightenColor(color, brightenAmount);
 
           if (process.env.NODE_ENV === 'development') {
-            console.log('🎨 Brightened color:', brightenedColor, 'from original:', color);
+            console.log('🎨 Brightened color:', brightenedColor, 'from original:', color, 'brighten amount:', brightenAmount);
           }
 
           setDominantColor(brightenedColor);

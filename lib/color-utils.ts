@@ -45,19 +45,27 @@ export const extractDominantColor = async (imageUrl: string): Promise<string> =>
           // Skip very dark pixels (they make poor backgrounds)
           if (r < 20 && g < 20 && b < 20) continue;
 
-          // Convert to hex
-          const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-          colorCounts[hex] = (colorCounts[hex] || 0) + 1;
-
-          // Calculate color vibrancy (saturation)
+          // Skip muddy browns and grays that don't make good backgrounds
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
           const saturation = max === 0 ? 0 : (max - min) / max;
           const brightness = max / 255;
 
-          // Prefer colors that are both vibrant and reasonably bright
-          if (saturation > 0.3 || brightness > 0.3) {
-            const vibrancyScore = saturation * brightness * 100;
+          // Skip very unsaturated (gray/muddy) colors
+          if (saturation < 0.15 && brightness < 0.6) continue;
+
+          // Skip muddy browns (high red, low green/blue)
+          if (r > g && r > b && g < 80 && b < 80 && r > 100) continue;
+
+          // Convert to hex
+          const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+          colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+
+          // Prefer colors that are vibrant, bright, and aesthetically pleasing
+          if (saturation > 0.25 || brightness > 0.4) {
+            // Boost score for colors with good saturation and brightness balance
+            const balanceBonus = saturation > 0.4 && brightness > 0.3 && brightness < 0.8 ? 2 : 1;
+            const vibrancyScore = saturation * brightness * 100 * balanceBonus;
             vibrantColors[hex] = (vibrantColors[hex] || 0) + vibrancyScore;
           }
         }
