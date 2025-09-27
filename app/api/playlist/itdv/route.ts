@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 

@@ -30,6 +30,7 @@ model Feed {
   @@index([status, priority])
   @@index([type])
   @@index([lastFetched])
+  @@index([status, lastFetched])
 }
 
 model Track {
@@ -69,6 +70,8 @@ model Track {
   @@index([album])
   @@index([title])
   @@index([guid])
+  @@index([feedId, trackOrder])
+  @@index([artist, album])
 }
 
 model PlaylistTrack {
@@ -97,4 +100,20 @@ model UserPlaylist {
 
   @@index([createdBy])
   @@index([isPublic])
+}
+
+model ArtworkColor {
+  id               String   @id @default(cuid())
+  imageUrl         String   @unique
+  originalColor    String
+  enhancedColor    String
+  backgroundColor  String
+  textColor        String
+  isAppealing      Boolean  @default(true)
+  processedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([imageUrl])
+  @@index([processedAt])
+  @@index([processedAt, isAppealing])
 }
