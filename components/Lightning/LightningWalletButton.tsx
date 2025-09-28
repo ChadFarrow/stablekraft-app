@@ -167,11 +167,12 @@ export function LightningWalletButton({
                     </button>
                     
                     <div className="pt-2 border-t border-gray-700">
-                      <p className="text-xs text-gray-500 mb-2">Supported wallets:</p>
+                      <p className="text-xs text-gray-500 mb-2">Connection Options:</p>
                       <div className="text-xs text-gray-400 space-y-1">
-                        <div>• Alby Browser Extension</div>
-                        <div>• Phoenix Wallet</div>
-                        <div>• NWC Compatible Wallets</div>
+                        <div>• Browser Extension (Alby, Phoenix)</div>
+                        <div>• Nostr Wallet Connect (NWC)</div>
+                        <div>• Lightning Address</div>
+                        <div>• LNURL</div>
                       </div>
                     </div>
                   </div>
