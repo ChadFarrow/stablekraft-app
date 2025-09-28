@@ -12,6 +12,7 @@ import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider'
 import ControlsBar from '@/components/ControlsBar';
 import BackButton from '@/components/BackButton';
 import { useLightning } from '@/contexts/LightningContext';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -799,25 +800,45 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               ) : null;
             })()}
 
-            {/* Funding Information */}
-            {album.funding && album.funding.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-white text-center">Support This Artist</h3>
-                <div className="flex flex-wrap justify-center gap-3">
-                  {album.funding.map((funding, index) => (
-                    <a
-                      key={index}
-                      href={funding.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
-                    >
-                      💝 {funding.message || 'Support'}
-                    </a>
-                  ))}
-                </div>
+            {/* Lightning Boost and Funding Information */}
+            <div className="space-y-4">
+              {/* Lightning Boost Button */}
+              <div className="flex justify-center lg:justify-start">
+                <BoostButton
+                  feedId={album.feedGuid}
+                  trackTitle={album.title}
+                  artistName={album.artist}
+                  lightningAddress={album.v4vRecipient?.includes('@') ? album.v4vRecipient : undefined}
+                  valueSplits={album.v4vValue ? [{
+                    name: album.artist,
+                    address: album.v4vRecipient || '',
+                    split: 100,
+                    type: album.v4vRecipient?.includes('@') ? 'lnaddress' : 'node'
+                  }] : undefined}
+                  className="flex items-center gap-2 px-6 py-3 text-base"
+                />
               </div>
-            )}
+
+              {/* Traditional Funding Information */}
+              {album.funding && album.funding.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 text-white text-center lg:text-left">More Ways to Support</h3>
+                  <div className="flex flex-wrap justify-center lg:justify-start gap-3">
+                    {album.funding.map((funding, index) => (
+                      <a
+                        key={index}
+                        href={funding.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
+                      >
+                        💝 {funding.message || 'Support'}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Doerfels Publisher Information */}
@@ -966,6 +987,22 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       <span className="text-xs md:text-sm text-gray-400">
                         {formatDuration(track.duration)}
                       </span>
+
+                      {/* Boost Button */}
+                      <BoostButton
+                        trackId={track.guid}
+                        feedId={album.feedGuid}
+                        trackTitle={track.title}
+                        artistName={album.artist}
+                        valueSplits={track.v4vValue ? [{
+                          name: album.artist,
+                          address: track.v4vRecipient || '',
+                          split: 100,
+                          type: track.v4vRecipient?.includes('@') ? 'lnaddress' : 'node'
+                        }] : undefined}
+                        lightningAddress={track.v4vRecipient?.includes('@') ? track.v4vRecipient : undefined}
+                        className="text-xs px-2 py-1"
+                      />
                     </div>
                   </div>
                 ))}

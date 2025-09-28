@@ -25,34 +25,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   console.log('BitcoinConnectProvider render:', { isConnected, isLoading });
 
   useEffect(() => {
-    console.log('BitcoinConnectProvider useEffect - initializing...');
-    // Only initialize on client-side
-    if (typeof window !== 'undefined') {
-      // Use a more robust dynamic import approach
-      const initializeBitcoinConnect = async () => {
-        try {
-          const bitcoinConnect = await import('@getalby/bitcoin-connect');
-          console.log('Bitcoin Connect loaded successfully');
-          
-          // Initialize Bitcoin Connect
-          bitcoinConnect.init({
-            appName: 'FUCKIT Music',
-            // Allow all connection methods by not specifying filters
-          });
-
-          // Check if already connected
-          await checkConnection();
-        } catch (error) {
-          console.error('Failed to load Bitcoin Connect:', error);
-          setIsLoading(false);
-        }
-      };
-      
-      initializeBitcoinConnect();
-    } else {
-      console.log('Server-side rendering, skipping Bitcoin Connect init');
-      setIsLoading(false);
-    }
+    console.log('BitcoinConnectProvider useEffect - setting ready state...');
+    // Don't auto-initialize Bitcoin Connect, only set loading to false
+    setIsLoading(false);
   }, []);
 
   const checkConnection = async () => {
@@ -86,26 +61,22 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       console.log('Attempting to connect wallet...');
       setIsLoading(true);
 
-      // Import Bitcoin Connect and wait for it to be ready
+      // Import and initialize Bitcoin Connect when user clicks
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
+      console.log('Bitcoin Connect imported successfully');
 
-      // Simple direct approach - just launch the modal immediately
+      // Initialize Bitcoin Connect only when needed
+      bitcoinConnect.init({
+        appName: 'FUCKIT Music',
+        // Allow all connection methods by not specifying filters
+      });
+      console.log('Bitcoin Connect initialized');
+
+      // Launch the modal
       try {
         console.log('Launching Bitcoin Connect modal...');
-
-        // Check if Bitcoin Connect is properly initialized
-        console.log('Bitcoin Connect object:', bitcoinConnect);
-
-        // Launch modal and wait for it to actually appear
-        const modalPromise = bitcoinConnect.launchModal();
-        console.log('Modal launch promise created');
-
-        await modalPromise;
+        await bitcoinConnect.launchModal();
         console.log('Modal launched successfully');
-
-        // Add a small delay to ensure modal is visible
-        await new Promise(resolve => setTimeout(resolve, 100));
-        console.log('Post-modal delay complete');
 
         // Try to get provider after modal interaction
         const newProvider = await bitcoinConnect.requestProvider();
