@@ -1086,12 +1086,12 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Desktop Header - Original Layout */}
+            {/* Desktop Header - Reorganized Layout */}
             <div className="hidden sm:block mb-4">
-              <div className="relative flex items-center justify-center">
-                {/* Left side - Menu Button and Logo */}
-                <div className="absolute left-0 flex items-center gap-4">
-                  {/* Menu Button */}
+              {/* Top row - Menu, Title, Actions */}
+              <div className="flex items-center justify-between mb-3">
+                {/* Left side - Menu Button */}
+                <div className="flex items-center">
                   <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
@@ -1101,43 +1101,15 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                   </button>
-                  
-
                 </div>
                 
                 {/* Center - Title */}
                 <div className="text-center">
-                  <h1 className="text-3xl font-bold mb-1 text-white">Project StableKraft</h1>
-                  <p className="text-sm text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
+                  <h1 className="text-3xl font-bold text-white">Project StableKraft</h1>
                 </div>
                 
-                {/* Right side - Filters, Lightning Wallet and About Link */}
-                <div className="absolute right-0 flex items-center gap-3">
-                  {/* Filter Menu */}
-                  <div className="flex gap-1">
-                    {[
-                      { value: 'all', label: 'All' },
-                      { value: 'albums', label: 'Albums' },
-                      { value: 'eps', label: 'EPs' },
-                      { value: 'singles', label: 'Singles' },
-                      { value: 'artists', label: 'Publishers' },
-                      { value: 'playlist', label: 'Playlists' },
-                    ].map((filter) => (
-                      <button
-                        key={filter.value}
-                        onClick={() => handleFilterChange(filter.value)}
-                        disabled={isFilterLoading}
-                        className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                          activeFilter === filter.value
-                            ? 'bg-stablekraft-teal text-white shadow-sm'
-                            : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                        }`}
-                      >
-                        {filter.label}
-                      </button>
-                    ))}
-                  </div>
-                  
+                {/* Right side - Lightning Wallet and About Link */}
+                <div className="flex items-center gap-3">
                   {/* Lightning Wallet Button */}
                   <div className="flex items-center">
                     {(() => {
@@ -1169,8 +1141,41 @@ export default function HomePage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="hidden sm:inline">About this site</span>
+                  <span>About this site</span>
                 </Link>
+                </div>
+              </div>
+              
+              {/* Second row - Filter Menu */}
+              <div className="flex justify-center mb-2">
+                <div className="flex gap-1">
+                  {[
+                    { value: 'all', label: 'All' },
+                    { value: 'albums', label: 'Albums' },
+                    { value: 'eps', label: 'EPs' },
+                    { value: 'singles', label: 'Singles' },
+                    { value: 'artists', label: 'Publishers' },
+                    { value: 'playlist', label: 'Playlists' },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      onClick={() => handleFilterChange(filter.value)}
+                      disabled={isFilterLoading}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                        activeFilter === filter.value
+                          ? 'bg-stablekraft-teal text-white shadow-sm'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Third row - Quote */}
+              <div className="text-center">
+                <p className="text-sm text-gray-300">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
               </div>
             </div>
             
