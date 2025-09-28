@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Download, Music, Share2, Copy, Check, Loader2 } from 'lucide-react';
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic';
+
 export default function ExportPlaylistPage() {
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);

@@ -9,6 +9,9 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/Toast';
 import CDNImage from '@/components/CDNImage';
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic';
+
 interface PlaylistTrack {
   title: string;
   duration: string;
