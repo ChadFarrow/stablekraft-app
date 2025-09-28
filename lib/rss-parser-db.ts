@@ -60,7 +60,8 @@ const parser: Parser<CustomFeed, CustomItem> = new Parser({
       ['itunes:explicit', 'itunes.explicit'],
       ['itunes:category', 'itunes.categories', { keepArray: true }],
       ['itunes:keywords', 'itunes.keywords'],
-      'language'
+      'language',
+      ['podcast:value', 'podcast:value']
     ] as any,
     item: [
       ['itunes:author', 'itunes.author'],
@@ -111,6 +112,166 @@ export interface ParsedItem {
   v4vValue?: any;
   startTime?: number;
   endTime?: number;
+}
+
+// Helper function to parse V4V data from XML directly
+function parseV4VFromXML(xmlText: string): { recipient: string | null; value: any } {
+  try {
+    console.log('🔍 DEBUG: Parsing V4V from XML...');
+    
+    // Look for podcast:value tags (handle both self-closing and with content)
+    const valueRegex = /<podcast:value[^>]*>(.*?)<\/podcast:value>/gs;
+    const valueMatch = valueRegex.exec(xmlText);
+    
+    if (!valueMatch) {
+      console.log('ℹ️ DEBUG: No podcast:value tags found in XML');
+      return { recipient: null, value: null };
+    }
+    
+    console.log('🔍 DEBUG: Found podcast:value tag:', valueMatch[0]);
+    
+    const valueContent = valueMatch[1]; // Content between tags
+    const typeMatch = valueMatch[0].match(/type="([^"]*)"/);
+    const methodMatch = valueMatch[0].match(/method="([^"]*)"/);
+    
+    console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
+    console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
+    
+    // Look for podcast:valueRecipient tags within the value
+    const recipientRegex = /<podcast:valueRecipient[^>]*\/>/g;
+    const recipients = [];
+    let match;
+    
+    while ((match = recipientRegex.exec(valueContent)) !== null) {
+      const recipientTag = match[0];
+      console.log('🔍 DEBUG: Found recipient tag:', recipientTag);
+      
+      const nameMatch = recipientTag.match(/name="([^"]*)"/);
+      const addressMatch = recipientTag.match(/address="([^"]*)"/);
+      const typeMatch = recipientTag.match(/type="([^"]*)"/);
+      const splitMatch = recipientTag.match(/split="([^"]*)"/);
+      const feeMatch = recipientTag.match(/fee="([^"]*)"/);
+      
+      const recipient = {
+        name: nameMatch ? nameMatch[1] : null,
+        address: addressMatch ? addressMatch[1] : null,
+        type: typeMatch ? typeMatch[1] : 'node',
+        split: splitMatch ? splitMatch[1] : '100',
+        fee: feeMatch ? feeMatch[1] : null
+      };
+      
+      console.log('🔍 DEBUG: Parsed recipient:', recipient);
+      recipients.push(recipient);
+    }
+    
+    if (recipients.length > 0) {
+      // Use the first recipient with split="100" (usually the artist)
+      const primaryRecipient = recipients.find(r => r.split === '100') || recipients[0];
+      
+      console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
+      
+      return {
+        recipient: primaryRecipient.address,
+        value: {
+          type: typeMatch ? typeMatch[1] : 'lightning',
+          method: methodMatch ? methodMatch[1] : 'keysend',
+          recipients: recipients
+        }
+      };
+    }
+    
+    console.log('⚠️ DEBUG: No recipients found in podcast:value');
+    return { recipient: null, value: null };
+  } catch (error) {
+    console.error('Error parsing V4V from XML:', error);
+    return { recipient: null, value: null };
+  }
+}
+
+// Helper function to parse V4V data for a specific item from XML
+function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recipient: string | null; value: any } {
+  try {
+    console.log(`🔍 DEBUG: Parsing V4V for item "${itemTitle}" from XML...`);
+    
+    // Find the specific item by looking for the title
+    const itemRegex = new RegExp(`<item[^>]*>.*?<title>${itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</title>.*?</item>`, 'gs');
+    const itemMatch = itemRegex.exec(xmlText);
+    
+    if (!itemMatch) {
+      console.log(`ℹ️ DEBUG: Item "${itemTitle}" not found in XML`);
+      return { recipient: null, value: null };
+    }
+    
+    const itemContent = itemMatch[0];
+    console.log(`🔍 DEBUG: Found item content for "${itemTitle}"`);
+    
+    // Look for podcast:value tags within this specific item
+    const valueRegex = /<podcast:value[^>]*>(.*?)<\/podcast:value>/gs;
+    const valueMatch = valueRegex.exec(itemContent);
+    
+    if (!valueMatch) {
+      console.log(`ℹ️ DEBUG: No podcast:value tags found in item "${itemTitle}"`);
+      return { recipient: null, value: null };
+    }
+    
+    console.log(`🔍 DEBUG: Found podcast:value tag in item "${itemTitle}":`, valueMatch[0]);
+    
+    const valueContent = valueMatch[1];
+    const typeMatch = valueMatch[0].match(/type="([^"]*)"/);
+    const methodMatch = valueMatch[0].match(/method="([^"]*)"/);
+    
+    console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
+    console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
+    
+    // Look for podcast:valueRecipient tags within the value
+    const recipientRegex = /<podcast:valueRecipient[^>]*\/>/g;
+    const recipients = [];
+    let match;
+    
+    while ((match = recipientRegex.exec(valueContent)) !== null) {
+      const recipientTag = match[0];
+      console.log('🔍 DEBUG: Found recipient tag:', recipientTag);
+      
+      const nameMatch = recipientTag.match(/name="([^"]*)"/);
+      const addressMatch = recipientTag.match(/address="([^"]*)"/);
+      const typeMatch = recipientTag.match(/type="([^"]*)"/);
+      const splitMatch = recipientTag.match(/split="([^"]*)"/);
+      const feeMatch = recipientTag.match(/fee="([^"]*)"/);
+      
+      const recipient = {
+        name: nameMatch ? nameMatch[1] : null,
+        address: addressMatch ? addressMatch[1] : null,
+        type: typeMatch ? typeMatch[1] : 'node',
+        split: splitMatch ? splitMatch[1] : '100',
+        fee: feeMatch ? feeMatch[1] : null
+      };
+      
+      console.log('🔍 DEBUG: Parsed recipient:', recipient);
+      recipients.push(recipient);
+    }
+    
+    if (recipients.length > 0) {
+      // Use the first recipient with split="100" (usually the artist)
+      const primaryRecipient = recipients.find(r => r.split === '100') || recipients[0];
+      
+      console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
+      
+      return {
+        recipient: primaryRecipient.address,
+        value: {
+          type: typeMatch ? typeMatch[1] : 'lightning',
+          method: methodMatch ? methodMatch[1] : 'keysend',
+          recipients: recipients
+        }
+      };
+    }
+    
+    console.log(`⚠️ DEBUG: No recipients found in podcast:value for item "${itemTitle}"`);
+    return { recipient: null, value: null };
+  } catch (error) {
+    console.error(`Error parsing V4V for item "${itemTitle}" from XML:`, error);
+    return { recipient: null, value: null };
+  }
 }
 
 function extractItunesImage(itunesImage: any): string | undefined {
@@ -174,8 +335,19 @@ function parseKeywords(keywords: string | undefined): string[] {
 
 export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
   try {
-    // Fetch and parse the feed
+    console.log(`🔍 Parsing RSS feed: ${feedUrl}`);
+    
+    // Fetch the raw XML first for direct V4V parsing
+    const response = await fetch(feedUrl);
+    const xmlText = await response.text();
+    
+    // Parse V4V data directly from XML
+    const v4vData = parseV4VFromXML(xmlText);
+    console.log('🔍 DEBUG: Direct XML V4V parsing result:', v4vData);
+    
+    // Now parse with the RSS parser
     const feed = await parser.parseURL(feedUrl);
+    console.log('🔍 DEBUG: RSS parser completed, processing items...');
     
     // Extract feed-level metadata
     const feedImage = extractItunesImage(feed.itunes?.image) || 
@@ -191,6 +363,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
     const items: ParsedItem[] = [];
     
     if (feed.items) {
+      console.log(`🔍 DEBUG: Processing ${feed.items.length} items...`);
       for (const item of feed.items) {
         // Skip items without audio enclosures
         if (!item.enclosure?.url) continue;
@@ -218,9 +391,66 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
         };
         
         // Parse V4V (Value for Value) information if present
-        if (item['podcast:value']) {
-          parsedItem.v4vRecipient = item['podcast:value'].recipient;
-          parsedItem.v4vValue = item['podcast:value'];
+        // First try to parse from the raw XML for this specific item
+        const itemV4vData = parseItemV4VFromXML(xmlText, item.title || '');
+        
+        if (itemV4vData.recipient) {
+          parsedItem.v4vRecipient = itemV4vData.recipient;
+          parsedItem.v4vValue = itemV4vData.value;
+          console.log('✅ DEBUG: Set item v4vRecipient from XML:', parsedItem.v4vRecipient);
+        } else if (item['podcast:value']) {
+          console.log('🔍 DEBUG: Found podcast:value in item:', JSON.stringify(item['podcast:value'], null, 2));
+          const valueData = item['podcast:value'];
+          
+          // Handle nested podcast:valueRecipient elements
+          if (valueData['podcast:valueRecipient']) {
+            console.log('🔍 DEBUG: Found nested podcast:valueRecipient:', JSON.stringify(valueData['podcast:valueRecipient'], null, 2));
+            const recipients = Array.isArray(valueData['podcast:valueRecipient']) 
+              ? valueData['podcast:valueRecipient'] 
+              : [valueData['podcast:valueRecipient']];
+            
+            // Use the first recipient (usually the artist)
+            const primaryRecipient = recipients.find(r => r.$ && r.$.split === '100') || recipients[0];
+            
+            if (primaryRecipient && primaryRecipient.$) {
+              parsedItem.v4vRecipient = primaryRecipient.$.address;
+              parsedItem.v4vValue = {
+                type: valueData.$?.type || 'lightning',
+                method: valueData.$?.method || 'keysend',
+                recipients: recipients.map(r => ({
+                  name: r.$.name,
+                  address: r.$.address,
+                  type: r.$.type,
+                  split: r.$.split,
+                  fee: r.$.fee
+                }))
+              };
+              console.log('✅ DEBUG: Set v4vRecipient to:', parsedItem.v4vRecipient);
+            }
+          } else if (valueData.recipient) {
+            // Handle simple recipient format
+            parsedItem.v4vRecipient = valueData.recipient;
+            parsedItem.v4vValue = valueData;
+            console.log('✅ DEBUG: Set v4vRecipient to (simple):', parsedItem.v4vRecipient);
+          } else {
+            console.log('⚠️ DEBUG: No recipients found in podcast:value');
+          }
+        } else if (item['podcast:valueRecipient']) {
+          console.log('🔍 DEBUG: Found standalone podcast:valueRecipient:', JSON.stringify(item['podcast:valueRecipient'], null, 2));
+          // Handle podcast:valueRecipient format (common in some feeds)
+          const recipient = item['podcast:valueRecipient'];
+          if (recipient.$) {
+            // Extract Lightning address or node pubkey from the recipient object
+            parsedItem.v4vRecipient = recipient.$.address || recipient.$.name;
+            parsedItem.v4vValue = {
+              recipient: recipient.$.address || recipient.$.name,
+              type: recipient.$.type || 'node',
+              split: recipient.$.split || '100'
+            };
+            console.log('✅ DEBUG: Set v4vRecipient to (standalone):', parsedItem.v4vRecipient);
+          }
+        } else {
+          console.log('ℹ️ DEBUG: No V4V data found in item');
         }
         
         // Parse time segments if present (for music segments in podcasts)
@@ -233,6 +463,54 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       }
     }
     
+    // Parse feed-level V4V data
+    let feedV4vRecipient = null;
+    let feedV4vValue = null;
+    
+    // Use direct XML parsing result if available
+    if (v4vData.recipient) {
+      feedV4vRecipient = v4vData.recipient;
+      feedV4vValue = v4vData.value;
+      console.log('✅ DEBUG: Using direct XML V4V data:', { recipient: feedV4vRecipient, value: feedV4vValue });
+    } else {
+      console.log('🔍 DEBUG: Checking feed-level V4V data from RSS parser...');
+      console.log('🔍 DEBUG: feed object keys:', Object.keys(feed));
+      
+      if (feed['podcast:value']) {
+        console.log('🔍 DEBUG: Found podcast:value in feed:', JSON.stringify(feed['podcast:value'], null, 2));
+        const valueData = feed['podcast:value'];
+        
+        // Handle nested podcast:valueRecipient elements
+        if (valueData['podcast:valueRecipient']) {
+          console.log('🔍 DEBUG: Found nested podcast:valueRecipient in feed:', JSON.stringify(valueData['podcast:valueRecipient'], null, 2));
+          const recipients = Array.isArray(valueData['podcast:valueRecipient']) 
+            ? valueData['podcast:valueRecipient'] 
+            : [valueData['podcast:valueRecipient']];
+          
+          // Use the first recipient (usually the artist)
+          const primaryRecipient = recipients.find(r => r.$ && r.$.split === '100') || recipients[0];
+          
+          if (primaryRecipient && primaryRecipient.$) {
+            feedV4vRecipient = primaryRecipient.$.address;
+            feedV4vValue = {
+              type: valueData.$?.type || 'lightning',
+              method: valueData.$?.method || 'keysend',
+              recipients: recipients.map(r => ({
+                name: r.$.name,
+                address: r.$.address,
+                type: r.$.type,
+                split: r.$.split,
+                fee: r.$.fee
+              }))
+            };
+            console.log('✅ DEBUG: Set feed v4vRecipient to:', feedV4vRecipient);
+          }
+        }
+      } else {
+        console.log('ℹ️ DEBUG: No feed-level podcast:value found');
+      }
+    }
+    
     return {
       title: feed.title || 'Untitled Feed',
       description: feed.description || feed.itunes?.summary,
@@ -241,7 +519,9 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       language: feed.language,
       category: feedCategories[0], // Take first category as primary
       explicit: feedExplicit,
-      items
+      items,
+      v4vRecipient: feedV4vRecipient,
+      v4vValue: feedV4vValue
     };
   } catch (error) {
     console.error('Error parsing RSS feed:', error);

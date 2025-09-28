@@ -223,18 +223,14 @@ export class LNURLService {
     payerData?: any
   ): Promise<{ invoice: string; successAction?: any }> {
     try {
-      console.log(`⚡ Paying ${amountSats} sats to Lightning Address: ${address}`);
-
       // Resolve Lightning Address to LNURL-pay params
       const params = await this.resolveLightningAddress(address);
-      console.log('✅ Lightning Address resolved:', params);
 
       // Convert sats to millisats
       const amountMsat = amountSats * 1000;
 
       // Request invoice
       const invoiceResponse = await this.requestInvoice(params, amountMsat, comment, payerData);
-      console.log('✅ Invoice received:', invoiceResponse.pr.slice(0, 50) + '...');
 
       return {
         invoice: invoiceResponse.pr,
@@ -256,7 +252,6 @@ export class LNURLService {
     payerData?: any
   ): Promise<{ invoice: string; successAction?: any }> {
     try {
-      console.log(`⚡ Paying ${amountSats} sats to LNURL: ${lnurl.slice(0, 20)}...`);
 
       // Resolve LNURL to LNURL-pay params
       const params = await this.resolveLNURL(lnurl);
@@ -267,7 +262,6 @@ export class LNURLService {
 
       // Request invoice
       const invoiceResponse = await this.requestInvoice(params, amountMsat, comment, payerData);
-      console.log('✅ Invoice received:', invoiceResponse.pr.slice(0, 50) + '...');
 
       return {
         invoice: invoiceResponse.pr,

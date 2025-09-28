@@ -22,8 +22,6 @@ export function LightningWalletButton({
 
   try {
 
-    // Debug logging
-    console.log('LightningWalletButton render:', { isConnected, isLoading, variant });
 
     const handleConnect = async () => {
       try {

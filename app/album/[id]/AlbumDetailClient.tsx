@@ -808,7 +808,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   feedId={album.feedId}
                   trackTitle={album.title}
                   artistName={album.artist}
-                  lightningAddress={album.v4vRecipient?.includes('@') ? album.v4vRecipient : undefined}
+                  lightningAddress={album.v4vRecipient}
                   valueSplits={album.v4vValue ? [{
                     name: album.artist,
                     address: album.v4vRecipient || '',
@@ -1000,7 +1000,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           split: 100,
                           type: track.v4vRecipient?.includes('@') ? 'lnaddress' : 'node'
                         }] : undefined}
-                        lightningAddress={track.v4vRecipient?.includes('@') ? track.v4vRecipient : undefined}
+                        lightningAddress={track.v4vRecipient}
                         className="text-xs px-2 py-1"
                       />
                     </div>

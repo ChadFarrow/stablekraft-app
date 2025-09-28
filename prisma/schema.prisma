@@ -23,6 +23,8 @@ model Feed {
   status      String    @default("active")
   lastFetched DateTime?
   lastError   String?
+  v4vRecipient String?
+  v4vValue     Json?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   tracks      Track[]

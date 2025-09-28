@@ -70,7 +70,6 @@ export default function ControlsBar({
   resultLabel = 'results',
   isFilterLoading = false,
 }: ControlsBarProps) {
-  console.log('ControlsBar render:', { showShuffle, onShuffle, showViewToggle });
   return (
     <div className={`bg-black/70 backdrop-blur-sm rounded-xl border border-gray-700 shadow-lg ${className}`}>
       {/* Mobile Layout - Stacked */}
@@ -134,12 +133,6 @@ export default function ControlsBar({
 
         {/* Right side - Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Debug info */}
-          <div style={{ background: 'red', color: 'white', padding: '4px', fontSize: '12px' }}>
-            DEBUG: showShuffle={showShuffle ? 'true' : 'false'}, onShuffle={onShuffle ? 'exists' : 'null'}
-          </div>
-          
-
             {/* Shuffle Button */}
             {showShuffle && onShuffle && (
               <button

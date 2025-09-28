@@ -86,7 +86,6 @@ export function BoostButton({
 
       if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
         // Pay to Lightning Address via LNURL-pay
-        console.log(`⚡ Paying via Lightning Address: ${lightningAddress}`);
 
         try {
           const { invoice } = await LNURLService.payLightningAddress(
@@ -100,37 +99,20 @@ export function BoostButton({
           console.error('Lightning Address payment failed:', lnurlError);
           result = { error: `Lightning Address payment failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
         }
+      } else if (lightningAddress && lightningAddress.length === 66 && (lightningAddress.startsWith('02') || lightningAddress.startsWith('03'))) {
+        // Pay to node pubkey via keysend
+        try {
+          result = await sendKeysend(lightningAddress, amount, message);
+        } catch (keysendError) {
+          console.error('Keysend payment failed:', keysendError);
+          result = { error: `Keysend payment failed: ${keysendError instanceof Error ? keysendError.message : 'Unknown error'}` };
+        }
       } else if (valueSplits && valueSplits.length > 0) {
         // Use value splits for multiple recipients
-        console.log(`⚡ Paying via value splits to ${valueSplits.length} recipients`);
         result = await sendValueSplitPayments(amount, message);
       } else {
-        // Fallback to platform defaults - try Lightning Address first, then node pubkey
-        const platformLightningAddress = LIGHTNING_CONFIG.platform.address;
-        const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
-
-        if (platformLightningAddress && LNURLService.isLightningAddress(platformLightningAddress)) {
-          console.log(`⚡ Paying via platform Lightning Address: ${platformLightningAddress}`);
-
-          try {
-            const { invoice } = await LNURLService.payLightningAddress(
-              platformLightningAddress,
-              amount,
-              message
-            );
-            result = await sendPayment(invoice);
-          } catch (lnurlError) {
-            console.error('Platform Lightning Address payment failed:', lnurlError);
-            result = { error: `Platform Lightning Address payment failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
-          }
-        } else if (platformNodePubkey) {
-          console.log(`⚡ Paying via keysend to platform: ${platformNodePubkey.slice(0, 20)}...`);
-          result = await sendKeysend(platformNodePubkey, amount, message);
-        } else {
-          setError('No payment destination configured');
-          setIsSending(false);
-          return;
-        }
+        // No V4V data available - no payment should be possible
+        result = { error: 'No Value4Value configuration found for this track' };
       }
 
       if (result.error) {

@@ -665,7 +665,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         summary: track.description || '',
         image: track.image || feed.image || '',
         explicit: track.explicit || false,
-        keywords: track.itunesKeywords || []
+        keywords: track.itunesKeywords || [],
+        v4vRecipient: track.v4vRecipient,
+        v4vValue: track.v4vValue
       }));
       
       // Determine if this is a playlist based on track variety
@@ -697,7 +699,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         funding: null,
         feedId: feed.id,
         feedUrl: feed.originalUrl,
-        lastUpdated: feed.updatedAt
+        lastUpdated: feed.updatedAt,
+        v4vRecipient: feed.v4vRecipient,
+        v4vValue: feed.v4vValue
       };
     }
     
@@ -761,7 +765,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           summary: track.description || '',
           image: track.image || feed.image || '',
           explicit: track.explicit || false,
-          keywords: track.itunesKeywords || []
+          keywords: track.itunesKeywords || [],
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue
         }));
         
         const isPlaylist = tracks.length > 1 && 
@@ -792,7 +798,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           funding: null,
           feedId: feed.id,
           feedUrl: feed.originalUrl,
-          lastUpdated: feed.updatedAt
+          lastUpdated: feed.updatedAt,
+          v4vRecipient: feed.v4vRecipient,
+          v4vValue: feed.v4vValue
         };
       }
     }
