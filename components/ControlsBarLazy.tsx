@@ -18,6 +18,9 @@ const ControlsBar = dynamic(() => import('./ControlsBar'), {
   ssr: true // Controls can be server-side rendered
 });
 
+// Temporary direct import for debugging
+import ControlsBarDirect from './ControlsBar';
+
 // Re-export the types from the original component
 export type { FilterType, ViewType, SortType } from './ControlsBar';
 
@@ -51,6 +54,7 @@ interface ControlsBarLazyProps {
 }
 
 export default function ControlsBarLazy(props: ControlsBarLazyProps) {
+  console.log('ControlsBarLazy render:', props);
   return (
     <Suspense fallback={
       <div className="mb-8 p-4 bg-gray-800/20 rounded-lg animate-pulse">
@@ -62,7 +66,7 @@ export default function ControlsBarLazy(props: ControlsBarLazyProps) {
         </div>
       </div>
     }>
-      <ControlsBar {...props} />
+      <ControlsBarDirect {...props} />
     </Suspense>
   );
 } 
