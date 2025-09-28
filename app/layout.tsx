@@ -11,6 +11,7 @@ import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
+import Header from '@/components/Header'
 
 
 
@@ -137,6 +138,9 @@ export default function RootLayout({
                         opacity: 0.6
                       }}
                     />
+                    {/* Header */}
+                    <Header />
+                    
                     {/* Content overlay */}
                     <div className="relative z-10">
                       {children}
