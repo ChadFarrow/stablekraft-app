@@ -5,6 +5,7 @@ import { Play, Pause, Music, Search, Filter, ChevronDown, X, Loader2, AlertCircl
 import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface PlaylistTemplateProps {
   config: PlaylistConfig;
@@ -574,6 +575,12 @@ export default function PlaylistTemplate({ config }: PlaylistTemplateProps) {
                         </div>
 
                         <div className="flex items-center space-x-2 ml-4">
+                          <BoostButton
+                            trackId={track.id}
+                            trackTitle={track.valueForValue?.resolvedTitle || track.title}
+                            artistName={track.valueForValue?.resolvedArtist || track.artist}
+                            className="text-xs"
+                          />
                           {/* Source Badge */}
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getSourceColor(track.source)}`}>
                             {track.source}

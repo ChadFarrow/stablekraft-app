@@ -6,6 +6,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface PlaylistTemplateCompactProps {
   config: PlaylistConfig;
@@ -599,6 +600,12 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                       {/* Duration */}
                       <div className="flex items-center gap-2 ml-4">
+                        <BoostButton
+                          trackId={track.id}
+                          trackTitle={track.valueForValue?.resolvedTitle || track.title}
+                          artistName={track.valueForValue?.resolvedArtist || track.artist}
+                          className="text-xs"
+                        />
                         {track.valueForValue?.resolved && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">
                             V4V

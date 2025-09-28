@@ -5,6 +5,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { logger } from '@/lib/logger';
 import { Play, Pause } from 'lucide-react';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 export interface PlaylistTrack {
   id: string;
@@ -391,6 +392,13 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              <BoostButton
+                trackId={track.valueForValue?.itemGuid || track.id}
+                feedId={track.valueForValue?.feedGuid}
+                trackTitle={displayTitle}
+                artistName={displayArtist}
+                className="text-xs"
+              />
               <span className="text-xs md:text-sm text-gray-400">
                 {formatDuration(track.duration)}
               </span>

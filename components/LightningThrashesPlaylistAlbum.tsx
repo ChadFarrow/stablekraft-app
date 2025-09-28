@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { Play, Pause, Music, ExternalLink, Download } from 'lucide-react';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface LightningThrashesTrack {
   id: string;
@@ -300,6 +301,12 @@ export default function LightningThrashesPlaylistAlbum() {
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              <BoostButton
+                trackId={track.id}
+                trackTitle={displayTitle}
+                artistName={displayArtist}
+                className="text-xs"
+              />
               <span className="text-xs md:text-sm text-gray-400">
                 {formatDuration(track.duration)}
               </span>

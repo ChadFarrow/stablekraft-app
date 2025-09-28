@@ -5,6 +5,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { Play, Pause } from 'lucide-react';
 import type { PlaylistTrack, PlaylistConfig } from './PlaylistAlbum';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface PlaylistAlbumProgressiveProps {
   tracks: any[]; // Pre-enriched track data
@@ -253,6 +254,13 @@ export default function PlaylistAlbumProgressive({
               </div>
               
               <div className="flex items-center gap-3">
+                <BoostButton
+                  trackId={track.valueForValue?.itemGuid || track.id}
+                  feedId={track.valueForValue?.feedGuid}
+                  trackTitle={displayTitle}
+                  artistName={displayArtist}
+                  className="text-xs"
+                />
                 {hasAudio && (
                   <button
                     onClick={(e) => {
