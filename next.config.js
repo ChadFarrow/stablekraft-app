@@ -626,4 +626,6 @@ const nextConfig = {
   },
 }
 
-module.exports = withPWA(nextConfig)
+// Temporarily disable PWA to test HTMLElement error
+// module.exports = withPWA(nextConfig)
+module.exports = nextConfig
