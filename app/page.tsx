@@ -14,6 +14,7 @@ import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } f
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import NowPlayingScreen from '@/components/NowPlayingScreen';
+import type { FilterType } from '@/components/ControlsBar';
 
 
 
@@ -1155,7 +1156,7 @@ export default function HomePage() {
                 ].map((filter) => (
                   <button
                     key={filter.value}
-                    onClick={() => handleFilterChange(filter.value)}
+                    onClick={() => handleFilterChange(filter.value as FilterType)}
                     disabled={isFilterLoading}
                     className={`px-3 py-2 rounded text-sm font-medium whitespace-nowrap transition-all ${
                       activeFilter === filter.value
