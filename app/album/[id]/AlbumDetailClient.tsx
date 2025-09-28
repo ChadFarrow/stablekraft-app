@@ -810,12 +810,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   trackTitle={album.title}
                   artistName={album.artist}
                   lightningAddress={album.v4vRecipient}
-                  valueSplits={album.v4vValue ? [{
-                    name: album.artist,
-                    address: album.v4vRecipient || '',
-                    split: 100,
-                    type: album.v4vRecipient?.includes('@') ? 'lnaddress' : 'node'
-                  }] : undefined}
+                  valueSplits={album.v4vValue?.recipients ? album.v4vValue.recipients.map((recipient: any) => ({
+                    name: recipient.name || album.artist,
+                    address: recipient.address || '',
+                    split: parseInt(recipient.split) || 100,
+                    type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
+                  })) : undefined}
                   className="flex items-center gap-2 px-6 py-3 text-base"
                 />
               </div>
@@ -995,12 +995,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         feedId={album.feedId}
                         trackTitle={track.title}
                         artistName={album.artist}
-                        valueSplits={track.v4vValue ? [{
-                          name: album.artist,
-                          address: track.v4vRecipient || '',
-                          split: 100,
-                          type: track.v4vRecipient?.includes('@') ? 'lnaddress' : 'node'
-                        }] : undefined}
+                        valueSplits={track.v4vValue?.recipients ? track.v4vValue.recipients.map((recipient: any) => ({
+                          name: recipient.name || album.artist,
+                          address: recipient.address || '',
+                          split: parseInt(recipient.split) || 100,
+                          type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
+                        })) : undefined}
                         lightningAddress={track.v4vRecipient}
                         className="text-xs px-2 py-1"
                       />

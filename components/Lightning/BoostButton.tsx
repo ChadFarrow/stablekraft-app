@@ -270,10 +270,24 @@ export function BoostButton({
                       <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
                     </>
                   ) : valueSplits && valueSplits.length > 0 ? (
-                    <>
-                      <Zap className="w-3 h-3 text-yellow-400" />
-                      <span className="text-yellow-400">Value splits to {valueSplits.length} recipients</span>
-                    </>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-3 h-3 text-yellow-400" />
+                        <span className="text-yellow-400">Value splits to {valueSplits.length} recipients:</span>
+                      </div>
+                      <div className="ml-5 text-xs text-gray-300">
+                        {valueSplits.map((split, index) => (
+                          <div key={index} className="flex items-center gap-1">
+                            <span>{split.name || 'Unknown'}</span>
+                            <span className="text-gray-500">({split.split}%)</span>
+                            <span className="text-gray-600">-</span>
+                            <span className="text-blue-300">
+                              {split.type === 'lnaddress' ? split.address : `${split.address.slice(0, 8)}...${split.address.slice(-8)}`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : LIGHTNING_CONFIG.platform.address && LNURLService.isLightningAddress(LIGHTNING_CONFIG.platform.address) ? (
                     <>
                       <Mail className="w-3 h-3 text-blue-400" />
