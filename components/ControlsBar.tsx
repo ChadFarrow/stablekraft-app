@@ -133,8 +133,13 @@ export default function ControlsBar({
             )}
           </div>
 
-          {/* Right side - Action buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Right side - Action buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Debug info */}
+          <div style={{ background: 'red', color: 'white', padding: '4px', fontSize: '12px' }}>
+            DEBUG: showShuffle={showShuffle ? 'true' : 'false'}, onShuffle={onShuffle ? 'exists' : 'null'}
+          </div>
+          
           {/* Lightning Wallet Button */}
           <div className="flex items-center">
             <div style={{ border: '2px solid red', padding: '4px' }}>
