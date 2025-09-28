@@ -21,11 +21,16 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Debug logging
+  console.log('BitcoinConnectProvider render:', { isConnected, isLoading });
+
   useEffect(() => {
+    console.log('BitcoinConnectProvider useEffect - initializing...');
     // Only initialize on client-side
     if (typeof window !== 'undefined') {
       // Dynamically import Bitcoin Connect to avoid server-side execution
       import('@getalby/bitcoin-connect').then(({ init, requestProvider }) => {
+        console.log('Bitcoin Connect loaded successfully');
         // Initialize Bitcoin Connect
         init({
           appName: 'FUCKIT Music',
@@ -39,6 +44,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         setIsLoading(false);
       });
     } else {
+      console.log('Server-side rendering, skipping Bitcoin Connect init');
       setIsLoading(false);
     }
   }, []);

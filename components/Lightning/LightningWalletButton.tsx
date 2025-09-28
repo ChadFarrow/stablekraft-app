@@ -18,8 +18,12 @@ export function LightningWalletButton({
   const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Debug logging
+  console.log('LightningWalletButton render:', { isConnected, isLoading, variant });
+
   const handleConnect = async () => {
     try {
+      console.log('Attempting to connect wallet...');
       await connect();
       setShowDropdown(false);
     } catch (error) {
