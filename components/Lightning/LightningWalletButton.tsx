@@ -16,9 +16,10 @@ export function LightningWalletButton({
   showLabel = true,
   variant = 'dropdown'
 }: LightningWalletButtonProps) {
+  const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
+  const [showDropdown, setShowDropdown] = useState(false);
+
   try {
-    const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
-    const [showDropdown, setShowDropdown] = useState(false);
 
     // Debug logging
     console.log('LightningWalletButton render:', { isConnected, isLoading, variant });
