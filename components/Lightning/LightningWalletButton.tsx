@@ -81,44 +81,68 @@ export function LightningWalletButton({
     );
   }
 
-  // Dropdown variant (default)
-  return (
-    <div className={`relative ${className}`} style={{ zIndex: 100 }}>
-      <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        disabled={isLoading}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-          isConnected 
-            ? 'bg-green-600 hover:bg-green-700 text-white' 
-            : 'bg-yellow-500 hover:bg-yellow-600 text-black'
-        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-      >
-        <Zap className="w-4 h-4" />
-        {isLoading ? (
-          'Connecting...'
-        ) : isConnected ? (
-          <>
-            {showLabel && <span>Lightning Wallet</span>}
-            <ChevronDown className="w-4 h-4" />
-          </>
-        ) : (
-          <>
-            {showLabel && <span>Connect Wallet</span>}
-            <ChevronDown className="w-4 h-4" />
-          </>
-        )}
-      </button>
+        // Dropdown variant (default)
+        return (
+          <div className={`relative ${className}`} style={{ zIndex: 1000 }}>
+            <button
+              onClick={() => {
+                console.log('Dropdown button clicked, showDropdown:', showDropdown);
+                setShowDropdown(!showDropdown);
+              }}
+              disabled={isLoading}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                isConnected 
+                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-black'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Zap className="w-4 h-4" />
+              {isLoading ? (
+                'Connecting...'
+              ) : isConnected ? (
+                <>
+                  {showLabel && <span>Lightning Wallet</span>}
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  {showLabel && <span>Connect Wallet</span>}
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </button>
 
-      {showDropdown && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-[60]" 
-            onClick={() => setShowDropdown(false)}
-          />
-          
-          {/* Dropdown Menu */}
-          <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[70] overflow-visible">
+            {showDropdown && (
+              <>
+                {/* Debug indicator */}
+                <div 
+                  className="fixed top-4 right-4 bg-red-500 text-white p-2 rounded z-[10000]"
+                  style={{ zIndex: 10000 }}
+                >
+                  DROPDOWN OPEN
+                </div>
+                
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-[9998]" 
+                  onClick={() => {
+                    console.log('Backdrop clicked, closing dropdown');
+                    setShowDropdown(false);
+                  }}
+                />
+                
+                {/* Dropdown Menu */}
+                <div 
+                  className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[9999] overflow-visible"
+                  style={{ 
+                    zIndex: 9999,
+                    position: 'absolute',
+                    backgroundColor: '#111827',
+                    border: '2px solid #374151',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
+                  }}
+                >
             <div className="p-4">
               {isConnected ? (
                 <>
