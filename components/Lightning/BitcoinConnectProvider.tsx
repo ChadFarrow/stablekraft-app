@@ -57,45 +57,86 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const checkConnection = async () => {
     try {
+      console.log('Checking existing connection...');
+
       // First check for WebLN browser extension
       if (typeof window !== 'undefined' && window.webln) {
         try {
+          console.log('Found WebLN, attempting to enable...');
           await window.webln.enable();
+          console.log('WebLN enabled successfully, setting connected state');
           setProvider(window.webln);
           setIsConnected(true);
           setIsLoading(false);
           return;
         } catch (error) {
-          console.log('WebLN not enabled, trying Bitcoin Connect');
+          console.log('WebLN not enabled, trying Bitcoin Connect:', error);
         }
       }
 
       // Fallback to Bitcoin Connect
+      console.log('Checking Bitcoin Connect for existing provider...');
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
       const existingProvider = await bitcoinConnect.requestProvider();
       if (existingProvider) {
+        console.log('Found existing Bitcoin Connect provider, setting connected state');
         setProvider(existingProvider);
         setIsConnected(true);
+      } else {
+        console.log('No existing Bitcoin Connect provider found');
+        setIsConnected(false);
       }
     } catch (error) {
-      console.log('No existing connection');
+      console.log('No existing connection:', error);
+      setIsConnected(false);
     } finally {
+      console.log('Finished checking connection, setting loading to false');
       setIsLoading(false);
     }
   };
 
   const connect = async () => {
     try {
+      console.log('Attempting to connect wallet...');
       setIsLoading(true);
-      
-      // Always use Bitcoin Connect modal to show all wallet options
+
+      // Import Bitcoin Connect and wait for it to be ready
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
-      await bitcoinConnect.launchModal();
-      const newProvider = await bitcoinConnect.requestProvider();
-      if (newProvider) {
-        setProvider(newProvider);
-        setIsConnected(true);
+
+      // Simple direct approach - just launch the modal immediately
+      try {
+        console.log('Launching Bitcoin Connect modal...');
+
+        // Check if Bitcoin Connect is properly initialized
+        console.log('Bitcoin Connect object:', bitcoinConnect);
+
+        // Launch modal and wait for it to actually appear
+        const modalPromise = bitcoinConnect.launchModal();
+        console.log('Modal launch promise created');
+
+        await modalPromise;
+        console.log('Modal launched successfully');
+
+        // Add a small delay to ensure modal is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('Post-modal delay complete');
+
+        // Try to get provider after modal interaction
+        const newProvider = await bitcoinConnect.requestProvider();
+        console.log('Provider request result:', newProvider);
+
+        if (newProvider) {
+          console.log('Wallet connected successfully');
+          setProvider(newProvider);
+          setIsConnected(true);
+        } else {
+          console.log('No provider returned - user may have cancelled');
+        }
+      } catch (modalError) {
+        console.error('Modal error:', modalError);
+        throw modalError;
       }
+
     } catch (error) {
       console.error('Failed to connect:', error);
     } finally {

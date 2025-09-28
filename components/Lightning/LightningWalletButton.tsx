@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { Zap, Wallet, LogOut, Settings, ChevronDown } from 'lucide-react';
@@ -11,13 +11,14 @@ interface LightningWalletButtonProps {
   variant?: 'button' | 'dropdown' | 'minimal';
 }
 
-export function LightningWalletButton({ 
-  className = '', 
+export function LightningWalletButton({
+  className = '',
   showLabel = true,
   variant = 'dropdown'
 }: LightningWalletButtonProps) {
   const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
   const [showDropdown, setShowDropdown] = useState(false);
+  const lastClickRef = useRef<number>(0);
 
   try {
 
@@ -46,14 +47,23 @@ export function LightningWalletButton({
   if (variant === 'minimal') {
     return (
       <button
-        onClick={isConnected ? handleDisconnect : handleConnect}
+        onClick={(e) => {
+          console.log('Lightning button clicked!', { isConnected, isLoading });
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Always show the connection modal to let users choose their wallet
+          // This allows switching between WebLN and other wallets
+          console.log('Opening wallet connection modal...');
+          handleConnect();
+        }}
         disabled={isLoading}
         className={`p-2 rounded-lg transition-colors ${
-          isConnected 
-            ? 'bg-green-600 hover:bg-green-700 text-white' 
+          isConnected
+            ? 'bg-green-600 hover:bg-green-700 text-white'
             : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
         } ${className}`}
-        title={isConnected ? 'Disconnect Lightning wallet' : 'Connect Lightning wallet'}
+        title="Lightning Wallet Options"
       >
         <Zap className="w-4 h-4" />
       </button>
