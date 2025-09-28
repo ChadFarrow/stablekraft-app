@@ -805,6 +805,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               {/* Lightning Boost Button */}
               <div className="flex justify-center lg:justify-start">
                 <BoostButton
+                  trackId={`album-${album.id}`}
                   feedId={album.feedId}
                   trackTitle={album.title}
                   artistName={album.artist}
