@@ -1334,8 +1334,6 @@ export default function HomePage() {
             </div>
           ) : filteredAlbums.length > 0 ? (
             <div className="max-w-7xl mx-auto">
-              {/* Debug logging */}
-              {console.log('Rendering ControlsBar - filteredAlbums.length:', filteredAlbums.length)}
               
 
               {/* Shuffle functionality is now handled by the global AudioContext */}
