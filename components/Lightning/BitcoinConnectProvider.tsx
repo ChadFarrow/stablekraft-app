@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { init, launchModal, launchPaymentModal, requestProvider, disconnect } from '@getalby/bitcoin-connect';
 import type { WebLNProvider } from '@webbtc/webln-types';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 
@@ -25,14 +24,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     // Only initialize on client-side
     if (typeof window !== 'undefined') {
-      // Initialize Bitcoin Connect
-      init({
-        appName: 'FUCKIT Music',
-        filters: ['nwc'],
-      });
+      // Dynamically import Bitcoin Connect to avoid server-side execution
+      import('@getalby/bitcoin-connect').then(({ init, requestProvider }) => {
+        // Initialize Bitcoin Connect
+        init({
+          appName: 'FUCKIT Music',
+          filters: ['nwc'],
+        });
 
-      // Check if already connected
-      checkConnection();
+        // Check if already connected
+        checkConnection();
+      }).catch((error) => {
+        console.error('Failed to load Bitcoin Connect:', error);
+        setIsLoading(false);
+      });
     } else {
       setIsLoading(false);
     }
@@ -40,6 +45,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const checkConnection = async () => {
     try {
+      const { requestProvider } = await import('@getalby/bitcoin-connect');
       const existingProvider = await requestProvider();
       if (existingProvider) {
         setProvider(existingProvider);
@@ -55,6 +61,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const connect = async () => {
     try {
       setIsLoading(true);
+      const { launchModal, requestProvider } = await import('@getalby/bitcoin-connect');
       await launchModal();
       const newProvider = await requestProvider();
       if (newProvider) {
@@ -70,6 +77,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const disconnectWallet = async () => {
     try {
+      const { disconnect } = await import('@getalby/bitcoin-connect');
       await disconnect();
       setProvider(null);
       setIsConnected(false);
