@@ -71,6 +71,7 @@ export default function ControlsBar({
   resultLabel = 'results',
   isFilterLoading = false,
 }: ControlsBarProps) {
+  console.log('ControlsBar render:', { showShuffle, onShuffle, showViewToggle });
   return (
     <div className={`bg-black/70 backdrop-blur-sm rounded-xl border border-gray-700 shadow-lg ${className}`}>
       {/* Mobile Layout - Stacked */}
