@@ -23,6 +23,9 @@ export interface RSSTrack {
   guid?: string;
   v4vRecipient?: string;
   v4vValue?: any;
+  // RSS parser custom fields
+  'podcast:valueRecipient'?: any;
+  'podcast:value'?: any;
 }
 
 export interface RSSFunding {
@@ -120,4 +123,7 @@ export interface RSSAlbum {
   value4Value?: RSSValue4Value;
   v4vRecipient?: string;
   v4vValue?: any;
+  // RSS parser custom fields
+  'podcast:valueRecipient'?: any;
+  'podcast:value'?: any;
 }

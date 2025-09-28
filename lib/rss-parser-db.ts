@@ -89,6 +89,8 @@ export interface ParsedFeed {
   category?: string;
   explicit: boolean;
   items: ParsedItem[];
+  v4vRecipient?: string;
+  v4vValue?: any;
 }
 
 export interface ParsedItem {
@@ -435,10 +437,10 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           } else {
             console.log('⚠️ DEBUG: No recipients found in podcast:value');
           }
-        } else if (item['podcast:valueRecipient']) {
-          console.log('🔍 DEBUG: Found standalone podcast:valueRecipient:', JSON.stringify(item['podcast:valueRecipient'], null, 2));
+        } else if ((item as any)['podcast:valueRecipient']) {
+          console.log('🔍 DEBUG: Found standalone podcast:valueRecipient:', JSON.stringify((item as any)['podcast:valueRecipient'], null, 2));
           // Handle podcast:valueRecipient format (common in some feeds)
-          const recipient = item['podcast:valueRecipient'];
+          const recipient = (item as any)['podcast:valueRecipient'];
           if (recipient.$) {
             // Extract Lightning address or node pubkey from the recipient object
             parsedItem.v4vRecipient = recipient.$.address || recipient.$.name;
@@ -476,9 +478,9 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       console.log('🔍 DEBUG: Checking feed-level V4V data from RSS parser...');
       console.log('🔍 DEBUG: feed object keys:', Object.keys(feed));
       
-      if (feed['podcast:value']) {
-        console.log('🔍 DEBUG: Found podcast:value in feed:', JSON.stringify(feed['podcast:value'], null, 2));
-        const valueData = feed['podcast:value'];
+      if ((feed as any)['podcast:value']) {
+        console.log('🔍 DEBUG: Found podcast:value in feed:', JSON.stringify((feed as any)['podcast:value'], null, 2));
+        const valueData = (feed as any)['podcast:value'];
         
         // Handle nested podcast:valueRecipient elements
         if (valueData['podcast:valueRecipient']) {
