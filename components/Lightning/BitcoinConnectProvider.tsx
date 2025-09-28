@@ -23,14 +23,19 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize Bitcoin Connect
-    init({
-      appName: 'FUCKIT Music',
-      filters: ['nwc'],
-    });
+    // Only initialize on client-side
+    if (typeof window !== 'undefined') {
+      // Initialize Bitcoin Connect
+      init({
+        appName: 'FUCKIT Music',
+        filters: ['nwc'],
+      });
 
-    // Check if already connected
-    checkConnection();
+      // Check if already connected
+      checkConnection();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
   const checkConnection = async () => {

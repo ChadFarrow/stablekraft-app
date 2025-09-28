@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
@@ -30,6 +30,7 @@ export function BoostButton({
   lightningAddress,
   className = '',
 }: BoostButtonProps) {
+  const [isClient, setIsClient] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment } = useBitcoinConnect();
   const [showModal, setShowModal] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(100);
@@ -38,6 +39,20 @@ export function BoostButton({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Don't render on server-side
+  if (!isClient) {
+    return (
+      <button className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-gray-400 cursor-not-allowed ${className}`}>
+        <Zap size={16} />
+        Boost
+      </button>
+    );
+  }
 
   const handleBoost = async () => {
     if (!isConnected) {
