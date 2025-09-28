@@ -8,8 +8,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  
   try {
-    const { id } = await params;
     
     if (!id) {
       return NextResponse.json({ 
@@ -21,7 +22,7 @@ export async function GET(
     logger.info('Fetching track by ID', { trackId: id });
 
     // Try to get track from database
-    const track = await musicTrackDB.getMusicTrackById(id);
+    const track = await musicTrackDB.getMusicTrack(id);
     
     if (!track) {
       return NextResponse.json({ 
@@ -49,19 +50,11 @@ export async function GET(
       valueForValue: track.valueForValue ? {
         lightningAddress: track.valueForValue.lightningAddress || '',
         suggestedAmount: track.valueForValue.suggestedAmount || 0,
+        currency: track.valueForValue.currency || 'sats',
         customKey: track.valueForValue.customKey || '',
         customValue: track.valueForValue.customValue || '',
         recipientType: track.valueForValue.recipientType || 'remote',
-        percentage: track.valueForValue.percentage || 100,
-        feedGuid: track.valueForValue.feedGuid,
-        itemGuid: track.valueForValue.itemGuid,
-        resolved: track.valueForValue.resolved || false,
-        resolvedTitle: track.valueForValue.resolvedTitle,
-        resolvedArtist: track.valueForValue.resolvedArtist,
-        resolvedImage: track.valueForValue.resolvedImage,
-        resolvedAudioUrl: track.valueForValue.resolvedAudioUrl,
-        resolvedDuration: track.valueForValue.resolvedDuration,
-        lastResolved: track.valueForValue.lastResolved
+        percentage: track.valueForValue.percentage || 100
       } : null,
       discoveredAt: track.discoveredAt,
       lastUpdated: track.lastUpdated,

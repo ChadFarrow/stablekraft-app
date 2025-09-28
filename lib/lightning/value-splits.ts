@@ -66,9 +66,9 @@ export class ValueSplitsService {
   static async sendMultiRecipientPayment(
     recipients: ValueRecipient[],
     totalAmount: number,
-    message?: string,
     sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>,
-    sendKeysend: (pubkey: string, amount: number, message?: string) => Promise<{ preimage?: string; error?: string }>
+    sendKeysend: (pubkey: string, amount: number, message?: string) => Promise<{ preimage?: string; error?: string }>,
+    message?: string
   ): Promise<MultiRecipientResult> {
     const splitAmounts = this.calculateSplitAmounts(recipients, totalAmount);
     const successfulPayments: ValueSplitPayment[] = [];

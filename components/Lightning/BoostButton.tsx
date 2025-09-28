@@ -167,9 +167,9 @@ export function BoostButton({
       const result = await ValueSplitsService.sendMultiRecipientPayment(
         recipients,
         totalAmount,
-        message,
         sendPayment,
-        sendKeysend
+        sendKeysend,
+        message
       );
 
       if (!result.success) {
