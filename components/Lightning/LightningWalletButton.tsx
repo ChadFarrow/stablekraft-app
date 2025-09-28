@@ -85,10 +85,7 @@ export function LightningWalletButton({
         return (
           <div className={`relative ${className}`} style={{ zIndex: 1000 }}>
             <button
-              onClick={() => {
-                console.log('Dropdown button clicked, showDropdown:', showDropdown);
-                setShowDropdown(!showDropdown);
-              }}
+              onClick={() => setShowDropdown(!showDropdown)}
               disabled={isLoading}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                 isConnected 
@@ -114,35 +111,14 @@ export function LightningWalletButton({
 
             {showDropdown && (
               <>
-                {/* Debug indicator */}
-                <div 
-                  className="fixed top-4 right-4 bg-red-500 text-white p-2 rounded z-[10000]"
-                  style={{ zIndex: 10000 }}
-                >
-                  DROPDOWN OPEN
-                </div>
-                
                 {/* Backdrop */}
                 <div 
                   className="fixed inset-0 z-[9998]" 
-                  onClick={() => {
-                    console.log('Backdrop clicked, closing dropdown');
-                    setShowDropdown(false);
-                  }}
+                  onClick={() => setShowDropdown(false)}
                 />
                 
                 {/* Dropdown Menu */}
-                <div 
-                  className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[9999] overflow-visible"
-                  style={{ 
-                    zIndex: 9999,
-                    position: 'absolute',
-                    backgroundColor: '#111827',
-                    border: '2px solid #374151',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
-                  }}
-                >
+                <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[9999] overflow-visible">
             <div className="p-4">
               {isConnected ? (
                 <>

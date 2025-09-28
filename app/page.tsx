@@ -1225,39 +1225,6 @@ export default function HomePage() {
         {/* Main Content */}
         <div className="container mx-auto px-3 sm:px-6 py-6 sm:py-8 pb-28">
           
-          {/* Controls Bar - Always visible */}
-          <div className="mb-8">
-            {console.log('Rendering ControlsBar - always visible')}
-            <ControlsBar
-              activeFilter={activeFilter}
-              onFilterChange={handleFilterChange}
-              isFilterLoading={isFilterLoading}
-              filterOptions={[
-                { value: 'all', label: 'All' },
-                { value: 'albums', label: 'Albums' },
-                { value: 'eps', label: 'EPs' },
-                { value: 'singles', label: 'Singles' },
-                { value: 'artists', label: 'Publishers' },
-                { value: 'playlist', label: 'Playlists' },
-              ]}
-              sortType={sortType}
-              onSortChange={setSortType}
-              showSort={false}
-              viewType={viewType}
-              onViewChange={setViewType}
-              showShuffle={true}
-              onShuffle={handleShuffle}
-              resultCount={totalAlbums}
-              resultLabel={activeFilter === 'all' ? 'Releases' :
-                activeFilter === 'albums' ? 'Albums' :
-                activeFilter === 'eps' ? 'EPs' :
-                activeFilter === 'singles' ? 'Singles' :
-                activeFilter === 'artists' ? 'Publishers' :
-                activeFilter === 'playlist' ? 'Playlists' :
-                'Releases'}
-              className="mb-8"
-            />
-          </div>
 
           {isLoading && !isCriticalLoaded ? (
             <div className="space-y-8">
