@@ -131,6 +131,11 @@ export async function testEpisodeValueSplits(episodeGuid: string) {
 }
 
 // Example usage in React component
+// To use this in a React component, create a .tsx file with:
+/*
+import { useState, useEffect } from 'react';
+import { BoostButton } from '@/components/Lightning/BoostButton';
+
 export function ExampleBoostButtonIntegration() {
   const [valueSplits, setValueSplits] = useState<any[]>([]);
   const [lightningAddress, setLightningAddress] = useState<string | undefined>();
@@ -165,6 +170,7 @@ export function ExampleBoostButtonIntegration() {
     />
   );
 }
+*/
 
 // Console testing commands
 export const testCommands = {
