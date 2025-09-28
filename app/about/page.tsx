@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
+export const dynamic = 'force-dynamic';
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-black text-white">

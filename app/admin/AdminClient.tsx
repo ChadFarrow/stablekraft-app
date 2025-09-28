@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { toast } from '@/components/Toast';
 import dynamicImport from 'next/dynamic';
 
-const AdminClient = dynamicImport(() => import('./AdminClient'), {
-  ssr: false,
+// Dynamic import for the heavy admin panel component
+const AdminPanel = dynamicImport(() => import('@/components/AdminPanel'), {
   loading: () => (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
       <div className="text-center">
@@ -11,9 +13,10 @@ const AdminClient = dynamicImport(() => import('./AdminClient'), {
         <p className="text-lg">Loading admin panel...</p>
       </div>
     </div>
-  )
+  ),
+  ssr: false // Admin panels typically don't need SSR
 });
 
-export default function AdminPage() {
-  return <AdminClient />;
+export default function AdminClient() {
+  return <AdminPanel />;
 }
