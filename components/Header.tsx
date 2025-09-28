@@ -10,27 +10,12 @@ export default function Header() {
     <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo and Navigation */}
-          <div className="flex items-center space-x-8">
+          {/* Logo */}
+          <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 text-white hover:text-gray-300 transition-colors">
               <Music className="w-6 h-6" />
               <span className="font-bold text-lg">FUCKIT Music</span>
             </Link>
-            
-            <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/" className="text-gray-300 hover:text-white transition-colors">
-                Home
-              </Link>
-              <Link href="/music-tracks" className="text-gray-300 hover:text-white transition-colors">
-                Music Tracks
-              </Link>
-              <Link href="/playlist" className="text-gray-300 hover:text-white transition-colors">
-                Playlists
-              </Link>
-              <Link href="/library" className="text-gray-300 hover:text-white transition-colors">
-                Library
-              </Link>
-            </nav>
           </div>
 
           {/* Lightning Wallet Button */}

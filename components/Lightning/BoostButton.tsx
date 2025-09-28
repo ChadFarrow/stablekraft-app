@@ -221,10 +221,20 @@ export function BoostButton({
     paymentMethod?: string;
   }) => {
     try {
-      await fetch('/api/lightning/boost', {
+      await fetch('/api/lightning/log-boost', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          trackId: data.trackId,
+          feedId: data.feedId,
+          trackTitle,
+          artistName,
+          amount: data.amount,
+          message: data.message,
+          type: data.paymentMethod || 'unknown',
+          recipient: lightningAddress || LIGHTNING_CONFIG.platform.address || 'unknown',
+          preimage: data.preimage,
+        }),
       });
     } catch (err) {
       console.error('Failed to log boost:', err);
