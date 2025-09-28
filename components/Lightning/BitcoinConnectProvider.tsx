@@ -59,22 +59,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     try {
       console.log('Checking existing connection...');
 
-      // First check for WebLN browser extension
-      if (typeof window !== 'undefined' && window.webln) {
-        try {
-          console.log('Found WebLN, attempting to enable...');
-          await window.webln.enable();
-          console.log('WebLN enabled successfully, setting connected state');
-          setProvider(window.webln);
-          setIsConnected(true);
-          setIsLoading(false);
-          return;
-        } catch (error) {
-          console.log('WebLN not enabled, trying Bitcoin Connect:', error);
-        }
-      }
-
-      // Fallback to Bitcoin Connect
+      // Only check for existing Bitcoin Connect connections, skip auto WebLN
+      // This allows users to choose their preferred wallet via the modal
       console.log('Checking Bitcoin Connect for existing provider...');
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
       const existingProvider = await bitcoinConnect.requestProvider();
