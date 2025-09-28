@@ -83,7 +83,7 @@ export function LightningWalletButton({
 
         // Dropdown variant (default)
         return (
-          <div className={`relative ${className}`} style={{ zIndex: 1000 }}>
+          <div className={`relative ${className}`} style={{ zIndex: 99999 }}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               disabled={isLoading}
@@ -113,12 +113,23 @@ export function LightningWalletButton({
               <>
                 {/* Backdrop */}
                 <div 
-                  className="fixed inset-0 z-[9998]" 
+                  className="fixed inset-0" 
+                  style={{ zIndex: 99998 }}
                   onClick={() => setShowDropdown(false)}
                 />
                 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-[9999] overflow-visible">
+                <div 
+                  className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg overflow-visible"
+                  style={{ 
+                    zIndex: 99999,
+                    position: 'absolute',
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                  }}
+                >
             <div className="p-4">
               {isConnected ? (
                 <>
