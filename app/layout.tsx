@@ -12,6 +12,7 @@ import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
 import Header from '@/components/Header'
+import LightningConfigDebug from '@/components/LightningConfigDebug'
 
 
 
@@ -150,6 +151,7 @@ export default function RootLayout({
                   <NowPlayingScreen />
                   <ToastContainer />
                   <ServiceWorkerRegistration />
+                  <LightningConfigDebug />
                 </AudioProvider>
               </ScrollDetectionProvider>
             </LightningWrapper>
