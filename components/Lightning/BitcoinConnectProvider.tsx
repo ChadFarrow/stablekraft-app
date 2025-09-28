@@ -28,21 +28,27 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     console.log('BitcoinConnectProvider useEffect - initializing...');
     // Only initialize on client-side
     if (typeof window !== 'undefined') {
-      // Dynamically import Bitcoin Connect to avoid server-side execution
-      import('@getalby/bitcoin-connect').then(({ init, requestProvider }) => {
-        console.log('Bitcoin Connect loaded successfully');
-        // Initialize Bitcoin Connect
-        init({
-          appName: 'FUCKIT Music',
-          // Allow all connection methods by not specifying filters
-        });
+      // Use a more robust dynamic import approach
+      const initializeBitcoinConnect = async () => {
+        try {
+          const bitcoinConnect = await import('@getalby/bitcoin-connect');
+          console.log('Bitcoin Connect loaded successfully');
+          
+          // Initialize Bitcoin Connect
+          bitcoinConnect.init({
+            appName: 'FUCKIT Music',
+            // Allow all connection methods by not specifying filters
+          });
 
-        // Check if already connected
-        checkConnection();
-      }).catch((error) => {
-        console.error('Failed to load Bitcoin Connect:', error);
-        setIsLoading(false);
-      });
+          // Check if already connected
+          await checkConnection();
+        } catch (error) {
+          console.error('Failed to load Bitcoin Connect:', error);
+          setIsLoading(false);
+        }
+      };
+      
+      initializeBitcoinConnect();
     } else {
       console.log('Server-side rendering, skipping Bitcoin Connect init');
       setIsLoading(false);
@@ -65,8 +71,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       // Fallback to Bitcoin Connect
-      const { requestProvider } = await import('@getalby/bitcoin-connect');
-      const existingProvider = await requestProvider();
+      const bitcoinConnect = await import('@getalby/bitcoin-connect');
+      const existingProvider = await bitcoinConnect.requestProvider();
       if (existingProvider) {
         setProvider(existingProvider);
         setIsConnected(true);
@@ -83,9 +89,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       setIsLoading(true);
       
       // Always use Bitcoin Connect modal to show all wallet options
-      const { launchModal, requestProvider } = await import('@getalby/bitcoin-connect');
-      await launchModal();
-      const newProvider = await requestProvider();
+      const bitcoinConnect = await import('@getalby/bitcoin-connect');
+      await bitcoinConnect.launchModal();
+      const newProvider = await bitcoinConnect.requestProvider();
       if (newProvider) {
         setProvider(newProvider);
         setIsConnected(true);
@@ -99,8 +105,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const disconnectWallet = async () => {
     try {
-      const { disconnect } = await import('@getalby/bitcoin-connect');
-      await disconnect();
+      const bitcoinConnect = await import('@getalby/bitcoin-connect');
+      await bitcoinConnect.disconnect();
       setProvider(null);
       setIsConnected(false);
     } catch (error) {
