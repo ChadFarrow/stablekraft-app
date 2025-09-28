@@ -15,21 +15,22 @@ export function LightningWalletButton({
   showLabel = true,
   variant = 'dropdown'
 }: LightningWalletButtonProps) {
-  const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
-  const [showDropdown, setShowDropdown] = useState(false);
+  try {
+    const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
+    const [showDropdown, setShowDropdown] = useState(false);
 
-  // Debug logging
-  console.log('LightningWalletButton render:', { isConnected, isLoading, variant });
+    // Debug logging
+    console.log('LightningWalletButton render:', { isConnected, isLoading, variant });
 
-  const handleConnect = async () => {
-    try {
-      console.log('Attempting to connect wallet...');
-      await connect();
-      setShowDropdown(false);
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
-    }
-  };
+    const handleConnect = async () => {
+      try {
+        console.log('Attempting to connect wallet...');
+        await connect();
+        setShowDropdown(false);
+      } catch (error) {
+        console.error('Failed to connect wallet:', error);
+      }
+    };
 
   const handleDisconnect = async () => {
     try {
@@ -188,6 +189,18 @@ export function LightningWalletButton({
       )}
     </div>
   );
+  } catch (error) {
+    console.error('LightningWalletButton error:', error);
+    // Fallback button if there's an error
+    return (
+      <button
+        className={`p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 ${className}`}
+        title="Lightning wallet (error)"
+      >
+        <Zap className="w-4 h-4" />
+      </button>
+    );
+  }
 }
 
 export default LightningWalletButton;

@@ -134,11 +134,13 @@ export default function ControlsBar({
 
           {/* Right side - Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Lightning Wallet Button */}
+          {/* Lightning Wallet Button */}
+          <div className="flex items-center">
             <LightningWalletButton 
               variant="minimal" 
               className="p-1.5"
             />
+          </div>
 
             {/* Shuffle Button */}
             {showShuffle && onShuffle && (
@@ -243,17 +245,19 @@ export default function ControlsBar({
         {/* Right side - Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Lightning Wallet Button */}
-          <LightningWalletButton 
-            variant="dropdown" 
-            showLabel={true}
-            className="hidden sm:block"
-          />
-          
-          {/* Mobile Lightning Button */}
-          <LightningWalletButton 
-            variant="minimal" 
-            className="sm:hidden"
-          />
+          <div className="flex items-center">
+            <LightningWalletButton 
+              variant="dropdown" 
+              showLabel={true}
+              className="hidden sm:block"
+            />
+            
+            {/* Mobile Lightning Button */}
+            <LightningWalletButton 
+              variant="minimal" 
+              className="sm:hidden"
+            />
+          </div>
 
           {/* Shuffle Button */}
           {showShuffle && onShuffle && (
