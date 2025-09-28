@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 Starting database migration...');
     
-    // Run Prisma migrate deploy
-    const output = execSync('npx prisma migrate deploy', { 
+    // Run Prisma db push to sync schema
+    const output = execSync('npx prisma db push', { 
       encoding: 'utf8',
       stdio: 'pipe'
     });
