@@ -33,6 +33,15 @@ async function getTrackValue4ValueConfig(trackId: string) {
       }
     }
 
+    // Try to get value splits from feeds data
+    const valueSplitsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/lightning/value-splits?trackId=${trackId}`);
+    if (valueSplitsResponse.ok) {
+      const valueSplitsData = await valueSplitsResponse.json();
+      if (valueSplitsData.success && valueSplitsData.data?.recipients?.length > 0) {
+        return valueSplitsData.data;
+      }
+    }
+
     // Fallback to RSS feed parsing
     const testFeedUrl = 'https://raw.githubusercontent.com/ChadFarrow/lnurl-test-feed/main/public/lnurl-test-feed.xml';
     const { data: xmlString } = await axios.get(testFeedUrl);
