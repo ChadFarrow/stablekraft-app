@@ -105,17 +105,32 @@ export function BoostButton({
         console.log(`⚡ Paying via value splits to ${valueSplits.length} recipients`);
         result = await sendValueSplitPayments(amount, message);
       } else {
-        // Fallback to platform default
-        const defaultAddress = LIGHTNING_CONFIG.platform.nodePublicKey;
+        // Fallback to platform defaults - try Lightning Address first, then node pubkey
+        const platformLightningAddress = LIGHTNING_CONFIG.platform.address;
+        const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
 
-        if (!defaultAddress) {
+        if (platformLightningAddress && LNURLService.isLightningAddress(platformLightningAddress)) {
+          console.log(`⚡ Paying via platform Lightning Address: ${platformLightningAddress}`);
+
+          try {
+            const { invoice } = await LNURLService.payLightningAddress(
+              platformLightningAddress,
+              amount,
+              message
+            );
+            result = await sendPayment(invoice);
+          } catch (lnurlError) {
+            console.error('Platform Lightning Address payment failed:', lnurlError);
+            result = { error: `Platform Lightning Address payment failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
+          }
+        } else if (platformNodePubkey) {
+          console.log(`⚡ Paying via keysend to platform: ${platformNodePubkey.slice(0, 20)}...`);
+          result = await sendKeysend(platformNodePubkey, amount, message);
+        } else {
           setError('No payment destination configured');
           setIsSending(false);
           return;
         }
-
-        console.log(`⚡ Paying via keysend to platform: ${defaultAddress.slice(0, 20)}...`);
-        result = await sendKeysend(defaultAddress, amount, message);
       }
 
       if (result.error) {
@@ -129,7 +144,9 @@ export function BoostButton({
           amount,
           message,
           preimage: result.preimage,
-          paymentMethod: lightningAddress ? 'lightning-address' : valueSplits?.length ? 'value-splits' : 'keysend',
+          paymentMethod: lightningAddress ? 'lightning-address' :
+                        valueSplits?.length ? 'value-splits' :
+                        (LIGHTNING_CONFIG.platform.address && LNURLService.isLightningAddress(LIGHTNING_CONFIG.platform.address)) ? 'platform-lightning-address' : 'keysend',
         });
 
         // Close modal after success
@@ -257,6 +274,11 @@ export function BoostButton({
                     <>
                       <Zap className="w-3 h-3 text-yellow-400" />
                       <span className="text-yellow-400">Value splits to {valueSplits.length} recipients</span>
+                    </>
+                  ) : LIGHTNING_CONFIG.platform.address && LNURLService.isLightningAddress(LIGHTNING_CONFIG.platform.address) ? (
+                    <>
+                      <Mail className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-400">Platform: {LIGHTNING_CONFIG.platform.address}</span>
                     </>
                   ) : (
                     <>
