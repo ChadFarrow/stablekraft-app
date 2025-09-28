@@ -14,7 +14,6 @@ import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } f
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import NowPlayingScreen from '@/components/NowPlayingScreen';
-import type { FilterType } from '@/components/ControlsBar';
 
 
 
