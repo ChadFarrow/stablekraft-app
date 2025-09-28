@@ -1016,16 +1016,41 @@ export default function HomePage() {
 
                 </div>
                 
-                {/* About Link */}
-                <Link 
-                  href="/about" 
-                  className="inline-flex items-center gap-2 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
-                >
-                  <span className="text-sm">About</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </Link>
+                {/* Right side - Lightning Wallet and About */}
+                <div className="flex items-center gap-3">
+                  {/* Lightning Wallet Button */}
+                  <div className="flex items-center">
+                    {(() => {
+                      try {
+                        const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
+                        return (
+                          <LightningWalletButton 
+                            variant="minimal" 
+                            className="p-2"
+                          />
+                        );
+                      } catch (error) {
+                        console.error('LightningWalletButton error in mobile header:', error);
+                        return (
+                          <button className="p-2 bg-gray-700 text-gray-300 rounded">
+                            ⚡ Error
+                          </button>
+                        );
+                      }
+                    })()}
+                  </div>
+                  
+                  {/* About Link */}
+                  <Link 
+                    href="/about" 
+                    className="inline-flex items-center gap-2 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
+                  >
+                    <span className="text-sm">About</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </Link>
+                </div>
               </div>
               
               {/* Bottom row - Title and Beta badge */}
@@ -1060,8 +1085,32 @@ export default function HomePage() {
                   <p className="text-sm text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
                 </div>
                 
-                {/* Right side - About Link */}
-                <div className="absolute right-0">
+                {/* Right side - Lightning Wallet and About Link */}
+                <div className="absolute right-0 flex items-center gap-4">
+                  {/* Lightning Wallet Button */}
+                  <div className="flex items-center">
+                    {(() => {
+                      try {
+                        const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
+                        return (
+                          <LightningWalletButton 
+                            variant="dropdown" 
+                            showLabel={true}
+                            className="p-2"
+                          />
+                        );
+                      } catch (error) {
+                        console.error('LightningWalletButton error in desktop header:', error);
+                        return (
+                          <button className="p-2 bg-gray-700 text-gray-300 rounded">
+                            ⚡ Error
+                          </button>
+                        );
+                      }
+                    })()}
+                  </div>
+                  
+                  {/* About Link */}
                   <Link 
                     href="/about" 
                     className="inline-flex items-center gap-2 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
