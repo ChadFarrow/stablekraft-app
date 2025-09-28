@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '../../../../lib/prisma';
+import { prisma } from '../../../../lib/prisma';
 import { parseV4VFromXML, parseItemV4VFromXML } from '../../../../lib/rss-parser-db';
 
 export async function POST(request: NextRequest) {
