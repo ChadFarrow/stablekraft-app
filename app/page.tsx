@@ -999,7 +999,7 @@ export default function HomePage() {
           <div className="container mx-auto px-6 py-2">
             {/* Mobile Header - Stacked Layout */}
             <div className="block sm:hidden mb-3">
-              {/* Top row - Menu, Title, Actions */}
+              {/* Top row - Menu, Logo, Actions */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
                   {/* Menu Button */}
@@ -1012,60 +1012,39 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                   </button>
-                  
-                  {/* Title */}
-                  <h1 className="text-lg font-bold text-white">Project StableKraft</h1>
                 </div>
-                
-                {/* Right side - Lightning Wallet and About */}
-                <div className="flex items-center gap-2">
-                  {/* Lightning Wallet Button */}
-                  <div className="flex items-center">
-                    {(() => {
-                      try {
-                        const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
-                        return (
-                          <LightningWalletButton 
-                            variant="minimal" 
-                            className="p-2"
-                          />
-                        );
-                      } catch (error) {
-                        console.error('LightningWalletButton error in mobile header:', error);
-                        return (
-                          <button className="p-2 bg-gray-700 text-gray-300 rounded">
-                            ⚡ Error
-                          </button>
-                        );
-                      }
-                    })()}
-                  </div>
-                  
-                  {/* About Link */}
-                  <Link 
-                    href="/about" 
-                    className="inline-flex items-center gap-1 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </Link>
+
+                {/* Right side - Lightning Wallet Button */}
+                <div className="flex items-center">
+                  {(() => {
+                    try {
+                      const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
+                      return (
+                        <LightningWalletButton
+                          variant="minimal"
+                          className="p-2"
+                        />
+                      );
+                    } catch (error) {
+                      console.error('LightningWalletButton error in mobile header:', error);
+                      return null;
+                    }
+                  })()}
                 </div>
               </div>
-              
-              
-              {/* Third row - Quote */}
+
+              {/* Bottom row - Title and Beta badge */}
               <div className="text-center">
+                <h1 className="text-xl font-bold mb-1 text-white">Project StableKraft</h1>
                 <p className="text-xs text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
               </div>
             </div>
 
-            {/* Desktop Header - Reorganized Layout */}
+            {/* Desktop Header - Original Layout */}
             <div className="hidden sm:block mb-4">
-              {/* Top row - Menu, Title, Actions */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="relative flex items-center justify-center min-h-[60px]">
                 {/* Left side - Menu Button */}
-                <div className="flex items-center">
+                <div className="absolute left-0 top-1/2 -translate-y-1/2">
                   <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
@@ -1076,54 +1055,35 @@ export default function HomePage() {
                     </svg>
                   </button>
                 </div>
-                
+
                 {/* Center - Title */}
                 <div className="text-center">
-                  <h1 className="text-3xl font-bold text-white">Project StableKraft</h1>
+                  <h1 className="text-3xl font-bold mb-1 text-white">Project StableKraft</h1>
+                  <p className="text-sm text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
                 </div>
-                
-                {/* Right side - Lightning Wallet and About Link */}
-                <div className="flex items-center gap-3">
-                  {/* Lightning Wallet Button */}
-                  <div className="flex items-center">
-                    {(() => {
-                      try {
-                        const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
-                        return (
-                          <LightningWalletButton 
-                            variant="dropdown" 
-                            showLabel={true}
-                            className="p-2"
-                          />
-                        );
-                      } catch (error) {
-                        console.error('LightningWalletButton error in desktop header:', error);
-                        return (
-                          <button className="p-2 bg-gray-700 text-gray-300 rounded">
-                            ⚡ Error
-                          </button>
-                        );
-                      }
-                    })()}
-                  </div>
-                  
-                  {/* About Link */}
-                  <Link 
-                    href="/about" 
-                    className="inline-flex items-center gap-2 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>About this site</span>
-                </Link>
+
+                {/* Right side - Lightning Wallet Button */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                  {(() => {
+                    try {
+                      const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
+                      return (
+                        <LightningWalletButton
+                          variant="minimal"
+                          showLabel={false}
+                          className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors"
+                        />
+                      );
+                    } catch (error) {
+                      console.error('LightningWalletButton error in desktop header:', error);
+                      return (
+                        <button className="p-2 bg-gray-800/50 hover:bg-gray-700/50 text-yellow-400 rounded-lg transition-colors">
+                          ⚡
+                        </button>
+                      );
+                    }
+                  })()}
                 </div>
-              </div>
-              
-              
-              {/* Third row - Quote */}
-              <div className="text-center">
-                <p className="text-sm text-gray-300">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
               </div>
             </div>
             
