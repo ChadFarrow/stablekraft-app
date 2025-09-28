@@ -1,6 +1,7 @@
 'use client';
 
 import { Filter, Grid3X3, List, Shuffle } from 'lucide-react';
+import { LightningWalletButton } from '@/components/Lightning/LightningWalletButton';
 
 export type FilterType = 'all' | 'albums' | 'eps' | 'singles' | 'artists' | 'playlist';
 export type ViewType = 'grid' | 'list';
@@ -133,6 +134,12 @@ export default function ControlsBar({
 
           {/* Right side - Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Lightning Wallet Button */}
+            <LightningWalletButton 
+              variant="minimal" 
+              className="p-1.5"
+            />
+
             {/* Shuffle Button */}
             {showShuffle && onShuffle && (
               <button
@@ -235,6 +242,19 @@ export default function ControlsBar({
 
         {/* Right side - Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Lightning Wallet Button */}
+          <LightningWalletButton 
+            variant="dropdown" 
+            showLabel={true}
+            className="hidden sm:block"
+          />
+          
+          {/* Mobile Lightning Button */}
+          <LightningWalletButton 
+            variant="minimal" 
+            className="sm:hidden"
+          />
+
           {/* Shuffle Button */}
           {showShuffle && onShuffle && (
             <button
