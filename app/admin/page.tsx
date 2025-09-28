@@ -1,19 +1,16 @@
 'use client';
 
-import dynamicImport from 'next/dynamic';
-
-const AdminClient = dynamicImport(() => import('./AdminClient'), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-lg">Loading admin panel...</p>
-      </div>
-    </div>
-  )
-});
+export const dynamic = 'force-dynamic';
 
 export default function AdminPage() {
-  return <AdminClient />;
+  return (
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Admin Panel</h1>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    </div>
+  );
 }
