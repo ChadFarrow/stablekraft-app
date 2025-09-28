@@ -3,6 +3,8 @@
 import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import { PlaylistConfig } from '@/types/playlist';
 
+export const dynamic = 'force-dynamic';
+
 const upbeatsConfig: PlaylistConfig = {
   title: 'Upbeats Playlist',
   description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',

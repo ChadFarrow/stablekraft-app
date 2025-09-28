@@ -3,6 +3,8 @@
 import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
+export const dynamic = 'force-dynamic';
+
 const MMM_CONFIG: PlaylistConfig = {
   cacheKey: 'mmm_playlist_cache_v2',
   cacheDuration: 1000 * 60 * 30, // 30 minutes

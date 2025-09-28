@@ -50,16 +50,15 @@ export default function DatabaseMusicPlayer() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isClient, setIsClient] = useState(false);
   
-  const { 
-    playTrack, 
-    pause, 
-    resume, 
-    isPlaying, 
-    currentTime, 
-    duration,
-    seek
-  } = useAudio();
+  // Always call the hook, but handle the case where context is not available
+  const audioContext = useAudio();
+
+  // Set client-side flag
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch tracks from database
   const fetchTracks = async () => {
@@ -97,6 +96,10 @@ export default function DatabaseMusicPlayer() {
 
   // Handle track play
   const handlePlayTrack = async (track: Track) => {
+    if (!audioContext || !isClient) return; // Don't play if not on client side or context not available
+    
+    const { playTrack, pause, resume, isPlaying } = audioContext;
+    
     if (currentTrack?.id === track.id && isPlaying) {
       pause();
     } else if (currentTrack?.id === track.id && !isPlaying) {
@@ -290,7 +293,7 @@ export default function DatabaseMusicPlayer() {
                 onClick={() => handlePlayTrack(currentTrack)}
                 className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
               >
-                {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+                {audioContext?.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
               </button>
             </div>
           </div>
@@ -298,23 +301,23 @@ export default function DatabaseMusicPlayer() {
           {/* Progress Bar */}
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>{formatDuration(currentTime)}</span>
-              <span>{formatDuration(duration)}</span>
+              <span>{formatDuration(audioContext?.currentTime || 0)}</span>
+              <span>{formatDuration(audioContext?.duration || 0)}</span>
             </div>
             <div 
               className="h-2 bg-white/10 rounded-full overflow-hidden cursor-pointer"
               onClick={(e) => {
-                if (duration) {
+                if (audioContext?.duration) {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const percentage = x / rect.width;
-                  seek(percentage * duration);
+                  audioContext.seek(percentage * audioContext.duration);
                 }
               }}
             >
               <div 
                 className="h-full bg-gradient-to-r from-green-400 to-blue-400"
-                style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+                style={{ width: audioContext?.duration ? `${((audioContext?.currentTime || 0) / audioContext.duration) * 100}%` : '0%' }}
               />
             </div>
           </div>
@@ -383,7 +386,7 @@ export default function DatabaseMusicPlayer() {
                       }}
                       className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
                     >
-                      {currentTrack?.id === track.id && isPlaying ? (
+                      {currentTrack?.id === track.id && audioContext?.isPlaying ? (
                         <Pause className="w-4 h-4" />
                       ) : (
                         <Play className="w-4 h-4" />

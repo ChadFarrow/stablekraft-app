@@ -3,6 +3,8 @@
 import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import { PlaylistConfig } from '@/types/playlist';
 
+export const dynamic = 'force-dynamic';
+
 const mmtConfig: PlaylistConfig = {
   title: "Mike's Mix Tape Music Playlist",
   description: 'Curated playlist from Mike\'s Mix Tape podcast featuring Value4Value independent artists',

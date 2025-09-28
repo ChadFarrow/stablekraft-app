@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import PlaylistTemplate from '@/components/PlaylistTemplate';
 
+export const dynamic = 'force-dynamic';
+
 interface Track {
   id: string;
   title: string;

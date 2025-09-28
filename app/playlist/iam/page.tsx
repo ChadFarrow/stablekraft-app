@@ -1,18 +1,12 @@
 'use client';
 
-import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
-import type { PlaylistConfig } from '@/types/playlist';
+import dynamic from 'next/dynamic';
 
-const IAM_CONFIG: PlaylistConfig = {
-  cacheKey: 'iam_playlist_cache_v2',
-  cacheDuration: 1000 * 60 * 30, // 30 minutes
-  apiEndpoint: '/api/playlist/iam',
-  title: 'It\'s A Mood Music Playlist',
-  description: 'Every music reference from It\'s A Mood podcast',
-  useAudioContext: true
-};
+const IAMPlaylistClient = dynamic(() => import('./IAMPlaylistClient'), {
+  ssr: false,
+  loading: () => <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="text-white">Loading...</div></div>
+});
 
 export default function IAMPlaylistPage() {
-  // Force rebuild - using PlaylistTemplateCompact
-  return <PlaylistTemplateCompact config={IAM_CONFIG} />;
+  return <IAMPlaylistClient />;
 }

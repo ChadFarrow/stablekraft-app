@@ -3,6 +3,8 @@
 import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
+export const dynamic = 'force-dynamic';
+
 const ITDV_CONFIG: PlaylistConfig = {
   cacheKey: 'itdv_playlist_cache',
   cacheDuration: 1000 * 60 * 30, // 30 minutes

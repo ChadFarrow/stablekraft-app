@@ -9,6 +9,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from '@/components/Toast';
 import CDNImage from '@/components/CDNImage';
 
+export const dynamic = 'force-dynamic';
+
 interface PlaylistTrack {
   title: string;
   duration: string;

@@ -1,17 +1,12 @@
 'use client';
 
-import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
-import { PlaylistConfig } from '@/types/playlist';
+import dynamic from 'next/dynamic';
 
-const b4tsConfig: PlaylistConfig = {
-  title: 'Behind the Sch3m3s Music Playlist',
-  description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
-  apiEndpoint: '/api/playlist/b4ts', // Use regular endpoint with full data
-  cacheKey: 'b4ts-playlist',
-  cacheDuration: 1000 * 60 * 30, // 30 minutes
-  useAudioContext: true
-};
+const B4TSPlaylistClient = dynamic(() => import('./B4TSPlaylistClient'), {
+  ssr: false,
+  loading: () => <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="text-white">Loading...</div></div>
+});
 
 export default function B4TSPlaylistPage() {
-  return <PlaylistTemplateCompact config={b4tsConfig} />;
+  return <B4TSPlaylistClient />;
 }

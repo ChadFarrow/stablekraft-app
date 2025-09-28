@@ -3,6 +3,8 @@
 import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import { PlaylistConfig } from '@/types/playlist';
 
+export const dynamic = 'force-dynamic';
+
 const sasConfig: PlaylistConfig = {
   title: 'Sats and Sounds Music Playlist',
   description: 'Curated playlist from Sats and Sounds podcast featuring Value4Value independent artists',

@@ -126,11 +126,16 @@ const nextConfig = {
   // Performance optimizations
   reactStrictMode: true,
   
+  // Disable static generation to prevent HTMLElement errors during build
+  // output: 'standalone',
+  
   // Dynamic route configuration to prevent build issues
   experimental: {
     // Disable static generation for dynamic API routes
     workerThreads: false,
     cpus: 1,
+    // Disable static optimization
+    staticPageGenerationTimeout: 0,
     // Performance optimizations - CSS optimization is now properly configured
     optimizeCss: true, // Re-enabled now that critters is installed
     optimizePackageImports: ['@/components'],
