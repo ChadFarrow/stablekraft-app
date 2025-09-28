@@ -20,13 +20,14 @@ interface ManagedFeed {
 }
 
 export default function AdminPanel() {
+  const [isClient, setIsClient] = useState(false);
   const [feeds, setFeeds] = useState<ManagedFeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingFeed, setAddingFeed] = useState(false);
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newFeedType, setNewFeedType] = useState<'album' | 'publisher'>('album');
   const [cdnStatus, setCdnStatus] = useState<any>(null);
-  
+
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passphrase, setPassphrase] = useState('');
@@ -34,6 +35,12 @@ export default function AdminPanel() {
   const [isMigrating, setIsMigrating] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
     // Check if already authenticated from localStorage
     const savedAuth = localStorage.getItem('admin-authenticated');
     if (savedAuth === 'true') {
@@ -43,11 +50,13 @@ export default function AdminPanel() {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [isClient]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!isClient) return;
+
     if (passphrase.trim().toLowerCase() === 'doerfel') {
       setIsAuthenticated(true);
       setAuthError('');
@@ -61,6 +70,8 @@ export default function AdminPanel() {
   };
 
   const handleLogout = () => {
+    if (!isClient) return;
+
     setIsAuthenticated(false);
     localStorage.removeItem('admin-authenticated');
     setPassphrase('');
@@ -229,6 +240,18 @@ export default function AdminPanel() {
       default: return '❓';
     }
   };
+
+  // Don't render on server-side
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-lg">Loading admin panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Authentication screen
   if (!isAuthenticated && !loading) {

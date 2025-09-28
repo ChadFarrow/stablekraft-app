@@ -21,6 +21,7 @@ interface MonitoringSummary {
 }
 
 export default function AdminDebugPage() {
+  const [isClient, setIsClient] = useState(false);
   const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([]);
   const [monitoringSummary, setMonitoringSummary] = useState<MonitoringSummary | null>(null);
   const [recurringErrors, setRecurringErrors] = useState<Array<{ pattern: string; count: number }>>([]);
@@ -62,8 +63,14 @@ export default function AdminDebugPage() {
   };
 
   useEffect(() => {
-    fetchHealthData();
+    setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      fetchHealthData();
+    }
+  }, [isClient]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -82,6 +89,20 @@ export default function AdminDebugPage() {
       default: return <Info className="w-4 h-4" />;
     }
   };
+
+  // Don't render on server-side
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Admin Debug Dashboard</h1>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
