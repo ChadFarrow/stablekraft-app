@@ -1016,8 +1016,33 @@ export default function HomePage() {
 
                 </div>
                 
-                {/* Right side - Lightning Wallet and About */}
-                <div className="flex items-center gap-3">
+                {/* Right side - Filters, Lightning Wallet and About */}
+                <div className="flex items-center gap-2">
+                  {/* Filter Menu */}
+                  <div className="flex gap-1 overflow-x-auto">
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'albums', label: 'Albums' },
+                      { value: 'eps', label: 'EPs' },
+                      { value: 'singles', label: 'Singles' },
+                      { value: 'artists', label: 'Publishers' },
+                      { value: 'playlist', label: 'Playlists' },
+                    ].map((filter) => (
+                      <button
+                        key={filter.value}
+                        onClick={() => handleFilterChange(filter.value)}
+                        disabled={isFilterLoading}
+                        className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                          activeFilter === filter.value
+                            ? 'bg-stablekraft-teal text-white shadow-sm'
+                            : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+                  
                   {/* Lightning Wallet Button */}
                   <div className="flex items-center">
                     {(() => {
@@ -1085,8 +1110,33 @@ export default function HomePage() {
                   <p className="text-sm text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
                 </div>
                 
-                {/* Right side - Lightning Wallet and About Link */}
-                <div className="absolute right-0 flex items-center gap-4">
+                {/* Right side - Filters, Lightning Wallet and About Link */}
+                <div className="absolute right-0 flex items-center gap-3">
+                  {/* Filter Menu */}
+                  <div className="flex gap-1">
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'albums', label: 'Albums' },
+                      { value: 'eps', label: 'EPs' },
+                      { value: 'singles', label: 'Singles' },
+                      { value: 'artists', label: 'Publishers' },
+                      { value: 'playlist', label: 'Playlists' },
+                    ].map((filter) => (
+                      <button
+                        key={filter.value}
+                        onClick={() => handleFilterChange(filter.value)}
+                        disabled={isFilterLoading}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                          activeFilter === filter.value
+                            ? 'bg-stablekraft-teal text-white shadow-sm'
+                            : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+                  
                   {/* Lightning Wallet Button */}
                   <div className="flex items-center">
                     {(() => {
