@@ -112,25 +112,34 @@ export function LightningWalletButton({
 
             {showDropdown && typeof window !== 'undefined' && createPortal(
               <>
+                {/* Debug indicator */}
+                <div 
+                  className="fixed top-4 left-4 bg-red-500 text-white p-2 rounded z-50"
+                  style={{ zIndex: 2147483647 }}
+                >
+                  PORTAL DROPDOWN OPEN
+                </div>
+                
                 {/* Backdrop */}
                 <div 
                   className="fixed inset-0" 
-                  style={{ zIndex: 99998 }}
+                  style={{ zIndex: 2147483646 }}
                   onClick={() => setShowDropdown(false)}
                 />
                 
                 {/* Dropdown Menu */}
                 <div 
-                  className="fixed w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg"
+                  className="w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg"
                   style={{ 
-                    zIndex: 99999,
+                    zIndex: 2147483647, // Maximum possible z-index value
                     position: 'fixed',
                     backgroundColor: '#111827',
-                    border: '1px solid #374151',
+                    border: '2px solid #374151',
                     borderRadius: '8px',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                     top: '80px', // Position below header
-                    right: '20px' // Position from right edge
+                    right: '20px', // Position from right edge
+                    isolation: 'isolate' // Create new stacking context
                   }}
                 >
             <div className="p-4">
