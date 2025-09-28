@@ -112,14 +112,6 @@ export function LightningWalletButton({
 
             {showDropdown && typeof window !== 'undefined' && createPortal(
               <>
-                {/* Debug indicator */}
-                <div 
-                  className="fixed top-4 left-4 bg-red-500 text-white p-2 rounded z-50"
-                  style={{ zIndex: 2147483647 }}
-                >
-                  PORTAL DROPDOWN OPEN
-                </div>
-                
                 {/* Backdrop */}
                 <div 
                   className="fixed inset-0" 
