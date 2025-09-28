@@ -136,10 +136,14 @@ export default function ControlsBar({
           <div className="flex items-center gap-2 flex-shrink-0">
           {/* Lightning Wallet Button */}
           <div className="flex items-center">
-            <LightningWalletButton 
-              variant="minimal" 
-              className="p-1.5"
-            />
+            <div style={{ border: '2px solid red', padding: '4px' }}>
+              <LightningWalletButton 
+                variant="minimal" 
+                className="p-1.5"
+              />
+            </div>
+            {/* Test button */}
+            <button className="bg-red-500 text-white p-2 rounded">TEST</button>
           </div>
 
             {/* Shuffle Button */}
