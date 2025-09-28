@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
-import { Zap, Send, X, Mail } from 'lucide-react';
+import { ValueSplitsService } from '@/lib/lightning/value-splits';
+import { Zap, Send, X, Mail, Check } from 'lucide-react';
 
 interface BoostButtonProps {
   trackId?: string;
@@ -153,60 +154,30 @@ export function BoostButton({
     message?: string
   ): Promise<{ preimage?: string; error?: string }> => {
     try {
-      const results: Array<{ preimage?: string; error?: string }> = [];
+      // Convert valueSplits to ValueRecipient format
+      const recipients = valueSplits.map(split => ({
+        name: split.name,
+        type: split.type as 'node' | 'lnaddress',
+        address: split.address,
+        split: split.split,
+        fee: false
+      }));
 
-      // Calculate split amounts
-      const totalSplits = valueSplits.reduce((sum, split) => sum + split.split, 0);
+      // Use ValueSplitsService for proper multi-recipient payments
+      const result = await ValueSplitsService.sendMultiRecipientPayment(
+        recipients,
+        totalAmount,
+        message,
+        sendPayment,
+        sendKeysend
+      );
 
-      for (const recipient of valueSplits) {
-        const recipientAmount = Math.floor((recipient.split / totalSplits) * totalAmount);
-
-        if (recipientAmount < 1) {
-          console.warn(`Skipping recipient ${recipient.name}: amount too small (${recipientAmount} sats)`);
-          continue;
-        }
-
-        let recipientResult: { preimage?: string; error?: string };
-
-        if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
-          // Pay via Lightning Address
-          try {
-            const { invoice } = await LNURLService.payLightningAddress(
-              recipient.address,
-              recipientAmount,
-              message
-            );
-            recipientResult = await sendPayment(invoice);
-          } catch (lnurlError) {
-            recipientResult = { error: `Lightning Address failed: ${lnurlError instanceof Error ? lnurlError.message : 'Unknown error'}` };
-          }
-        } else if (recipient.type === 'node') {
-          // Pay via keysend
-          recipientResult = await sendKeysend(recipient.address, recipientAmount, message);
-        } else {
-          recipientResult = { error: `Unsupported recipient type: ${recipient.type}` };
-        }
-
-        results.push(recipientResult);
-
-        console.log(`💸 Sent ${recipientAmount} sats to ${recipient.name || recipient.address.slice(0, 20)}...`,
-                   recipientResult.error ? 'FAILED' : 'SUCCESS');
+      if (!result.success) {
+        return { error: `Multi-recipient payment failed: ${result.errors.join(', ')}` };
       }
 
-      // Check if any payments succeeded
-      const successful = results.filter(r => !r.error);
-      const failed = results.filter(r => r.error);
-
-      if (successful.length === 0) {
-        return { error: `All payments failed. Errors: ${failed.map(f => f.error).join(', ')}` };
-      }
-
-      if (failed.length > 0) {
-        console.warn(`${failed.length} of ${results.length} payments failed`);
-      }
-
-      // Return first successful preimage
-      return { preimage: successful[0].preimage };
+      // Return the primary preimage
+      return { preimage: result.primaryPreimage };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Value split payment failed' };
     }
