@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { Zap, Wallet, LogOut, Settings, ChevronDown } from 'lucide-react';
 
@@ -109,7 +110,7 @@ export function LightningWalletButton({
               )}
             </button>
 
-            {showDropdown && (
+            {showDropdown && typeof window !== 'undefined' && createPortal(
               <>
                 {/* Backdrop */}
                 <div 
@@ -120,14 +121,16 @@ export function LightningWalletButton({
                 
                 {/* Dropdown Menu */}
                 <div 
-                  className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg overflow-visible"
+                  className="fixed w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg"
                   style={{ 
                     zIndex: 99999,
-                    position: 'absolute',
+                    position: 'fixed',
                     backgroundColor: '#111827',
                     border: '1px solid #374151',
                     borderRadius: '8px',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    top: '80px', // Position below header
+                    right: '20px' // Position from right edge
                   }}
                 >
             <div className="p-4">
@@ -196,7 +199,8 @@ export function LightningWalletButton({
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
