@@ -127,7 +127,7 @@ const nextConfig = {
   reactStrictMode: true,
   
   // Disable static generation to prevent HTMLElement errors during build
-  // output: 'standalone',
+  output: 'standalone',
   
   // Dynamic route configuration to prevent build issues
   experimental: {
