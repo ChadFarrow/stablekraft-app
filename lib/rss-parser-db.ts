@@ -117,7 +117,7 @@ export interface ParsedItem {
 }
 
 // Helper function to parse V4V data from XML directly
-function parseV4VFromXML(xmlText: string): { recipient: string | null; value: any } {
+export function parseV4VFromXML(xmlText: string): { recipient: string | null; value: any } {
   try {
     console.log('🔍 DEBUG: Parsing V4V from XML...');
     
@@ -191,7 +191,7 @@ function parseV4VFromXML(xmlText: string): { recipient: string | null; value: an
 }
 
 // Helper function to parse V4V data for a specific item from XML
-function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recipient: string | null; value: any } {
+export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recipient: string | null; value: any } {
   try {
     console.log(`🔍 DEBUG: Parsing V4V for item "${itemTitle}" from XML...`);
     

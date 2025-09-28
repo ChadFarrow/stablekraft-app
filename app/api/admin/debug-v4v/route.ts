@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     console.log('📄 Fetched XML, length:', xmlText.length);
     
     // Test our V4V parsing function
-    const { parseV4VFromXML, parseItemV4VFromXML } = await import('../../../lib/rss-parser-db');
+    const { parseV4VFromXML, parseItemV4VFromXML } = await import('../../../../lib/rss-parser-db');
     
     // Test feed-level V4V parsing
     console.log('🔍 Testing feed-level V4V parsing...');
