@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 Starting database migration...');
+    console.log('🚀 Starting database migration with db push...');
     
     // Run Prisma db push to sync schema
     const output = execSync('npx prisma db push', { 
