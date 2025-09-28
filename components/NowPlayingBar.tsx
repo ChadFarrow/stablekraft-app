@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface NowPlayingTrack {
   id: string;
@@ -155,6 +156,16 @@ export default function NowPlayingBar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
+
+          {/* Lightning Boost Button */}
+          <div className="ml-2">
+            <BoostButton
+              trackId={currentTrack.id}
+              trackTitle={currentTrack.title}
+              artistName={currentTrack.artist}
+              className="text-xs px-2 py-1"
+            />
+          </div>
         </div>
 
         {/* Progress Bar and Time */}

@@ -19,6 +19,7 @@ import {
   X,
   ArrowLeft
 } from 'lucide-react';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface MusicTrackDetailProps {
   track: MusicTrack;
@@ -290,9 +291,13 @@ export default function MusicTrackDetail({
             </div>
             
             <div className="mt-4 pt-3 border-t border-green-500/20">
-              <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
-                ⚡ Send Lightning Payment
-              </button>
+              <BoostButton
+                trackId={track.id}
+                feedId={track.feedUrl}
+                trackTitle={track.title}
+                artistName={track.artist}
+                className="w-full"
+              />
             </div>
           </div>
         )}

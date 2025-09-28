@@ -16,6 +16,7 @@ import {
   Share2
 } from 'lucide-react';
 import type { MusicTrackCardProps, V4VMusicTrack } from '@/types/music-track';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 export default function BaseMusicTrackCard({
   track,
@@ -350,6 +351,17 @@ export default function BaseMusicTrackCard({
               <Play className="w-4 h-4" />
               Play
             </button>
+
+            {/* Lightning Boost Button for V4V tracks */}
+            {variant === 'v4v' && isV4VTrack(track) && track.valueForValue && (
+              <BoostButton
+                trackId={track.id}
+                feedId={track.feedUrl}
+                trackTitle={track.title}
+                artistName={track.artist}
+                className="text-sm"
+              />
+            )}
 
             {/* Additional Actions */}
             {variant === 'v4v' && (
