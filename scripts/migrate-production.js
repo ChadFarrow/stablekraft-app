@@ -4,6 +4,14 @@ const { execSync } = require('child_process');
 
 console.log('🚀 Running production database migration...');
 
+// Check if DATABASE_URL is available
+if (!process.env.DATABASE_URL) {
+  console.log('⚠️ DATABASE_URL not found - skipping database migration');
+  console.log('ℹ️ This is normal during build phase if database is not yet available');
+  console.log('✅ Production migration process complete (skipped)');
+  process.exit(0);
+}
+
 try {
   // First, try to run migrations normally
   console.log('Attempting to deploy migrations...');

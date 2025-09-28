@@ -20,6 +20,9 @@ export interface RSSTrack {
   episodeDate?: Date;
   source?: string;
   artist?: string;
+  guid?: string;
+  v4vRecipient?: string;
+  v4vValue?: any;
 }
 
 export interface RSSFunding {
@@ -115,4 +118,6 @@ export interface RSSAlbum {
   totalTracks?: number;
   // V4V (Value4Value) fields
   value4Value?: RSSValue4Value;
+  v4vRecipient?: string;
+  v4vValue?: any;
 }

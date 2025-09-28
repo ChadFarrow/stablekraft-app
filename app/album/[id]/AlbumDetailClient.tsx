@@ -805,7 +805,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               {/* Lightning Boost Button */}
               <div className="flex justify-center lg:justify-start">
                 <BoostButton
-                  feedId={album.feedGuid}
+                  feedId={album.feedId}
                   trackTitle={album.title}
                   artistName={album.artist}
                   lightningAddress={album.v4vRecipient?.includes('@') ? album.v4vRecipient : undefined}
@@ -991,7 +991,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       {/* Boost Button */}
                       <BoostButton
                         trackId={track.guid}
-                        feedId={album.feedGuid}
+                        feedId={album.feedId}
                         trackTitle={track.title}
                         artistName={album.artist}
                         valueSplits={track.v4vValue ? [{
