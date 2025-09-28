@@ -999,7 +999,7 @@ export default function HomePage() {
           <div className="container mx-auto px-6 py-2">
             {/* Mobile Header - Stacked Layout */}
             <div className="block sm:hidden mb-3">
-              {/* Top row - Menu, Logo, About */}
+              {/* Top row - Menu, Title, Actions */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
                   {/* Menu Button */}
@@ -1013,36 +1013,12 @@ export default function HomePage() {
                     </svg>
                   </button>
                   
-
+                  {/* Title */}
+                  <h1 className="text-lg font-bold text-white">Project StableKraft</h1>
                 </div>
                 
-                {/* Right side - Filters, Lightning Wallet and About */}
+                {/* Right side - Lightning Wallet and About */}
                 <div className="flex items-center gap-2">
-                  {/* Filter Menu */}
-                  <div className="flex gap-1 overflow-x-auto">
-                    {[
-                      { value: 'all', label: 'All' },
-                      { value: 'albums', label: 'Albums' },
-                      { value: 'eps', label: 'EPs' },
-                      { value: 'singles', label: 'Singles' },
-                      { value: 'artists', label: 'Publishers' },
-                      { value: 'playlist', label: 'Playlists' },
-                    ].map((filter) => (
-                      <button
-                        key={filter.value}
-                        onClick={() => handleFilterChange(filter.value)}
-                        disabled={isFilterLoading}
-                        className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-all ${
-                          activeFilter === filter.value
-                            ? 'bg-stablekraft-teal text-white shadow-sm'
-                            : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                        }`}
-                      >
-                        {filter.label}
-                      </button>
-                    ))}
-                  </div>
-                  
                   {/* Lightning Wallet Button */}
                   <div className="flex items-center">
                     {(() => {
@@ -1068,9 +1044,8 @@ export default function HomePage() {
                   {/* About Link */}
                   <Link 
                     href="/about" 
-                    className="inline-flex items-center gap-2 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
+                    className="inline-flex items-center gap-1 text-stablekraft-teal hover:text-stablekraft-orange transition-colors"
                   >
-                    <span className="text-sm">About</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -1078,9 +1053,35 @@ export default function HomePage() {
                 </div>
               </div>
               
-              {/* Bottom row - Title and Beta badge */}
+              {/* Second row - Filter Menu */}
+              <div className="flex justify-center mb-2">
+                <div className="flex gap-1 overflow-x-auto">
+                  {[
+                    { value: 'all', label: 'All' },
+                    { value: 'albums', label: 'Albums' },
+                    { value: 'eps', label: 'EPs' },
+                    { value: 'singles', label: 'Singles' },
+                    { value: 'artists', label: 'Publishers' },
+                    { value: 'playlist', label: 'Playlists' },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      onClick={() => handleFilterChange(filter.value)}
+                      disabled={isFilterLoading}
+                      className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                        activeFilter === filter.value
+                          ? 'bg-stablekraft-teal text-white shadow-sm'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Third row - Quote */}
               <div className="text-center">
-                <h1 className="text-xl font-bold mb-1 text-white">Project StableKraft</h1>
                 <p className="text-xs text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
               </div>
             </div>
