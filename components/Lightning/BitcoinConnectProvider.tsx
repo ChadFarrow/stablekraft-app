@@ -29,7 +29,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         // Initialize Bitcoin Connect
         init({
           appName: 'FUCKIT Music',
-          filters: ['nwc'],
+          // Remove filters to allow all connection methods including browser extensions
+          // filters: ['nwc', 'webln'], // Include both NWC and WebLN browser extensions
         });
 
         // Check if already connected
@@ -45,6 +46,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const checkConnection = async () => {
     try {
+      // First check for WebLN browser extension
+      if (typeof window !== 'undefined' && window.webln) {
+        try {
+          await window.webln.enable();
+          setProvider(window.webln);
+          setIsConnected(true);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          console.log('WebLN not enabled, trying Bitcoin Connect');
+        }
+      }
+
+      // Fallback to Bitcoin Connect
       const { requestProvider } = await import('@getalby/bitcoin-connect');
       const existingProvider = await requestProvider();
       if (existingProvider) {
@@ -61,6 +76,21 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const connect = async () => {
     try {
       setIsLoading(true);
+      
+      // First try WebLN browser extension
+      if (typeof window !== 'undefined' && window.webln) {
+        try {
+          await window.webln.enable();
+          setProvider(window.webln);
+          setIsConnected(true);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          console.log('WebLN connection failed, trying Bitcoin Connect');
+        }
+      }
+
+      // Fallback to Bitcoin Connect modal
       const { launchModal, requestProvider } = await import('@getalby/bitcoin-connect');
       await launchModal();
       const newProvider = await requestProvider();
