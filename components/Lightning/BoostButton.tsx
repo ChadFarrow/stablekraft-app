@@ -34,9 +34,9 @@ export function BoostButton({
   const [isClient, setIsClient] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment } = useBitcoinConnect();
   const [showModal, setShowModal] = useState(false);
-  const [selectedAmount, setSelectedAmount] = useState(100);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
+  const [senderName, setSenderName] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -69,10 +69,10 @@ export function BoostButton({
     setSuccess(false);
 
     try {
-      const amount = customAmount ? parseInt(customAmount) : selectedAmount;
+      const amount = parseInt(customAmount);
 
-      if (amount < 1) {
-        setError('Amount must be at least 1 sat');
+      if (!amount || amount < 1) {
+        setError('Please enter a valid amount (minimum 1 sat)');
         setIsSending(false);
         return;
       }
@@ -102,7 +102,22 @@ export function BoostButton({
       } else if (lightningAddress && lightningAddress.length === 66 && (lightningAddress.startsWith('02') || lightningAddress.startsWith('03'))) {
         // Pay to node pubkey via keysend
         try {
-          result = await sendKeysend(lightningAddress, amount, message);
+          // Create Helipad metadata for the boost
+          const helipadMetadata = {
+            app_name: 'FUCKIT',
+            app_version: '1.0.0',
+            podcast: trackTitle || 'Unknown Track',
+            episode: trackTitle || 'Unknown Episode',
+            ts: Math.floor(Date.now() / 1000),
+            action: 'boost',
+            url: typeof window !== 'undefined' ? window.location.href : '',
+            name: artistName || 'Unknown Artist',
+            value_msat: amount * 1000, // Convert sats to millisats
+            sender_name: senderName || undefined, // Include sender name if provided
+            message: message || undefined, // Include message if provided
+          };
+
+          result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
         } catch (keysendError) {
           console.error('Keysend payment failed:', keysendError);
           result = { error: `Keysend payment failed: ${keysendError instanceof Error ? keysendError.message : 'Unknown error'}` };
@@ -125,6 +140,7 @@ export function BoostButton({
           feedId,
           amount,
           message,
+          senderName,
           preimage: result.preimage,
           paymentMethod: lightningAddress ? 'lightning-address' :
                         valueSplits?.length ? 'value-splits' :
@@ -136,6 +152,7 @@ export function BoostButton({
           setShowModal(false);
           setSuccess(false);
           setMessage('');
+          setSenderName('');
           setCustomAmount('');
         }, 2000);
       }
@@ -277,32 +294,33 @@ export function BoostButton({
               <label className="text-sm text-gray-400 mb-2 block">
                 Amount (sats)
               </label>
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {LIGHTNING_CONFIG.boostPresets.slice(0, 8).map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => {
-                      setSelectedAmount(amount);
-                      setCustomAmount('');
-                    }}
-                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      selectedAmount === amount && !customAmount
-                        ? 'bg-yellow-500 text-black'
-                        : 'bg-gray-800 text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    {amount.toLocaleString()}
-                  </button>
-                ))}
-              </div>
               <input
                 type="number"
-                placeholder="Custom amount"
+                placeholder="Enter amount in sats"
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 min="1"
+                required
               />
+            </div>
+
+            {/* Sender Name */}
+            <div className="mb-4">
+              <label className="text-sm text-gray-400 mb-2 block">
+                Your Name (optional)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value.slice(0, 50))}
+                className="w-full px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                maxLength={50}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {senderName.length}/50
+              </p>
             </div>
 
             {/* Message */}
@@ -346,7 +364,7 @@ export function BoostButton({
               </button>
               <button
                 onClick={sendBoost}
-                disabled={isSending || (!customAmount && !selectedAmount)}
+                disabled={isSending || !customAmount || parseInt(customAmount) < 1}
                 className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-700 disabled:text-gray-500 text-black rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
               >
                 {isSending ? (

@@ -10,7 +10,22 @@ interface BitcoinConnectContextType {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>;
-  sendKeysend: (pubkey: string, amount: number, message?: string) => Promise<{ preimage?: string; error?: string }>;
+  sendKeysend: (
+    pubkey: string, 
+    amount: number, 
+    message?: string,
+    helipadMetadata?: {
+      app_name?: string;
+      app_version?: string;
+      podcast?: string;
+      episode?: string;
+      ts?: number;
+      action?: string;
+      url?: string;
+      name?: string;
+      value_msat?: number;
+    }
+  ) => Promise<{ preimage?: string; error?: string }>;
   isLoading: boolean;
 }
 
@@ -135,7 +150,18 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const sendKeysend = async (
     pubkey: string,
     amount: number,
-    message?: string
+    message?: string,
+    helipadMetadata?: {
+      app_name?: string;
+      app_version?: string;
+      podcast?: string;
+      episode?: string;
+      ts?: number;
+      action?: string;
+      url?: string;
+      name?: string;
+      value_msat?: number;
+    }
   ): Promise<{ preimage?: string; error?: string }> => {
     try {
       let currentProvider = provider;
@@ -154,6 +180,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if (message) {
         // TLV record 34349334 is used for boostagram messages
         customRecords['34349334'] = Buffer.from(message).toString('hex');
+      }
+
+      // Add Helipad metadata if provided
+      if (helipadMetadata) {
+        // TLV record 7629169 is used for Helipad metadata
+        const helipadJson = JSON.stringify(helipadMetadata);
+        customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
       }
 
       if (!currentProvider.keysend) {
