@@ -140,17 +140,30 @@ export default function ControlsBar({
             DEBUG: showShuffle={showShuffle ? 'true' : 'false'}, onShuffle={onShuffle ? 'exists' : 'null'}
           </div>
           
-          {/* Lightning Wallet Button */}
-          <div className="flex items-center">
-            <div style={{ border: '2px solid red', padding: '4px' }}>
-              <LightningWalletButton 
-                variant="minimal" 
-                className="p-1.5"
-              />
-            </div>
-            {/* Test button */}
-            <button className="bg-red-500 text-white p-2 rounded">TEST</button>
+        {/* Lightning Wallet Button */}
+        <div className="flex items-center">
+          <div style={{ border: '2px solid red', padding: '4px' }}>
+            {(() => {
+              try {
+                return (
+                  <LightningWalletButton 
+                    variant="minimal" 
+                    className="p-1.5"
+                  />
+                );
+              } catch (error) {
+                console.error('LightningWalletButton error in ControlsBar:', error);
+                return (
+                  <button className="p-1.5 bg-gray-700 text-gray-300 rounded">
+                    ⚡ Error
+                  </button>
+                );
+              }
+            })()}
           </div>
+          {/* Test button */}
+          <button className="bg-red-500 text-white p-2 rounded">TEST</button>
+        </div>
 
             {/* Shuffle Button */}
             {showShuffle && onShuffle && (
@@ -254,20 +267,35 @@ export default function ControlsBar({
 
         {/* Right side - Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Lightning Wallet Button */}
-          <div className="flex items-center">
-            <LightningWalletButton 
-              variant="dropdown" 
-              showLabel={true}
-              className="hidden sm:block"
-            />
-            
-            {/* Mobile Lightning Button */}
-            <LightningWalletButton 
-              variant="minimal" 
-              className="sm:hidden"
-            />
-          </div>
+        {/* Lightning Wallet Button */}
+        <div className="flex items-center">
+          {(() => {
+            try {
+              return (
+                <>
+                  <LightningWalletButton 
+                    variant="dropdown" 
+                    showLabel={true}
+                    className="hidden sm:block"
+                  />
+                  
+                  {/* Mobile Lightning Button */}
+                  <LightningWalletButton 
+                    variant="minimal" 
+                    className="sm:hidden"
+                  />
+                </>
+              );
+            } catch (error) {
+              console.error('LightningWalletButton error in ControlsBar desktop:', error);
+              return (
+                <button className="p-2 bg-gray-700 text-gray-300 rounded">
+                  ⚡ Error
+                </button>
+              );
+            }
+          })()}
+        </div>
 
           {/* Shuffle Button */}
           {showShuffle && onShuffle && (
