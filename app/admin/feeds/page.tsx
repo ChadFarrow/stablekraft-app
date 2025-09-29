@@ -5,6 +5,6 @@ export default function FeedsAdminPage() {
 }
 
 export const metadata = {
-  title: 'Feed Manager - FUCKIT Music',
+  title: 'Feed Manager - StableKraft',
   description: 'Manage RSS feeds and music sources',
 };

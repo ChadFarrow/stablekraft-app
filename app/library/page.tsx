@@ -5,6 +5,6 @@ export default function LibraryPage() {
 }
 
 export const metadata = {
-  title: 'Music Library - FUCKIT Music',
+  title: 'Music Library - StableKraft',
   description: 'Browse and play music from your database-driven collection',
 };

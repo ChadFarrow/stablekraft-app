@@ -1,4 +1,4 @@
-# Adding New Playlists to FUCKIT
+# Adding New Playlists to StableKraft
 
 ## Quick Start (5 minutes to 96%+ resolution!)
 

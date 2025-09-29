@@ -82,7 +82,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
       // Initialize Bitcoin Connect only when needed
       bitcoinConnect.init({
-        appName: 'FUCKIT Music',
+        appName: 'StableKraft',
         // Allow all connection methods by not specifying filters
       });
       console.log('Bitcoin Connect initialized');

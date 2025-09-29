@@ -1,4 +1,4 @@
-# FUCKIT Development Startup Guide
+# StableKraft Development Startup Guide
 
 ## Prerequisites
 

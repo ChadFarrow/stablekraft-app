@@ -18,7 +18,7 @@ export default function LightningTestDashboard() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [customAmount, setCustomAmount] = useState(21);
-  const [customMessage, setCustomMessage] = useState('Test boost from FUCKIT Music');
+  const [customMessage, setCustomMessage] = useState('Test boost from StableKraft');
 
   const addTestResult = (test: string, status: TestResult['status'], message: string, details?: any) => {
     setTestResults(prev => [...prev, { test, status, message, details }]);

@@ -107,7 +107,7 @@ export function BoostButton({
         try {
           // Create Helipad metadata for the boost
           const helipadMetadata = {
-            app_name: 'FUCKIT',
+            app_name: 'StableKraft',
             app_version: '1.0.0',
             podcast: trackTitle || 'Unknown Track',
             episode: trackTitle || 'Unknown Episode',
@@ -225,7 +225,7 @@ export function BoostButton({
       if (platformNodePubkey) {
         try {
           const helipadMetadata = {
-            app_name: 'FUCKIT Lightning',
+            app_name: 'StableKraft',
             app_version: '1.0.0',
             podcast: trackTitle || 'Unknown Track',
             episode: trackTitle || 'Unknown Episode',
