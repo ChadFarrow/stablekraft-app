@@ -211,31 +211,50 @@ export function BoostButton({
   const sendPlatformFeeMetaboost = async (): Promise<void> => {
     const platformFee = LIGHTNING_CONFIG.platform.fee || 2;
     const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
+    const platformLightningAddress = 'lushnessprecious644398@getalby.com';
 
-    if (!platformNodePubkey) {
-      console.warn('No platform node pubkey configured for metaboost');
+    if (!platformNodePubkey && !platformLightningAddress) {
+      console.warn('No platform node pubkey or Lightning Address configured for metaboost');
       return;
     }
 
     try {
       const metaboostMessage = `Metaboost for ${trackTitle || 'track'} - Platform fee`;
       
-      const helipadMetadata = {
-        app_name: 'FUCKIT Lightning',
-        app_version: '1.0.0',
-        podcast: trackTitle || 'Unknown Track',
-        episode: trackTitle || 'Unknown Episode',
-        ts: Math.floor(Date.now() / 1000),
-        action: 'metaboost',
-        url: typeof window !== 'undefined' ? window.location.href : '',
-        name: 'Platform Fee',
-        value_msat: platformFee * 1000,
-        sender_name: senderName || undefined,
-        message: metaboostMessage,
-      };
-      await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
+      // Try keysend first, fallback to Lightning Address
+      if (platformNodePubkey) {
+        try {
+          const helipadMetadata = {
+            app_name: 'FUCKIT Lightning',
+            app_version: '1.0.0',
+            podcast: trackTitle || 'Unknown Track',
+            episode: trackTitle || 'Unknown Episode',
+            ts: Math.floor(Date.now() / 1000),
+            action: 'metaboost',
+            url: typeof window !== 'undefined' ? window.location.href : '',
+            name: 'Platform Fee',
+            value_msat: platformFee * 1000,
+            sender_name: senderName || undefined,
+            message: metaboostMessage,
+          };
+          await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
+          console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
+          return;
+        } catch (keysendError) {
+          console.warn('Keysend failed, trying Lightning Address fallback:', keysendError);
+        }
+      }
       
-      console.log(`✅ Platform fee metaboost sent: ${platformFee} sats`);
+      // Fallback to Lightning Address
+      if (platformLightningAddress) {
+        const { invoice } = await LNURLService.payLightningAddress(
+          platformLightningAddress,
+          platformFee,
+          metaboostMessage
+        );
+        await sendPayment(invoice);
+        console.log(`✅ Platform fee metaboost sent via Lightning Address: ${platformFee} sats`);
+      }
     } catch (error) {
       console.error('Platform fee metaboost failed:', error);
       throw error;
