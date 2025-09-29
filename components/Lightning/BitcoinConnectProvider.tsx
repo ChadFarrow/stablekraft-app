@@ -19,20 +19,13 @@ interface BitcoinConnectContextType {
       app_version?: string;
       podcast?: string;
       episode?: string;
+      ts?: number;
       action?: string;
-      feed?: string;
       url?: string;
       message?: string;
-      feedId?: string;
-      episode_guid?: string;
-      remote_item_guid?: string;
-      remote_feed_guid?: string;
-      album?: string;
-      value_msat_total?: number;
-      sender_name?: string;
-      uuid?: string;
-      value_msat?: number;
       name?: string;
+      value_msat?: number;
+      sender_name?: string;
     }
   ) => Promise<{ preimage?: string; error?: string }>;
   isLoading: boolean;
@@ -165,20 +158,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       app_version?: string;
       podcast?: string;
       episode?: string;
+      ts?: number;
       action?: string;
-      feed?: string;
       url?: string;
       message?: string;
-      feedId?: string;
-      episode_guid?: string;
-      remote_item_guid?: string;
-      remote_feed_guid?: string;
-      album?: string;
-      value_msat_total?: number;
-      sender_name?: string;
-      uuid?: string;
-      value_msat?: number;
       name?: string;
+      value_msat?: number;
+      sender_name?: string;
     }
   ): Promise<{ preimage?: string; error?: string }> => {
     try {
