@@ -37,13 +37,12 @@ export default function LightningTestDashboard() {
     try {
       const config = {
         network: LIGHTNING_CONFIG.network,
-        platformAddress: LIGHTNING_CONFIG.platform.address,
         nodePubkey: LIGHTNING_CONFIG.platform.nodePublicKey,
         nwcRelay: LIGHTNING_CONFIG.nwc.relayUrl,
       };
       
-      if (!config.platformAddress) {
-        addTestResult('Configuration', 'error', 'Platform Lightning Address not configured');
+      if (!config.nodePubkey) {
+        addTestResult('Configuration', 'error', 'Platform Node Pubkey not configured');
       } else {
         addTestResult('Configuration', 'success', 'Configuration looks good', config);
       }
@@ -73,18 +72,14 @@ export default function LightningTestDashboard() {
     // Test 3: LNURL Service
     addTestResult('LNURL Service', 'pending', 'Testing LNURL service...');
     try {
-      const testAddress = LIGHTNING_CONFIG.platform.address;
-      
-      if (testAddress && LNURLService.isLightningAddress(testAddress)) {
-        const payParams = await LNURLService.resolveLightningAddress(testAddress);
-        addTestResult('LNURL Service', 'success', 'LNURL service working', {
-          callback: payParams.callback,
-          minSendable: payParams.minSendable,
-          maxSendable: payParams.maxSendable
-        });
-      } else {
-        addTestResult('LNURL Service', 'error', 'Invalid Lightning Address format');
-      }
+      // Test with a known Lightning Address
+      const testAddress = 'chadf@getalby.com';
+      const payParams = await LNURLService.resolveLightningAddress(testAddress);
+      addTestResult('LNURL Service', 'success', 'LNURL service working', {
+        callback: payParams.callback,
+        minSendable: payParams.minSendable,
+        maxSendable: payParams.maxSendable
+      });
     } catch (error) {
       addTestResult('LNURL Service', 'error', `LNURL error: ${error}`);
     }
@@ -96,10 +91,8 @@ export default function LightningTestDashboard() {
         // Test with a small amount
         const testAmount = 1; // 1 satoshi for testing
         
-        if (LIGHTNING_CONFIG.platform.address) {
-          const { invoice } = await LNURLService.payLightningAddress(LIGHTNING_CONFIG.platform.address, testAmount, 'Test payment');
-          
-          const result = await sendPayment(invoice);
+        if (LIGHTNING_CONFIG.platform.nodePublicKey) {
+          const result = await sendKeysend(LIGHTNING_CONFIG.platform.nodePublicKey, testAmount, 'Test payment');
           
           if (result.preimage) {
             addTestResult('Payment Test', 'success', 'Payment test successful!', {
@@ -110,7 +103,7 @@ export default function LightningTestDashboard() {
             addTestResult('Payment Test', 'error', `Payment failed: ${result.error}`);
           }
         } else {
-          addTestResult('Payment Test', 'error', 'No platform address configured for testing');
+          addTestResult('Payment Test', 'error', 'No platform node pubkey configured for testing');
         }
       } catch (error) {
         addTestResult('Payment Test', 'error', `Payment test error: ${error}`);
@@ -131,10 +124,8 @@ export default function LightningTestDashboard() {
     addTestResult('Custom Boost', 'pending', `Sending ${customAmount} sats boost...`);
     
     try {
-      if (LIGHTNING_CONFIG.platform.address) {
-        const { invoice } = await LNURLService.payLightningAddress(LIGHTNING_CONFIG.platform.address, customAmount, customMessage);
-        
-        const result = await sendPayment(invoice);
+      if (LIGHTNING_CONFIG.platform.nodePublicKey) {
+        const result = await sendKeysend(LIGHTNING_CONFIG.platform.nodePublicKey, customAmount, customMessage);
         
         if (result.preimage) {
           addTestResult('Custom Boost', 'success', 'Custom boost sent successfully!', {
@@ -146,7 +137,7 @@ export default function LightningTestDashboard() {
           addTestResult('Custom Boost', 'error', `Boost failed: ${result.error}`);
         }
       } else {
-        addTestResult('Custom Boost', 'error', 'No platform address configured');
+        addTestResult('Custom Boost', 'error', 'No platform node pubkey configured');
       }
     } catch (error) {
       addTestResult('Custom Boost', 'error', `Boost error: ${error}`);

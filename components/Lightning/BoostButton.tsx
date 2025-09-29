@@ -152,8 +152,7 @@ export function BoostButton({
           senderName,
           preimage: result.preimage,
           paymentMethod: lightningAddress ? 'lightning-address' :
-                        valueSplits?.length ? 'value-splits' :
-                        (LIGHTNING_CONFIG.platform.address && LNURLService.isLightningAddress(LIGHTNING_CONFIG.platform.address)) ? 'platform-lightning-address' : 'keysend',
+                        valueSplits?.length ? 'value-splits' : 'keysend',
         });
 
         // Close modal after success
@@ -211,41 +210,30 @@ export function BoostButton({
   // Send 2 sat platform fee metaboost
   const sendPlatformFeeMetaboost = async (): Promise<void> => {
     const platformFee = LIGHTNING_CONFIG.platform.fee || 2;
-    const platformAddress = LIGHTNING_CONFIG.platform.address;
     const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
 
-    if (!platformAddress && !platformNodePubkey) {
-      console.warn('No platform address or node pubkey configured for metaboost');
+    if (!platformNodePubkey) {
+      console.warn('No platform node pubkey configured for metaboost');
       return;
     }
 
     try {
       const metaboostMessage = `Metaboost for ${trackTitle || 'track'} - Platform fee`;
       
-      // Try Lightning Address first, then node pubkey
-      if (platformAddress && LNURLService.isLightningAddress(platformAddress)) {
-        const { invoice } = await LNURLService.payLightningAddress(
-          platformAddress,
-          platformFee,
-          metaboostMessage
-        );
-        await sendPayment(invoice);
-      } else if (platformNodePubkey) {
-        const helipadMetadata = {
-          app_name: 'FUCKIT Lightning',
-          app_version: '1.0.0',
-          podcast: trackTitle || 'Unknown Track',
-          episode: trackTitle || 'Unknown Episode',
-          ts: Math.floor(Date.now() / 1000),
-          action: 'metaboost',
-          url: typeof window !== 'undefined' ? window.location.href : '',
-          name: 'Platform Fee',
-          value_msat: platformFee * 1000,
-          sender_name: senderName || undefined,
-          message: metaboostMessage,
-        };
-        await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
-      }
+      const helipadMetadata = {
+        app_name: 'FUCKIT Lightning',
+        app_version: '1.0.0',
+        podcast: trackTitle || 'Unknown Track',
+        episode: trackTitle || 'Unknown Episode',
+        ts: Math.floor(Date.now() / 1000),
+        action: 'metaboost',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        name: 'Platform Fee',
+        value_msat: platformFee * 1000,
+        sender_name: senderName || undefined,
+        message: metaboostMessage,
+      };
+      await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
       
       console.log(`✅ Platform fee metaboost sent: ${platformFee} sats`);
     } catch (error) {
@@ -276,7 +264,7 @@ export function BoostButton({
           message: data.message,
           senderName: data.senderName,
           type: data.paymentMethod || 'unknown',
-          recipient: lightningAddress || LIGHTNING_CONFIG.platform.address || 'unknown',
+          recipient: lightningAddress || 'unknown',
           preimage: data.preimage,
         }),
       });
@@ -345,11 +333,6 @@ export function BoostButton({
                         ))}
                       </div>
                     </div>
-                  ) : LIGHTNING_CONFIG.platform.address && LNURLService.isLightningAddress(LIGHTNING_CONFIG.platform.address) ? (
-                    <>
-                      <Mail className="w-3 h-3 text-blue-400" />
-                      <span className="text-blue-400">Platform: {LIGHTNING_CONFIG.platform.address}</span>
-                    </>
                   ) : (
                     <>
                       <Zap className="w-3 h-3 text-gray-400" />

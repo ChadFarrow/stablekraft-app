@@ -27,9 +27,9 @@ export default function LightningConfigDebug() {
         </div>
         
         <div>
-          <span className="text-gray-500">Platform Address:</span>
+          <span className="text-gray-500">Platform Node Pubkey:</span>
           <div className="ml-2 text-gray-400 break-all">
-            {LIGHTNING_CONFIG.platform.address || 'not set'}
+            {LIGHTNING_CONFIG.platform.nodePublicKey || 'not set'}
           </div>
         </div>
         

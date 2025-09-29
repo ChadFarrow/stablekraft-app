@@ -65,18 +65,7 @@ export async function POST(req: NextRequest) {
     const value4ValueConfig = await getTrackValue4ValueConfig(trackId);
 
     if (!value4ValueConfig || value4ValueConfig.recipients.length === 0) {
-      // Fallback to platform's lightning address if no V4V config
-      if (LIGHTNING_CONFIG.platform.address) {
-        const lnAddress = LIGHTNING_CONFIG.platform.address;
-        const { invoice } = await LNURLService.payLightningAddress(lnAddress, amount, message);
-        return NextResponse.json({ 
-          invoice,
-          paymentMethod: 'platform-lightning-address',
-          recipient: lnAddress,
-          amount 
-        });
-      }
-      return NextResponse.json({ error: 'No Value4Value configuration found and no platform lightning address set.' }, { status: 404 });
+      return NextResponse.json({ error: 'No Value4Value configuration found for this track.' }, { status: 404 });
     }
 
     // Validate value splits
