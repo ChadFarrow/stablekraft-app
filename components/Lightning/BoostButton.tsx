@@ -204,6 +204,7 @@ export function BoostButton({
     feedId?: string;
     amount: number;
     message?: string;
+    senderName?: string;
     preimage?: string;
     paymentMethod?: string;
   }) => {
@@ -218,6 +219,7 @@ export function BoostButton({
           artistName,
           amount: data.amount,
           message: data.message,
+          senderName: data.senderName,
           type: data.paymentMethod || 'unknown',
           recipient: lightningAddress || LIGHTNING_CONFIG.platform.address || 'unknown',
           preimage: data.preimage,
@@ -390,7 +392,7 @@ export function BoostButton({
                   <>
                     <Send className="w-4 h-4" />
                     <span>
-                      Send {customAmount || selectedAmount} sats
+                      Send {customAmount} sats
                     </span>
                   </>
                 )}
