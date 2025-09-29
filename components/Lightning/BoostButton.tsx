@@ -80,11 +80,14 @@ export function BoostButton({
       let result: { preimage?: string; error?: string } = { error: 'No payment method configured' };
 
       // Determine payment destination priority:
-      // 1. Lightning Address (if provided)
-      // 2. Value splits (if configured)
-      // 3. Platform default node pubkey
+      // 1. Value splits (if configured) - highest priority
+      // 2. Lightning Address (if provided)
+      // 3. Node pubkey via keysend
 
-      if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
+      if (valueSplits && valueSplits.length > 0) {
+        // Use value splits for multiple recipients (highest priority)
+        result = await sendValueSplitPayments(amount, message);
+      } else if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
         // Pay to Lightning Address via LNURL-pay
 
         try {
@@ -122,9 +125,6 @@ export function BoostButton({
           console.error('Keysend payment failed:', keysendError);
           result = { error: `Keysend payment failed: ${keysendError instanceof Error ? keysendError.message : 'Unknown error'}` };
         }
-      } else if (valueSplits && valueSplits.length > 0) {
-        // Use value splits for multiple recipients
-        result = await sendValueSplitPayments(amount, message);
       } else {
         // No V4V data available - no payment should be possible
         result = { error: 'No Value4Value configuration found for this track' };
