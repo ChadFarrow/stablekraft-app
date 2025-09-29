@@ -161,8 +161,8 @@ export function BoostButton({
           message,
           senderName,
           preimage: result.preimage,
-          paymentMethod: lightningAddress ? 'lightning-address' :
-                        valueSplits?.length ? 'value-splits' : 'keysend',
+          paymentMethod: valueSplits?.length ? 'value-splits' : 
+                        lightningAddress ? 'lightning-address' : 'keysend',
         });
 
         // Close modal after success
@@ -317,6 +317,14 @@ export function BoostButton({
     paymentMethod?: string;
   }) => {
     try {
+      // Determine recipient based on payment method
+      let recipient = 'unknown';
+      if (valueSplits?.length) {
+        recipient = `${valueSplits.length} recipients`;
+      } else if (lightningAddress) {
+        recipient = lightningAddress;
+      }
+
       await fetch('/api/lightning/log-boost', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -329,7 +337,7 @@ export function BoostButton({
           message: data.message,
           senderName: data.senderName,
           type: data.paymentMethod || 'unknown',
-          recipient: lightningAddress || 'unknown',
+          recipient: recipient,
           preimage: data.preimage,
         }),
       });
