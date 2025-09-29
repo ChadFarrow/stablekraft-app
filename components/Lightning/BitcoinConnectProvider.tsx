@@ -201,29 +201,30 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       // Add Helipad metadata if provided
-      if (helipadMetadata) {
-        // TLV record 7629169 is used for Helipad metadata (JSON)
-        const helipadJson = JSON.stringify(helipadMetadata);
-        customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
-        
-        // TLV record 7629171 is used for message (plain text)
-        if (helipadMetadata.message) {
-          customRecords['7629171'] = Buffer.from(helipadMetadata.message).toString('hex');
-        }
-        
-        // TLV record 133773310 is used for boostagram (JSON)
-        const boostagramData = {
-          podcast: helipadMetadata.podcast,
-          episode: helipadMetadata.episode,
-          action: helipadMetadata.action,
-          app: helipadMetadata.app_name,
-          message: helipadMetadata.message,
-          amount: Math.floor((helipadMetadata.value_msat || 0) / 1000), // Convert msats to sats
-          sender: helipadMetadata.sender_name
-        };
-        const boostagramJson = JSON.stringify(boostagramData);
-        customRecords['133773310'] = Buffer.from(boostagramJson).toString('hex');
-      }
+      // TEMPORARILY DISABLED - Causing FAILURE_REASON_NO_ROUTE errors
+      // if (helipadMetadata) {
+      //   // TLV record 7629169 is used for Helipad metadata (JSON)
+      //   const helipadJson = JSON.stringify(helipadMetadata);
+      //   customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
+      //   
+      //   // TLV record 7629171 is used for message (plain text)
+      //   if (helipadMetadata.message) {
+      //     customRecords['7629171'] = Buffer.from(helipadMetadata.message).toString('hex');
+      //   }
+      //   
+      //   // TLV record 133773310 is used for boostagram (JSON)
+      //   const boostagramData = {
+      //     podcast: helipadMetadata.podcast,
+      //     episode: helipadMetadata.episode,
+      //     action: helipadMetadata.action,
+      //     app: helipadMetadata.app_name,
+      //     message: helipadMetadata.message,
+      //     amount: Math.floor((helipadMetadata.value_msat || 0) / 1000), // Convert msats to sats
+      //     sender: helipadMetadata.sender_name
+      //   };
+      //   const boostagramJson = JSON.stringify(boostagramData);
+      //   customRecords['133773310'] = Buffer.from(boostagramJson).toString('hex');
+      // }
 
       if (!currentProvider.keysend) {
         return { error: 'Keysend not supported by wallet' };
