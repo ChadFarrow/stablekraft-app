@@ -110,21 +110,21 @@ export function BoostButton({
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'boost',
-            app_name: 'StableKraft',
-            feed: typeof window !== 'undefined' ? window.location.href : '',
-            url: typeof window !== 'undefined' ? window.location.href : '',
+            app_name: 'ITDV Lightning',
+            feed: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+            url: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
             message: message || '',
-            feedId: feedId || '',
-            episode_guid: trackId || '',
-            remote_item_guid: trackId || '',
-            remote_feed_guid: feedId || '',
+            feedId: '6590182',
+            episode_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+            remote_item_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+            remote_feed_guid: 'af99d1b4-e10e-503f-8321-8d748bdc76f8',
             album: trackTitle || 'Unknown Track',
             value_msat_total: amount * 1000,
             sender_name: senderName || '',
             uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: amount * 1000,
-            name: 'StableKraft'
+            name: 'ITDV Lightning'
           };
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
@@ -199,21 +199,21 @@ export function BoostButton({
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
         action: 'boost',
-        app_name: 'StableKraft',
-        feed: typeof window !== 'undefined' ? window.location.href : '',
-        url: typeof window !== 'undefined' ? window.location.href : '',
+        app_name: 'ITDV Lightning',
+        feed: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+        url: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
         message: message || '',
-        feedId: feedId || '',
-        episode_guid: trackId || '',
-        remote_item_guid: trackId || '',
-        remote_feed_guid: feedId || '',
+        feedId: '6590182',
+        episode_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+        remote_item_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+        remote_feed_guid: 'af99d1b4-e10e-503f-8321-8d748bdc76f8',
         album: trackTitle || 'Unknown Track',
         value_msat_total: totalAmount * 1000,
         sender_name: senderName || '',
         uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         app_version: '1.0.0',
         value_msat: totalAmount * 1000,
-        name: 'StableKraft'
+        name: 'ITDV Lightning'
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
@@ -258,21 +258,21 @@ export function BoostButton({
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'metaboost',
-            app_name: 'StableKraft',
-            feed: typeof window !== 'undefined' ? window.location.href : '',
-            url: typeof window !== 'undefined' ? window.location.href : '',
+            app_name: 'ITDV Lightning',
+            feed: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+            url: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
             message: metaboostMessage,
-            feedId: feedId || '',
-            episode_guid: trackId || '',
-            remote_item_guid: trackId || '',
-            remote_feed_guid: feedId || '',
+            feedId: '6590182',
+            episode_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+            remote_item_guid: '514b299d-935b-4424-9ab4-62eecf7ef0a7',
+            remote_feed_guid: 'af99d1b4-e10e-503f-8321-8d748bdc76f8',
             album: trackTitle || 'Unknown Track',
             value_msat_total: platformFee * 1000,
             sender_name: senderName || '',
             uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: platformFee * 1000,
-            name: 'Platform Fee'
+            name: 'ITDV Lightning'
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
