@@ -317,6 +317,8 @@ export function BoostButton({
     paymentMethod?: string;
   }) => {
     try {
+      console.log('🔍 logBoost called with data:', data);
+      
       // Determine recipient based on payment method
       let recipient = 'unknown';
       if (valueSplits?.length) {
@@ -325,24 +327,38 @@ export function BoostButton({
         recipient = lightningAddress;
       }
 
-      await fetch('/api/lightning/log-boost', {
+      const payload = {
+        trackId: data.trackId,
+        feedId: data.feedId,
+        trackTitle,
+        artistName,
+        amount: data.amount,
+        message: data.message,
+        senderName: data.senderName,
+        type: data.paymentMethod || 'unknown',
+        recipient: recipient,
+        preimage: data.preimage,
+      };
+
+      console.log('🔍 logBoost sending payload:', payload);
+
+      const response = await fetch('/api/lightning/log-boost', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trackId: data.trackId,
-          feedId: data.feedId,
-          trackTitle,
-          artistName,
-          amount: data.amount,
-          message: data.message,
-          senderName: data.senderName,
-          type: data.paymentMethod || 'unknown',
-          recipient: recipient,
-          preimage: data.preimage,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('🔍 logBoost response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ logBoost failed:', response.status, errorText);
+      } else {
+        const result = await response.json();
+        console.log('✅ logBoost success:', result);
+      }
     } catch (err) {
-      console.error('Failed to log boost:', err);
+      console.error('❌ Failed to log boost:', err);
     }
   };
 
