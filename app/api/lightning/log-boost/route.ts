@@ -17,9 +17,13 @@ const boostLog: Array<{
 
 export async function POST(req: NextRequest) {
   try {
-    const { trackId, feedId, trackTitle, artistName, amount, message, type, recipient, preimage } = await req.json();
+    const body = await req.json();
+    console.log('🔍 Log-boost API received:', body);
+    
+    const { trackId, feedId, trackTitle, artistName, amount, message, type, recipient, preimage } = body;
 
     if (!trackId || !amount || !type || !recipient) {
+      console.log('❌ Missing required fields:', { trackId, amount, type, recipient });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
