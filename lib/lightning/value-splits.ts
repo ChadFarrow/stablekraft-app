@@ -79,8 +79,15 @@ export class ValueSplitsService {
     console.log(`⚡ Sending multi-recipient payment: ${totalAmount} sats to ${splitAmounts.length} recipients`);
 
     // Process each recipient
-    for (const { recipient, amount } of splitAmounts) {
+    for (let i = 0; i < splitAmounts.length; i++) {
+      const { recipient, amount } = splitAmounts[i];
       console.log(`💸 Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%)`);
+
+      // Add delay between payments to prevent rapid sequential keysend failures
+      if (i > 0) {
+        console.log(`⏳ Waiting 2 seconds before next payment...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
 
       let result: PaymentResult;
 
