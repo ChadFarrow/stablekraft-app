@@ -8,12 +8,10 @@ The following environment variables need to be configured in Railway for the Lig
 
 ```bash
 # Lightning Network Configuration
-NEXT_PUBLIC_LIGHTNING_NETWORK=testnet
 # Options: 'mainnet', 'testnet', 'regtest'
 # Recommended: 'testnet' for development, 'mainnet' for production
 
 # Platform Lightning Address (for receiving payments)
-NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=chadf@getalby.com
 # This is where platform fees/donations will be sent
 # Format: username@domain.com
 
@@ -27,17 +25,14 @@ NEXT_PUBLIC_PLATFORM_NODE_PUBKEY=
 
 ```bash
 # NWC Relay URL
-NEXT_PUBLIC_NWC_RELAY_URL=wss://relay.getalby.com
 # WebSocket URL for Nostr Wallet Connect relay
 # Default: wss://relay.getalby.com
 
 # Nostr Integration (Optional)
-NEXT_PUBLIC_NOSTR_ENABLED=false
 # Enable Nostr social features
 # Options: 'true', 'false'
 
 # Nostr Relays (Optional)
-NEXT_PUBLIC_NOSTR_RELAYS=wss://relay.damus.io,wss://relay.primal.net
 # Comma-separated list of Nostr relay URLs
 # Only used if NEXT_PUBLIC_NOSTR_ENABLED=true
 ```
@@ -46,7 +41,6 @@ NEXT_PUBLIC_NOSTR_RELAYS=wss://relay.damus.io,wss://relay.primal.net
 
 ```bash
 # Helipad Webhook System (Optional)
-NEXT_PUBLIC_HELIPAD_ENABLED=false
 # Enable Helipad for boost notifications
 # Options: 'true', 'false'
 
@@ -82,12 +76,7 @@ railway login
 railway link
 
 # Set environment variables
-railway variables set NEXT_PUBLIC_LIGHTNING_NETWORK=testnet
-railway variables set NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=chadf@getalby.com
-railway variables set NEXT_PUBLIC_NWC_RELAY_URL=wss://relay.getalby.com
-railway variables set NEXT_PUBLIC_NOSTR_ENABLED=false
-railway variables set NEXT_PUBLIC_HELIPAD_ENABLED=false
-
+railway variables set railway variables set railway variables set railway variables set railway variables set 
 # Deploy changes
 railway up
 ```
@@ -98,12 +87,7 @@ For a production deployment, use these settings:
 
 ```bash
 # Production Lightning Configuration
-NEXT_PUBLIC_LIGHTNING_NETWORK=mainnet
-NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=your-email@your-domain.com
 NEXT_PUBLIC_PLATFORM_NODE_PUBKEY=your-node-pubkey-here
-NEXT_PUBLIC_NWC_RELAY_URL=wss://relay.getalby.com
-NEXT_PUBLIC_NOSTR_ENABLED=false
-NEXT_PUBLIC_HELIPAD_ENABLED=false
 ```
 
 ## 🧪 **Test Configuration**
@@ -112,12 +96,7 @@ For testing and development:
 
 ```bash
 # Test Lightning Configuration
-NEXT_PUBLIC_LIGHTNING_NETWORK=testnet
-NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=chadf@getalby.com
 NEXT_PUBLIC_PLATFORM_NODE_PUBKEY=
-NEXT_PUBLIC_NWC_RELAY_URL=wss://relay.getalby.com
-NEXT_PUBLIC_NOSTR_ENABLED=false
-NEXT_PUBLIC_HELIPAD_ENABLED=false
 ```
 
 ## 🔍 **Verification Steps**

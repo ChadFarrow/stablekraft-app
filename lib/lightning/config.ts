@@ -1,8 +1,5 @@
 // Lightning Network Configuration
 export const LIGHTNING_CONFIG = {
-  // Network configuration
-  network: process.env.NEXT_PUBLIC_LIGHTNING_NETWORK || 'mainnet',
-
   // Platform configuration for fee collection
   platform: {
     nodePublicKey: process.env.NEXT_PUBLIC_PLATFORM_NODE_PUBKEY || '',
@@ -27,29 +24,6 @@ export const LIGHTNING_CONFIG = {
     placeholder: 'Send a message with your boost...',
   },
 
-  // NWC Configuration
-  nwc: {
-    relayUrl: process.env.NEXT_PUBLIC_NWC_RELAY_URL || 'wss://relay.getalby.com',
-    enabled: true,
-  },
-
-  // Nostr Configuration
-  nostr: {
-    enabled: process.env.NEXT_PUBLIC_NOSTR_ENABLED === 'true',
-    relays: process.env.NEXT_PUBLIC_NOSTR_RELAYS?.split(',') || [
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://relay.snort.social',
-      'wss://nostr-relay.nokotaro.com',
-      'wss://relay.nostr.band',
-    ],
-  },
-
-  // Helipad Configuration
-  helipad: {
-    enabled: process.env.NEXT_PUBLIC_HELIPAD_ENABLED === 'true',
-    webhookEndpoint: '/api/helipad-webhook',
-  },
 
   // UI Configuration
   ui: {

@@ -36,9 +36,7 @@ export default function LightningTestDashboard() {
     addTestResult('Configuration', 'pending', 'Checking Lightning configuration...');
     try {
       const config = {
-        network: LIGHTNING_CONFIG.network,
         nodePubkey: LIGHTNING_CONFIG.platform.nodePublicKey,
-        nwcRelay: LIGHTNING_CONFIG.nwc.relayUrl,
       };
       
       if (!config.nodePubkey) {

@@ -40,8 +40,6 @@
 
 **Environment Configuration:**
 - `.env.local` updated with Lightning settings
-- `NEXT_PUBLIC_LIGHTNING_NETWORK=testnet`
-- `NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=chadf@getalby.com`
 
 ### 🧪 Current Testing Status
 

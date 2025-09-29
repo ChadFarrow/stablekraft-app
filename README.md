@@ -114,6 +114,9 @@ DATABASE_URL="postgresql://..."
 PODCAST_INDEX_API_KEY="your_key"
 PODCAST_INDEX_API_SECRET="your_secret"
 
+# Lightning Network Configuration
+NEXT_PUBLIC_PLATFORM_NODE_PUBKEY="your_node_pubkey_here"
+
 # Optional: Additional service keys
 ```
 

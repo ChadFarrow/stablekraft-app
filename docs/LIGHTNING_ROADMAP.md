@@ -151,19 +151,8 @@ The site now has comprehensive value for value data including:
 
 ```env
 # Lightning Configuration (Railway Production)
-NEXT_PUBLIC_LIGHTNING_NETWORK=mainnet
-NEXT_PUBLIC_PLATFORM_LIGHTNING_ADDRESS=chadf@getalby.com
 NEXT_PUBLIC_PLATFORM_NODE_PUBKEY=your_node_pubkey
 
-# NWC Configuration
-NEXT_PUBLIC_NWC_RELAY_URL=wss://relay.getalby.com
-
-# Nostr Configuration (Optional)
-NEXT_PUBLIC_NOSTR_ENABLED=false
-NEXT_PUBLIC_NOSTR_RELAYS=wss://relay.damus.io,wss://relay.primal.net
-
-# Helipad Configuration (Optional)
-NEXT_PUBLIC_HELIPAD_ENABLED=false
 ```
 
 ---
