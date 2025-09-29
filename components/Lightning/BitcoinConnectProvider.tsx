@@ -204,11 +204,11 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if (helipadMetadata) {
         // TLV record 7629169 is used for Helipad metadata (JSON)
         const helipadJson = JSON.stringify(helipadMetadata);
-        customRecords['7629169'] = helipadJson; // Send as string, not hex
+        customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
         
         // TLV record 7629171 is used for message (plain text)
         if (helipadMetadata.message) {
-          customRecords['7629171'] = helipadMetadata.message; // Send as string, not hex
+          customRecords['7629171'] = Buffer.from(helipadMetadata.message).toString('hex');
         }
         
         // TLV record 133773310 is used for boostagram (JSON)
@@ -222,7 +222,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           sender: helipadMetadata.sender_name
         };
         const boostagramJson = JSON.stringify(boostagramData);
-        customRecords['133773310'] = boostagramJson; // Send as string, not hex
+        customRecords['133773310'] = Buffer.from(boostagramJson).toString('hex');
       }
 
       if (!currentProvider.keysend) {
