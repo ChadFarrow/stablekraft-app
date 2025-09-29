@@ -67,8 +67,9 @@ export class ValueSplitsService {
     recipients: ValueRecipient[],
     totalAmount: number,
     sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>,
-    sendKeysend: (pubkey: string, amount: number, message?: string) => Promise<{ preimage?: string; error?: string }>,
-    message?: string
+    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
+    message?: string,
+    helipadMetadata?: any
   ): Promise<MultiRecipientResult> {
     const splitAmounts = this.calculateSplitAmounts(recipients, totalAmount);
     const successfulPayments: ValueSplitPayment[] = [];
@@ -89,7 +90,7 @@ export class ValueSplitsService {
           result = await this.payLightningAddress(recipient, amount, message, sendPayment);
         } else if (recipient.type === 'node') {
           // Pay via keysend
-          result = await this.payKeysend(recipient, amount, message, sendKeysend);
+          result = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
         } else {
           result = {
             success: false,
@@ -180,10 +181,11 @@ export class ValueSplitsService {
     recipient: ValueRecipient,
     amount: number,
     message: string | undefined,
-    sendKeysend: (pubkey: string, amount: number, message?: string) => Promise<{ preimage?: string; error?: string }>
+    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
+    helipadMetadata?: any
   ): Promise<PaymentResult> {
     try {
-      const result = await sendKeysend(recipient.address, amount, message);
+      const result = await sendKeysend(recipient.address, amount, message, helipadMetadata);
       
       return {
         success: !result.error,

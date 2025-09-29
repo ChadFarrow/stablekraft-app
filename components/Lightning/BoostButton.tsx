@@ -116,8 +116,13 @@ export function BoostButton({
             url: typeof window !== 'undefined' ? window.location.href : '',
             name: artistName || 'Unknown Artist',
             value_msat: amount * 1000, // Convert sats to millisats
+            value_msat_total: amount * 1000, // Total amount for Helipad
             sender_name: senderName || undefined, // Include sender name if provided
             message: message || undefined, // Include message if provided
+            feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0, // Extract numeric ID from feedId
+            remote_feed_guid: feedId || '', // Use feedId as remote feed guid
+            remote_item_guid: trackId || '', // Use trackId as remote item guid
+            reply_address: lightningAddress, // Node pubkey for replies
           };
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
@@ -187,13 +192,34 @@ export function BoostButton({
         fee: false
       }));
 
+      // Create Helipad metadata for value splits
+      const helipadMetadata = {
+        app_name: 'StableKraft',
+        app_version: '1.0.0',
+        podcast: trackTitle || 'Unknown Track',
+        episode: trackTitle || 'Unknown Episode',
+        ts: Math.floor(Date.now() / 1000),
+        action: 'boost',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        name: artistName || 'Unknown Artist',
+        value_msat: totalAmount * 1000,
+        value_msat_total: totalAmount * 1000,
+        sender_name: senderName || undefined,
+        message: message || undefined,
+        feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
+        remote_feed_guid: feedId || '',
+        remote_item_guid: trackId || '',
+        reply_address: recipients.find(r => r.type === 'node')?.address || '',
+      };
+
       // Use ValueSplitsService for proper multi-recipient payments
       const result = await ValueSplitsService.sendMultiRecipientPayment(
         recipients,
         totalAmount,
         sendPayment,
         sendKeysend,
-        message
+        message,
+        helipadMetadata
       );
 
       if (!result.success) {
@@ -234,8 +260,13 @@ export function BoostButton({
             url: typeof window !== 'undefined' ? window.location.href : '',
             name: 'Platform Fee',
             value_msat: platformFee * 1000,
+            value_msat_total: platformFee * 1000,
             sender_name: senderName || undefined,
             message: metaboostMessage,
+            feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
+            remote_feed_guid: feedId || '',
+            remote_item_guid: trackId || '',
+            reply_address: platformNodePubkey,
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
