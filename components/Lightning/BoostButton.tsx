@@ -134,6 +134,15 @@ export function BoostButton({
         setError(result.error);
       } else {
         setSuccess(true);
+        
+        // Send 2 sat platform fee metaboost
+        try {
+          await sendPlatformFeeMetaboost();
+        } catch (feeError) {
+          console.warn('Platform fee metaboost failed:', feeError);
+          // Don't fail the main payment if the fee fails
+        }
+        
         // Log the boost to the database
         await logBoost({
           trackId,
@@ -196,6 +205,52 @@ export function BoostButton({
       return { preimage: result.primaryPreimage };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Value split payment failed' };
+    }
+  };
+
+  // Send 2 sat platform fee metaboost
+  const sendPlatformFeeMetaboost = async (): Promise<void> => {
+    const platformFee = LIGHTNING_CONFIG.platform.fee || 2;
+    const platformAddress = LIGHTNING_CONFIG.platform.address;
+    const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
+
+    if (!platformAddress && !platformNodePubkey) {
+      console.warn('No platform address or node pubkey configured for metaboost');
+      return;
+    }
+
+    try {
+      const metaboostMessage = `Metaboost for ${trackTitle || 'track'} - Platform fee`;
+      
+      // Try Lightning Address first, then node pubkey
+      if (platformAddress && LNURLService.isLightningAddress(platformAddress)) {
+        const { invoice } = await LNURLService.payLightningAddress(
+          platformAddress,
+          platformFee,
+          metaboostMessage
+        );
+        await sendPayment(invoice);
+      } else if (platformNodePubkey) {
+        const helipadMetadata = {
+          app_name: 'FUCKIT Lightning',
+          app_version: '1.0.0',
+          podcast: trackTitle || 'Unknown Track',
+          episode: trackTitle || 'Unknown Episode',
+          ts: Math.floor(Date.now() / 1000),
+          action: 'metaboost',
+          url: typeof window !== 'undefined' ? window.location.href : '',
+          name: 'Platform Fee',
+          value_msat: platformFee * 1000,
+          sender_name: senderName || undefined,
+          message: metaboostMessage,
+        };
+        await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
+      }
+      
+      console.log(`✅ Platform fee metaboost sent: ${platformFee} sats`);
+    } catch (error) {
+      console.error('Platform fee metaboost failed:', error);
+      throw error;
     }
   };
 
