@@ -253,6 +253,7 @@ export function BoostButton({
       
       // Try keysend first, fallback to Lightning Address
       if (platformNodePubkey) {
+        console.log(`🔑 Attempting keysend to platform node: ${platformNodePubkey}`);
         try {
           const helipadMetadata = {
             podcast: artistName || 'Unknown Artist',
@@ -278,8 +279,10 @@ export function BoostButton({
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
           return;
         } catch (keysendError) {
-          console.warn('Keysend failed, trying Lightning Address fallback:', keysendError);
+          console.error('❌ Keysend failed, trying Lightning Address fallback:', keysendError);
         }
+      } else {
+        console.warn('⚠️ No platform node pubkey configured, using Lightning Address fallback');
       }
       
       // Fallback to Lightning Address
