@@ -81,7 +81,7 @@ export class ValueSplitsService {
     // Process each recipient
     for (let i = 0; i < splitAmounts.length; i++) {
       const { recipient, amount } = splitAmounts[i];
-      console.log(`💸 Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%)`);
+      console.log(`💸 Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%) to ${recipient.address.slice(0, 20)}...`);
 
       // Add delay between payments to prevent rapid sequential keysend failures
       if (i > 0) {
@@ -96,8 +96,8 @@ export class ValueSplitsService {
           // Pay via Lightning Address
           result = await this.payLightningAddress(recipient, amount, message, sendPayment);
         } else if (recipient.type === 'node') {
-          // Pay via keysend
-          result = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
+          // Pay via keysend (without Helipad metadata for testing)
+          result = await this.payKeysend(recipient, amount, message, sendKeysend);
         } else {
           result = {
             success: false,
@@ -227,11 +227,11 @@ export class ValueSplitsService {
     recipient: ValueRecipient,
     amount: number,
     message: string | undefined,
-    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
-    helipadMetadata?: any
+    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>
   ): Promise<PaymentResult> {
     try {
-      const result = await sendKeysend(recipient.address, amount, message, helipadMetadata);
+      // Basic keysend without Helipad metadata for testing
+      const result = await sendKeysend(recipient.address, amount, message);
       
       return {
         success: !result.error,
