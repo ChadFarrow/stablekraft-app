@@ -194,14 +194,26 @@ export function BoostButton({
         fee: false
       }));
 
-      // Create minimal Helipad metadata for value splits
+      // Create Helipad metadata for value splits
       const helipadMetadata = {
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
         action: 'boost',
         app_name: 'ITDV Lightning',
+        feed: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+        url: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+        message: message || '',
+        feedId: '6590183',
+        episode_guid: 'e3cbc185-dfaa-4eff-b430-99eed9551c98',
+        remote_item_guid: 'e3cbc185-dfaa-4eff-b430-99eed9551c98',
+        remote_feed_guid: 'a1077af6-602b-5daf-957b-68a65a03cad1',
+        album: trackTitle || 'Unknown Track',
+        value_msat_total: totalAmount * 1000,
+        sender_name: senderName || '',
+        uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        app_version: '1.0.0',
         value_msat: totalAmount * 1000,
-        sender_name: senderName || ''
+        name: 'ITDV Lightning'
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
@@ -248,8 +260,20 @@ export function BoostButton({
             episode: trackTitle || 'Unknown Track',
             action: 'metaboost',
             app_name: 'ITDV Lightning',
+            feed: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+            url: feedId ? `https://www.doerfelverse.com/feeds/${feedId}.xml` : '',
+            message: metaboostMessage,
+            feedId: '6590183',
+            episode_guid: 'e3cbc185-dfaa-4eff-b430-99eed9551c98',
+            remote_item_guid: 'e3cbc185-dfaa-4eff-b430-99eed9551c98',
+            remote_feed_guid: 'a1077af6-602b-5daf-957b-68a65a03cad1',
+            album: trackTitle || 'Unknown Track',
+            value_msat_total: platformFee * 1000,
+            sender_name: senderName || '',
+            uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            app_version: '1.0.0',
             value_msat: platformFee * 1000,
-            sender_name: senderName || ''
+            name: 'ITDV Lightning'
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
