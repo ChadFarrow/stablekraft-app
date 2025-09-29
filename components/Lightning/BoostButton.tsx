@@ -123,6 +123,11 @@ export function BoostButton({
             episode_guid: trackId || '', // Use trackId as episode_guid
             uuid: crypto.randomUUID(), // Generate unique UUID
             sender_id: crypto.randomUUID(), // Generate unique sender ID
+            boost_link: typeof window !== 'undefined' ? window.location.href : '', // Link to the boost
+            reply_address: lightningAddress, // Node pubkey for replies
+            reply_custom_key: 696969, // Standard reply key
+            reply_custom_value: '43', // Standard reply value
+            feedID: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0, // Numeric feed ID
           };
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
@@ -210,6 +215,11 @@ export function BoostButton({
         episode_guid: trackId || '',
         uuid: crypto.randomUUID(),
         sender_id: crypto.randomUUID(),
+        boost_link: typeof window !== 'undefined' ? window.location.href : '',
+        reply_address: recipients.find(r => r.type === 'node')?.address || '',
+        reply_custom_key: 696969,
+        reply_custom_value: '43',
+        feedID: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
@@ -267,6 +277,11 @@ export function BoostButton({
             episode_guid: trackId || '',
             uuid: crypto.randomUUID(),
             sender_id: crypto.randomUUID(),
+            boost_link: typeof window !== 'undefined' ? window.location.href : '',
+            reply_address: platformNodePubkey,
+            reply_custom_key: 696969,
+            reply_custom_value: '43',
+            feedID: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
