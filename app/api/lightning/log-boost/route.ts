@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   try {
     const { trackId, feedId, trackTitle, artistName, amount, message, type, recipient, preimage } = await req.json();
 
-    if (!trackId || !amount || !message || !type || !recipient) {
+    if (!trackId || !amount || !type || !recipient) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       trackTitle,
       artistName,
       amount,
-      message,
+      message: message || '',
       type,
       recipient,
       preimage,
