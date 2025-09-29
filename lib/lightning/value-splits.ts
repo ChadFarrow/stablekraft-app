@@ -96,8 +96,8 @@ export class ValueSplitsService {
           // Pay via Lightning Address
           result = await this.payLightningAddress(recipient, amount, message, sendPayment);
         } else if (recipient.type === 'node') {
-          // Pay via keysend (without Helipad metadata for testing)
-          result = await this.payKeysend(recipient, amount, message, sendKeysend);
+          // Pay via keysend (with Helipad metadata)
+          result = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
         } else {
           result = {
             success: false,
@@ -227,11 +227,12 @@ export class ValueSplitsService {
     recipient: ValueRecipient,
     amount: number,
     message: string | undefined,
-    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>
+    sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
+    helipadMetadata?: any
   ): Promise<PaymentResult> {
     try {
-      // Basic keysend without Helipad metadata for testing
-      const result = await sendKeysend(recipient.address, amount, message);
+      // Keysend with Helipad metadata
+      const result = await sendKeysend(recipient.address, amount, message, helipadMetadata);
       
       return {
         success: !result.error,
