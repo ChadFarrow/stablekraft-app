@@ -119,10 +119,10 @@ export function BoostButton({
             value_msat_total: amount * 1000, // Total amount for Helipad
             sender_name: senderName || undefined, // Include sender name if provided
             message: message || undefined, // Include message if provided
-            feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0, // Extract numeric ID from feedId
-            remote_feed_guid: feedId || '', // Use feedId as remote feed guid
-            remote_item_guid: trackId || '', // Use trackId as remote item guid
-            reply_address: lightningAddress, // Node pubkey for replies
+            guid: feedId || '', // Use feedId as guid
+            episode_guid: trackId || '', // Use trackId as episode_guid
+            uuid: crypto.randomUUID(), // Generate unique UUID
+            sender_id: crypto.randomUUID(), // Generate unique sender ID
           };
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
@@ -206,10 +206,10 @@ export function BoostButton({
         value_msat_total: totalAmount * 1000,
         sender_name: senderName || undefined,
         message: message || undefined,
-        feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
-        remote_feed_guid: feedId || '',
-        remote_item_guid: trackId || '',
-        reply_address: recipients.find(r => r.type === 'node')?.address || '',
+        guid: feedId || '',
+        episode_guid: trackId || '',
+        uuid: crypto.randomUUID(),
+        sender_id: crypto.randomUUID(),
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
@@ -263,10 +263,10 @@ export function BoostButton({
             value_msat_total: platformFee * 1000,
             sender_name: senderName || undefined,
             message: metaboostMessage,
-            feedId: feedId ? parseInt(feedId.replace(/\D/g, '')) || 0 : 0,
-            remote_feed_guid: feedId || '',
-            remote_item_guid: trackId || '',
-            reply_address: platformNodePubkey,
+            guid: feedId || '',
+            episode_guid: trackId || '',
+            uuid: crypto.randomUUID(),
+            sender_id: crypto.randomUUID(),
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
