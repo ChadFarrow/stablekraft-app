@@ -94,7 +94,7 @@ export class LNURLService {
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'FUCKIT-Lightning/1.0',
+          'User-Agent': 'StableKraft-Lightning/1.0',
         },
       });
 
@@ -129,7 +129,7 @@ export class LNURLService {
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'FUCKIT-Lightning/1.0',
+          'User-Agent': 'StableKraft-Lightning/1.0',
         },
       });
 
@@ -188,7 +188,7 @@ export class LNURLService {
       const response = await fetch(callbackUrl.toString(), {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'FUCKIT-Lightning/1.0',
+          'User-Agent': 'StableKraft-Lightning/1.0',
         },
       });
 
