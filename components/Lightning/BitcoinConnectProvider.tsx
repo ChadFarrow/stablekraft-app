@@ -201,11 +201,12 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       // Add Helipad metadata if provided
-      if (helipadMetadata) {
-        // TLV record 7629169 is used for Helipad metadata
-        const helipadJson = JSON.stringify(helipadMetadata);
-        customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
-      }
+      // TEMPORARILY DISABLED - Helipad TLV parsing issues
+      // if (helipadMetadata) {
+      //   // TLV record 7629169 is used for Helipad metadata
+      //   const helipadJson = JSON.stringify(helipadMetadata);
+      //   customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
+      // }
 
       if (!currentProvider.keysend) {
         return { error: 'Keysend not supported by wallet' };
