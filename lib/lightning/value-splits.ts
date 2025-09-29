@@ -111,7 +111,26 @@ export class ValueSplitsService {
           console.error(`❌ Failed to send ${amount} sats to ${recipient.name || recipient.address}: ${result.error}`);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        // Extract the actual Lightning error message
+        let errorMessage = 'Unknown error';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+          // Check for common Lightning errors and provide clearer messages
+          if (errorMessage.includes('no route')) {
+            errorMessage = 'No route found to recipient';
+          } else if (errorMessage.includes('insufficient')) {
+            errorMessage = 'Insufficient balance or liquidity';
+          } else if (errorMessage.includes('timeout')) {
+            errorMessage = 'Payment timeout';
+          } else if (errorMessage.includes('rejected')) {
+            errorMessage = 'Payment rejected by recipient';
+          } else if (errorMessage.includes('NetworkError')) {
+            errorMessage = 'Network error - recipient server unreachable';
+          } else if (errorMessage.includes('CORS')) {
+            errorMessage = 'CORS error - recipient server configuration issue';
+          }
+        }
+        
         const payment: ValueSplitPayment = { 
           recipient, 
           amount, 
@@ -165,9 +184,29 @@ export class ValueSplitsService {
         amount
       };
     } catch (error) {
+      // Extract the actual Lightning error message
+      let errorMessage = 'Lightning Address payment failed';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for common Lightning errors and provide clearer messages
+        if (errorMessage.includes('no route')) {
+          errorMessage = 'No route found to recipient';
+        } else if (errorMessage.includes('insufficient')) {
+          errorMessage = 'Insufficient balance or liquidity';
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = 'Payment timeout';
+        } else if (errorMessage.includes('rejected')) {
+          errorMessage = 'Payment rejected by recipient';
+        } else if (errorMessage.includes('NetworkError')) {
+          errorMessage = 'Network error - recipient server unreachable';
+        } else if (errorMessage.includes('CORS')) {
+          errorMessage = 'CORS error - recipient server configuration issue';
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Lightning Address payment failed',
+        error: errorMessage,
         recipient: recipient.address,
         amount
       };
@@ -195,9 +234,25 @@ export class ValueSplitsService {
         amount
       };
     } catch (error) {
+      // Extract the actual Lightning error message
+      let errorMessage = 'Keysend payment failed';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for common Lightning errors and provide clearer messages
+        if (errorMessage.includes('no route')) {
+          errorMessage = 'No route found to recipient';
+        } else if (errorMessage.includes('insufficient')) {
+          errorMessage = 'Insufficient balance or liquidity';
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = 'Payment timeout';
+        } else if (errorMessage.includes('rejected')) {
+          errorMessage = 'Payment rejected by recipient';
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Keysend payment failed',
+        error: errorMessage,
         recipient: recipient.address,
         amount
       };
