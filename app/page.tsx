@@ -118,7 +118,7 @@ export default function HomePage() {
   const [displayedAlbums, setDisplayedAlbums] = useState<RSSAlbum[]>([]);
   const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
   const ALBUMS_PER_PAGE = 50; // Load 50 albums per page for better user experience
-  const API_VERSION = 'v6'; // Increment to bust cache when API changes - v6 optimizes database queries
+  const API_VERSION = 'v8'; // Increment to bust cache when API changes - v8 includes V4V data in RSSAlbum conversion
   
   // HGH filter removed - no longer needed
   
@@ -714,8 +714,11 @@ export default function HomePage() {
         publisher: album.publisher,
         podroll: album.podroll,
         funding: album.funding,
-        feedId: album.feedId
-      }));
+        feedId: album.feedId,
+        // Include V4V payment data for boost buttons
+        ...(album.v4vRecipient && { v4vRecipient: album.v4vRecipient }),
+        ...(album.v4vValue && { v4vValue: album.v4vValue })
+      } as RSSAlbum));
       
       // Apply limit if specified (for critical loading)
       if (limit && limit > 0) {
@@ -968,16 +971,17 @@ export default function HomePage() {
         </div>
       )}
       
-      {/* Preload background image after critical content */}
-      {isClient && isCriticalLoaded && (
-        <img 
-          src="/stablekraft-rocket-new.png" 
-          alt=""
-          className="hidden"
-          onLoad={() => setBackgroundImageLoaded(true)}
-          onError={() => setBackgroundImageLoaded(true)}
-        />
-      )}
+      {/* Preload background image after critical content - Always render but handle loading client-side */}
+      <div className="hidden">
+        {isClient && isCriticalLoaded && (
+          <img
+            src="/stablekraft-rocket-new.png"
+            alt=""
+            onLoad={() => setBackgroundImageLoaded(true)}
+            onError={() => setBackgroundImageLoaded(true)}
+          />
+        )}
+      </div>
       
       {/* Fallback gradient background - only for very slow connections */}
       <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-0" style={{

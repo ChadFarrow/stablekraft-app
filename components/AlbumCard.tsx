@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Play, Pause, Music } from 'lucide-react';
+import { Play, Pause, Music, Zap } from 'lucide-react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl } from '@/lib/url-utils';
 // import CDNImage from './CDNImage'; // Replaced with direct Next.js Image for performance
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface AlbumCardProps {
   album: RSSAlbum;
@@ -22,6 +23,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
   const [imageError, setImageError] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [showBoostModal, setShowBoostModal] = useState(false);
   const { shouldPreventClick } = useScrollDetectionContext();
 
   // Minimum swipe distance (in px)
@@ -77,7 +79,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     const isPlaylistCard = (album as any).isPlaylistCard;
     const isPublisherCard = (album as any).isPublisherCard;
     let albumUrl: string;
-    
+
     if (isPublisherCard) {
       albumUrl = (album as any).publisherUrl || `/publisher/${album.id}`;
     } else if (isPlaylistCard) {
@@ -85,12 +87,23 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     } else {
       albumUrl = generateAlbumUrl(album.title);
     }
-    
+
     return { isPlaylistCard, isPublisherCard, albumUrl };
   }, [album.title, album.id, (album as any).isPlaylistCard, (album as any).playlistUrl, (album as any).isPublisherCard, (album as any).publisherUrl]);
+
+  // Debug logging for V4V data - ALWAYS log first 3 albums
+  const hasV4V = !!((album as any).v4vRecipient || (album as any).v4vValue);
+  if (typeof window !== 'undefined' && Math.random() < 0.06) {  // ~3 out of 50 albums
+    console.log(`[AlbumCard] "${album.title}":`, {
+      hasV4V,
+      v4vRecipient: (album as any).v4vRecipient,
+      v4vValue: !!((album as any).v4vValue)
+    });
+  }
   
 
   return (
+    <>
     <Link 
       href={albumUrl}
       className={`group relative bg-black/40 backdrop-blur-md rounded-xl border border-gray-700/50 overflow-hidden transition-all duration-300 hover:bg-black/50 hover:border-cyan-400/30 hover:scale-[1.02] active:scale-[0.98] block shadow-lg hover:shadow-xl hover:shadow-cyan-400/10 ${className}`}
@@ -214,10 +227,46 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
           </div>
         )}
 
-        {/* HGH Music badge */}
+        {/* HGH Music badge - positioned below boost button if both exist */}
         {(album as any).isHGHMusic && (
-          <div className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-green-600/90 backdrop-blur-sm rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50">
+          <div className={`absolute ${((album as any).v4vRecipient || (album as any).v4vValue) ? 'top-10 sm:top-12' : 'top-1 sm:top-2'} left-1 sm:left-2 bg-green-600/90 backdrop-blur-sm rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50 z-10`}>
             HGH
+          </div>
+        )}
+
+        {/* Boost Button - Lightning bolt in top-left corner */}
+        {((album as any).v4vRecipient || (album as any).v4vValue) && (
+          <div
+            className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowBoostModal(true);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowBoostModal(true);
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 bg-yellow-500/90 hover:bg-yellow-400 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-yellow-400/50 pointer-events-auto touch-manipulation"
+              aria-label="Boost this album"
+              title="Send a Lightning boost"
+            >
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-black fill-black" />
+            </button>
           </div>
         )}
       </div>
@@ -230,11 +279,11 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5 sm:mt-1 line-clamp-1 font-medium">
           {album.artist}
         </p>
-        
+
         {/* Release date or episode date */}
         {(album.releaseDate || (album as any).isMusicTrackAlbum) && (
           <p className="text-gray-400 text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium">
-            {(album as any).isMusicTrackAlbum 
+            {(album as any).isMusicTrackAlbum
               ? new Date(album.releaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               : new Date(album.releaseDate).getFullYear()
             }
@@ -247,6 +296,50 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity duration-150" />
       </div>
     </Link>
+
+    {showBoostModal && (
+      <div
+        className="fixed inset-0 z-[100]"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <BoostButton
+          feedId={(album as any).feedId}
+          trackTitle={album.title}
+          artistName={album.artist}
+          lightningAddress={(album as any).v4vRecipient}
+          valueSplits={(album as any).v4vValue?.recipients}
+          className="hidden"
+        />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative max-w-md w-full">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowBoostModal(false);
+              }}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <BoostButton
+              feedId={(album as any).feedId}
+              trackTitle={album.title}
+              artistName={album.artist}
+              lightningAddress={(album as any).v4vRecipient}
+              valueSplits={(album as any).v4vValue?.recipients}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
 
@@ -260,6 +353,8 @@ export default memo(AlbumCard, (prevProps, nextProps) => {
     prevProps.album.coverArt === nextProps.album.coverArt &&
     prevProps.isPlaying === nextProps.isPlaying &&
     prevProps.className === nextProps.className &&
-    (prevProps.album.tracks?.length || 0) === (nextProps.album.tracks?.length || 0)
+    (prevProps.album.tracks?.length || 0) === (nextProps.album.tracks?.length || 0) &&
+    (prevProps.album as any).v4vRecipient === (nextProps.album as any).v4vRecipient &&
+    (prevProps.album as any).v4vValue === (nextProps.album as any).v4vValue
   );
 });

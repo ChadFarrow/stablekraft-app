@@ -6,9 +6,12 @@ import { generateAlbumSlug } from '@/lib/url-utils';
 async function getPlaylistAlbums() {
   try {
     const playlistAlbums = [];
-    
+
+    // Use the correct localhost port (3000) for development
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
     // Fetch HGH playlist
-    const hghResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/hgh`);
+    const hghResponse = await fetch(`${baseUrl}/api/playlist/hgh`);
     if (hghResponse.ok) {
       const hghData = await hghResponse.json();
       if (hghData.success && hghData.albums && hghData.albums.length > 0) {
@@ -17,7 +20,7 @@ async function getPlaylistAlbums() {
     }
     
     // Fetch ITDV playlist
-    const itdvResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/itdv`);
+    const itdvResponse = await fetch(`${baseUrl}/api/playlist/itdv`);
     if (itdvResponse.ok) {
       const itdvData = await itdvResponse.json();
       if (itdvData.success && itdvData.albums && itdvData.albums.length > 0) {
@@ -26,7 +29,7 @@ async function getPlaylistAlbums() {
     }
     
     // Fetch IAM playlist
-    const iamResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/iam`);
+    const iamResponse = await fetch(`${baseUrl}/api/playlist/iam`);
     if (iamResponse.ok) {
       const iamData = await iamResponse.json();
       if (iamData.success && iamData.albums && iamData.albums.length > 0) {
@@ -214,6 +217,19 @@ export async function GET(request: Request) {
         };
       }
       
+      // Extract V4V data from feed or first track with V4V data
+      let v4vRecipient = feed.v4vRecipient;
+      let v4vValue = feed.v4vValue;
+
+      // If no feed-level V4V data, check tracks
+      if (!v4vRecipient && album.tracks.length > 0) {
+        const trackWithV4V = album.tracks.find((t: any) => t.v4vRecipient || t.v4vValue);
+        if (trackWithV4V) {
+          v4vRecipient = trackWithV4V.v4vRecipient;
+          v4vValue = trackWithV4V.v4vValue;
+        }
+      }
+
       return {
         id: generateAlbumSlug(album.title) + '-' + feed.id.split('-')[0],
         title: album.title,
@@ -228,7 +244,10 @@ export async function GET(request: Request) {
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         lastUpdated: feed.updatedAt,
-        explicit: tracks.some((t: any) => t.explicit) || feed.explicit
+        explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
+        // V4V data for boosts
+        v4vRecipient: v4vRecipient,
+        v4vValue: v4vValue
       };
     });
     
