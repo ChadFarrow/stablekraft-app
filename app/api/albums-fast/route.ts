@@ -232,7 +232,7 @@ export async function GET(request: Request) {
       tracks: feed.tracks
         .filter((track: Track, index: number, self: Track[]) => {
           // Deduplicate tracks by URL and title
-          return self.findIndex((t: Track) => 
+          return self.findIndex((t: Track) =>
             t.audioUrl === track.audioUrl && t.title === track.title
           ) === index;
         })
@@ -244,7 +244,10 @@ export async function GET(request: Request) {
           image: track.image,
           publishedAt: track.publishedAt,
           guid: track.guid
-        }))
+        })),
+      // Include V4V payment data for boost buttons
+      v4vRecipient: feed.v4vRecipient,
+      v4vValue: feed.v4vValue
     }));
     
     // Filter out Bowl After Bowl main podcast content but keep music covers
