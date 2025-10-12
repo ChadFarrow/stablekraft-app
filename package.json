@@ -57,6 +57,7 @@
     "beasties": "^0.3.5",
     "bech32": "^2.0.0",
     "canvas": "^3.1.2",
+    "canvas-confetti": "^1.9.3",
     "colorthief": "^2.6.0",
     "critters": "^0.0.23",
     "date-fns": "^2.30.0",

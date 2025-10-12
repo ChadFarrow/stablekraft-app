@@ -6,6 +6,7 @@ import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
 import { Zap, Send, X, Mail, Check } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface BoostButtonProps {
   trackId?: string;
@@ -55,6 +56,12 @@ export function BoostButton({
 
   useEffect(() => {
     setIsClient(true);
+
+    // Load saved sender name from localStorage
+    const savedName = localStorage.getItem('boostSenderName');
+    if (savedName) {
+      setSenderName(savedName);
+    }
   }, []);
 
   // Handle autoOpen - check connection first
@@ -174,7 +181,19 @@ export function BoostButton({
         setError(result.error);
       } else {
         setSuccess(true);
-        
+
+        // Trigger confetti celebration! 🎉
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        // Save sender name to localStorage for future boosts
+        if (senderName) {
+          localStorage.setItem('boostSenderName', senderName);
+        }
+
         // Send 2 sat platform fee metaboost
         try {
           await sendPlatformFeeMetaboost();
@@ -182,7 +201,7 @@ export function BoostButton({
           console.warn('Platform fee metaboost failed:', feeError);
           // Don't fail the main payment if the fee fails
         }
-        
+
         // Log the boost to the database
         await logBoost({
           trackId,
@@ -191,7 +210,7 @@ export function BoostButton({
           message,
           senderName,
           preimage: result.preimage,
-          paymentMethod: valueSplits?.length ? 'value-splits' : 
+          paymentMethod: valueSplits?.length ? 'value-splits' :
                         lightningAddress ? 'lightning-address' : 'keysend',
         });
 
