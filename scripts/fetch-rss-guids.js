@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Simple RSS parser using built-in XML parsing
-const { DOMParser } = require('xmldom');
+const { DOMParser } = require('@xmldom/xmldom');
 
 async function parseRSSFeed(feedUrl) {
     try {

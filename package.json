@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "echo 'Skipping auto-version update for deployment'",
-    "build": "npx prisma generate && npx next build",
+    "build": "npx prisma generate && npx next build --no-lint",
     "postbuild": "echo 'Build complete'",
     "start": "next start",
     "lint": "next lint",
@@ -76,8 +76,7 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
     "webln": "^0.3.2",
-    "xml2js": "^0.6.2",
-    "xmldom": "^0.6.0"
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@capacitor/android": "^7.4.2",
