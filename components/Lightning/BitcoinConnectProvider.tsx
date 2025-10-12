@@ -11,8 +11,8 @@ interface BitcoinConnectContextType {
   disconnect: () => Promise<void>;
   sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>;
   sendKeysend: (
-    pubkey: string, 
-    amount: number, 
+    pubkey: string,
+    amount: number,
     message?: string,
     helipadMetadata?: {
       app_name?: string;
@@ -25,7 +25,15 @@ interface BitcoinConnectContextType {
       message?: string;
       name?: string;
       value_msat?: number;
+      value_msat_total?: number;
       sender_name?: string;
+      feed?: string;
+      feedId?: string;
+      episode_guid?: string;
+      remote_item_guid?: string;
+      remote_feed_guid?: string;
+      album?: string;
+      uuid?: string;
     }
   ) => Promise<{ preimage?: string; error?: string }>;
   isLoading: boolean;
@@ -164,7 +172,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       message?: string;
       name?: string;
       value_msat?: number;
+      value_msat_total?: number;
       sender_name?: string;
+      feed?: string;
+      feedId?: string;
+      episode_guid?: string;
+      remote_item_guid?: string;
+      remote_feed_guid?: string;
+      album?: string;
+      uuid?: string;
     }
   ): Promise<{ preimage?: string; error?: string }> => {
     try {

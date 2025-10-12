@@ -22,6 +22,10 @@ interface BoostButtonProps {
   className?: string;
   autoOpen?: boolean; // Auto-open modal without showing button
   onClose?: () => void; // Callback when modal is closed
+  feedUrl?: string; // RSS feed URL
+  episodeGuid?: string; // Episode GUID
+  remoteFeedGuid?: string; // Remote feed GUID
+  albumName?: string; // Album name (can be same as trackTitle)
 }
 
 export function BoostButton({
@@ -34,6 +38,10 @@ export function BoostButton({
   className = '',
   autoOpen = false,
   onClose,
+  feedUrl,
+  episodeGuid,
+  remoteFeedGuid,
+  albumName,
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
@@ -109,19 +117,27 @@ export function BoostButton({
       } else if (lightningAddress && lightningAddress.length === 66 && (lightningAddress.startsWith('02') || lightningAddress.startsWith('03'))) {
         // Pay to node pubkey via keysend
         try {
-          // Create Helipad metadata for the boost (simplified format)
+          // Create Helipad metadata for the boost with all required fields
           const helipadMetadata = {
-            app_name: 'FUCKIT',
-            app_version: '1.0.0',
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
-            ts: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
             action: 'boost',
-            url: trackId ? `https://fuckit-lightning-production.up.railway.app/track/${trackId}` : '',
-            name: artistName || 'Unknown Artist',
-            value_msat: amount * 1000,
+            app_name: 'FUCKIT',
+            feed: feedUrl || '',
+            url: feedUrl || '',
+            message: message || '',
+            feedId: feedId || '',
+            episode_guid: episodeGuid || trackId || '',
+            remote_item_guid: episodeGuid || trackId || '',
+            remote_feed_guid: remoteFeedGuid || '',
+            album: albumName || trackTitle || 'Unknown Album',
+            value_msat_total: amount * 1000,
             sender_name: senderName || '',
-            message: message || ''
+            uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            app_version: '1.0.0',
+            value_msat: amount * 1000,
+            name: 'FUCKIT',
+            ts: Math.floor(Date.now() / 1000)
           };
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
@@ -191,19 +207,27 @@ export function BoostButton({
         fee: false
       }));
 
-      // Create Helipad metadata for value splits (simplified format)
+      // Create Helipad metadata for value splits with all required fields
       const helipadMetadata = {
-        app_name: 'FUCKIT',
-        app_version: '1.0.0',
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
-        ts: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
         action: 'boost',
-        url: trackId ? `https://fuckit-lightning-production.up.railway.app/track/${trackId}` : '',
-        name: artistName || 'Unknown Artist',
-        value_msat: totalAmount * 1000,
+        app_name: 'FUCKIT',
+        feed: feedUrl || '',
+        url: feedUrl || '',
+        message: message || '',
+        feedId: feedId || '',
+        episode_guid: episodeGuid || trackId || '',
+        remote_item_guid: episodeGuid || trackId || '',
+        remote_feed_guid: remoteFeedGuid || '',
+        album: albumName || trackTitle || 'Unknown Album',
+        value_msat_total: totalAmount * 1000,
         sender_name: senderName || '',
-        message: message || ''
+        uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        app_version: '1.0.0',
+        value_msat: totalAmount * 1000,
+        name: 'FUCKIT',
+        ts: Math.floor(Date.now() / 1000)
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
@@ -246,17 +270,25 @@ export function BoostButton({
         console.log(`🔑 Attempting keysend to platform node: ${platformNodePubkey}`);
         try {
           const helipadMetadata = {
-            app_name: 'FUCKIT',
-            app_version: '1.0.0',
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
-            ts: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
             action: 'metaboost',
-            url: trackId ? `https://fuckit-lightning-production.up.railway.app/track/${trackId}` : '',
-            name: artistName || 'Unknown Artist',
-            value_msat: platformFee * 1000,
+            app_name: 'FUCKIT',
+            feed: feedUrl || '',
+            url: feedUrl || '',
+            message: metaboostMessage,
+            feedId: feedId || '',
+            episode_guid: episodeGuid || trackId || '',
+            remote_item_guid: episodeGuid || trackId || '',
+            remote_feed_guid: remoteFeedGuid || '',
+            album: albumName || trackTitle || 'Unknown Album',
+            value_msat_total: platformFee * 1000,
             sender_name: senderName || '',
-            message: metaboostMessage
+            uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            app_version: '1.0.0',
+            value_msat: platformFee * 1000,
+            name: 'FUCKIT',
+            ts: Math.floor(Date.now() / 1000)
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);

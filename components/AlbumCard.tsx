@@ -306,6 +306,10 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         valueSplits={(album as any).v4vValue?.recipients}
         autoOpen={true}
         onClose={() => setShowBoostModal(false)}
+        feedUrl={(album as any).feedUrl || album.link}
+        episodeGuid={(album as any).guid || album.id}
+        remoteFeedGuid={(album as any).feedGuid || (album as any).feedId}
+        albumName={album.title}
       />
     )}
   </>
