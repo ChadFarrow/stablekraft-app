@@ -54,8 +54,36 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // Don't auto-initialize Bitcoin Connect, only set loading to false
     setIsLoading(false);
 
-    // Let Bitcoin Connect handle its own modal interactions
-    // Removing custom backdrop click handler to prevent conflicts with close button
+    // Add global CSS to ensure Bitcoin Connect modal is immediately interactive
+    const style = document.createElement('style');
+    style.textContent = `
+      bc-modal-wrapper,
+      bc-modal-wrapper *,
+      bc-modal,
+      bc-modal * {
+        pointer-events: auto !important;
+      }
+
+      /* Ensure modal overlay allows clicks through to the modal */
+      bc-modal-wrapper::part(overlay) {
+        pointer-events: auto !important;
+      }
+
+      /* Ensure close button is immediately clickable */
+      bc-modal::part(close-button),
+      bc-modal [part="close-button"],
+      bc-modal button[aria-label*="Close"],
+      bc-modal button[aria-label*="close"] {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        z-index: 9999 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   const checkConnection = async () => {
@@ -105,6 +133,19 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         console.log('Launching Bitcoin Connect modal...');
         await bitcoinConnect.launchModal();
         console.log('Modal launched successfully');
+
+        // Ensure modal is immediately interactive by focusing it
+        setTimeout(() => {
+          const modal = document.querySelector('bc-modal, bc-modal-wrapper');
+          if (modal && modal instanceof HTMLElement) {
+            modal.focus();
+            // Also try to focus any close button within the modal
+            const closeButton = modal.querySelector('button[aria-label*="Close"], button[aria-label*="close"]');
+            if (closeButton && closeButton instanceof HTMLElement) {
+              closeButton.tabIndex = 0;
+            }
+          }
+        }, 100);
 
         // Try to get provider after modal interaction
         const newProvider = await bitcoinConnect.requestProvider();
