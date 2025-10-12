@@ -91,13 +91,20 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     return { isPlaylistCard, isPublisherCard, albumUrl };
   }, [album.title, album.id, (album as any).isPlaylistCard, (album as any).playlistUrl, (album as any).isPublisherCard, (album as any).publisherUrl]);
 
-  // Debug logging for V4V data - ALWAYS log first 3 albums
   const hasV4V = !!((album as any).v4vRecipient || (album as any).v4vValue);
-  if (typeof window !== 'undefined' && Math.random() < 0.06) {  // ~3 out of 50 albums
-    console.log(`[AlbumCard] "${album.title}":`, {
-      hasV4V,
-      v4vRecipient: (album as any).v4vRecipient,
-      v4vValue: !!((album as any).v4vValue)
+  
+  // Debug: Log album data for first few albums to see what fields are available
+  if (typeof window !== 'undefined' && Math.random() < 0.1) {  // ~10% of albums
+    console.log(`🔍 AlbumCard data for "${album.title}":`, {
+      id: album.id,
+      feedId: (album as any).feedId,
+      feedUrl: (album as any).feedUrl,
+      link: album.link,
+      feedGuid: (album as any).feedGuid,
+      remoteFeedGuid: (album as any).remoteFeedGuid,
+      guid: (album as any).guid,
+      episodeGuid: (album as any).episodeGuid,
+      hasV4V
     });
   }
   

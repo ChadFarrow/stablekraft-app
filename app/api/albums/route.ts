@@ -217,12 +217,12 @@ export async function GET(request: Request) {
         };
       }
       
-      // Extract V4V data from feed or first track with V4V data
-      let v4vRecipient = feed.v4vRecipient;
-      let v4vValue = feed.v4vValue;
+      // Extract V4V data from first track (feeds don't have V4V fields, only tracks do)
+      let v4vRecipient = null;
+      let v4vValue = null;
 
-      // If no feed-level V4V data, check tracks
-      if (!v4vRecipient && album.tracks.length > 0) {
+      // Get V4V data from tracks
+      if (album.tracks.length > 0) {
         const trackWithV4V = album.tracks.find((t: any) => t.v4vRecipient || t.v4vValue);
         if (trackWithV4V) {
           v4vRecipient = trackWithV4V.v4vRecipient;

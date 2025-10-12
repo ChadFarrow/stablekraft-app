@@ -17,10 +17,32 @@ const boostLog: Array<{
 
 export async function POST(req: NextRequest) {
   try {
-    const { trackId, feedId, trackTitle, artistName, amount, message, type, recipient, preimage } = await req.json();
+    const body = await req.json();
+    
+    // Access fields directly from body to avoid destructuring issues
+    const trackId = body.trackId;
+    const feedId = body.feedId;
+    const trackTitle = body.trackTitle;
+    const artistName = body.artistName;
+    const amount = body.amount;
+    const message = body.message;
+    const type = body.type;
+    const recipient = body.recipient;
+    const preimage = body.preimage;
 
-    if (!trackId || !amount || !type || !recipient) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    // Check which required fields are missing
+    const missingFields = [];
+    if (!trackId || typeof trackId !== 'string' || trackId.trim().length === 0) missingFields.push('trackId');
+    if (!amount || amount <= 0) missingFields.push('amount');
+    if (!type || typeof type !== 'string' || type.trim().length === 0) missingFields.push('type');
+    if (!recipient || typeof recipient !== 'string' || recipient.trim().length === 0) missingFields.push('recipient');
+    
+    if (missingFields.length > 0) {
+      console.error('❌ Missing required fields:', missingFields);
+      return NextResponse.json({ 
+        error: `Missing required fields: ${missingFields.join(', ')}`,
+        received: body 
+      }, { status: 400 });
     }
 
     const boost = {
@@ -39,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     boostLog.push(boost);
 
-    console.log('⚡ Boost logged:', boost);
+    console.log('⚡ Boost logged successfully:', boost.id);
 
     return NextResponse.json({
       success: true,

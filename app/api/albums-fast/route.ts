@@ -226,8 +226,13 @@ export async function GET(request: Request) {
       description: feed.description || '',
       coverArt: feed.image || '',
       releaseDate: feed.updatedAt || feed.createdAt,
-      feedUrl: feed.originalUrl,
+      feedUrl: feed.originalUrl, // For Helipad TLV
       feedGuid: feed.id,
+      feedId: feed.id, // For Helipad TLV
+      remoteFeedGuid: feed.id, // For Helipad TLV
+      guid: feed.tracks?.[0]?.guid || feed.id, // Episode GUID for Helipad TLV
+      episodeGuid: feed.tracks?.[0]?.guid || feed.id, // Alternative field name
+      link: feed.originalUrl, // For feedUrl fallback
       priority: feed.priority,
       tracks: feed.tracks
         .filter((track: Track, index: number, self: Track[]) => {
@@ -245,9 +250,9 @@ export async function GET(request: Request) {
           publishedAt: track.publishedAt,
           guid: track.guid
         })),
-      // Include V4V payment data for boost buttons
-      v4vRecipient: feed.v4vRecipient,
-      v4vValue: feed.v4vValue
+      // Include V4V payment data from first track (all tracks in a feed should have same V4V data)
+      v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
+      v4vValue: feed.tracks?.[0]?.v4vValue || null
     }));
     
     // Filter out Bowl After Bowl main podcast content but keep music covers

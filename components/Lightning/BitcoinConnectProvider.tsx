@@ -54,29 +54,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // Don't auto-initialize Bitcoin Connect, only set loading to false
     setIsLoading(false);
 
-    // Add backdrop click handler for Bitcoin Connect modal
-    const handleBackdropClick = (e: MouseEvent) => {
-      const target = e.target as Element;
-
-      // Check if click is on the Bitcoin Connect modal backdrop
-      if (target.tagName === 'BC-MODAL' || target.closest('bc-modal')) {
-        const modal = document.querySelector('bc-modal');
-        if (modal && target === (modal as any)) {
-          // Click was on the backdrop (the bc-modal element itself), not its children
-          console.log('Backdrop click detected, closing Bitcoin Connect modal');
-          import('@getalby/bitcoin-connect').then((bitcoinConnect) => {
-            bitcoinConnect.closeModal();
-          });
-        }
-      }
-    };
-
-    // Use capture phase to catch the event before it reaches the modal internals
-    document.addEventListener('click', handleBackdropClick, true);
-
-    return () => {
-      document.removeEventListener('click', handleBackdropClick, true);
-    };
+    // Let Bitcoin Connect handle its own modal interactions
+    // Removing custom backdrop click handler to prevent conflicts with close button
   }, []);
 
   const checkConnection = async () => {
@@ -162,21 +141,33 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   };
 
   const sendPayment = async (invoice: string): Promise<{ preimage?: string; error?: string }> => {
+    console.log(`🔄 Starting invoice payment: ${invoice.slice(0, 50)}...`);
+    
     try {
       let currentProvider = provider;
 
       if (!currentProvider) {
+        console.log('🔐 No provider, attempting to connect...');
         await connect();
         currentProvider = provider;
         if (!currentProvider) {
+          console.error('❌ Failed to connect wallet for payment');
           return { error: 'No wallet connected' };
         }
       }
 
+      console.log('⚡ Executing invoice payment');
       const result = await currentProvider.sendPayment(invoice);
+      
+      console.log('✅ Invoice payment successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
-      console.error('Payment failed:', error);
+      console.error('❌ Invoice payment failed with error:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
       return { error: error instanceof Error ? error.message : 'Payment failed' };
     }
   };
@@ -207,13 +198,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       uuid?: string;
     }
   ): Promise<{ preimage?: string; error?: string }> => {
+    console.log(`🔄 Starting keysend: ${amount} sats to ${pubkey.slice(0, 20)}...`);
+    
     try {
       let currentProvider = provider;
 
       if (!currentProvider) {
+        console.log('🔐 No provider, attempting to connect...');
         await connect();
         currentProvider = provider;
         if (!currentProvider) {
+          console.error('❌ Failed to connect wallet for keysend');
           return { error: 'No wallet connected' };
         }
       }
@@ -224,28 +219,59 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if (message) {
         // TLV record 34349334 is used for boostagram messages
         customRecords['34349334'] = Buffer.from(message).toString('hex');
+        console.log('📝 Added boostagram message TLV');
       }
 
       // Add Helipad metadata if provided
       if (helipadMetadata) {
-        // TLV record 7629169 is used for Helipad metadata (JSON)
-        const helipadJson = JSON.stringify(helipadMetadata);
-        customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
+        try {
+          // Clean the metadata object to remove any undefined/null values that could cause issues
+          const cleanMetadata = Object.fromEntries(
+            Object.entries(helipadMetadata).filter(([_, value]) => value !== undefined && value !== null)
+          );
+          
+          // TLV record 7629169 is used for Helipad metadata (JSON)
+          const helipadJson = JSON.stringify(cleanMetadata);
+          // Try sending as raw JSON string instead of hex-encoded
+          customRecords['7629169'] = helipadJson;
+          
+          console.log('📋 Helipad metadata TLV:', helipadJson);
+        } catch (jsonError) {
+          console.error('Failed to stringify Helipad metadata:', jsonError, helipadMetadata);
+          // Continue without Helipad metadata if JSON fails
+        }
       }
 
       if (!currentProvider.keysend) {
+        console.error('❌ Wallet does not support keysend');
         return { error: 'Keysend not supported by wallet' };
       }
 
-      const result = await currentProvider.keysend({
+      console.log(`⚡ Executing keysend with ${Object.keys(customRecords).length} TLV records`);
+      
+      const keysendPayload = {
         destination: pubkey,
         amount: amount.toString(),
         customRecords,
+      };
+      
+      console.log('📤 Keysend payload:', { 
+        destination: pubkey, 
+        amount: amount.toString(), 
+        recordCount: Object.keys(customRecords).length 
       });
 
+      const result = await currentProvider.keysend(keysendPayload);
+      
+      console.log('✅ Keysend successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
-      console.error('Keysend failed:', error);
+      console.error('❌ Keysend failed with error:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
       return { error: error instanceof Error ? error.message : 'Keysend failed' };
     }
   };

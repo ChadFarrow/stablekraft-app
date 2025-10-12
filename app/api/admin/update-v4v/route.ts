@@ -7,35 +7,6 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔧 Manually updating V4V data for Beware of Banjo...');
     
-    // Update the feed with V4V data
-    const feedUpdate = await prisma.feed.update({
-      where: { id: 'sir-tj-the-wrathful-beware-of-banjo' },
-      data: {
-        v4vRecipient: '031ce2f133b570edf1c776e571e27d22a715dc6ea73956f0e79f4272d81d9dc0d5',
-        v4vValue: {
-          type: 'lightning',
-          method: 'keysend',
-          recipients: [
-            {
-              name: 'Sir TJ The Wrathful',
-              address: '031ce2f133b570edf1c776e571e27d22a715dc6ea73956f0e79f4272d81d9dc0d5',
-              type: 'node',
-              split: '100'
-            },
-            {
-              name: 'Sovereign Feeds',
-              address: 'steven@curiohoster.com',
-              type: 'lnaddress',
-              fee: 'true',
-              split: '5'
-            }
-          ]
-        }
-      }
-    });
-    
-    console.log('✅ Updated feed V4V data:', feedUpdate.v4vRecipient);
-    
     // Update all tracks with V4V data
     const trackUpdates = await prisma.track.updateMany({
       where: { feedId: 'sir-tj-the-wrathful-beware-of-banjo' },
@@ -69,7 +40,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true,
       message: 'V4V data updated successfully',
-      feedUpdate: feedUpdate.v4vRecipient,
       trackUpdates: trackUpdates.count
     });
     

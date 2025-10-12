@@ -144,25 +144,55 @@ export function BoostButton({
       } else if (lightningAddress && lightningAddress.length === 66 && (lightningAddress.startsWith('02') || lightningAddress.startsWith('03'))) {
         // Pay to node pubkey via keysend
         try {
-          // Create Helipad metadata following BLIP-0010 spec
+          // Debug: Log what values we're receiving
+          console.log('🔍 BoostButton values:', {
+            feedUrl,
+            feedId,
+            remoteFeedGuid,
+            episodeGuid,
+            trackId,
+            albumName,
+            artistName,
+            trackTitle
+          });
+
+          // Create Helipad metadata matching exact working format from logs
           const helipadMetadata: any = {
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'boost',
             app_name: 'StableKraft',
+            value_msat: amount * 1000, // Integer as per Helipad spec
+            value_msat_total: amount * 1000, // Integer as per Helipad spec
+            sender_name: senderName || 'Anonymous',
+            name: 'StableKraft',
             app_version: '1.0.0',
-            value_msat: amount * 1000,
-            value_msat_total: amount * 1000,
-            ts: Math.floor(Date.now() / 1000)
+            uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 999)}`
           };
 
-          // Add optional fields only if they exist
-          if (feedUrl) helipadMetadata.url = feedUrl;
-          if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
-          if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
-          if (message) helipadMetadata.message = message;
-          if (senderName) helipadMetadata.sender_name = senderName;
-          helipadMetadata.uuid = `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          // Add required fields matching exact working format
+          if (feedUrl) {
+            helipadMetadata.url = feedUrl;
+            helipadMetadata.feed = feedUrl; // Working logs show both url and feed fields
+          }
+          if (feedId) {
+            helipadMetadata.feedId = feedId; // Keep as string - working logs show "6590183" not integer
+          }
+          if (remoteFeedGuid) {
+            helipadMetadata.remote_feed_guid = remoteFeedGuid;
+          }
+          if (episodeGuid || trackId) {
+            helipadMetadata.remote_item_guid = episodeGuid || trackId;
+            helipadMetadata.episode_guid = episodeGuid || trackId; // Working logs show episode_guid field
+          }
+          if (albumName) {
+            helipadMetadata.album = albumName; // Working logs show album field
+          }
+          if (message) {
+            helipadMetadata.message = message;
+          }
+
+          console.log('📋 Final Helipad metadata:', helipadMetadata);
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
         } catch (keysendError) {
@@ -243,25 +273,55 @@ export function BoostButton({
         fee: false
       }));
 
-      // Create Helipad metadata following BLIP-0010 spec
+      // Debug: Log what values we're receiving for value splits
+      console.log('🔍 BoostButton values (value splits):', {
+        feedUrl,
+        feedId,
+        remoteFeedGuid,
+        episodeGuid,
+        trackId,
+        albumName,
+        artistName,
+        trackTitle
+      });
+
+      // Create Helipad metadata matching exact working format from logs
       const helipadMetadata: any = {
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
         action: 'boost',
         app_name: 'StableKraft',
+        value_msat: totalAmount * 1000, // Integer as per Helipad spec
+        value_msat_total: totalAmount * 1000, // Integer as per Helipad spec
+        sender_name: senderName || 'Anonymous',
+        name: 'StableKraft',
         app_version: '1.0.0',
-        value_msat: totalAmount * 1000,
-        value_msat_total: totalAmount * 1000,
-        ts: Math.floor(Date.now() / 1000)
+        uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 999)}`
       };
 
-      // Add optional fields only if they exist
-      if (feedUrl) helipadMetadata.url = feedUrl;
-      if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
-      if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
-      if (message) helipadMetadata.message = message;
-      if (senderName) helipadMetadata.sender_name = senderName;
-      helipadMetadata.uuid = `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      // Add required fields matching exact working format
+      if (feedUrl) {
+        helipadMetadata.url = feedUrl;
+        helipadMetadata.feed = feedUrl; // Working logs show both url and feed fields
+      }
+      if (feedId) {
+        helipadMetadata.feedId = feedId; // Keep as string - working logs show "6590183" not integer
+      }
+      if (remoteFeedGuid) {
+        helipadMetadata.remote_feed_guid = remoteFeedGuid;
+      }
+      if (episodeGuid || trackId) {
+        helipadMetadata.remote_item_guid = episodeGuid || trackId;
+        helipadMetadata.episode_guid = episodeGuid || trackId; // Working logs show episode_guid field
+      }
+      if (albumName) {
+        helipadMetadata.album = albumName; // Working logs show album field
+      }
+      if (message) {
+        helipadMetadata.message = message;
+      }
+
+      console.log('📋 Final Helipad metadata (value splits):', helipadMetadata);
 
       // Use ValueSplitsService for proper multi-recipient payments
       const result = await ValueSplitsService.sendMultiRecipientPayment(
@@ -302,25 +362,37 @@ export function BoostButton({
       if (platformNodePubkey) {
         console.log(`🔑 Attempting keysend to platform node: ${platformNodePubkey}`);
         try {
-          // Create Helipad metadata following BLIP-0010 spec
+          // Create Helipad metadata matching exact working format from logs
           const helipadMetadata: any = {
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'boost',
             app_name: 'StableKraft',
+            value_msat: platformFee * 1000, // Integer as per Helipad spec
+            value_msat_total: platformFee * 1000, // Integer as per Helipad spec
+            sender_name: senderName || 'Anonymous',
+            name: 'StableKraft',
             app_version: '1.0.0',
-            value_msat: platformFee * 1000,
-            value_msat_total: platformFee * 1000,
-            ts: Math.floor(Date.now() / 1000)
+            uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 999)}`
           };
 
-          // Add optional fields only if they exist
-          if (feedUrl) helipadMetadata.url = feedUrl;
-          if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
-          if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
+          // Add optional fields matching exact working format
+          if (feedUrl) {
+            helipadMetadata.url = feedUrl;
+            helipadMetadata.feed = feedUrl; // Working logs show both url and feed fields
+          }
+          if (feedId) {
+            helipadMetadata.feedId = feedId; // Keep as string - working logs show "6590183" not integer
+          }
+          if (episodeGuid || trackId) {
+            helipadMetadata.remote_item_guid = episodeGuid || trackId;
+            helipadMetadata.episode_guid = episodeGuid || trackId; // Working logs show episode_guid field
+          }
+          if (albumName) {
+            helipadMetadata.album = albumName; // Working logs show album field
+          }
           if (metaboostMessage) helipadMetadata.message = metaboostMessage;
-          if (senderName) helipadMetadata.sender_name = senderName;
-          helipadMetadata.uuid = `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          if (remoteFeedGuid) helipadMetadata.remote_feed_guid = remoteFeedGuid;
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
           return;
@@ -365,22 +437,45 @@ export function BoostButton({
         recipient = lightningAddress;
       }
 
-      await fetch('/api/lightning/log-boost', {
+      // Ensure we always have required fields
+      const finalTrackId = data.trackId || trackId || albumName || trackTitle || 'boost-track';
+      const finalFeedId = data.feedId || feedId || 'boost-feed';
+      
+      const logData = {
+        trackId: finalTrackId,
+        feedId: finalFeedId,
+        trackTitle: trackTitle || 'Unknown Track',
+        artistName: artistName || 'Unknown Artist',
+        amount: data.amount,
+        message: data.message || '',
+        senderName: data.senderName || '',
+        type: data.paymentMethod || 'unknown',
+        recipient: recipient,
+        preimage: data.preimage,
+      };
+
+      // Clean the log data to remove undefined/null values (but keep required fields)
+      const cleanLogData = Object.fromEntries(
+        Object.entries(logData).filter(([key, value]) => {
+          // Always keep required fields even if empty
+          if (['trackId', 'amount', 'type', 'recipient'].includes(key)) {
+            return true;
+          }
+          // Filter out undefined/null for optional fields
+          return value !== undefined && value !== null;
+        })
+      );
+
+      const response = await fetch('/api/lightning/log-boost', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trackId: data.trackId,
-          feedId: data.feedId,
-          trackTitle,
-          artistName,
-          amount: data.amount,
-          message: data.message,
-          senderName: data.senderName,
-          type: data.paymentMethod || 'unknown',
-          recipient: recipient,
-          preimage: data.preimage,
-        }),
+        body: JSON.stringify(cleanLogData),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Log boost API error:', response.status, errorText);
+      }
     } catch (err) {
       console.error('Failed to log boost:', err);
     }
