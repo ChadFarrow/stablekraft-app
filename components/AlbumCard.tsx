@@ -298,38 +298,15 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     </Link>
 
     {showBoostModal && (
-      <div
-        className="fixed inset-0 z-[100]"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-      >
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative max-w-md w-full">
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowBoostModal(false);
-              }}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
-              aria-label="Close"
-            >
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <BoostButton
-              feedId={(album as any).feedId}
-              trackTitle={album.title}
-              artistName={album.artist}
-              lightningAddress={(album as any).v4vRecipient}
-              valueSplits={(album as any).v4vValue?.recipients}
-            />
-          </div>
-        </div>
-      </div>
+      <BoostButton
+        feedId={(album as any).feedId}
+        trackTitle={album.title}
+        artistName={album.artist}
+        lightningAddress={(album as any).v4vRecipient}
+        valueSplits={(album as any).v4vValue?.recipients}
+        autoOpen={true}
+        onClose={() => setShowBoostModal(false)}
+      />
     )}
   </>
   );

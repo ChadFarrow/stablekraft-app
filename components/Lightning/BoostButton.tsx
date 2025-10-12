@@ -20,6 +20,8 @@ interface BoostButtonProps {
   }>;
   lightningAddress?: string; // Primary Lightning Address for this track/artist
   className?: string;
+  autoOpen?: boolean; // Auto-open modal without showing button
+  onClose?: () => void; // Callback when modal is closed
 }
 
 export function BoostButton({
@@ -30,10 +32,12 @@ export function BoostButton({
   valueSplits = [],
   lightningAddress,
   className = '',
+  autoOpen = false,
+  onClose,
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
-  const { isConnected, connect, sendKeysend, sendPayment } = useBitcoinConnect();
-  const [showModal, setShowModal] = useState(false);
+  const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
+  const [showModal, setShowModal] = useState(autoOpen);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -319,16 +323,25 @@ export function BoostButton({
     }
   };
 
+  const handleCloseModal = () => {
+    setShowModal(false);
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
     <>
-      <button
-        onClick={handleBoost}
-        className={`flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg font-semibold transition-colors ${className}`}
-        title="Send a boost"
-      >
-        <Zap className="w-5 h-5" />
-        <span>Boost</span>
-      </button>
+      {!autoOpen && (
+        <button
+          onClick={handleBoost}
+          className={`flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg font-semibold transition-colors ${className}`}
+          title="Send a boost"
+        >
+          <Zap className="w-5 h-5" />
+          <span>Boost</span>
+        </button>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -338,7 +351,7 @@ export function BoostButton({
                 Send a Boost ⚡
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 className="text-gray-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
@@ -457,7 +470,7 @@ export function BoostButton({
             {/* Action Buttons */}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 className="flex-1 py-2 px-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
               >
                 Cancel
