@@ -85,8 +85,8 @@ export class ValueSplitsService {
 
       // Add delay between payments to prevent rapid sequential keysend failures
       if (i > 0) {
-        console.log(`⏳ Waiting 2 seconds before next payment...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log(`⏳ Waiting 500ms before next payment...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       let result: PaymentResult;
