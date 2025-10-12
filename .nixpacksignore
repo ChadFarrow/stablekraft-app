@@ -1,0 +1,19 @@
+# Ignore development files and large directories
+node_modules/
+.next/
+.git/
+*.log
+*.tmp
+android-twa/
+android-app/
+deploy-*
+*.backup
+*.bak
+.env.local
+.env.development
+.env.test
+dev-server.log
+lighthouse-baseline.json
+*.code-workspace
+.DS_Store
+Thumbs.db
