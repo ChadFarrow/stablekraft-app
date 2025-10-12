@@ -305,14 +305,6 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
           e.stopPropagation();
         }}
       >
-        <BoostButton
-          feedId={(album as any).feedId}
-          trackTitle={album.title}
-          artistName={album.artist}
-          lightningAddress={(album as any).v4vRecipient}
-          valueSplits={(album as any).v4vValue?.recipients}
-          className="hidden"
-        />
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative max-w-md w-full">
             <button
