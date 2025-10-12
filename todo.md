@@ -1,60 +1,15 @@
 # TODO List
 
 ## High Priority
-- [x] Fix remaining 5 "Wavlake Album #" titles in production database
-  - [x] Wavlake Album 1 → "Tinderbox" by Nate Johnivan
-  - [x] Wavlake Album 16 → "THEY RIDE" by IROH
-  - [x] Wavlake Album 2 → "Singles" by Nate Johnivan
-  - [x] Wavlake Album 5 → "Fight!" by Nate Johnivan
+- [ ] Add Boost button to full screen now playing screen
+- [ ] Make background color on now playing screen match the album art
+- [ ] Add way to save favorite albums and songs 
 
 ## Medium Priority
-- [x] Test and optimize performance on production site
-- [x] Verify all publisher feeds are working correctly
-- [x] Check for any other generic album titles that need fixing
+- [ ] 
 
 ## Low Priority
-- [ ] Add monitoring for future RSS feed parsing issues
-- [ ] Consider automating title extraction for new feeds
+- [ ] 
 
 ## Completed ✅
-- [x] Optimized playlist loading performance with lazy loading system
-  - [x] Created fast-loading endpoints for instant UI display (96% faster initial load)
-  - [x] Implemented lazy loading in PlaylistTemplateCompact for background track resolution
-  - [x] Added batch processing to reduce API bottlenecks and prevent rate limiting
-  - [x] Enhanced playlist artwork backgrounds to display immediately while tracks load
-- [x] Tested and optimized performance on production site
-- [x] Verified all publisher feeds are working correctly  
-- [x] Checked for any other generic album titles that need fixing
-- [x] Fixed remaining 5 "Wavlake Album #" titles in production database
-  - [x] Wavlake Album 1 → "Tinkerbox" by Nate Johnivan
-  - [x] Wavlake Album 16 → "THEY RIDE" by IROH
-  - [x] Wavlake Album 2 → "Singles" by Nate Johnivan
-  - [x] Wavlake Album 5 → "Fight!" by Nate Johnivan
-- [x] Fixed ITDV playlist integration with global audio system
-  - [x] Integrated ITDV playlist with global AudioContext instead of local audio management  
-  - [x] Fixed play button to open now playing screen (like other albums)
-  - [x] Added url property to ITDV API tracks for compatibility with RSSAlbum type
-  - [x] Fixed track index calculation to properly handle filtered tracks
-  - [x] Resolved all TypeScript build errors preventing Railway deployment
-- [x] Fixed MediaSession track artwork display on mobile lock screen
-  - [x] Prioritized track.image over album.coverArt in MediaSession metadata
-  - [x] Individual track artwork now displays on phone lock screen instead of album art
-- [x] Created comprehensive startup.md documentation
-  - [x] Step-by-step dev server setup instructions
-  - [x] Common issues and troubleshooting solutions
-  - [x] Development workflow and useful commands
-- [x] Fixed scroll sensitivity causing accidental clicks on main page
-  - [x] Increased movement threshold from 10px to 20px
-  - [x] Extended scroll detection timeouts (150ms → 300ms)
-  - [x] Improved touch end handling (100ms → 250ms)
-  - [x] Enhanced click prevention thresholds (100ms → 200ms)
-- [x] Created migration API endpoints for title fixes
-- [x] Built local and production database scripts
-- [x] Identified and documented the original feeds.json structure
-- [x] Fixed album slug collision issues
-- [x] Optimized API performance (25x improvement)
-- [x] Migrated from JSON files to database-driven APIs
-- [x] Fixed Railway build performance (85-90% improvement)
-- [x] Resolved publisher feed confusion issues
-- [x] Fixed My Friend Jimi album titles (9 albums)
-- [x] Fixed Joe Martin album titles with generic names
+- [x] Previous work completed and archived

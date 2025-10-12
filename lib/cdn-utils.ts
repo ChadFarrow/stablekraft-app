@@ -7,31 +7,36 @@
  * Get album artwork URL with fallback to placeholder
  * @param originalUrl - The original artwork URL
  * @param size - The desired size for placeholder
+ * @param useProxy - Whether to use image proxy for optimization (default: false for backward compatibility)
  * @returns The original artwork URL or placeholder
  */
-export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'medium' | 'large' | 'xl' = 'medium'): string {
+export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'medium' | 'large' | 'xl' = 'medium', useProxy: boolean = false): string {
   // Always return placeholder for missing, empty, or invalid URLs
   if (!originalUrl || originalUrl.trim() === '' || originalUrl === 'undefined' || originalUrl === 'null') {
     return getPlaceholderImageUrl(size);
   }
-  
+
   // Handle known missing placeholder images
   if (originalUrl.includes('playlist-track-placeholder.png')) {
     return getPlaceholderImageUrl(size);
   }
-  
+
   // Handle obvious broken or placeholder URLs
   if (originalUrl.includes('placeholder') || originalUrl.includes('not-found') || originalUrl.includes('404')) {
     return getPlaceholderImageUrl(size);
   }
-  
+
   // Ensure HTTPS for all URLs
   if (originalUrl.startsWith('http://')) {
     originalUrl = originalUrl.replace('http://', 'https://');
   }
-  
+
+  // If proxy is requested and URL is external, use image proxy
+  if (useProxy && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:')) {
+    return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
+  }
+
   // Use original URLs directly for best quality since RSS feeds provide high-res images
-  
   return originalUrl;
 }
 

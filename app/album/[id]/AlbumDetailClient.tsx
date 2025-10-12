@@ -416,13 +416,23 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
       bottom: 0,
       zIndex: 1  // Override global background (which is z-0)
     };
-    
-    const style = backgroundImage && isClient ? {
+
+    // Use proxy for better caching and original image quality
+    const highResBackgroundUrl = backgroundImage && isClient
+      ? getAlbumArtworkUrl(backgroundImage, 'xl', true)
+      : null;
+
+    const style = highResBackgroundUrl ? {
       ...baseStyle,
-      backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${backgroundImage}')`,
+      backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${highResBackgroundUrl}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      backgroundAttachment: 'fixed'
+      backgroundAttachment: 'fixed',
+      // Add image rendering optimizations for better quality
+      filter: 'blur(0px) contrast(1.05) brightness(0.95)',
+      imageRendering: 'high-quality' as any,
+      WebkitBackfaceVisibility: 'hidden' as any,
+      transform: 'translateZ(0)' as any,
     } : {
       ...baseStyle,
       background: 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55), rgb(17, 24, 39))'
