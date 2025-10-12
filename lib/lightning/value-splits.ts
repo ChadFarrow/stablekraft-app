@@ -26,6 +26,9 @@ export interface MultiRecipientResult {
 }
 
 export class ValueSplitsService {
+  // Minimum payment amount for Lightning keysend (most nodes require at least 10 sats)
+  private static readonly MIN_PAYMENT_AMOUNT = 10;
+
   /**
    * Calculate payment amounts for each recipient based on their split percentages
    */
@@ -40,24 +43,42 @@ export class ValueSplitsService {
       return [];
     }
 
-    // Calculate amounts and ensure minimum 1 sat per recipient
+    // Calculate amounts for each recipient
     const splits = recipients.map(recipient => ({
       recipient,
-      amount: Math.max(1, Math.floor((recipient.split / totalSplits) * totalAmount)),
+      amount: Math.floor((recipient.split / totalSplits) * totalAmount),
     }));
 
+    // Separate splits into those above and below minimum
+    const validSplits = splits.filter(s => s.amount >= this.MIN_PAYMENT_AMOUNT);
+    const tooSmallSplits = splits.filter(s => s.amount > 0 && s.amount < this.MIN_PAYMENT_AMOUNT);
+
+    // If we have splits that are too small, add them to the largest valid recipient
+    if (tooSmallSplits.length > 0 && validSplits.length > 0) {
+      const redistributedAmount = tooSmallSplits.reduce((sum, s) => sum + s.amount, 0);
+      const largestValidSplit = validSplits.reduce((max, current) =>
+        current.amount > max.amount ? current : max
+      );
+      largestValidSplit.amount += redistributedAmount;
+
+      console.log(`⚠️ Redistributed ${redistributedAmount} sats from ${tooSmallSplits.length} recipients below ${this.MIN_PAYMENT_AMOUNT} sat minimum`);
+      tooSmallSplits.forEach(s => {
+        console.log(`   Skipped ${s.recipient.name || s.recipient.address.slice(0, 20)}... (${s.amount} sats < ${this.MIN_PAYMENT_AMOUNT} sats minimum)`);
+      });
+    }
+
     // Adjust for rounding errors by adding remaining sats to largest recipient
-    const totalCalculated = splits.reduce((sum, s) => sum + s.amount, 0);
+    const totalCalculated = validSplits.reduce((sum, s) => sum + s.amount, 0);
     const difference = totalAmount - totalCalculated;
-    
-    if (difference !== 0) {
-      const largestSplit = splits.reduce((max, current) => 
+
+    if (difference !== 0 && validSplits.length > 0) {
+      const largestSplit = validSplits.reduce((max, current) =>
         current.amount > max.amount ? current : max
       );
       largestSplit.amount += difference;
     }
 
-    return splits.filter(split => split.amount > 0);
+    return validSplits;
   }
 
   /**
