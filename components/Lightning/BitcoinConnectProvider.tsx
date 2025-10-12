@@ -56,12 +56,12 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
     // Add backdrop click handler for Bitcoin Connect modal
     const handleBackdropClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.target as Element;
 
       // Check if click is on the Bitcoin Connect modal backdrop
       if (target.tagName === 'BC-MODAL' || target.closest('bc-modal')) {
         const modal = document.querySelector('bc-modal');
-        if (modal && target === modal) {
+        if (modal && target === (modal as any)) {
           // Click was on the backdrop (the bc-modal element itself), not its children
           console.log('Backdrop click detected, closing Bitcoin Connect modal');
           import('@getalby/bitcoin-connect').then((bitcoinConnect) => {
