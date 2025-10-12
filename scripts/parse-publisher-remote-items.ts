@@ -41,10 +41,10 @@ class PodcastParser extends Parser {
   constructor() {
     super({
       customFields: {
-        channel: [
+        feed: [
           ['podcast:guid', 'podcastGuid'],
           ['podcast:medium', 'medium'],
-        ],
+        ] as any,
         item: [
           ['podcast:guid', 'guid'],
           ['enclosure', 'enclosure'],
@@ -54,7 +54,7 @@ class PodcastParser extends Parser {
           ['content:encoded', 'contentEncoded'],
           ['itunes:episode', 'episodeNumber'],
           ['podcast:season', 'seasonNumber'],
-        ],
+        ] as any,
       },
     });
   }

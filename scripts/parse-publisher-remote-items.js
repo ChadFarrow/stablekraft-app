@@ -38,12 +38,18 @@ class PodcastParser extends Parser {
   }
 }
 
-async function fetchAndParsePublisherFeed(feedUrl) {
+async function fetchAndParsePublisherFeed(feedUrl, retryCount = 0) {
   console.log(`\n📡 Fetching publisher feed: ${feedUrl}`);
 
   try {
     const response = await fetch(feedUrl);
     if (!response.ok) {
+      if (response.status === 429 && retryCount < 3) {
+        const waitTime = (retryCount + 1) * 10000; // 10s, 20s, 30s
+        console.log(`   ⚠️  Rate limited - waiting ${waitTime/1000}s before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return fetchAndParsePublisherFeed(feedUrl, retryCount + 1);
+      }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
@@ -78,12 +84,18 @@ async function fetchAndParsePublisherFeed(feedUrl) {
   }
 }
 
-async function parseAlbumFeed(feedUrl, publisherId, publisherTitle) {
+async function parseAlbumFeed(feedUrl, publisherId, publisherTitle, retryCount = 0) {
   console.log(`\n   🎵 Parsing album feed: ${feedUrl.substring(0, 60)}...`);
 
   try {
     const response = await fetch(feedUrl);
     if (!response.ok) {
+      if (response.status === 429 && retryCount < 3) {
+        const waitTime = (retryCount + 1) * 5000; // 5s, 10s, 15s
+        console.log(`      ⚠️  Rate limited - waiting ${waitTime/1000}s before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return parseAlbumFeed(feedUrl, publisherId, publisherTitle, retryCount + 1);
+      }
       console.log(`      ⚠️  HTTP ${response.status} - skipping`);
       return null;
     }
@@ -251,8 +263,8 @@ async function main() {
 
       console.log(`      ✅ Added to queue`);
 
-      // Rate limiting - wait 1 second between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Rate limiting - wait 3 seconds between requests to avoid 429 errors
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
 
