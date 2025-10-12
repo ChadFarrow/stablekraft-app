@@ -134,18 +134,26 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         await bitcoinConnect.launchModal();
         console.log('Modal launched successfully');
 
-        // Ensure modal is immediately interactive by focusing it
+        // Force modal interactivity immediately - remove pointer-events: none that might be set
         setTimeout(() => {
           const modal = document.querySelector('bc-modal, bc-modal-wrapper');
           if (modal && modal instanceof HTMLElement) {
-            modal.focus();
-            // Also try to focus any close button within the modal
-            const closeButton = modal.querySelector('button[aria-label*="Close"], button[aria-label*="close"]');
-            if (closeButton && closeButton instanceof HTMLElement) {
-              closeButton.tabIndex = 0;
-            }
+            // Force all pointer events on
+            modal.style.pointerEvents = 'auto';
+            const modalContent = modal.shadowRoot || modal;
+            const allElements = modalContent.querySelectorAll('*');
+            allElements.forEach(el => {
+              if (el instanceof HTMLElement) {
+                el.style.pointerEvents = 'auto';
+              }
+            });
+
+            // Simulate a click on the modal to "activate" it
+            modal.click();
+
+            console.log('Modal interactivity forced');
           }
-        }, 100);
+        }, 50);
 
         // Try to get provider after modal interaction
         const newProvider = await bitcoinConnect.requestProvider();
