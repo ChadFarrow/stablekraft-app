@@ -1345,7 +1345,7 @@ export default function HomePage() {
                   {/* Albums Grid */}
                   {(() => {
                     const albumsWithMultipleTracks = filteredAlbums
-                      .filter(album => (album.tracks?.length || album.totalTracks || 0) > 6);
+                      .filter(album => (album.tracks?.length || album.totalTracks || 0) >= 6);
                     return albumsWithMultipleTracks.length > 0 && (
                       <div className="mb-12">
                         <h2 className="text-2xl font-bold mb-6 text-white">Albums</h2>
@@ -1409,7 +1409,7 @@ export default function HomePage() {
                   {/* EPs and Singles Grid */}
                   {(() => {
                     const epsAndSingles = filteredAlbums
-                      .filter(album => (album.tracks?.length || album.totalTracks || 0) <= 6);
+                      .filter(album => (album.tracks?.length || album.totalTracks || 0) < 6);
                     return epsAndSingles.length > 0 && (
                       <div>
                         <h2 className="text-2xl font-bold mb-6 text-white">EPs and Singles</h2>
