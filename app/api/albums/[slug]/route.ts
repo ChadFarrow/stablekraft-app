@@ -700,8 +700,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         lastUpdated: feed.updatedAt,
-        v4vRecipient: feed.v4vRecipient,
-        v4vValue: feed.v4vValue
+        v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
+        v4vValue: feed.tracks?.[0]?.v4vValue || null
       };
     }
     
@@ -799,8 +799,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           feedId: feed.id,
           feedUrl: feed.originalUrl,
           lastUpdated: feed.updatedAt,
-          v4vRecipient: feed.v4vRecipient,
-          v4vValue: feed.v4vValue
+          v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
+          v4vValue: feed.tracks?.[0]?.v4vValue || null
         };
       }
     }

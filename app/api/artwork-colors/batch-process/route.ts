@@ -38,14 +38,15 @@ export async function POST(request: NextRequest) {
 
     // Filter out already processed images (unless force reprocessing)
     let urlsToProcess = imageUrls;
-    if (!forceReprocess) {
-      const processedColors = await prisma.artworkColor.findMany({
-        select: { imageUrl: true }
-      });
-      const processedUrls = new Set(processedColors.map(pc => pc.imageUrl));
-      urlsToProcess = imageUrls.filter(url => !processedUrls.has(url));
-      console.log(`🎨 ${urlsToProcess.length} URLs need processing (${imageUrls.length - urlsToProcess.length} already processed)`);
-    }
+    // TODO: Implement artwork color caching when artworkColor table is added to schema
+    // if (!forceReprocess) {
+    //   const processedColors = await prisma.artworkColor.findMany({
+    //     select: { imageUrl: true }
+    //   });
+    //   const processedUrls = new Set(processedColors.map(pc => pc.imageUrl));
+    //   urlsToProcess = imageUrls.filter(url => !processedUrls.has(url));
+    //   console.log(`🎨 ${urlsToProcess.length} URLs need processing (${imageUrls.length - urlsToProcess.length} already processed)`);
+    // }
 
     if (urlsToProcess.length === 0) {
       return NextResponse.json({
@@ -137,7 +138,9 @@ export async function GET() {
       ) combined
     `;
 
-    const processedCount = await prisma.artworkColor.count();
+    // TODO: Implement artwork color caching when artworkColor table is added to schema
+    // const processedCount = await prisma.artworkColor.count();
+    const processedCount = 0; // Placeholder until artworkColor table is implemented
     const total = Number(totalArtwork[0]?.count || 0);
 
     return NextResponse.json({

@@ -42,15 +42,6 @@ export async function POST(request: NextRequest) {
         if (feedV4V.recipient) {
           console.log(`✅ Found V4V data for feed ${feed.id}: ${feedV4V.recipient}`);
           
-          // Update feed with V4V data
-          await prisma.feed.update({
-            where: { id: feed.id },
-            data: {
-              v4vRecipient: feedV4V.recipient,
-              v4vValue: feedV4V.value,
-            },
-          });
-
           // Get all tracks for this feed
           const tracks = await prisma.track.findMany({
             where: { feedId: feed.id },

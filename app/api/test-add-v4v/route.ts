@@ -18,9 +18,9 @@ export async function GET() {
 
     console.log(`Found feed: ${doerfelsFeed.title}`);
 
-    // Update with test V4V data
-    await prisma.feed.update({
-      where: { id: doerfelsFeed.id },
+    // Update tracks with test V4V data instead of feed
+    const trackUpdates = await prisma.track.updateMany({
+      where: { feedId: doerfelsFeed.id },
       data: {
         v4vRecipient: 'lushnessprecious644398@getalby.com', // Test Lightning Address
         v4vValue: {
@@ -39,8 +39,9 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      message: `Added V4V data to ${doerfelsFeed.title}`,
-      feedId: doerfelsFeed.id
+      message: `Added V4V data to ${trackUpdates.count} tracks in ${doerfelsFeed.title}`,
+      feedId: doerfelsFeed.id,
+      tracksUpdated: trackUpdates.count
     });
   } catch (error) {
     console.error('Error adding V4V data:', error);

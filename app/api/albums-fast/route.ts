@@ -226,13 +226,13 @@ export async function GET(request: Request) {
       description: feed.description || '',
       coverArt: feed.image || '',
       releaseDate: feed.updatedAt || feed.createdAt,
-      feedUrl: feed.originalUrl || feed.url, // For Helipad TLV - try both fields
+      feedUrl: feed.originalUrl, // For Helipad TLV
       feedGuid: feed.id,
       feedId: feed.id, // For Helipad TLV
       remoteFeedGuid: feed.id, // For Helipad TLV
       guid: feed.tracks?.[0]?.guid || feed.id, // Episode GUID for Helipad TLV
       episodeGuid: feed.tracks?.[0]?.guid || feed.id, // Alternative field name
-      link: feed.originalUrl || feed.url, // For feedUrl fallback
+      link: feed.originalUrl, // For feedUrl fallback
       priority: feed.priority,
       tracks: feed.tracks
         .filter((track: Track, index: number, self: Track[]) => {
