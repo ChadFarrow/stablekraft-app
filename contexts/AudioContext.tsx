@@ -603,14 +603,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('🎵 Track ended, attempting to play next track');
       }
-      
+
       try {
-        // Add a small delay to ensure state is stable
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        // Immediately trigger next track without delay for better mobile performance
         // Use the ref to get the latest playNextTrack function
         if (playNextTrackRef.current) {
-          await playNextTrackRef.current();
+          // Call playNextTrack synchronously to avoid mobile browser throttling
+          playNextTrackRef.current();
         } else {
           console.warn('⚠️ playNextTrackRef.current is null');
         }
@@ -624,7 +623,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const handleTimeUpdate = () => {
       const currentElement = isVideoMode ? video : audio;
       setCurrentTime(currentElement.currentTime);
-      
+
       // Check if current track has end time and we've reached it
       if (currentPlayingAlbum && currentPlayingAlbum.tracks[currentTrackIndex]) {
         const track = currentPlayingAlbum.tracks[currentTrackIndex];
@@ -633,6 +632,40 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             console.log(`🎵 Reached end time: ${track.endTime}s for track: ${track.title}`);
             // Trigger the ended event to play next track
             currentElement.dispatchEvent(new Event('ended'));
+          }
+        }
+
+        // Preload next track when we're close to the end (last 5 seconds)
+        // This helps mobile devices prepare for smooth transitions
+        const timeRemaining = (track.endTime || currentElement.duration) - currentElement.currentTime;
+        if (timeRemaining > 0 && timeRemaining <= 5 && !currentElement.paused) {
+          // Get next track info
+          let nextTrack = null;
+          if (isShuffleMode && shuffledPlaylist.length > 0) {
+            const nextShuffleIndex = currentShuffleIndex + 1;
+            if (nextShuffleIndex < shuffledPlaylist.length) {
+              nextTrack = shuffledPlaylist[nextShuffleIndex]?.track;
+            } else if (shuffledPlaylist.length > 0) {
+              nextTrack = shuffledPlaylist[0]?.track;
+            }
+          } else if (currentTrackIndex + 1 < currentPlayingAlbum.tracks.length) {
+            nextTrack = currentPlayingAlbum.tracks[currentTrackIndex + 1];
+          } else if (repeatMode === 'all' && currentPlayingAlbum.tracks.length > 0) {
+            nextTrack = currentPlayingAlbum.tracks[0];
+          }
+
+          // Preload next track to ensure smooth mobile playback
+          if (nextTrack && nextTrack.url) {
+            const nextElement = isVideoUrl(nextTrack.url) ? videoRef.current : audioRef.current;
+            if (nextElement && nextElement !== currentElement) {
+              // Only preload if not already loaded
+              if (!nextElement.src || nextElement.src !== nextTrack.url) {
+                console.log('🔄 Preloading next track for smooth transition:', nextTrack.title);
+                nextElement.src = nextTrack.url;
+                nextElement.preload = 'auto';
+                nextElement.load();
+              }
+            }
           }
         }
       }
@@ -710,7 +743,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         hlsRef.current = null;
       }
     };
-  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex]); // Add necessary dependencies but avoid functions that change frequently
+  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode]); // Add necessary dependencies for preloading logic
 
   // Helper function to proxy external image URLs for media session
   const getProxiedMediaImageUrl = (imageUrl: string): string => {
@@ -1280,10 +1313,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        preload="none"
+        preload="metadata"
         crossOrigin="anonymous"
         playsInline
         webkit-playsinline="true"
+        x-webkit-airplay="allow"
         autoPlay={false}
         controls={false}
         muted={false}
@@ -1292,10 +1326,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       {/* Hidden video element */}
       <video
         ref={videoRef}
-        preload="none"
+        preload="metadata"
         crossOrigin="anonymous"
         playsInline
         webkit-playsinline="true"
+        x-webkit-airplay="allow"
         autoPlay={false}
         controls={false}
         muted={false}
