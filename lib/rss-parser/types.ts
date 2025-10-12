@@ -118,6 +118,11 @@ export interface RSSAlbum {
   source?: string;
   id?: string;
   feedId?: string;
+  feedUrl?: string; // For Helipad TLV
+  feedGuid?: string; // For Helipad TLV
+  remoteFeedGuid?: string; // For Helipad TLV
+  guid?: string; // Episode GUID for Helipad TLV
+  episodeGuid?: string; // Alternative episode GUID field
   totalTracks?: number;
   // V4V (Value4Value) fields
   value4Value?: RSSValue4Value;

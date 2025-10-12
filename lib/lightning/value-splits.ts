@@ -23,6 +23,8 @@ export interface MultiRecipientResult {
   failedPayments: ValueSplitPayment[];
   errors: string[];
   primaryPreimage?: string; // First successful preimage
+  isPartialSuccess?: boolean; // True if 50%+ succeeded but not 100%
+  successRate?: number; // 0-1 ratio of successful payments
 }
 
 export class ValueSplitsService {
@@ -83,29 +85,39 @@ export class ValueSplitsService {
       const { recipient, amount } = splitAmounts[i];
       console.log(`💸 Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%) to ${recipient.address.slice(0, 20)}...`);
 
-      // Add delay between payments to prevent rapid sequential keysend failures
+      // Add shorter delay between payments for better UX
       if (i > 0) {
-        console.log(`⏳ Waiting 100ms before next payment...`);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log(`⏳ Waiting 50ms before next payment...`);
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       let result: PaymentResult;
 
       try {
-        if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
-          // Pay via Lightning Address
-          result = await this.payLightningAddress(recipient, amount, message, sendPayment);
-        } else if (recipient.type === 'node') {
-          // Pay via keysend (with Helipad metadata)
-          result = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
-        } else {
-          result = {
-            success: false,
-            error: `Unsupported recipient type: ${recipient.type}`,
-            recipient: recipient.address,
-            amount
-          };
-        }
+        // Add timeout wrapper for faster failures
+        const paymentPromise = (async () => {
+          if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
+            // Pay via Lightning Address
+            return await this.payLightningAddress(recipient, amount, message, sendPayment);
+          } else if (recipient.type === 'node') {
+            // Pay via keysend (with Helipad metadata)
+            return await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
+          } else {
+            return {
+              success: false,
+              error: `Unsupported recipient type: ${recipient.type}`,
+              recipient: recipient.address,
+              amount
+            };
+          }
+        })();
+
+        // Add 10 second timeout for individual payments
+        const timeoutPromise = new Promise<PaymentResult>((_, reject) => {
+          setTimeout(() => reject(new Error('Payment timeout after 10 seconds')), 10000);
+        });
+
+        result = await Promise.race([paymentPromise, timeoutPromise]);
 
         const payment: ValueSplitPayment = { recipient, amount, result };
 
@@ -152,16 +164,24 @@ export class ValueSplitsService {
 
     const success = successfulPayments.length > 0;
     const primaryPreimage = successfulPayments[0]?.result?.preimage;
+    const successRate = successfulPayments.length / splitAmounts.length;
 
-    console.log(`📊 Multi-recipient payment complete: ${successfulPayments.length}/${splitAmounts.length} successful`);
+    console.log(`📊 Multi-recipient payment complete: ${successfulPayments.length}/${splitAmounts.length} successful (${Math.round(successRate * 100)}%)`);
+
+    // Consider partial success (>= 50%) as overall success for better UX
+    const isPartialSuccess = successRate >= 0.5 && successRate < 1.0;
 
     return {
       success,
       totalAmount,
       successfulPayments,
       failedPayments,
-      errors,
-      primaryPreimage
+      errors: isPartialSuccess ? 
+        [`Partial success: ${successfulPayments.length}/${splitAmounts.length} recipients received payment`] : 
+        errors,
+      primaryPreimage,
+      isPartialSuccess,
+      successRate
     };
   }
 
