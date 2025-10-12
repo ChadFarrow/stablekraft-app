@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "echo 'Skipping auto-version update for deployment'",
-    "build": "node scripts/build-production.js",
+    "build": "npx prisma generate && npx next build",
     "postbuild": "echo 'Build complete'",
     "start": "next start",
     "lint": "next lint",
