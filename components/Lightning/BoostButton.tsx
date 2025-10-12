@@ -45,7 +45,7 @@ export function BoostButton({
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
-  const [showModal, setShowModal] = useState(autoOpen);
+  const [showModal, setShowModal] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -56,6 +56,26 @@ export function BoostButton({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Handle autoOpen - check connection first
+  useEffect(() => {
+    if (autoOpen && isClient) {
+      if (isConnected) {
+        setShowModal(true);
+      } else {
+        // Not connected, trigger connection
+        connect().then(() => {
+          // After successful connection, show the modal
+          setShowModal(true);
+        }).catch(() => {
+          // If connection fails or is cancelled, close the component
+          if (onClose) {
+            onClose();
+          }
+        });
+      }
+    }
+  }, [autoOpen, isClient, isConnected]);
 
   // Don't render on server-side
   if (!isClient) {
