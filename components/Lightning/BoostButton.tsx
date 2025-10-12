@@ -122,7 +122,7 @@ export function BoostButton({
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'boost',
-            app_name: 'FUCKIT',
+            app_name: 'StableKraft',
             feed: feedUrl || '',
             url: feedUrl || '',
             message: message || '',
@@ -136,7 +136,7 @@ export function BoostButton({
             uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: amount * 1000,
-            name: 'FUCKIT',
+            name: 'StableKraft',
             ts: Math.floor(Date.now() / 1000)
           };
 
@@ -212,7 +212,7 @@ export function BoostButton({
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
         action: 'boost',
-        app_name: 'FUCKIT',
+        app_name: 'StableKraft',
         feed: feedUrl || '',
         url: feedUrl || '',
         message: message || '',
@@ -226,7 +226,7 @@ export function BoostButton({
         uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         app_version: '1.0.0',
         value_msat: totalAmount * 1000,
-        name: 'FUCKIT',
+        name: 'StableKraft',
         ts: Math.floor(Date.now() / 1000)
       };
 
@@ -273,7 +273,7 @@ export function BoostButton({
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'metaboost',
-            app_name: 'FUCKIT',
+            app_name: 'StableKraft',
             feed: feedUrl || '',
             url: feedUrl || '',
             message: metaboostMessage,
@@ -287,7 +287,7 @@ export function BoostButton({
             uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: platformFee * 1000,
-            name: 'FUCKIT',
+            name: 'StableKraft',
             ts: Math.floor(Date.now() / 1000)
           };
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
