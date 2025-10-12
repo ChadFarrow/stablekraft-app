@@ -61,7 +61,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Check if click is on the Bitcoin Connect modal backdrop
       if (target.tagName === 'BC-MODAL' || target.closest('bc-modal')) {
         const modal = document.querySelector('bc-modal');
-        if (modal && e.target === modal) {
+        if (modal && target === modal) {
           // Click was on the backdrop (the bc-modal element itself), not its children
           console.log('Backdrop click detected, closing Bitcoin Connect modal');
           import('@getalby/bitcoin-connect').then((bitcoinConnect) => {
