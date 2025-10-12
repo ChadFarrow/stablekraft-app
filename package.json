@@ -84,6 +84,7 @@
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
     "@prisma/client": "^6.16.2",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/colorthief": "^2.6.0",
     "@types/xml2js": "^0.4.14",
     "eslint": "^8",
