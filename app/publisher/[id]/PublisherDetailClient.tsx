@@ -175,12 +175,15 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             fetchPublisherAlbums();
           } else {
             // Filter out items with empty or missing titles, as they won't render properly
-            const validItems = initialData.publisherItems.filter((item: any) => 
+            const validItems = initialData.publisherItems.filter((item: any) =>
               item.title && item.title.trim() !== ''
             );
-            
-            if (validItems.length > 0) {
-              console.log(`🏢 Processing ${validItems.length} valid items:`, validItems);
+
+            // Check if any items have zero tracks - these need to be fetched from the main albums API
+            const itemsHaveTracks = validItems.some((item: any) => (item.trackCount || 0) > 0);
+
+            if (validItems.length > 0 && itemsHaveTracks) {
+              console.log(`🏢 Processing ${validItems.length} valid items with tracks:`, validItems);
               const albumsFromItems = validItems.map((item: any) => ({
                 id: item.id || item.feedGuid || `album-${Math.random()}`,
                 title: item.title,
@@ -197,14 +200,14 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 link: item.feedUrl || item.link,
                 feedUrl: item.feedUrl || item.link
               }));
-              
+
               console.log(`🏢 Setting ${albumsFromItems.length} albums from initial data (filtered from ${initialData.publisherItems.length} items)`);
               console.log(`🏢 First album:`, albumsFromItems[0]);
               setAlbums(albumsFromItems);
               console.log(`🏢 Albums state should now be set to ${albumsFromItems.length} albums`);
             } else {
-              console.log(`⚠️ No valid albums found - all ${initialData.publisherItems.length} items have empty titles`);
-              // For publishers with empty titles, we need to fetch the actual album data
+              console.log(`⚠️ No valid albums found or items have zero tracks - fetching from main albums API`);
+              // For publishers with empty titles or zero tracks, we need to fetch the actual album data
               setAlbumsLoading(true);
               fetchPublisherAlbums();
             }
