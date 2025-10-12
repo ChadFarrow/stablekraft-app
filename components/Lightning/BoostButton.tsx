@@ -144,28 +144,25 @@ export function BoostButton({
       } else if (lightningAddress && lightningAddress.length === 66 && (lightningAddress.startsWith('02') || lightningAddress.startsWith('03'))) {
         // Pay to node pubkey via keysend
         try {
-          // Create Helipad metadata for the boost with all required fields
-          const helipadMetadata = {
+          // Create Helipad metadata following BLIP-0010 spec
+          const helipadMetadata: any = {
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
             action: 'boost',
             app_name: 'StableKraft',
-            feed: feedUrl || '',
-            url: feedUrl || '',
-            message: message || '',
-            feedId: feedId || '',
-            episode_guid: episodeGuid || trackId || '',
-            remote_item_guid: episodeGuid || trackId || '',
-            remote_feed_guid: remoteFeedGuid || '',
-            album: albumName || trackTitle || 'Unknown Album',
-            value_msat_total: amount * 1000,
-            sender_name: senderName || '',
-            uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: amount * 1000,
-            name: 'StableKraft',
+            value_msat_total: amount * 1000,
             ts: Math.floor(Date.now() / 1000)
           };
+
+          // Add optional fields only if they exist
+          if (feedUrl) helipadMetadata.url = feedUrl;
+          if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
+          if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
+          if (message) helipadMetadata.message = message;
+          if (senderName) helipadMetadata.sender_name = senderName;
+          helipadMetadata.uuid = `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
           result = await sendKeysend(lightningAddress, amount, message, helipadMetadata);
         } catch (keysendError) {
@@ -246,28 +243,25 @@ export function BoostButton({
         fee: false
       }));
 
-      // Create Helipad metadata for value splits with all required fields
-      const helipadMetadata = {
+      // Create Helipad metadata following BLIP-0010 spec
+      const helipadMetadata: any = {
         podcast: artistName || 'Unknown Artist',
         episode: trackTitle || 'Unknown Track',
         action: 'boost',
         app_name: 'StableKraft',
-        feed: feedUrl || '',
-        url: feedUrl || '',
-        message: message || '',
-        feedId: feedId || '',
-        episode_guid: episodeGuid || trackId || '',
-        remote_item_guid: episodeGuid || trackId || '',
-        remote_feed_guid: remoteFeedGuid || '',
-        album: albumName || trackTitle || 'Unknown Album',
-        value_msat_total: totalAmount * 1000,
-        sender_name: senderName || '',
-        uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         app_version: '1.0.0',
         value_msat: totalAmount * 1000,
-        name: 'StableKraft',
+        value_msat_total: totalAmount * 1000,
         ts: Math.floor(Date.now() / 1000)
       };
+
+      // Add optional fields only if they exist
+      if (feedUrl) helipadMetadata.url = feedUrl;
+      if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
+      if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
+      if (message) helipadMetadata.message = message;
+      if (senderName) helipadMetadata.sender_name = senderName;
+      helipadMetadata.uuid = `boost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
       // Use ValueSplitsService for proper multi-recipient payments
       const result = await ValueSplitsService.sendMultiRecipientPayment(
@@ -308,27 +302,25 @@ export function BoostButton({
       if (platformNodePubkey) {
         console.log(`🔑 Attempting keysend to platform node: ${platformNodePubkey}`);
         try {
-          const helipadMetadata = {
+          // Create Helipad metadata following BLIP-0010 spec
+          const helipadMetadata: any = {
             podcast: artistName || 'Unknown Artist',
             episode: trackTitle || 'Unknown Track',
-            action: 'metaboost',
+            action: 'boost',
             app_name: 'StableKraft',
-            feed: feedUrl || '',
-            url: feedUrl || '',
-            message: metaboostMessage,
-            feedId: feedId || '',
-            episode_guid: episodeGuid || trackId || '',
-            remote_item_guid: episodeGuid || trackId || '',
-            remote_feed_guid: remoteFeedGuid || '',
-            album: albumName || trackTitle || 'Unknown Album',
-            value_msat_total: platformFee * 1000,
-            sender_name: senderName || '',
-            uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             app_version: '1.0.0',
             value_msat: platformFee * 1000,
-            name: 'StableKraft',
+            value_msat_total: platformFee * 1000,
             ts: Math.floor(Date.now() / 1000)
           };
+
+          // Add optional fields only if they exist
+          if (feedUrl) helipadMetadata.url = feedUrl;
+          if (feedId) helipadMetadata.feedID = parseInt(feedId) || feedId;
+          if (episodeGuid || trackId) helipadMetadata.episode_guid = episodeGuid || trackId;
+          if (metaboostMessage) helipadMetadata.message = metaboostMessage;
+          if (senderName) helipadMetadata.sender_name = senderName;
+          helipadMetadata.uuid = `metaboost-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
           await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
           console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
           return;
