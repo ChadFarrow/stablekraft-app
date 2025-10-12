@@ -995,8 +995,20 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             ) : (
               <div className="text-center py-20">
                 <Music className="w-16 h-16 text-gray-400 mx-auto mb-6" />
-                <h2 className="text-2xl font-semibold mb-4">No Albums Found</h2>
-                <p className="text-gray-400 text-lg">This artist doesn&apos;t have any releases available yet.</p>
+                <h2 className="text-2xl font-semibold mb-4">No Albums Available</h2>
+                <p className="text-gray-400 text-lg mb-4">
+                  This artist&apos;s albums haven&apos;t been indexed yet.
+                </p>
+                {publisherInfo?.description && publisherInfo.description !== 'Independent artist and music creator' && (
+                  <div className="max-w-md mx-auto bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                    <p className="text-sm text-gray-300 mb-4">
+                      <strong className="text-white">About:</strong> {publisherInfo.description}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Albums from external music feeds will be added soon.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
