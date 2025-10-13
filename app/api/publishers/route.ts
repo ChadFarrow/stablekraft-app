@@ -44,7 +44,10 @@ export async function GET() {
       };
     });
 
-    console.log(`✅ Publishers API: Returning ${publishers.length} actual publisher feeds`);
+    // Sort publishers alphabetically by title
+    publishers.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+
+    console.log(`✅ Publishers API: Returning ${publishers.length} actual publisher feeds (sorted alphabetically)`);
 
     const response = {
       publishers,
