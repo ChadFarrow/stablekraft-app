@@ -116,6 +116,7 @@ async function migrateFeeds() {
         // Add tracks from parsed feed
         if (parsedFeed.items.length > 0) {
           const tracksData = parsedFeed.items.map(item => ({
+            id: `${dbFeed.id}-${item.guid || Math.random().toString(36).substr(2, 9)}`,
             feedId: dbFeed.id,
             guid: item.guid,
             title: item.title,
@@ -136,7 +137,8 @@ async function migrateFeeds() {
             v4vRecipient: item.v4vRecipient,
             v4vValue: item.v4vValue,
             startTime: item.startTime,
-            endTime: item.endTime
+            endTime: item.endTime,
+            updatedAt: new Date()
           }));
           
           await prisma.track.createMany({
@@ -223,6 +225,7 @@ async function migrateFeeds() {
         if (dbFeed) {
           // Migrate tracks
           const tracksToCreate = tracks.map((track: ExistingTrack) => ({
+            id: `${dbFeed!.id}-${track.itemGuid?._ || Math.random().toString(36).substr(2, 9)}`,
             feedId: dbFeed!.id,
             guid: track.itemGuid?._,
             title: track.title || 'Untitled',
@@ -233,13 +236,14 @@ async function migrateFeeds() {
             audioUrl: track.enclosureUrl || '',
             duration: track.duration,
             explicit: track.explicit || false,
-            image: track.FeedImage,
+            image: track.feedImage,
             publishedAt: track.published ? new Date(track.published) : undefined,
             itunesKeywords: track.keywords || [],
             itunesCategories: track.categories?.map((c: any) => c.text) || [],
             v4vValue: track.value || track.valueTimeSplit,
             startTime: track.startTime,
-            endTime: track.endTime
+            endTime: track.endTime,
+            updatedAt: new Date()
           })).filter((t: any) => t.audioUrl); // Only include tracks with audio URLs
           
           if (tracksToCreate.length > 0) {

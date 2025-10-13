@@ -134,14 +134,6 @@ const nextConfig = {
     // Performance optimizations - CSS optimization is now properly configured
     optimizeCss: true, // Re-enabled now that critters is installed
     optimizePackageImports: ['@/components'],
-    // Development performance optimizations
-    turbo: {
-      rules: {
-        '*.js': {
-          loaders: ['swc-loader'],
-        },
-      },
-    },
   },
   
   // Turbopack configuration (moved from experimental)
