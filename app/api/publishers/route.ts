@@ -45,7 +45,7 @@ export async function GET() {
     });
 
     // Sort publishers alphabetically by artist name (title field contains artist name)
-    publishers.sort((a, b) => {
+    publishers.sort((a: any, b: any) => {
       const nameA = a.title.toLowerCase();
       const nameB = b.title.toLowerCase();
       return nameA.localeCompare(nameB);
