@@ -72,31 +72,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'imageUrl parameter is required' }, { status: 400 });
     }
 
-    // TODO: Implement artwork color caching when artworkColor table is added to schema
     // Check if color is already processed
-    // const existingColor = await prisma.artworkColor.findUnique({
-    //   where: { imageUrl }
-    // });
+    const existingColor = await prisma.artworkColor.findUnique({
+      where: { imageUrl }
+    });
 
-    // if (existingColor) {
-    //   return NextResponse.json({
-    //     success: true,
-    //     cached: true,
-    //     data: {
-    //       originalColor: existingColor.originalColor,
-    //       enhancedColor: existingColor.enhancedColor,
-    //       backgroundColor: existingColor.backgroundColor,
-    //       textColor: existingColor.textColor,
-    //       isAppealing: existingColor.isAppealing
-    //     }
-    //   });
-    // }
+    if (existingColor) {
+      return NextResponse.json({
+        success: true,
+        cached: true,
+        data: {
+          originalColor: existingColor.originalColor,
+          enhancedColor: existingColor.enhancedColor,
+          backgroundColor: existingColor.backgroundColor,
+          textColor: existingColor.textColor,
+          isAppealing: existingColor.isAppealing
+        }
+      });
+    }
 
-    // For now, always process colors without caching
+    // Color not found in cache
     return NextResponse.json({
       success: false,
       cached: false,
-      message: 'Color processing not implemented yet - artworkColor table missing'
+      message: 'Color not found in cache'
     }, { status: 404 });
 
   } catch (error) {
@@ -117,27 +116,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
     }
 
-    // TODO: Implement artwork color caching when artworkColor table is added to schema
     // Check if color is already processed
-    // if (!forceReprocess) {
-    //   const existingColor = await prisma.artworkColor.findUnique({
-    //     where: { imageUrl }
-    //   });
+    if (!forceReprocess) {
+      const existingColor = await prisma.artworkColor.findUnique({
+        where: { imageUrl }
+      });
 
-    //   if (existingColor) {
-    //     return NextResponse.json({
-    //       success: true,
-    //       cached: true,
-    //       data: {
-    //         originalColor: existingColor.originalColor,
-    //         enhancedColor: existingColor.enhancedColor,
-    //         backgroundColor: existingColor.backgroundColor,
-    //         textColor: existingColor.textColor,
-    //         isAppealing: existingColor.isAppealing
-    //       }
-    //     });
-    //   }
-    // }
+      if (existingColor) {
+        return NextResponse.json({
+          success: true,
+          cached: true,
+          data: {
+            originalColor: existingColor.originalColor,
+            enhancedColor: existingColor.enhancedColor,
+            backgroundColor: existingColor.backgroundColor,
+            textColor: existingColor.textColor,
+            isAppealing: existingColor.isAppealing
+          }
+        });
+      }
+    }
 
     // Get proxied image URL for processing
     const proxiedUrl = imageUrl.startsWith('/') || imageUrl.includes('/api/proxy-image')
@@ -145,7 +143,7 @@ export async function POST(request: NextRequest) {
       : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
 
     // Convert relative URL to absolute for server-side processing
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const fullProxiedUrl = proxiedUrl.startsWith('/') ? `${baseUrl}${proxiedUrl}` : proxiedUrl;
 
     console.log('🎨 Extracting color from image:', fullProxiedUrl);
@@ -207,37 +205,26 @@ export async function POST(request: NextRequest) {
     // Get contrast colors
     const contrastColors = ensureGoodContrast(enhancedColor);
 
-    // TODO: Implement artwork color caching when artworkColor table is added to schema
     // Store in database
-    // const colorData = await prisma.artworkColor.upsert({
-    //   where: { imageUrl },
-    //   update: {
-    //     originalColor,
-    //     enhancedColor,
-    //     backgroundColor: contrastColors.backgroundColor,
-    //     textColor: contrastColors.textColor,
-    //     isAppealing: appealing,
-    //     updatedAt: new Date()
-    //   },
-    //   create: {
-    //     imageUrl,
-    //     originalColor,
-    //     enhancedColor,
-    //     backgroundColor: contrastColors.backgroundColor,
-    //     textColor: contrastColors.textColor,
-    //     isAppealing: appealing
-    //   }
-    // });
-
-    // For now, return the processed color without storing
-    const colorData = {
-      imageUrl,
-      originalColor,
-      enhancedColor,
-      backgroundColor: contrastColors.backgroundColor,
-      textColor: contrastColors.textColor,
-      isAppealing: appealing
-    };
+    const colorData = await prisma.artworkColor.upsert({
+      where: { imageUrl },
+      update: {
+        originalColor,
+        enhancedColor,
+        backgroundColor: contrastColors.backgroundColor,
+        textColor: contrastColors.textColor,
+        isAppealing: appealing,
+        updatedAt: new Date()
+      },
+      create: {
+        imageUrl,
+        originalColor,
+        enhancedColor,
+        backgroundColor: contrastColors.backgroundColor,
+        textColor: contrastColors.textColor,
+        isAppealing: appealing
+      }
+    });
 
     console.log('🎨 Stored color in database:', {
       imageUrl,
@@ -279,12 +266,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'imageUrl parameter is required' }, { status: 400 });
     }
 
-    // TODO: Implement artwork color caching when artworkColor table is added to schema
-    // await prisma.artworkColor.delete({
-    //   where: { imageUrl }
-    // });
+    await prisma.artworkColor.delete({
+      where: { imageUrl }
+    });
 
-    return NextResponse.json({ success: true, message: 'Color data deletion not implemented - artworkColor table missing' });
+    return NextResponse.json({ success: true, message: 'Color data deleted successfully' });
 
   } catch (error) {
     console.error('Error deleting artwork color:', error);

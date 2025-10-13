@@ -202,11 +202,22 @@ export const extractDominantColorFromBuffer = async (imageBuffer: Buffer): Promi
       }
     }
 
+    // Log the extracted color before contrast check
+    console.log('🎨 Extracted raw dominant color:', dominantColor, 'with vibrancy score:', maxVibrancy);
+
     // Final contrast check - if selected color has poor contrast, use fallback
+    // Note: We're more lenient here since colors get brightened later in the pipeline
     const finalRgb = hexToRgb(dominantColor);
     if (finalRgb && !hasGoodContrast(finalRgb.r, finalRgb.g, finalRgb.b)) {
-      console.log('🎨 Selected color failed contrast check, using fallback');
-      dominantColor = '#4F46E5'; // Safe fallback with good contrast
+      const luminance = (0.299 * finalRgb.r + 0.587 * finalRgb.g + 0.114 * finalRgb.b) / 255;
+      console.log('🎨 Color failed contrast check:', dominantColor, 'luminance:', luminance.toFixed(3));
+      // Only reject if VERY extreme (will be brightened later anyway)
+      if (luminance > 0.95 || luminance < 0.05) {
+        console.log('🎨 Color too extreme, using fallback');
+        dominantColor = '#4F46E5';
+      } else {
+        console.log('🎨 Accepting color despite contrast warning (will be brightened)');
+      }
     }
 
     return dominantColor;

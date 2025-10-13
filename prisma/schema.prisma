@@ -7,33 +7,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Feed {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  originalUrl String    @unique
-  cdnUrl      String?
-  type        String    @default("album")
-  artist      String?
-  image       String?
-  language    String?
-  category    String?
-  explicit    Boolean   @default(false)
-  priority    String    @default("normal")
-  status      String    @default("active")
-  lastFetched DateTime?
-  lastError   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  tracks      Track[]
+model ArtworkColor {
+  id              String   @id @default(cuid())
+  imageUrl        String   @unique
+  originalColor   String
+  enhancedColor   String
+  backgroundColor String
+  textColor       String
+  isAppealing     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  @@index([imageUrl])
+  @@index([createdAt])
+  @@index([createdAt, isAppealing])
+}
+
+model Feed {
+  id           String    @id
+  title        String
+  description  String?
+  originalUrl  String    @unique
+  cdnUrl       String?
+  type         String    @default("album")
+  artist       String?
+  image        String?
+  language     String?
+  category     String?
+  explicit     Boolean   @default(false)
+  priority     String    @default("normal")
+  status       String    @default("active")
+  lastFetched  DateTime?
+  lastError    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  v4vRecipient String?
+  v4vValue     Json?
+  Track        Track[]
+
+  @@index([lastFetched])
+  @@index([status, lastFetched])
   @@index([status, priority])
   @@index([type])
-  @@index([lastFetched])
+}
+
+model PlaylistTrack {
+  id           String       @id
+  playlistId   String
+  trackId      String
+  position     Int
+  addedBy      String?
+  addedAt      DateTime     @default(now())
+  UserPlaylist UserPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId, position])
 }
 
 model Track {
-  id               String    @id @default(cuid())
+  id               String    @id
   guid             String?   @unique
   title            String
   subtitle         String?
@@ -58,42 +90,31 @@ model Track {
   searchVector     String?
   feedId           String
   createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  updatedAt        DateTime
   trackOrder       Int?
-  feed             Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  Feed             Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
 
-  @@index([feedId])
-  @@index([publishedAt])
-  @@index([trackOrder])
-  @@index([artist])
   @@index([album])
-  @@index([title])
+  @@index([artist, album])
+  @@index([artist])
+  @@index([feedId])
+  @@index([feedId, trackOrder])
   @@index([guid])
-}
-
-model PlaylistTrack {
-  id         String       @id @default(cuid())
-  playlistId String
-  trackId    String
-  position   Int
-  addedBy    String?
-  addedAt    DateTime     @default(now())
-  playlist   UserPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-
-  @@unique([playlistId, trackId])
-  @@index([playlistId, position])
+  @@index([publishedAt])
+  @@index([title])
+  @@index([trackOrder])
 }
 
 model UserPlaylist {
-  id          String          @id @default(cuid())
-  name        String
-  description String?
-  isPublic    Boolean         @default(false)
-  createdBy   String
-  image       String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  tracks      PlaylistTrack[]
+  id            String          @id
+  name          String
+  description   String?
+  isPublic      Boolean         @default(false)
+  createdBy     String
+  image         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  PlaylistTrack PlaylistTrack[]
 
   @@index([createdBy])
   @@index([isPublic])
