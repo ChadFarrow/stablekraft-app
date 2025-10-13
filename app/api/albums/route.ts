@@ -17,52 +17,50 @@ function normalizeWavlakeUrl(url: string): string {
   return url.toLowerCase();
 }
 
-// Function to get publisher feed remoteItem URLs
+// Cache for publisher remoteItem GUIDs
+const publisherRemoteItemsCache = new Map<string, Set<string>>();
+
+// Load static publisher remote items mapping
+let publisherRemoteItemsStatic: Record<string, string[]> | null = null;
+function loadPublisherRemoteItemsStatic(): Record<string, string[]> {
+  if (publisherRemoteItemsStatic) return publisherRemoteItemsStatic;
+
+  try {
+    const staticPath = path.join(process.cwd(), 'data', 'publisher-remote-items.json');
+    if (fs.existsSync(staticPath)) {
+      publisherRemoteItemsStatic = JSON.parse(fs.readFileSync(staticPath, 'utf-8'));
+      return publisherRemoteItemsStatic;
+    }
+  } catch (error) {
+    console.error('Error loading static publisher remote items:', error);
+  }
+
+  return {};
+}
+
+// Function to get publisher feed remoteItem URLs (using static data, no XML fetch)
 async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<string>> {
   try {
-    // Load publisher feed data
-    const publisherFeedsPath = path.join(process.cwd(), 'data', 'publisher-feed-results.json');
-    if (!fs.existsSync(publisherFeedsPath)) {
-      return new Set();
+    // Check in-memory cache first
+    if (publisherRemoteItemsCache.has(publisherId)) {
+      const cached = publisherRemoteItemsCache.get(publisherId)!;
+      console.log(`🔍 Using cached remoteItems for ${publisherId}: ${cached.size} items`);
+      return cached;
     }
 
-    const publisherFeeds = JSON.parse(fs.readFileSync(publisherFeedsPath, 'utf-8'));
-
-    // Find the matching publisher feed
-    const publisherFeed = publisherFeeds.find((p: any) =>
-      p.feed.id === publisherId ||
-      p.feed.id.toLowerCase() === publisherId.toLowerCase()
-    );
-
-    if (!publisherFeed || !publisherFeed.feed.originalUrl) {
-      return new Set();
+    // Load static mapping (fast, synchronous)
+    const staticMapping = loadPublisherRemoteItemsStatic();
+    if (staticMapping[publisherId]) {
+      const guids = new Set(staticMapping[publisherId]);
+      console.log(`🔍 Using static remoteItems for ${publisherId}: ${guids.size} items`);
+      publisherRemoteItemsCache.set(publisherId, guids);
+      return guids;
     }
 
-    // Fetch the publisher feed XML
-    const response = await fetch(publisherFeed.feed.originalUrl);
-    if (!response.ok) {
-      return new Set();
-    }
-
-    const xml = await response.text();
-
-    // Extract remoteItem feedUrls using regex
-    const remoteItemRegex = /<podcast:remoteItem[^>]*feedUrl="([^"]+)"/g;
-    const urls = new Set<string>();
-    let match;
-
-    while ((match = remoteItemRegex.exec(xml)) !== null) {
-      // Normalize the URL by extracting the GUID
-      const normalizedGuid = normalizeWavlakeUrl(match[1]);
-      if (normalizedGuid) {
-        urls.add(normalizedGuid);
-      }
-    }
-
-    console.log(`🔍 Found ${urls.size} remoteItems in publisher feed ${publisherId}`);
-    return urls;
+    console.warn(`⚠️  No static remoteItems found for ${publisherId}`);
+    return new Set();
   } catch (error) {
-    console.error(`Error fetching publisher remoteItems for ${publisherId}:`, error);
+    console.error(`Error in getPublisherRemoteItemUrls for ${publisherId}:`, error);
     return new Set();
   }
 }
