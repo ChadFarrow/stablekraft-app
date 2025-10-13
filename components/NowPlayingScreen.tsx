@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
-import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown } from 'lucide-react';
+import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface NowPlayingScreenProps {
   isOpen?: boolean;
@@ -36,11 +37,29 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
   const [seekTime, setSeekTime] = useState(0);
   const [dominantColor, setDominantColor] = useState('#1A252F');
   const [contrastColors, setContrastColors] = useState({ backgroundColor: '#1A252F', textColor: '#ffffff' });
-  
+  const [showBoostModal, setShowBoostModal] = useState(false);
+
   const progressRef = useRef<HTMLDivElement>(null);
 
   // Get current track info
   const currentTrack = currentPlayingAlbum?.tracks?.[currentTrackIndex];
+
+  // Debug: Log V4V data availability
+  useEffect(() => {
+    if (currentTrack) {
+      const trackKeys = Object.keys(currentTrack);
+      console.log('⚡ NowPlayingScreen V4V Debug:', {
+        trackTitle: currentTrack.title,
+        hasV4vRecipient: !!currentTrack.v4vRecipient,
+        hasV4vValue: !!currentTrack.v4vValue,
+        v4vRecipient: currentTrack.v4vRecipient,
+        v4vValue: currentTrack.v4vValue,
+        trackKeyCount: trackKeys.length,
+        trackKeys: trackKeys,
+        fullTrackObject: currentTrack
+      });
+    }
+  }, [currentTrack]);
 
   // Helper function to proxy external image URLs (same as GlobalNowPlayingBar)
   const getProxiedImageUrl = (imageUrl: string): string => {
@@ -351,17 +370,32 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               onClick={toggleShuffle}
               className="p-2 rounded-full transition-all duration-200"
               style={{
-                backgroundColor: isShuffleMode 
-                  ? `${contrastColors.textColor}30` 
+                backgroundColor: isShuffleMode
+                  ? `${contrastColors.textColor}30`
                   : `${contrastColors.textColor}10`,
-                color: isShuffleMode 
-                  ? contrastColors.textColor 
+                color: isShuffleMode
+                  ? contrastColors.textColor
                   : `${contrastColors.textColor}60`
               }}
             >
               <Shuffle className="w-5 h-5" />
             </button>
-            
+
+            {/* Boost Button - Only show if track has V4V data */}
+            {(currentTrack?.v4vRecipient || currentTrack?.v4vValue) && (
+              <button
+                onClick={() => setShowBoostModal(true)}
+                className="p-2 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+                style={{
+                  backgroundColor: `${contrastColors.textColor}20`,
+                  color: contrastColors.textColor
+                }}
+                title="Send a boost"
+              >
+                <Zap className="w-5 h-5" />
+              </button>
+            )}
+
             {/* Previous Button */}
             <button
               onClick={playPreviousTrack}
@@ -443,6 +477,24 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           </div>
         </div>
       </div>
+
+      {/* Boost Modal */}
+      {showBoostModal && currentTrack && (
+        <BoostButton
+          trackId={currentTrack.guid || currentTrack.id}
+          feedId={currentPlayingAlbum.feedId || currentPlayingAlbum.id}
+          trackTitle={currentTrack.title}
+          artistName={currentPlayingAlbum.artist || 'Unknown Artist'}
+          lightningAddress={currentTrack.v4vRecipient}
+          valueSplits={currentTrack.v4vValue?.recipients}
+          autoOpen={true}
+          onClose={() => setShowBoostModal(false)}
+          feedUrl={currentPlayingAlbum.feedUrl || currentPlayingAlbum.link}
+          episodeGuid={currentTrack.guid}
+          remoteFeedGuid={currentPlayingAlbum.feedGuid || currentPlayingAlbum.guid}
+          albumName={currentPlayingAlbum.title}
+        />
+      )}
     </div>
   );
 }

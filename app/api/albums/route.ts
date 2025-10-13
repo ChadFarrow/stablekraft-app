@@ -275,8 +275,8 @@ export async function GET(request: Request) {
         })
         .map((track: any, index: number) => ({
         title: track.title,
-        duration: track.duration ? 
-          Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
+        duration: track.duration ?
+          Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') :
           track.itunesDuration || '0:00',
         url: track.audioUrl,
         trackNumber: index + 1,
@@ -284,7 +284,15 @@ export async function GET(request: Request) {
         summary: track.description || '',
         image: track.image || album.image,
         explicit: track.explicit || false,
-        keywords: track.itunesKeywords || []
+        keywords: track.itunesKeywords || [],
+        // V4V fields for Lightning payments
+        v4vRecipient: track.v4vRecipient,
+        v4vValue: track.v4vValue,
+        // Additional fields for track identification and time segments
+        guid: track.guid,
+        id: track.id,
+        startTime: track.startTime,
+        endTime: track.endTime
       }));
       
       // Determine if this is a playlist based on track variety

@@ -118,7 +118,7 @@ export default function HomePage() {
   const [displayedAlbums, setDisplayedAlbums] = useState<RSSAlbum[]>([]);
   const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
   const ALBUMS_PER_PAGE = 50; // Load 50 albums per page for better user experience
-  const API_VERSION = 'v8'; // Increment to bust cache when API changes - v8 includes V4V data in RSSAlbum conversion
+  const API_VERSION = 'v9'; // Increment to bust cache when API changes - v9 includes V4V fields in track objects
   
   // HGH filter removed - no longer needed
   
