@@ -44,10 +44,14 @@ export async function GET() {
       };
     });
 
-    // Sort publishers alphabetically by title
-    publishers.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+    // Sort publishers alphabetically by artist name (title field contains artist name)
+    publishers.sort((a, b) => {
+      const nameA = a.title.toLowerCase();
+      const nameB = b.title.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
-    console.log(`✅ Publishers API: Returning ${publishers.length} actual publisher feeds (sorted alphabetically)`);
+    console.log(`✅ Publishers API: Returning ${publishers.length} actual publisher feeds (sorted by artist name)`);
 
     const response = {
       publishers,
