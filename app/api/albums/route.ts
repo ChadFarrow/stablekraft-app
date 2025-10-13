@@ -154,8 +154,36 @@ export async function GET(request: Request) {
       feedWhere.id = feedId;
     }
 
-    // We'll filter by publisher feed's remoteItems after loading feeds
-    // (Can't filter at DB level since we need to match against publisher feed URLs)
+    // Apply publisher filtering at database level for better performance
+    let publisherRemoteGuids: Set<string> | null = null;
+    if (publisher) {
+      publisherRemoteGuids = await getPublisherRemoteItemUrls(publisher);
+
+      if (publisherRemoteGuids.size > 0) {
+        // Build OR conditions for all GUIDs
+        const guidConditions = Array.from(publisherRemoteGuids).map(guid => ({
+          originalUrl: {
+            contains: guid,
+            mode: 'insensitive' as const
+          }
+        }));
+
+        feedWhere.OR = guidConditions;
+        console.log(`🔍 Filtering at DB level for publisher "${publisher}" with ${publisherRemoteGuids.size} GUIDs`);
+      } else {
+        console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
+        // Return empty result early
+        return NextResponse.json({
+          albums: [],
+          totalCount: 0,
+          hasMore: false,
+          offset,
+          limit,
+          publisherStats: [],
+          lastUpdated: new Date().toISOString()
+        });
+      }
+    }
 
     // OPTIMIZED: Single query with include for better performance
     const feeds = await prisma.feed.findMany({
@@ -177,7 +205,7 @@ export async function GET(request: Request) {
         { priority: 'asc' },
         { createdAt: 'desc' }
       ],
-      take: 500 // Increased to 500 to capture more albums for publisher filtering
+      take: publisher ? undefined : 500 // No limit when filtering by publisher
     });
     
     // Extract tracks from the included data
@@ -343,23 +371,10 @@ export async function GET(request: Request) {
       return !isBowlAfterBowlPodcast;
     });
 
-    // Apply publisher filtering if specified
+    // Publisher filtering is now done at database level, so no need to filter again
     let publisherFilteredAlbums = podcastFilteredAlbums;
-    if (publisher) {
-      // Get the remoteItem GUIDs from the publisher feed
-      const publisherRemoteGuids = await getPublisherRemoteItemUrls(publisher);
-
-      if (publisherRemoteGuids.size > 0) {
-        // Filter albums to only those whose feedUrl GUID matches a remoteItem GUID
-        publisherFilteredAlbums = podcastFilteredAlbums.filter(album => {
-          const albumGuid = normalizeWavlakeUrl(album.feedUrl);
-          return publisherRemoteGuids.has(albumGuid);
-        });
-        console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched from ${publisherRemoteGuids.size} remoteItems`);
-      } else {
-        console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
-        publisherFilteredAlbums = [];
-      }
+    if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
+      console.log(`🔍 Publisher filter "${publisher}": ${podcastFilteredAlbums.length} albums returned from database`);
     }
     
     // Apply filtering by type
