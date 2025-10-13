@@ -93,33 +93,28 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const fetchPublisherAlbums = async () => {
     console.log('🚀 fetchPublisherAlbums function called!');
     console.log('🚀 This should appear in the browser console!');
-    
-    if (!publisherInfo?.artist) {
-      console.log('⚠️ No artist name available');
+
+    if (!publisherInfo?.artist && !publisherId) {
+      console.log('⚠️ No artist name or publisherId available');
       setAlbumsLoading(false);
       return;
     }
 
     try {
-      console.log(`🔍 Fetching albums for artist: ${publisherInfo.artist}`);
-      
-      // Fetch all albums and filter by artist name
-      const response = await fetch('/api/albums?limit=0');
+      console.log(`🔍 Fetching albums for publisher: ${publisherId}`);
+
+      // Use the new publisher parameter to filter albums directly on the server
+      const response = await fetch(`/api/albums?publisher=${encodeURIComponent(publisherId)}&limit=0`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const data = await response.json();
-      console.log(`📋 Total albums fetched:`, data.albums.length);
-      
-      // Filter albums by artist name (case-insensitive)
-      const artistAlbums = data.albums.filter((album: any) => 
-        album.artist && album.artist.toLowerCase() === publisherInfo.artist?.toLowerCase()
-      );
 
-      console.log(`🎵 Found ${artistAlbums.length} albums for artist "${publisherInfo.artist}":`, artistAlbums);
-      setAlbums(artistAlbums);
-      
+      const data = await response.json();
+      console.log(`📋 Total albums fetched for publisher "${publisherId}":`, data.albums.length);
+
+      console.log(`🎵 Found ${data.albums.length} albums for publisher "${publisherId}":`, data.albums);
+      setAlbums(data.albums);
+
     } catch (error) {
       console.error('❌ Error fetching publisher albums:', error);
       setError('Failed to load publisher albums');
