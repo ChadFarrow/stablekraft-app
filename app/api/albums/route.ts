@@ -52,8 +52,9 @@ export async function GET(request: Request) {
     const tier = searchParams.get('tier') || 'all';
     const feedId = searchParams.get('feedId');
     const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all, playlist, publisher
-    
-    console.log(`🎵 Albums API request: limit=${limit}, offset=${offset}, tier=${tier}, feedId=${feedId}, filter=${filter}`);
+    const publisher = searchParams.get('publisher'); // NEW: Filter by publisher
+
+    console.log(`🎵 Albums API request: limit=${limit}, offset=${offset}, tier=${tier}, feedId=${feedId}, filter=${filter}, publisher=${publisher}`);
     
     // Build where clause for feeds based on filter
     const feedWhere: any = { 
@@ -256,44 +257,71 @@ export async function GET(request: Request) {
       const albumTitle = album.title?.toLowerCase() || '';
       const albumArtist = album.artist?.toLowerCase() || '';
       const feedUrl = album.feedUrl?.toLowerCase() || '';
-      
+
       // Keep Bowl Covers - these are legitimate music content
       if (album.feedId === 'bowl-covers' || albumTitle.includes('bowl covers')) {
         return true;
       }
-      
+
       // Filter out main Bowl After Bowl podcast episodes
       const isBowlAfterBowlPodcast = (
         (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
         (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
         (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.feedId !== 'bowl-covers')
       );
-      
+
       if (isBowlAfterBowlPodcast) {
         console.log(`🚫 Filtering out Bowl After Bowl podcast: ${album.title} by ${album.artist}`);
       }
-      
+
       return !isBowlAfterBowlPodcast;
     });
+
+    // Apply publisher filtering if specified
+    let publisherFilteredAlbums = podcastFilteredAlbums;
+    if (publisher) {
+      const publisherLower = publisher.toLowerCase();
+      publisherFilteredAlbums = podcastFilteredAlbums.filter(album => {
+        // Match by publisher feedGuid
+        if (album.publisher?.feedGuid?.toLowerCase() === publisherLower) {
+          return true;
+        }
+        // Match by publisher title
+        if (album.publisher?.title?.toLowerCase() === publisherLower) {
+          return true;
+        }
+        // Match by publisher title with slug conversion (e.g., "ollie-publisher" -> "ollie")
+        const publisherSlug = publisherLower.replace(/-publisher$/, '').replace(/-/g, ' ');
+        if (album.publisher?.title?.toLowerCase() === publisherSlug) {
+          return true;
+        }
+        // Match by artist name (for individual artist publishers)
+        if (album.artist?.toLowerCase() === publisherLower || album.artist?.toLowerCase() === publisherSlug) {
+          return true;
+        }
+        return false;
+      });
+      console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched`);
+    }
     
     // Apply filtering by type
-    let filteredAlbums = podcastFilteredAlbums;
+    let filteredAlbums = publisherFilteredAlbums;
     if (filter !== 'all') {
       switch (filter) {
         case 'albums':
-          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length > 6);
+          filteredAlbums = publisherFilteredAlbums.filter(album => album.tracks.length > 6);
           break;
         case 'eps':
-          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length > 1 && album.tracks.length <= 6);
+          filteredAlbums = publisherFilteredAlbums.filter(album => album.tracks.length > 1 && album.tracks.length <= 6);
           break;
         case 'singles':
-          filteredAlbums = podcastFilteredAlbums.filter(album => album.tracks.length === 1);
+          filteredAlbums = publisherFilteredAlbums.filter(album => album.tracks.length === 1);
           break;
         case 'playlist':
-          filteredAlbums = podcastFilteredAlbums.filter(album => album.podroll !== null);
+          filteredAlbums = publisherFilteredAlbums.filter(album => album.podroll !== null);
           break;
         default:
-          filteredAlbums = podcastFilteredAlbums;
+          filteredAlbums = publisherFilteredAlbums;
       }
     }
     

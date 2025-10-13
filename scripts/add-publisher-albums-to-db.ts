@@ -16,6 +16,11 @@ import Parser from 'rss-parser';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import { config } from 'dotenv';
+
+// Load environment variables from scripts/.env or .env.local
+config({ path: path.join(__dirname, '.env') });
+config({ path: path.join(process.cwd(), '.env.local') });
 
 const prisma = new PrismaClient();
 
