@@ -290,13 +290,19 @@ export async function GET(request: Request) {
         if (album.publisher?.title?.toLowerCase() === publisherLower) {
           return true;
         }
-        // Match by publisher title with slug conversion (e.g., "ollie-publisher" -> "ollie")
+        // Match by publisher title with slug conversion (e.g., "joe-martin-publisher" -> "joe martin")
         const publisherSlug = publisherLower.replace(/-publisher$/, '').replace(/-/g, ' ');
         if (album.publisher?.title?.toLowerCase() === publisherSlug) {
           return true;
         }
         // Match by artist name (for individual artist publishers)
         if (album.artist?.toLowerCase() === publisherLower || album.artist?.toLowerCase() === publisherSlug) {
+          return true;
+        }
+        // Match if publisher parameter contains the artist name (e.g., "joe-martin-publisher" contains "joe martin")
+        const artistLower = album.artist?.toLowerCase() || '';
+        const artistSlug = artistLower.replace(/\s+/g, '-');
+        if (publisherLower.includes(artistSlug) || publisherLower.includes(artistLower)) {
           return true;
         }
         return false;
