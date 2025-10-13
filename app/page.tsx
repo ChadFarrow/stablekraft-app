@@ -118,7 +118,7 @@ export default function HomePage() {
   const [displayedAlbums, setDisplayedAlbums] = useState<RSSAlbum[]>([]);
   const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
   const ALBUMS_PER_PAGE = 50; // Load 50 albums per page for better user experience
-  const API_VERSION = 'v9'; // Increment to bust cache when API changes - v9 includes V4V fields in track objects
+  const API_VERSION = 'v10'; // Increment to bust cache when API changes - v10 includes V4V fields + AudioContext version check
   
   // HGH filter removed - no longer needed
   
@@ -709,12 +709,21 @@ export default function HomePage() {
           summary: track.summary,
           image: track.image,
           explicit: track.explicit,
-          keywords: track.keywords
+          keywords: track.keywords,
+          // Include V4V fields for Lightning payments
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue,
+          guid: track.guid,
+          id: track.id,
+          startTime: track.startTime,
+          endTime: track.endTime
         })),
         publisher: album.publisher,
         podroll: album.podroll,
         funding: album.funding,
         feedId: album.feedId,
+        feedUrl: album.feedUrl,
+        feedGuid: album.feedGuid,
         // Include V4V payment data for boost buttons
         ...(album.v4vRecipient && { v4vRecipient: album.v4vRecipient }),
         ...(album.v4vValue && { v4vValue: album.v4vValue })
@@ -1025,7 +1034,8 @@ export default function HomePage() {
                       const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
                       return (
                         <LightningWalletButton
-                          variant="minimal"
+                          variant="dropdown"
+                          showLabel={false}
                           className="p-2"
                         />
                       );
@@ -1073,7 +1083,7 @@ export default function HomePage() {
                       const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
                       return (
                         <LightningWalletButton
-                          variant="minimal"
+                          variant="dropdown"
                           showLabel={false}
                           className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors"
                         />

@@ -158,13 +158,16 @@ export function LightningWalletButton({
                   
                   <div className="space-y-2">
                     <button
-                      onClick={() => setShowDropdown(false)}
+                      onClick={async () => {
+                        setShowDropdown(false);
+                        await handleConnect();
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
                     >
                       <Settings className="w-4 h-4" />
-                      Wallet Settings
+                      Switch Wallet
                     </button>
-                    
+
                     <button
                       onClick={handleDisconnect}
                       className="w-full flex items-center gap-3 px-3 py-2 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
