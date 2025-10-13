@@ -127,16 +127,18 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     console.log('🎯 PublisherDetailClient useEffect triggered');
     console.log('🎯 This should appear in the browser console!');
     console.log('📋 initialData:', initialData);
-    
-    // Prevent infinite loops by checking if we already have data and are not currently loading
-    if (publisherInfo && publisherInfo.title && !isLoading) {
-      console.log('🎯 Already have publisher info, skipping useEffect');
+    console.log('📋 Current albums.length:', albums.length);
+    console.log('📋 Current albumsLoading:', albumsLoading);
+
+    // Prevent infinite loops by checking if we already have albums loaded
+    if (albums.length > 0 && !albumsLoading) {
+      console.log('🎯 Already have albums, skipping useEffect');
       return;
     }
-    
-    // Also prevent execution if we're already in the loading process
-    if (isLoading && publisherInfo) {
-      console.log('🎯 Already loading with publisher info, skipping useEffect');
+
+    // Also prevent execution if we're already loading albums
+    if (albumsLoading) {
+      console.log('🎯 Already loading albums, skipping useEffect');
       return;
     }
     
