@@ -90,7 +90,19 @@ export async function GET(request: Request) {
     if (feedId) {
       feedWhere.id = feedId;
     }
-    
+
+    // Apply publisher filtering at database level for better performance
+    if (publisher) {
+      // Extract artist name from publisher parameter (e.g., "joe-martin-publisher" -> "joe martin")
+      const publisherSlug = publisher.toLowerCase().replace(/-publisher$/, '').replace(/-/g, ' ');
+
+      // Filter feeds by artist name at database level
+      feedWhere.artist = {
+        contains: publisherSlug,
+        mode: 'insensitive'
+      };
+    }
+
     // OPTIMIZED: Single query with include for better performance
     const feeds = await prisma.feed.findMany({
       where: feedWhere,
@@ -111,7 +123,7 @@ export async function GET(request: Request) {
         { priority: 'asc' },
         { createdAt: 'desc' }
       ],
-      take: 200 // Increased limit to ensure all albums are available
+      take: publisher ? undefined : 200 // No limit when filtering by publisher, otherwise 200
     });
     
     // Extract tracks from the included data
