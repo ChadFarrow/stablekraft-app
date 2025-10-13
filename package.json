@@ -7,6 +7,7 @@
     "prebuild": "echo 'Skipping auto-version update for deployment'",
     "build": "npx prisma generate && npx next build --no-lint",
     "postbuild": "echo 'Build complete'",
+    "postinstall": "npm run check-env || true && npm run dev-setup || true",
     "start": "next start",
     "lint": "next lint",
     "dev-setup": "node scripts/dev-setup.js",
