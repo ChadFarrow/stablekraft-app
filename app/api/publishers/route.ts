@@ -6,67 +6,41 @@ import * as path from 'path';
 
 export async function GET() {
   try {
-    console.log('🔍 Publishers API: Loading publishers from database');
+    console.log('🔍 Publishers API: Loading actual publisher feeds from publisher-feed-results.json');
 
-    // Query all albums with publisher data from the database
-    const feeds = await prisma.feed.findMany({
-      where: {
-        status: 'active',
-        type: {
-          notIn: ['podcast', 'publisher']
-        }
-      },
-      select: {
-        id: true,
-        artist: true,
-        image: true
-      },
-      take: 1000 // Get all feeds
-    });
+    // Load the publisher feed results file which contains actual publisher feeds with remoteItems
+    const publisherFeedsPath = path.join(process.cwd(), 'data', 'publisher-feed-results.json');
 
-    console.log(`📊 Loaded ${feeds.length} feeds from database`);
-
-    // Group by artist to create publisher list
-    const publisherMap = new Map<string, any>();
-
-    for (const feed of feeds) {
-      if (!feed.artist) continue;
-
-      const key = feed.artist;
-      if (publisherMap.has(key)) {
-        const existing = publisherMap.get(key);
-        existing.albumCount += 1;
-        // Use first image found as publisher image
-        if (!existing.image && feed.image) {
-          existing.image = feed.image;
-        }
-      } else {
-        publisherMap.set(key, {
-          name: feed.artist,
-          feedGuid: generateAlbumSlug(feed.artist),
-          albumCount: 1,
-          image: feed.image || '/placeholder-artist.png'
-        });
-      }
+    if (!fs.existsSync(publisherFeedsPath)) {
+      console.error('❌ publisher-feed-results.json not found');
+      return NextResponse.json({
+        publishers: [],
+        total: 0,
+        timestamp: new Date().toISOString(),
+        error: 'Publisher feeds file not found'
+      }, { status: 404 });
     }
 
-    const uniquePublishers = Array.from(publisherMap.values());
-    console.log(`📊 Found ${uniquePublishers.length} unique publishers`);
+    const publisherFeedsData = JSON.parse(fs.readFileSync(publisherFeedsPath, 'utf-8'));
+    console.log(`📊 Loaded ${publisherFeedsData.length} publisher feeds from file`);
 
     // Transform to match the expected format for the publishers API
-    const publishers = uniquePublishers.map((publisher: any) => {
+    const publishers = publisherFeedsData.map((publisherFeed: any) => {
+      const cleanTitle = publisherFeed.title?.replace(/<!\[CDATA\[|\]\]>/g, '') || 'Unknown Publisher';
+      const feedGuid = publisherFeed.feed.id || generateAlbumSlug(cleanTitle);
+
       return {
-        id: publisher.feedGuid,
-        title: publisher.name,
-        feedGuid: publisher.feedGuid,
-        originalUrl: '', // Not available from database
-        image: publisher.image,
-        description: `Publisher feed with ${publisher.albumCount} releases`,
+        id: feedGuid,
+        title: cleanTitle,
+        feedGuid: feedGuid,
+        originalUrl: publisherFeed.feed.originalUrl,
+        image: publisherFeed.itunesImage || '/placeholder-artist.png',
+        description: publisherFeed.description?.replace(/<!\[CDATA\[|\]\]>/g, '') || `Publisher feed with ${publisherFeed.remoteItemCount || 0} releases`,
         albums: [], // Individual albums not needed for publisher list
-        itemCount: publisher.albumCount,
-        totalTracks: publisher.albumCount, // Approximate
+        itemCount: publisherFeed.remoteItemCount || 0,
+        totalTracks: publisherFeed.remoteItemCount || 0, // Approximate
         isPublisherCard: true,
-        publisherUrl: `/publisher/${publisher.feedGuid}`
+        publisherUrl: `/publisher/${generateAlbumSlug(cleanTitle)}`
       };
     });
 
