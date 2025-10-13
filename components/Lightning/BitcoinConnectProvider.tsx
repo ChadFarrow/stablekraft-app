@@ -50,9 +50,25 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   console.log('BitcoinConnectProvider render:', { isConnected, isLoading });
 
   useEffect(() => {
-    console.log('BitcoinConnectProvider useEffect - setting ready state...');
-    // Don't auto-initialize Bitcoin Connect, only set loading to false
-    setIsLoading(false);
+    console.log('BitcoinConnectProvider useEffect - initializing Bitcoin Connect...');
+
+    // Initialize Bitcoin Connect on component mount (client-side only)
+    if (typeof window !== 'undefined') {
+      import('@getalby/bitcoin-connect').then(({ init }) => {
+        console.log('Initializing Bitcoin Connect early for browser extension detection');
+        init({
+          appName: 'StableKraft',
+          // Don't specify filters to allow all connection methods including browser extensions
+        });
+        console.log('Bitcoin Connect initialized');
+        setIsLoading(false);
+      }).catch((error) => {
+        console.error('Failed to load Bitcoin Connect:', error);
+        setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
+    }
 
     // Add global CSS to ensure Bitcoin Connect modal is immediately interactive
     const style = document.createElement('style');
@@ -115,20 +131,37 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const connect = async () => {
     try {
       console.log('Attempting to connect wallet...');
+      console.log('🔍 Checking for WebLN:', {
+        hasWindow: typeof window !== 'undefined',
+        hasWebLN: typeof window !== 'undefined' && !!(window as any).webln,
+        weblnType: typeof (window as any).webln
+      });
       setIsLoading(true);
 
-      // Import and initialize Bitcoin Connect when user clicks
+      // Check if WebLN is already available in the browser (extension installed)
+      if (typeof window !== 'undefined' && (window as any).webln) {
+        console.log('🔌 Detected WebLN browser extension, using it directly');
+        try {
+          const weblnProvider = (window as any).webln;
+          await weblnProvider.enable();
+          setProvider(weblnProvider);
+          setIsConnected(true);
+          setIsLoading(false);
+          console.log('✅ Connected to WebLN browser extension');
+          return;
+        } catch (weblnError) {
+          console.log('⚠️ WebLN detected but enable failed, falling back to Bitcoin Connect modal:', weblnError);
+          // Fall through to Bitcoin Connect modal
+        }
+      } else {
+        console.log('❌ No WebLN browser extension detected - showing Bitcoin Connect modal');
+      }
+
+      // Bitcoin Connect is already initialized in useEffect, just launch the modal
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
-      console.log('Bitcoin Connect imported successfully');
+      console.log('Bitcoin Connect imported, launching modal...');
 
-      // Initialize Bitcoin Connect only when needed
-      bitcoinConnect.init({
-        appName: 'StableKraft',
-        // Allow all connection methods by not specifying filters
-      });
-      console.log('Bitcoin Connect initialized');
-
-      // Launch the modal
+      // Launch the modal (Bitcoin Connect already initialized on mount)
       try {
         console.log('Launching Bitcoin Connect modal...');
         await bitcoinConnect.launchModal();

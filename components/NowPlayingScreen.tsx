@@ -305,9 +305,27 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 boxShadow: `0 25px 50px ${dominantColor}30`
               }}
             />
-            
+
+            {/* Boost Button - Top-left corner overlay */}
+            {(currentTrack?.v4vRecipient || currentTrack?.v4vValue) && (
+              <button
+                onClick={() => setShowBoostModal(true)}
+                className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg"
+                style={{
+                  backgroundColor: '#FBBF24', // Yellow color
+                  color: '#000000',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}
+                title="Send a boost"
+              >
+                <Zap className="w-6 h-6" fill="#000000" />
+              </button>
+            )}
+
             {/* Reflection effect */}
-            <div 
+            <div
               className="absolute -bottom-4 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-black/20 rounded-b-2xl"
               style={{
                 background: `linear-gradient(to bottom, transparent 0%, ${dominantColor}10 100%)`
@@ -380,21 +398,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               <Shuffle className="w-5 h-5" />
             </button>
-
-            {/* Boost Button - Only show if track has V4V data */}
-            {(currentTrack?.v4vRecipient || currentTrack?.v4vValue) && (
-              <button
-                onClick={() => setShowBoostModal(true)}
-                className="p-2 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
-                style={{
-                  backgroundColor: `${contrastColors.textColor}20`,
-                  color: contrastColors.textColor
-                }}
-                title="Send a boost"
-              >
-                <Zap className="w-5 h-5" />
-              </button>
-            )}
 
             {/* Previous Button */}
             <button
