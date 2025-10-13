@@ -29,7 +29,7 @@ function loadPublisherRemoteItemsStatic(): Record<string, string[]> {
     const staticPath = path.join(process.cwd(), 'data', 'publisher-remote-items.json');
     if (fs.existsSync(staticPath)) {
       publisherRemoteItemsStatic = JSON.parse(fs.readFileSync(staticPath, 'utf-8'));
-      return publisherRemoteItemsStatic;
+      return publisherRemoteItemsStatic || {};
     }
   } catch (error) {
     console.error('Error loading static publisher remote items:', error);
