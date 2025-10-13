@@ -234,7 +234,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
         guid: { in: itemGuids }
       },
       include: {
-        feed: true
+        Feed: true
       },
       orderBy: [
         { trackOrder: 'asc' },
@@ -254,20 +254,20 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
 
-      if (track && track.feed) {
+      if (track && track.Feed) {
         // Create track object with feed context
         const resolvedTrack = {
           id: track.id,
           title: track.title,
-          artist: track.artist || track.feed.artist || 'Unknown Artist',
+          artist: track.artist || track.Feed.artist || 'Unknown Artist',
           audioUrl: track.audioUrl,
           url: track.audioUrl, // Add url property for compatibility
           duration: track.duration || 0,
           publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
-          image: track.image || track.feed.image || '/placeholder-podcast.jpg',
-          albumTitle: track.feed.title,
-          feedTitle: track.feed.title,
-          feedId: track.feed.id,
+          image: track.image || track.Feed.image || '/placeholder-podcast.jpg',
+          albumTitle: track.Feed.title,
+          feedTitle: track.Feed.title,
+          feedId: track.Feed.id,
           guid: track.guid,
           // Add playlist context
           playlistContext: {

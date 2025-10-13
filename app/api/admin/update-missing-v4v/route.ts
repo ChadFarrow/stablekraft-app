@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     // Get feeds that have tracks without V4V data
     const feeds = await prisma.feed.findMany({
       where: {
-        tracks: {
+        Track: {
           some: {
             v4vRecipient: null
           }

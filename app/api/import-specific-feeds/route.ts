@@ -205,7 +205,8 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
         category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
         explicit: feedData.explicit === 1,
         status: 'active',
-        lastFetched: new Date()
+        lastFetched: new Date(),
+        updatedAt: new Date()
       }
     });
     
@@ -229,6 +230,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
         
         await prisma.track.create({
           data: {
+            id: `${feed.id}-${episode.guid || `track-${trackCount}-${Date.now()}`}`,
             guid: episode.guid,
             title: episode.title,
             description: episode.description || null,
@@ -237,7 +239,8 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
             image: episode.image || feed.image || null,
             publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
             feedId: feed.id,
-            trackOrder: trackCount + 1
+            trackOrder: trackCount + 1,
+            updatedAt: new Date()
           }
         });
         trackCount++;

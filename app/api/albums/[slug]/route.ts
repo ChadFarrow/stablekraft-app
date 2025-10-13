@@ -59,7 +59,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 
         guid: { in: itemGuids }
       },
       include: {
-        feed: true
+        Feed: true
       },
       orderBy: [
         { trackOrder: 'asc' },
@@ -78,19 +78,19 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
 
-      if (track && track.feed) {
+      if (track && track.Feed) {
         // Create track object with feed context
         const resolvedTrack = {
           id: track.id,
           title: track.title,
-          artist: track.artist || track.feed.artist || 'Unknown Artist',
+          artist: track.artist || track.Feed.artist || 'Unknown Artist',
           audioUrl: track.audioUrl,
           duration: track.duration || 0,
           publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
-          image: track.image || track.feed.image || '/placeholder-podcast.jpg',
-          albumTitle: track.feed.title,
-          feedTitle: track.feed.title,
-          feedId: track.feed.id,
+          image: track.image || track.Feed.image || '/placeholder-podcast.jpg',
+          albumTitle: track.Feed.title,
+          feedTitle: track.Feed.title,
+          feedId: track.Feed.id,
           guid: track.guid,
           // Add playlist context
           playlistContext: {
@@ -598,7 +598,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     const feeds = await prisma.feed.findMany({
       where: { status: 'active' },
       include: {
-        tracks: {
+        Track: {
           where: {
             audioUrl: { not: '' }
           },
@@ -624,7 +624,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     const potentialMatches = [];
     
     for (const feed of feeds) {
-      if (feed.tracks.length === 0) continue;
+      if (feed.Track.length === 0) continue;
       
       // Create album from feed
       const albumTitle = feed.title;
@@ -633,8 +633,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       
       // Check if this album matches the requested slug
       if (albumId === slug || albumSlug === slug || albumTitle.toLowerCase().replace(/\s+/g, '-') === slug) {
-        console.log(`🔍 Found potential match: "${albumTitle}" with ${feed.tracks.length} tracks`);
-        potentialMatches.push({ feed, trackCount: feed.tracks.length });
+        console.log(`🔍 Found potential match: "${albumTitle}" with ${feed.Track.length} tracks`);
+        potentialMatches.push({ feed, trackCount: feed.Track.length });
       }
     }
     
@@ -645,9 +645,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       );
       
       const feed = bestMatchData.feed;
-      console.log(`✅ Selected best match: "${feed.title}" with ${feed.tracks.length} tracks`);
+      console.log(`✅ Selected best match: "${feed.title}" with ${feed.Track.length} tracks`);
       
-      const tracks = feed.tracks
+      const tracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
           return self.findIndex((t: any) => 
@@ -700,8 +700,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         lastUpdated: feed.updatedAt,
-        v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
-        v4vValue: feed.tracks?.[0]?.v4vValue || null
+        v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
+        v4vValue: feed.Track?.[0]?.v4vValue || null
       };
     }
     
@@ -716,7 +716,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const flexibleMatches = [];
       
       for (const feed of feeds) {
-        if (feed.tracks.length === 0) continue;
+        if (feed.Track.length === 0) continue;
         
         const albumTitle = feed.title;
         const albumTitleLower = albumTitle.toLowerCase();
@@ -733,8 +733,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         ];
         
         if (matches.some(match => match)) {
-          console.log(`🔍 Found flexible match: "${albumTitle}" with ${feed.tracks.length} tracks`);
-          flexibleMatches.push({ feed, trackCount: feed.tracks.length });
+          console.log(`🔍 Found flexible match: "${albumTitle}" with ${feed.Track.length} tracks`);
+          flexibleMatches.push({ feed, trackCount: feed.Track.length });
         }
       }
       
@@ -745,9 +745,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         );
         
         const feed = bestFlexibleMatch.feed;
-        console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.tracks.length} tracks`);
+        console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.Track.length} tracks`);
         
-        const tracks = feed.tracks
+        const tracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
           return self.findIndex((t: any) => 
@@ -799,8 +799,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           feedId: feed.id,
           feedUrl: feed.originalUrl,
           lastUpdated: feed.updatedAt,
-          v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
-          v4vValue: feed.tracks?.[0]?.v4vValue || null
+          v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
+          v4vValue: feed.Track?.[0]?.v4vValue || null
         };
       }
     }

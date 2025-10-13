@@ -81,7 +81,8 @@ export async function POST(request: Request) {
             originalUrl: feedData.originalUrl,
             type: feedData.type || 'music',
             priority: feedData.priority || 'normal',
-            status: feedData.status || 'active'
+            status: feedData.status || 'active',
+            updatedAt: new Date()
           }
         });
         
@@ -131,7 +132,8 @@ export async function POST(request: Request) {
                   v4vRecipient: item.v4vRecipient,
                   v4vValue: item.v4vValue || null,
                   startTime: item.startTime,
-                  endTime: item.endTime
+                  endTime: item.endTime,
+                  updatedAt: new Date()
                 }
               });
               migratedTracks++;

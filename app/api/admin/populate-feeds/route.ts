@@ -164,7 +164,8 @@ export async function POST(request: NextRequest) {
             category: feedData.category,
             explicit: feedData.explicit,
             priority: 'normal',
-            status: 'active'
+            status: 'active',
+            updatedAt: new Date()
           }
         });
 

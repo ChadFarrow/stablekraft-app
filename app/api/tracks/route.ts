@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          feed: {
+          Feed: {
             select: {
               id: true,
               title: true,
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         ...otherData
       },
       include: {
-        feed: {
+        Feed: {
           select: {
             id: true,
             title: true,
@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: updateData,
       include: {
-        feed: {
+        Feed: {
           select: {
             id: true,
             title: true,

@@ -92,6 +92,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isRetryingRef = useRef(false);
   const playNextTrackRef = useRef<() => Promise<void>>();
 
+  // AudioContext state version - increment when structure changes to invalidate old cache
+  const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
+
   // Load state from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -99,7 +102,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
-          
+
+          // Check cache version - invalidate if version mismatch
+          if (state.version !== AUDIO_STATE_VERSION) {
+            console.log(`🔄 AudioContext cache version mismatch (${state.version} !== ${AUDIO_STATE_VERSION}), clearing old cache`);
+            localStorage.removeItem('audioPlayerState');
+            return;
+          }
+
           // Restore shuffle state
           if (state.isShuffleMode !== undefined) {
             setIsShuffleMode(state.isShuffleMode);
@@ -107,17 +117,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           if (state.currentShuffleIndex !== undefined) {
             setCurrentShuffleIndex(state.currentShuffleIndex);
           }
-          
+
           // Restore track index and timing info
           setCurrentTrackIndex(state.currentTrackIndex || 0);
           setCurrentTime(state.currentTime || 0);
           setDuration(state.duration || 0);
-          
+
           // Note: isPlaying is not restored to prevent autoplay issues
           // Note: currentPlayingAlbum will be restored when needed by playNextTrack
-          
+
           if (process.env.NODE_ENV === 'development') {
             console.log('🔄 Restored audio state from localStorage:', {
+              version: state.version,
               trackIndex: state.currentTrackIndex,
               shuffleMode: state.isShuffleMode,
               hasAlbumData: !!state.currentPlayingAlbum
@@ -148,13 +159,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     if (typeof window !== 'undefined' && currentPlayingAlbum) {
       const timeoutId = setTimeout(() => {
         const state = {
+          version: AUDIO_STATE_VERSION, // Include version for cache invalidation
           currentPlayingAlbum: {
             title: currentPlayingAlbum.title,
+            artist: currentPlayingAlbum.artist,
+            coverArt: currentPlayingAlbum.coverArt,
+            feedId: currentPlayingAlbum.feedId,
+            feedUrl: currentPlayingAlbum.feedUrl,
+            feedGuid: currentPlayingAlbum.feedGuid,
             tracks: currentPlayingAlbum.tracks?.map(track => ({
               title: track.title,
               audioUrl: track.url,
               startTime: track.startTime,
-              endTime: track.endTime
+              endTime: track.endTime,
+              // Include V4V fields for Lightning payments
+              v4vRecipient: track.v4vRecipient,
+              v4vValue: track.v4vValue,
+              guid: track.guid,
+              image: track.image
             }))
           },
           currentTrackIndex,
@@ -171,7 +193,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         };
         localStorage.setItem('audioPlayerState', JSON.stringify(state));
       }, 100); // Debounce to prevent excessive writes
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [currentPlayingAlbum, currentTrackIndex, currentTime, duration, isShuffleMode, shuffledPlaylist, currentShuffleIndex]);
@@ -209,6 +231,21 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             // Only log in development mode
             if (process.env.NODE_ENV === 'development') {
               console.log(`✅ Loaded ${data.albums.length} albums for audio context`);
+
+              // Debug: Check if Delta OG album has V4V data
+              const deltaOGAlbum = data.albums.find((album: any) => album.title?.includes('Aged Friends'));
+              if (deltaOGAlbum) {
+                const deltaOGTrack = deltaOGAlbum.tracks?.[0];
+                console.log('🔍 AudioContext Delta OG track debug:', {
+                  albumTitle: deltaOGAlbum.title,
+                  trackTitle: deltaOGTrack?.title,
+                  trackKeys: deltaOGTrack ? Object.keys(deltaOGTrack) : [],
+                  hasV4vRecipient: !!deltaOGTrack?.v4vRecipient,
+                  hasV4vValue: !!deltaOGTrack?.v4vValue,
+                  v4vRecipient: deltaOGTrack?.v4vRecipient,
+                  v4vValue: deltaOGTrack?.v4vValue
+                });
+              }
             }
           } else {
             console.warn('⚠️ Albums API returned invalid data structure:', data);

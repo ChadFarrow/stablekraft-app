@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         ],
         include: {
           _count: {
-            select: { tracks: true }
+            select: { Track: true }
           }
         }
       }),
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
       // Create feed in database
       const feed = await prisma.feed.create({
         data: {
+          id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           originalUrl,
           cdnUrl: cdnUrl || originalUrl,
           type,
@@ -99,13 +100,15 @@ export async function POST(request: NextRequest) {
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
           lastFetched: new Date(),
-          status: 'active'
+          status: 'active',
+          updatedAt: new Date()
         }
       });
       
       // Create tracks in database
       if (parsedFeed.items.length > 0) {
-        const tracksData = parsedFeed.items.map(item => ({
+        const tracksData = parsedFeed.items.map((item, index) => ({
+          id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
           feedId: feed.id,
           guid: item.guid,
           title: item.title,
@@ -126,7 +129,8 @@ export async function POST(request: NextRequest) {
           v4vRecipient: item.v4vRecipient,
           v4vValue: item.v4vValue,
           startTime: item.startTime,
-          endTime: item.endTime
+          endTime: item.endTime,
+          updatedAt: new Date()
         }));
         
         await prisma.track.createMany({
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
         where: { id: feed.id },
         include: {
           _count: {
-            select: { tracks: true }
+            select: { Track: true }
           }
         }
       });
@@ -156,13 +160,15 @@ export async function POST(request: NextRequest) {
       
       const feed = await prisma.feed.create({
         data: {
+          id: `feed-error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           originalUrl,
           cdnUrl: cdnUrl || originalUrl,
           type,
           priority,
           title: originalUrl,
           status: 'error',
-          lastError: errorMessage
+          lastError: errorMessage,
+          updatedAt: new Date()
         }
       });
       

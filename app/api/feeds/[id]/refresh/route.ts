@@ -58,7 +58,8 @@ export async function POST(
       
       // Add new tracks
       if (newItems.length > 0) {
-        const tracksData = newItems.map(item => ({
+        const tracksData = newItems.map((item, index) => ({
+          id: `${id}-${item.guid || `track-${index}-${Date.now()}`}`,
           feedId: id,
           guid: item.guid,
           title: item.title,
@@ -79,7 +80,8 @@ export async function POST(
           v4vRecipient: item.v4vRecipient,
           v4vValue: item.v4vValue,
           startTime: item.startTime,
-          endTime: item.endTime
+          endTime: item.endTime,
+          updatedAt: new Date()
         }));
         
         await prisma.track.createMany({
@@ -93,7 +95,7 @@ export async function POST(
         where: { id },
         include: {
           _count: {
-            select: { tracks: true }
+            select: { Track: true }
           }
         }
       });

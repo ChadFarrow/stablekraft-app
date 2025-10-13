@@ -147,7 +147,8 @@ async function parseAndAddAlbum(feedUrl: string, publisherTitle: string, retryCo
         image: coverArt,
         explicit: feed.itunes?.explicit === 'yes',
         priority: 'normal',
-        tracks: {
+        updatedAt: new Date(),
+        Track: {
           create: feed.items.map((item: any, index: number) => {
             // Parse duration from MM:SS or HH:MM:SS format to seconds
             let durationInSeconds = 0;
@@ -164,6 +165,7 @@ async function parseAndAddAlbum(feedUrl: string, publisherTitle: string, retryCo
             }
 
             return {
+              id: `${feedId}-${item.guid || `track-${index + 1}`}`,
               guid: item.guid || `${feedId}-track-${index + 1}`,
               title: item.title || `Track ${index + 1}`,
               description: item.contentEncoded || item.description || '',
@@ -175,6 +177,7 @@ async function parseAndAddAlbum(feedUrl: string, publisherTitle: string, retryCo
               album: albumTitle,
               trackOrder: index + 1,
               publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+              updatedAt: new Date()
             };
           }),
         },

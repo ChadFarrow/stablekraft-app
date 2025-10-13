@@ -30,7 +30,7 @@ export async function GET() {
         albumGroups.set(key, {
           feedGuid: track.feedGuid,
           feedTitle: track.feedTitle,
-          feedImage: track.feedImage || track.image,
+          feedImage: track.FeedImage || track.image,
           feedUrl: track.feedUrl,
           tracks: []
         });

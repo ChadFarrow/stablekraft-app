@@ -39,11 +39,13 @@ async function createFlowgnarPlaylist() {
     // Create the playlist
     const playlist = await prisma.userPlaylist.create({
       data: {
+        id: `playlist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: 'Flowgnar',
         description: 'Curated music playlist featuring independent artists and unique tracks from the Flowgnar collection.',
         isPublic: true,
         createdBy: 'system',
-        image: 'https://via.placeholder.com/400x400/6366f1/ffffff?text=Flowgnar'
+        image: 'https://via.placeholder.com/400x400/6366f1/ffffff?text=Flowgnar',
+        updatedAt: new Date()
       }
     });
     
@@ -65,7 +67,7 @@ async function createFlowgnarPlaylist() {
               { audioUrl: jsonTrack.audioUrl || jsonTrack.enclosureUrl }
             ].filter(Boolean)
           },
-          include: { feed: true }
+          include: { Feed: true }
         });
         
         if (dbTrack) {
@@ -74,6 +76,7 @@ async function createFlowgnarPlaylist() {
           // Add to playlist
           await prisma.playlistTrack.create({
             data: {
+              id: `playlist-track-${playlist.id}-${dbTrack.id}-${i + 1}`,
               playlistId: playlist.id,
               trackId: dbTrack.id,
               position: i + 1,
@@ -106,12 +109,12 @@ async function createFlowgnarPlaylist() {
       },
       include: {
         _count: {
-          select: { tracks: true }
+          select: { PlaylistTrack: true }
         }
       }
     });
     
-    console.log(`🎵 Final playlist has ${finalPlaylist._count.tracks} tracks`);
+    console.log(`🎵 Final playlist has ${finalPlaylist._count.PlaylistTrack} tracks`);
     
     return finalPlaylist;
     

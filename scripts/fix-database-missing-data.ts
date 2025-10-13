@@ -140,7 +140,7 @@ async function fixMissingData() {
         originalUrl: true,
         title: true,
         _count: {
-          select: { tracks: true }
+          select: { Track: true }
         }
       }
     });
@@ -149,7 +149,7 @@ async function fixMissingData() {
     
     // Delete these invalid feeds and their tracks
     for (const feed of guidFeeds) {
-      console.log(`🗑️  Deleting invalid feed: ${feed.title} (${feed._count.tracks} tracks)`);
+      console.log(`🗑️  Deleting invalid feed: ${feed.title} (${feed._count.Track} tracks)`);
       await prisma.feed.delete({
         where: { id: feed.id }
       });

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         originalUrl: true,
         title: true,
         _count: {
-          select: { tracks: true }
+          select: { Track: true }
         }
       },
       orderBy: [
@@ -80,7 +80,8 @@ export async function POST(request: NextRequest) {
           
           // Add new tracks
           if (newItems.length > 0) {
-            const tracksData = newItems.map(item => ({
+            const tracksData = newItems.map((item, index) => ({
+              id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
               feedId: feed.id,
               guid: item.guid,
               title: item.title,
@@ -101,7 +102,8 @@ export async function POST(request: NextRequest) {
               v4vRecipient: item.v4vRecipient,
               v4vValue: item.v4vValue,
               startTime: item.startTime,
-              endTime: item.endTime
+              endTime: item.endTime,
+              updatedAt: new Date()
             }));
             
             await prisma.track.createMany({

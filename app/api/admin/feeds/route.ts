@@ -10,7 +10,7 @@ export async function GET() {
       include: {
         _count: {
           select: {
-            tracks: true
+            Track: true
           }
         }
       },
@@ -34,7 +34,7 @@ export async function GET() {
       language: feed.language,
       category: feed.category,
       explicit: feed.explicit,
-      trackCount: feed._count.tracks,
+      trackCount: feed._count.Track,
       createdAt: feed.createdAt,
       updatedAt: feed.updatedAt,
       lastFetched: feed.lastFetched,
@@ -133,7 +133,8 @@ export async function POST(request: NextRequest) {
         type,
         title: `Feed from ${urlObj.hostname}`,
         priority,
-        status: 'active'
+        status: 'active',
+        updatedAt: new Date()
       }
     });
 

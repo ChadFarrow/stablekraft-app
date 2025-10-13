@@ -37,7 +37,7 @@ export async function GET() {
         }
       },
       include: {
-        feed: true
+        Feed: true
       }
     });
 
@@ -51,15 +51,15 @@ export async function GET() {
       return {
         id: track.id,
         title: track.title,
-        artist: track.artist || track.feed.artist || 'Unknown Artist',
+        artist: track.artist || track.Feed.artist || 'Unknown Artist',
         audioUrl: track.audioUrl,
         duration: track.duration || 0,
-        image: track.image || track.feed.image,
-        album: track.album || track.feed.title,
+        image: track.image || track.Feed.image,
+        album: track.album || track.Feed.title,
         startTime: track.startTime,
         endTime: track.endTime,
         publishedAt: track.publishedAt?.toISOString(),
-        feedTitle: track.feed.title,
+        feedTitle: track.Feed.title,
         position: pt.position
       };
     }).filter(Boolean); // Remove null entries

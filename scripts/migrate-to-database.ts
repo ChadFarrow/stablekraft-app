@@ -227,7 +227,7 @@ async function migrateFeeds() {
             audioUrl: track.enclosureUrl || '',
             duration: track.duration,
             explicit: track.explicit || false,
-            image: track.feedImage,
+            image: track.FeedImage,
             publishedAt: track.published ? new Date(track.published) : undefined,
             itunesKeywords: track.keywords || [],
             itunesCategories: track.categories?.map((c: any) => c.text) || [],

@@ -189,7 +189,7 @@ export async function GET(request: NextRequest) {
         guid: { in: uniqueItemGuids }
       },
       include: {
-        feed: true
+        Feed: true
       }
     });
     

@@ -111,6 +111,7 @@ async function parseAndAddAlbum(feedUrl: string, feedGuid: string): Promise<bool
       const trackGuid = item.guid || `${feedGuid}-track-${index + 1}`;
 
       return {
+        id: `${feedId}-${trackGuid}`,
         guid: trackGuid,
         title: item.title || `Track ${index + 1}`,
         description: item.contentEncoded || item.description || '',
@@ -122,6 +123,7 @@ async function parseAndAddAlbum(feedUrl: string, feedGuid: string): Promise<bool
         album: albumTitle,
         trackOrder: index + 1,
         publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+        updatedAt: new Date()
       };
     });
 
@@ -138,7 +140,8 @@ async function parseAndAddAlbum(feedUrl: string, feedGuid: string): Promise<bool
         image: coverArt,
         explicit: feed.itunes?.explicit === 'yes',
         priority: 'normal',
-        tracks: {
+        updatedAt: new Date(),
+        Track: {
           create: tracksData,
         },
       },

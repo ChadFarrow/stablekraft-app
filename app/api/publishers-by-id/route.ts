@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const feeds = await prisma.feed.findMany({
       where: { status: 'active' },
       include: {
-        tracks: {
+        Track: {
           where: {
             audioUrl: { not: '' }
           },
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
         feedUrl: feed.originalUrl,
         image: feed.image,
         description: feed.description,
-        trackCount: feed.tracks.length,
+        trackCount: feed.Track.length,
         albumSlug: albumSlug,
         releaseDate: feed.lastFetched || feed.createdAt,
         explicit: feed.explicit

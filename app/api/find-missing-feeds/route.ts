@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         guid: true,
         title: true,
         feedId: true,
-        feed: {
+        Feed: {
           select: {
             title: true
           }
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       existingTracks: existingTracks.map(track => ({
         guid: track.guid,
         title: track.title,
-        feedTitle: track.feed?.title,
+        feedTitle: track.Feed?.title,
         feedId: track.feedId
       })),
       missingFeeds: missingFeeds,

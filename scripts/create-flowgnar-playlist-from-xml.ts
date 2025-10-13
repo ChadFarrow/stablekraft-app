@@ -41,11 +41,13 @@ async function createFlowgnarPlaylistFromXML() {
     // Create the playlist
     const playlist = await prisma.userPlaylist.create({
       data: {
+        id: `playlist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: channel.title[0],
         description: channel.description[0],
         isPublic: true,
         createdBy: 'system',
-        image: channel.image?.[0]?.url?.[0] || 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist-art.webp'
+        image: channel.image?.[0]?.url?.[0] || 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist-art.webp',
+        updatedAt: new Date()
       }
     });
     
@@ -64,7 +66,7 @@ async function createFlowgnarPlaylistFromXML() {
           where: {
             guid: remoteItem.itemGuid
           },
-          include: { feed: true }
+          include: { Feed: true }
         });
         
         if (dbTrack) {
@@ -79,6 +81,7 @@ async function createFlowgnarPlaylistFromXML() {
           if (!existing) {
             await prisma.playlistTrack.create({
               data: {
+                id: `playlist-track-${playlist.id}-${dbTrack.id}-${i + 1}`,
                 playlistId: playlist.id,
                 trackId: dbTrack.id,
                 position: i + 1,
@@ -111,12 +114,12 @@ async function createFlowgnarPlaylistFromXML() {
       where: { id: playlist.id },
       include: {
         _count: {
-          select: { tracks: true }
+          select: { PlaylistTrack: true }
         }
       }
     });
     
-    console.log(`🎵 Final playlist has ${finalPlaylist?._count.tracks || 0} tracks`);
+    console.log(`🎵 Final playlist has ${finalPlaylist?._count.PlaylistTrack || 0} tracks`);
     
     return finalPlaylist;
     

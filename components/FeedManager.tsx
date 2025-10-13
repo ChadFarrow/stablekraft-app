@@ -17,7 +17,7 @@ interface Feed {
   lastFetched?: string;
   lastError?: string;
   _count?: {
-    tracks: number;
+    Track: number;
   };
 }
 
@@ -365,7 +365,7 @@ export default function FeedManager() {
                   )}
                   
                   <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>{feed._count?.tracks || 0} tracks</span>
+                    <span>{feed._count?.Track || 0} tracks</span>
                     {feed.lastFetched && (
                       <span>Last updated: {new Date(feed.lastFetched).toLocaleDateString()}</span>
                     )}

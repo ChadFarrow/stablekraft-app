@@ -189,7 +189,7 @@ export async function GET(request: Request) {
     const feeds = await prisma.feed.findMany({
       where: feedWhere,
       include: {
-        tracks: {
+        Track: {
           where: {
             audioUrl: { not: '' }
           },
@@ -209,7 +209,7 @@ export async function GET(request: Request) {
     });
     
     // Extract tracks from the included data
-    const tracks = feeds.flatMap(feed => feed.tracks);
+    const tracks = feeds.flatMap(feed => feed.Track);
     
     console.log(`📊 Loaded ${feeds.length} feeds from database`);
     

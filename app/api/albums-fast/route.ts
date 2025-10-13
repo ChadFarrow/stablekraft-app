@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { Feed, Track } from '@prisma/client';
 
 interface FeedWithTracks extends Feed {
-  tracks: Track[];
+  Track: Track[];
   _count: {
-    tracks: number;
+    Track: number;
   };
 }
 
@@ -166,7 +166,7 @@ export async function GET(request: Request) {
       feeds = await prisma.feed.findMany({
         where: { status: 'active' },
         include: {
-          tracks: {
+          Track: {
             where: {
               audioUrl: { not: '' }
             },
@@ -178,7 +178,7 @@ export async function GET(request: Request) {
             take: 50 // Limit tracks per feed for performance
           },
           _count: {
-            select: { tracks: true }
+            select: { Track: true }
           }
         },
         orderBy: [
@@ -230,11 +230,11 @@ export async function GET(request: Request) {
       feedGuid: feed.id,
       feedId: feed.id, // For Helipad TLV
       remoteFeedGuid: feed.id, // For Helipad TLV
-      guid: feed.tracks?.[0]?.guid || feed.id, // Episode GUID for Helipad TLV
-      episodeGuid: feed.tracks?.[0]?.guid || feed.id, // Alternative field name
+      guid: feed.Track?.[0]?.guid || feed.id, // Episode GUID for Helipad TLV
+      episodeGuid: feed.Track?.[0]?.guid || feed.id, // Alternative field name
       link: feed.originalUrl, // For feedUrl fallback
       priority: feed.priority,
-      tracks: feed.tracks
+      tracks: feed.Track
         .filter((track: Track, index: number, self: Track[]) => {
           // Deduplicate tracks by URL and title
           return self.findIndex((t: Track) =>
@@ -248,11 +248,16 @@ export async function GET(request: Request) {
           url: track.audioUrl,
           image: track.image,
           publishedAt: track.publishedAt,
-          guid: track.guid
+          guid: track.guid,
+          // Include V4V fields for Lightning payments
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue,
+          startTime: track.startTime,
+          endTime: track.endTime
         })),
       // Include V4V payment data from first track (all tracks in a feed should have same V4V data)
-      v4vRecipient: feed.tracks?.[0]?.v4vRecipient || null,
-      v4vValue: feed.tracks?.[0]?.v4vValue || null
+      v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
+      v4vValue: feed.Track?.[0]?.v4vValue || null
     }));
     
     // Filter out Bowl After Bowl main podcast content but keep music covers
@@ -312,7 +317,7 @@ export async function GET(request: Request) {
       const aFeed = feeds.find(f => f.id === a.id);
       const bFeed = feeds.find(f => f.id === b.id);
       
-      const getTotalTrackCount = (feed: any) => feed?._count?.tracks || 0;
+      const getTotalTrackCount = (feed: any) => feed?._count?.Track || 0;
       
       // Determine format based on total track count
       const getFormatOrder = (trackCount: number) => {

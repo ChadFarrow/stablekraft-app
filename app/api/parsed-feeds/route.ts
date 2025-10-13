@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     // Get all feeds from database with their tracks
     const feeds = await prisma.feed.findMany({
       include: {
-        tracks: {
+        Track: {
           where: {
             audioUrl: { not: '' }
           },
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     
     // Transform database feeds to match the expected parsed-feeds format
     const transformedFeeds = feeds.map(feed => {
-      const hasValidTracks = feed.tracks.length > 0;
+      const hasValidTracks = feed.Track.length > 0;
       const parseStatus = hasValidTracks ? 'success' : (feed.status === 'error' ? 'error' : 'pending');
       
       let parsedData: any = {};
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         // For publisher feeds, create publisherItems from tracks grouped by album
         const albumMap = new Map<string, any>();
         
-        feed.tracks.forEach(track => {
+        feed.Track.forEach(track => {
           const albumKey = track.album || track.title || 'Unknown Album';
           if (!albumMap.has(albumKey)) {
             albumMap.set(albumKey, {
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         };
       } else if (feed.type === 'album' && hasValidTracks) {
         // For album feeds, create album data
-        const tracks = feed.tracks.map((track, index) => ({
+        const tracks = feed.Track.map((track, index) => ({
           title: track.title,
           duration: track.duration ? 
             Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
@@ -107,8 +107,8 @@ export async function GET(request: Request) {
         lastParsed: feed.lastFetched || feed.updatedAt,
         parsedData: parsedData,
         metadata: {
-          totalTracks: feed.tracks.length,
-          validTracks: feed.tracks.filter(t => t.audioUrl && t.audioUrl !== '').length,
+          totalTracks: feed.Track.length,
+          validTracks: feed.Track.filter(t => t.audioUrl && t.audioUrl !== '').length,
           lastFetched: feed.lastFetched,
           status: feed.status,
           priority: feed.priority,

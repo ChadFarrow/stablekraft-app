@@ -63,11 +63,13 @@ async function createExistingPlaylists() {
       // Create the playlist
       const playlist = await prisma.userPlaylist.create({
         data: {
+          id: `playlist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: config.name,
           description: config.description,
           isPublic: true,
           createdBy: 'system',
-          image: config.image
+          image: config.image,
+          updatedAt: new Date()
         }
       });
       
@@ -95,7 +97,7 @@ async function createExistingPlaylists() {
                 return true;
               })
             },
-            include: { feed: true }
+            include: { Feed: true }
           });
           
           if (dbTrack) {
@@ -110,6 +112,7 @@ async function createExistingPlaylists() {
             if (!existing) {
               await prisma.playlistTrack.create({
                 data: {
+                  id: `playlist-track-${playlist.id}-${dbTrack.id}-${i + 1}`,
                   playlistId: playlist.id,
                   trackId: dbTrack.id,
                   position: i + 1,
@@ -144,19 +147,19 @@ async function createExistingPlaylists() {
         where: { id: playlist.id },
         include: {
           _count: {
-            select: { tracks: true }
+            select: { PlaylistTrack: true }
           }
         }
       });
       
-      console.log(`🎵 Final playlist has ${finalPlaylist?._count.tracks || 0} tracks`);
+      console.log(`🎵 Final playlist has ${finalPlaylist?._count.PlaylistTrack || 0} tracks`);
     }
     
     // Final summary
     const allPlaylists = await prisma.userPlaylist.findMany({
       include: {
         _count: {
-          select: { tracks: true }
+          select: { PlaylistTrack: true }
         }
       }
     });
@@ -164,7 +167,7 @@ async function createExistingPlaylists() {
     console.log('\n✨ All playlists created successfully!');
     console.log('📊 Final playlist summary:');
     for (const playlist of allPlaylists) {
-      console.log(`   - ${playlist.name}: ${playlist._count.tracks} tracks`);
+      console.log(`   - ${playlist.name}: ${playlist._count.PlaylistTrack} tracks`);
     }
     
   } catch (error) {

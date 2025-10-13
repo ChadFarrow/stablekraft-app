@@ -16,7 +16,7 @@ export async function GET(
     const feeds = await prisma.feed.findMany({
       where: { status: 'active' },
       include: {
-        tracks: {
+        Track: {
           where: {
             audioUrl: { not: '' }
           },
@@ -80,7 +80,7 @@ export async function GET(
     
     // Create publisher info from the feeds
     const primaryFeed = matchingFeeds[0];
-    const totalTracks = matchingFeeds.reduce((sum, feed) => sum + feed.tracks.length, 0);
+    const totalTracks = matchingFeeds.reduce((sum, feed) => sum + feed.Track.length, 0);
     
     // Create album items from the feeds
     const publisherItems = matchingFeeds.map(feed => {
@@ -93,7 +93,7 @@ export async function GET(
         feedUrl: feed.originalUrl,
         image: feed.image,
         description: feed.description,
-        trackCount: feed.tracks.length,
+        trackCount: feed.Track.length,
         albumSlug: albumSlug,
         releaseDate: feed.lastFetched || feed.createdAt,
         explicit: feed.explicit

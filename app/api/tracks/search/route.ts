@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         { title: 'asc' }
       ],
       include: {
-        feed: {
+        Feed: {
           select: {
             id: true,
             title: true,
@@ -74,9 +74,9 @@ export async function GET(request: NextRequest) {
     
     // Group results by category
     const groupedResults = {
-      albums: results.filter(t => t.feed.type === 'album'),
-      playlists: results.filter(t => t.feed.type === 'playlist'),
-      podcasts: results.filter(t => t.feed.type === 'podcast'),
+      albums: results.filter(t => t.Feed.type === 'album'),
+      playlists: results.filter(t => t.Feed.type === 'playlist'),
+      podcasts: results.filter(t => t.Feed.type === 'podcast'),
       v4v: results.filter(t => t.v4vValue !== null),
       all: results,
       total: results.length
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         take: pagination.limit,
         orderBy: { [sorting.field]: sorting.order },
         include: {
-          feed: {
+          Feed: {
             select: {
               id: true,
               title: true,
