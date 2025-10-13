@@ -4,6 +4,19 @@ import { generateAlbumSlug } from '@/lib/url-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Helper function to normalize Wavlake URLs for comparison
+function normalizeWavlakeUrl(url: string): string {
+  if (!url) return '';
+
+  // Extract the GUID from the URL (the last part after the last slash)
+  const guidMatch = url.match(/([a-f0-9-]{36})/i);
+  if (guidMatch) {
+    return guidMatch[1].toLowerCase();
+  }
+
+  return url.toLowerCase();
+}
+
 // Function to get publisher feed remoteItem URLs
 async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<string>> {
   try {
@@ -39,7 +52,11 @@ async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<stri
     let match;
 
     while ((match = remoteItemRegex.exec(xml)) !== null) {
-      urls.add(match[1]);
+      // Normalize the URL by extracting the GUID
+      const normalizedGuid = normalizeWavlakeUrl(match[1]);
+      if (normalizedGuid) {
+        urls.add(normalizedGuid);
+      }
     }
 
     console.log(`🔍 Found ${urls.size} remoteItems in publisher feed ${publisherId}`);
@@ -331,15 +348,16 @@ export async function GET(request: Request) {
     // Apply publisher filtering if specified
     let publisherFilteredAlbums = podcastFilteredAlbums;
     if (publisher) {
-      // Get the remoteItem URLs from the publisher feed
-      const publisherRemoteUrls = await getPublisherRemoteItemUrls(publisher);
+      // Get the remoteItem GUIDs from the publisher feed
+      const publisherRemoteGuids = await getPublisherRemoteItemUrls(publisher);
 
-      if (publisherRemoteUrls.size > 0) {
-        // Filter albums to only those whose feedUrl is in the publisher's remoteItems
+      if (publisherRemoteGuids.size > 0) {
+        // Filter albums to only those whose feedUrl GUID matches a remoteItem GUID
         publisherFilteredAlbums = podcastFilteredAlbums.filter(album => {
-          return publisherRemoteUrls.has(album.feedUrl);
+          const albumGuid = normalizeWavlakeUrl(album.feedUrl);
+          return publisherRemoteGuids.has(albumGuid);
         });
-        console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched from ${publisherRemoteUrls.size} remoteItems`);
+        console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched from ${publisherRemoteGuids.size} remoteItems`);
       } else {
         console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
         publisherFilteredAlbums = [];
