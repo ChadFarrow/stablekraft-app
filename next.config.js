@@ -216,7 +216,8 @@ const nextConfig = {
       'cdn-images.owltail.com',
       'www.haciendoelsueco.com',
       'f.strangetextures.com',
-      'deow9bq0xqvbj.cloudfront.net'
+      'deow9bq0xqvbj.cloudfront.net',
+      'binauralsubliminal.com'
     ],
     remotePatterns: [
       {
@@ -517,6 +518,13 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'deow9bq0xqvbj.cloudfront.net',
+        port: '',
+        pathname: '/**',
+      },
+      // Binaural Subliminal album artwork
+      {
+        protocol: 'https',
+        hostname: 'binauralsubliminal.com',
         port: '',
         pathname: '/**',
       },

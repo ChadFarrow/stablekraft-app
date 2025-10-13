@@ -14,6 +14,7 @@ import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } f
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import NowPlayingScreen from '@/components/NowPlayingScreen';
+import SearchBar from '@/components/SearchBar';
 
 
 
@@ -1114,8 +1115,13 @@ export default function HomePage() {
         </header>
         
         {/* Filter Menu - Below Header */}
-        <div className="bg-black/70 backdrop-blur-sm border-b border-gray-700 py-3">
+        <div className="relative z-30 bg-black/70 backdrop-blur-sm border-b border-gray-700 py-3">
           <div className="container mx-auto px-6">
+            {/* Search Bar - Full Width on Mobile, Inline on Desktop */}
+            <div className="mb-3">
+              <SearchBar className="w-full md:max-w-md" />
+            </div>
+
             <div className="flex items-center justify-between">
               {/* Left side - Filter buttons */}
               <div className="flex gap-1 overflow-x-auto">
