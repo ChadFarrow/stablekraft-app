@@ -1,6 +1,54 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug } from '@/lib/url-utils';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Function to get publisher feed remoteItem URLs
+async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<string>> {
+  try {
+    // Load publisher feed data
+    const publisherFeedsPath = path.join(process.cwd(), 'data', 'publisher-feed-results.json');
+    if (!fs.existsSync(publisherFeedsPath)) {
+      return new Set();
+    }
+
+    const publisherFeeds = JSON.parse(fs.readFileSync(publisherFeedsPath, 'utf-8'));
+
+    // Find the matching publisher feed
+    const publisherFeed = publisherFeeds.find((p: any) =>
+      p.feed.id === publisherId ||
+      p.feed.id.toLowerCase() === publisherId.toLowerCase()
+    );
+
+    if (!publisherFeed || !publisherFeed.feed.originalUrl) {
+      return new Set();
+    }
+
+    // Fetch the publisher feed XML
+    const response = await fetch(publisherFeed.feed.originalUrl);
+    if (!response.ok) {
+      return new Set();
+    }
+
+    const xml = await response.text();
+
+    // Extract remoteItem feedUrls using regex
+    const remoteItemRegex = /<podcast:remoteItem[^>]*feedUrl="([^"]+)"/g;
+    const urls = new Set<string>();
+    let match;
+
+    while ((match = remoteItemRegex.exec(xml)) !== null) {
+      urls.add(match[1]);
+    }
+
+    console.log(`🔍 Found ${urls.size} remoteItems in publisher feed ${publisherId}`);
+    return urls;
+  } catch (error) {
+    console.error(`Error fetching publisher remoteItems for ${publisherId}:`, error);
+    return new Set();
+  }
+}
 
 // Function to get playlist albums
 async function getPlaylistAlbums() {
@@ -91,17 +139,8 @@ export async function GET(request: Request) {
       feedWhere.id = feedId;
     }
 
-    // Apply publisher filtering at database level for better performance
-    if (publisher) {
-      // Extract artist name from publisher parameter (e.g., "joe-martin-publisher" -> "joe martin")
-      const publisherSlug = publisher.toLowerCase().replace(/-publisher$/, '').replace(/-/g, ' ');
-
-      // Filter feeds by artist name at database level
-      feedWhere.artist = {
-        contains: publisherSlug,
-        mode: 'insensitive'
-      };
-    }
+    // We'll filter by publisher feed's remoteItems after loading feeds
+    // (Can't filter at DB level since we need to match against publisher feed URLs)
 
     // OPTIMIZED: Single query with include for better performance
     const feeds = await prisma.feed.findMany({
@@ -123,7 +162,7 @@ export async function GET(request: Request) {
         { priority: 'asc' },
         { createdAt: 'desc' }
       ],
-      take: publisher ? undefined : 200 // No limit when filtering by publisher, otherwise 200
+      take: 500 // Increased to 500 to capture more albums for publisher filtering
     });
     
     // Extract tracks from the included data
@@ -292,34 +331,19 @@ export async function GET(request: Request) {
     // Apply publisher filtering if specified
     let publisherFilteredAlbums = podcastFilteredAlbums;
     if (publisher) {
-      const publisherLower = publisher.toLowerCase();
-      publisherFilteredAlbums = podcastFilteredAlbums.filter(album => {
-        // Match by publisher feedGuid
-        if (album.publisher?.feedGuid?.toLowerCase() === publisherLower) {
-          return true;
-        }
-        // Match by publisher title
-        if (album.publisher?.title?.toLowerCase() === publisherLower) {
-          return true;
-        }
-        // Match by publisher title with slug conversion (e.g., "joe-martin-publisher" -> "joe martin")
-        const publisherSlug = publisherLower.replace(/-publisher$/, '').replace(/-/g, ' ');
-        if (album.publisher?.title?.toLowerCase() === publisherSlug) {
-          return true;
-        }
-        // Match by artist name (for individual artist publishers)
-        if (album.artist?.toLowerCase() === publisherLower || album.artist?.toLowerCase() === publisherSlug) {
-          return true;
-        }
-        // Match if publisher parameter contains the artist name (e.g., "joe-martin-publisher" contains "joe martin")
-        const artistLower = album.artist?.toLowerCase() || '';
-        const artistSlug = artistLower.replace(/\s+/g, '-');
-        if (publisherLower.includes(artistSlug) || publisherLower.includes(artistLower)) {
-          return true;
-        }
-        return false;
-      });
-      console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched`);
+      // Get the remoteItem URLs from the publisher feed
+      const publisherRemoteUrls = await getPublisherRemoteItemUrls(publisher);
+
+      if (publisherRemoteUrls.size > 0) {
+        // Filter albums to only those whose feedUrl is in the publisher's remoteItems
+        publisherFilteredAlbums = podcastFilteredAlbums.filter(album => {
+          return publisherRemoteUrls.has(album.feedUrl);
+        });
+        console.log(`🔍 Publisher filter "${publisher}": ${publisherFilteredAlbums.length}/${podcastFilteredAlbums.length} albums matched from ${publisherRemoteUrls.size} remoteItems`);
+      } else {
+        console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
+        publisherFilteredAlbums = [];
+      }
     }
     
     // Apply filtering by type
