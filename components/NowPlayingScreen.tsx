@@ -481,7 +481,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       {/* Boost Modal */}
       {showBoostModal && currentTrack && (
         <BoostButton
-          trackId={currentTrack.guid || currentTrack.id}
+          trackId={currentTrack.guid}
           feedId={currentPlayingAlbum.feedId || currentPlayingAlbum.id}
           trackTitle={currentTrack.title}
           artistName={currentPlayingAlbum.artist || 'Unknown Artist'}
