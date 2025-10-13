@@ -76,13 +76,15 @@ async function migrateFeeds() {
           // Create feed with error status if parsing fails
           await prisma.feed.create({
             data: {
+              id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               originalUrl: feed.originalUrl,
               cdnUrl: feed.cdnUrl || feed.originalUrl,
               type: feed.type || 'album',
               priority: feed.priority || 'normal',
               title: feed.title || feed.originalUrl,
               status: 'error',
-              lastError: parseError instanceof Error ? parseError.message : 'Parse error'
+              lastError: parseError instanceof Error ? parseError.message : 'Parse error',
+              updatedAt: new Date()
             }
           });
           continue;
@@ -91,6 +93,7 @@ async function migrateFeeds() {
         // Create feed in database
         const dbFeed = await prisma.feed.create({
           data: {
+            id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             originalUrl: feed.originalUrl,
             cdnUrl: feed.cdnUrl || feed.originalUrl,
             type: feed.type || 'album',
@@ -103,7 +106,8 @@ async function migrateFeeds() {
             category: parsedFeed.category,
             explicit: parsedFeed.explicit,
             status: feed.status || 'active',
-            lastFetched: new Date()
+            lastFetched: new Date(),
+            updatedAt: new Date()
           }
         });
         
@@ -199,6 +203,7 @@ async function migrateFeeds() {
           const firstTrack = tracks[0];
           dbFeed = await prisma.feed.create({
             data: {
+              id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               originalUrl: feedUrl,
               cdnUrl: feedUrl,
               type: 'album',
@@ -208,7 +213,8 @@ async function migrateFeeds() {
               artist: firstTrack.feedArtist,
               image: firstTrack.feedImage,
               status: 'active',
-              lastFetched: new Date()
+              lastFetched: new Date(),
+              updatedAt: new Date()
             }
           });
           console.log(`✅ Created feed for orphaned tracks: ${dbFeed.title}`);
