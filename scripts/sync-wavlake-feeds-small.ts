@@ -189,7 +189,7 @@ async function syncSmallBatch() {
       feed.id,
       feed.originalUrl,
       feed.title,
-      feed.artist
+      feed.artist || 'Unknown Artist'
     );
 
     if (result.success) stats.success++;

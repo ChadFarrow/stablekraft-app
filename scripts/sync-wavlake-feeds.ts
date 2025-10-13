@@ -310,7 +310,7 @@ async function syncWavlakeFeeds() {
         feed.id,
         feed.originalUrl,
         feed.title,
-        feed.artist
+        feed.artist || 'Unknown Artist'
       );
 
       if (result.success) {
