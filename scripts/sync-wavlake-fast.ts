@@ -187,7 +187,7 @@ async function updateFeedFromPodcastIndexOnly(
         publishedAt: new Date(episode.datePublished * 1000),
         trackOrder: index,
         v4vRecipient,
-        v4vValue,
+        v4vValue: v4vValue ?? undefined,
         updatedAt: new Date()
       };
     });
