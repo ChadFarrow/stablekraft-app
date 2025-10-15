@@ -179,8 +179,8 @@ export async function GET(request: Request) {
     }
 
     // OPTIMIZED: For publisher filtering, use two-phase approach to avoid slow queries
-    let feeds;
-    let tracks;
+    let feeds: any[];
+    let tracks: any[];
     let tracksByFeed: Record<string, any[]> = {};
 
     if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
