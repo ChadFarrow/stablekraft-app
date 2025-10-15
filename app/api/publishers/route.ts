@@ -24,10 +24,42 @@ export async function GET() {
     const publisherFeedsData = JSON.parse(fs.readFileSync(publisherFeedsPath, 'utf-8'));
     console.log(`📊 Loaded ${publisherFeedsData.length} publisher feeds from file`);
 
+    // Get actual album counts from the database for accuracy
+    const feedCounts = await prisma.feed.findMany({
+      where: {
+        type: 'album',
+        status: 'active'
+      },
+      select: {
+        artist: true,
+        _count: {
+          select: { Track: true }
+        }
+      }
+    });
+
+    // Group by artist to get album and track counts
+    const artistStats = new Map<string, { albumCount: number; trackCount: number }>();
+    for (const feed of feedCounts) {
+      const artist = feed.artist?.toLowerCase() || '';
+      if (!artist) continue;
+
+      const existing = artistStats.get(artist) || { albumCount: 0, trackCount: 0 };
+      artistStats.set(artist, {
+        albumCount: existing.albumCount + 1,
+        trackCount: existing.trackCount + feed._count.Track
+      });
+    }
+
+    console.log(`📊 Computed album counts for ${artistStats.size} artists from database`);
+
     // Transform to match the expected format for the publishers API
     const publishers = publisherFeedsData.map((publisherFeed: any) => {
       const cleanTitle = publisherFeed.title?.replace(/<!\[CDATA\[|\]\]>/g, '') || 'Unknown Publisher';
       const feedGuid = publisherFeed.feed.id || generateAlbumSlug(cleanTitle);
+
+      // Get actual counts from database
+      const stats = artistStats.get(cleanTitle.toLowerCase()) || { albumCount: 0, trackCount: 0 };
 
       return {
         id: feedGuid,
@@ -35,10 +67,10 @@ export async function GET() {
         feedGuid: feedGuid,
         originalUrl: publisherFeed.feed.originalUrl,
         image: publisherFeed.itunesImage || '/placeholder-artist.png',
-        description: publisherFeed.description?.replace(/<!\[CDATA\[|\]\]>/g, '') || `Publisher feed with ${publisherFeed.remoteItemCount || 0} releases`,
+        description: publisherFeed.description?.replace(/<!\[CDATA\[|\]\]>/g, '') || `Publisher feed with ${stats.albumCount} releases`,
         albums: [], // Individual albums not needed for publisher list
-        itemCount: publisherFeed.remoteItemCount || 0,
-        totalTracks: publisherFeed.remoteItemCount || 0, // Approximate
+        itemCount: stats.albumCount, // Use actual album count from database
+        totalTracks: stats.trackCount, // Use actual track count from database
         isPublisherCard: true,
         publisherUrl: `/publisher/${generateAlbumSlug(cleanTitle)}`
       };
