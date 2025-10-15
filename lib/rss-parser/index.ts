@@ -519,7 +519,7 @@ export class RSSParser {
           title,
           description,
           artist,
-          coverArt
+          coverArt: coverArt || undefined
         },
         remoteItems
       };
