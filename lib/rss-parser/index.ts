@@ -398,16 +398,131 @@ export class RSSParser {
   }
 
   /**
-   * Parse publisher feed items (placeholder implementation)
+   * Parse publisher feed items and metadata
    */
-  static async parsePublisherFeed(feedUrl: string): Promise<Array<{
-    feedGuid: string;
-    feedUrl: string;
-    medium: string;
-    title?: string;
-  }>> {
-    this.logger.warn('parsePublisherFeed not implemented in modular RSS parser', { feedUrl });
-    // TODO: Implement publisher feed parsing
-    return [];
+  static async parsePublisherFeed(feedUrl: string): Promise<{
+    publisherInfo: {
+      title?: string;
+      description?: string;
+      artist?: string;
+      coverArt?: string;
+    };
+    remoteItems: Array<{
+      feedGuid: string;
+      feedUrl: string;
+      medium: string;
+      title?: string;
+    }>;
+  }> {
+    return withRetry(async () => {
+      this.logger.info('Parsing publisher feed', { feedUrl });
+
+      // Fetch the feed
+      const response = await fetch(feedUrl);
+      if (!response.ok) {
+        throw new AppError(
+          `Failed to fetch publisher feed: ${response.status}`,
+          ErrorCodes.RSS_FETCH_ERROR,
+          response.status,
+          response.status >= 500,
+          { feedUrl, status: response.status }
+        );
+      }
+
+      const xmlText = await response.text();
+
+      // Parse XML content
+      let xmlDoc: any;
+      try {
+        if (typeof window !== 'undefined') {
+          const parser = new DOMParser();
+          xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        } else {
+          const { DOMParser } = await import('@xmldom/xmldom');
+          const parser = new DOMParser();
+          xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        }
+      } catch (error) {
+        throw new AppError(
+          'Failed to parse XML content',
+          ErrorCodes.RSS_PARSE_ERROR,
+          400,
+          false,
+          { feedUrl, error }
+        );
+      }
+
+      // Extract channel
+      const channels = xmlDoc.getElementsByTagName('channel');
+      if (!channels || channels.length === 0) {
+        throw new AppError(
+          'Invalid RSS feed: no channel found',
+          ErrorCodes.RSS_INVALID_FORMAT,
+          400,
+          false,
+          { feedUrl }
+        );
+      }
+      const channel = channels[0];
+
+      // Extract publisher metadata from channel
+      const titleElement = channel.getElementsByTagName('title')[0];
+      const title = RSSUtils.getElementText(titleElement);
+
+      const descriptionElement = channel.getElementsByTagName('description')[0];
+      const description = RSSUtils.getElementText(descriptionElement);
+
+      const artistElement = channel.getElementsByTagName('itunes:author')[0] ||
+                           channel.getElementsByTagName('author')[0];
+      const artist = RSSUtils.getElementText(artistElement);
+
+      // Extract cover art using the same method as album feeds
+      const coverArt = this.extractCoverArt(channel);
+
+      // Extract podcast:remoteItem elements
+      const remoteItems: Array<{
+        feedGuid: string;
+        feedUrl: string;
+        medium: string;
+        title?: string;
+      }> = [];
+
+      // Get all elements with tag name containing "remoteItem"
+      const allElements = channel.getElementsByTagName('*');
+      for (let i = 0; i < allElements.length; i++) {
+        const element = allElements[i];
+        const tagName = element.tagName || element.nodeName;
+
+        if (tagName === 'podcast:remoteItem' || tagName === 'remoteItem') {
+          const feedGuid = RSSUtils.getElementAttribute(element, 'feedGuid');
+          const feedUrlAttr = RSSUtils.getElementAttribute(element, 'feedUrl');
+          const medium = RSSUtils.getElementAttribute(element, 'medium') || 'music';
+
+          if (feedGuid && feedUrlAttr) {
+            remoteItems.push({
+              feedGuid,
+              feedUrl: feedUrlAttr,
+              medium
+            });
+          }
+        }
+      }
+
+      this.logger.info('Successfully parsed publisher feed', {
+        feedUrl,
+        remoteItemCount: remoteItems.length,
+        hasImage: !!coverArt
+      });
+
+      return {
+        publisherInfo: {
+          title,
+          description,
+          artist,
+          coverArt
+        },
+        remoteItems
+      };
+    });
   }
 }

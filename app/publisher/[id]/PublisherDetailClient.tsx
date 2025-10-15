@@ -19,6 +19,7 @@ interface PublisherDetailClientProps {
   initialData?: {
     publisherInfo: any;
     publisherItems: any[];
+    albums?: any[]; // Pre-fetched albums from server
     feedId: string;
   } | null;
 }
@@ -30,9 +31,15 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   
   const [isLoading, setIsLoading] = useState(!initialData);
   const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
-    // Initialize albums from initial data if available
+    // First priority: use pre-fetched albums from server if available
+    if (initialData?.albums && initialData.albums.length > 0) {
+      console.log('🎯 Using pre-fetched albums from server:', initialData.albums.length);
+      return initialData.albums;
+    }
+
+    // Fallback: Initialize albums from publisher items if available
     if (initialData?.publisherItems && initialData.publisherItems.length > 0) {
-      const validItems = initialData.publisherItems.filter((item: any) => 
+      const validItems = initialData.publisherItems.filter((item: any) =>
         item.title && item.title.trim() !== ''
       );
       return validItems.map((item: any) => ({
@@ -104,7 +111,8 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       console.log(`🔍 Fetching albums for publisher: ${publisherId}`);
 
       // Use the new publisher parameter to filter albums directly on the server
-      const response = await fetch(`/api/albums?publisher=${encodeURIComponent(publisherId)}&limit=0`);
+      // Use a high limit to get all albums (most publishers have < 100 albums)
+      const response = await fetch(`/api/albums?publisher=${encodeURIComponent(publisherId)}&limit=100`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

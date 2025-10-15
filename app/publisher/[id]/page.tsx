@@ -24,35 +24,55 @@ async function loadPublisherData(publisherId: string) {
   const actualFeedGuid = publisherInfo?.feedGuid || publisherId;
   
   try {
-    // Load from the new publisher feed results
-    const publisherFeedsPath = path.join(process.cwd(), 'data', 'publisher-feed-results.json');
-    
-    if (!fs.existsSync(publisherFeedsPath)) {
-      console.error('Publisher feeds file not found at:', publisherFeedsPath);
+    // Load from parsed-feeds.json which contains publisher items
+    const parsedFeedsPath = path.join(process.cwd(), 'data', 'parsed-feeds.json');
+
+    if (!fs.existsSync(parsedFeedsPath)) {
+      console.error('Parsed feeds file not found at:', parsedFeedsPath);
       return null;
     }
 
-    const fileContent = fs.readFileSync(publisherFeedsPath, 'utf-8');
-    const publisherFeeds = JSON.parse(fileContent);
+    const fileContent = fs.readFileSync(parsedFeedsPath, 'utf-8');
+    const parsedData = JSON.parse(fileContent);
+    const publisherFeeds = parsedData.feeds || [];
     
     console.log(`🏢 Server-side: Looking for publisher: ${publisherId}`);
-    
-    // Try to find publisher by title match (case-insensitive, handle URL slugs)
-    const publisherFeed = publisherFeeds.find((feed: any) => {
+    console.log(`🏢 Server-side: publisherInfo.feedGuid:`, publisherInfo?.feedGuid);
+
+    // Filter to only publisher type feeds first
+    const publisherTypeFeeds = publisherFeeds.filter((feed: any) => feed.type === 'publisher');
+
+    console.log(`🏢 Server-side: Found ${publisherTypeFeeds.length} publisher feeds to search`);
+    console.log(`🏢 Server-side: Publisher feed IDs:`, publisherTypeFeeds.map((f: any) => f.id));
+
+    // Try to find publisher feed - prioritize publisher type feeds
+    let publisherFeed = publisherTypeFeeds.find((feed: any) => {
+      console.log(`🏢 Server-side: Checking feed ${feed.id} against feedGuid ${publisherInfo?.feedGuid}`);
+      // First try matching by feedGuid from url-utils
+      // The feedGuid might be partial in the ID (e.g., "aa909244" instead of "aa909244-7555-4b52-ad88-7233860c6fb4")
+      if (publisherInfo?.feedGuid && feed.id) {
+        const feedGuidParts = publisherInfo.feedGuid.split('-');
+        if (feed.id.includes(feedGuidParts[0])) {
+          console.log(`🏢 Server-side: Matched by feedGuid prefix: ${feed.id}`);
+          return true;
+        }
+      }
+
+      // Then try title match (case-insensitive, handle URL slugs)
       const cleanTitle = feed.title?.replace('<![CDATA[', '').replace(']]>', '').toLowerCase() || '';
       const searchId = publisherId.toLowerCase();
-      
+
       // Direct match
       if (cleanTitle === searchId) return true;
-      
+
       // Convert hyphens to spaces and compare (e.g., "the-doerfels" -> "the doerfels")
       const slugToTitle = searchId.replace(/-/g, ' ');
       if (cleanTitle === slugToTitle) return true;
-      
+
       // Convert spaces to hyphens and compare (e.g., "the doerfels" -> "the-doerfels")
       const titleToSlug = cleanTitle.replace(/\s+/g, '-');
       if (titleToSlug === searchId) return true;
-      
+
       return false;
     });
     
@@ -118,23 +138,53 @@ async function loadPublisherData(publisherId: string) {
     }
     
     console.log(`✅ Publisher found: ${publisherFeed.title}`);
-    
+    console.log(`📸 Publisher parsedData:`, JSON.stringify(publisherFeed.parsedData?.publisherInfo, null, 2));
+
+    // Extract publisher items from parsedData
+    const publisherItems = publisherFeed.parsedData?.publisherItems || [];
+
+    console.log(`🏢 Server-side: Found ${publisherItems.length} publisher items`);
+
+    // TODO: Pre-fetch albums from the database to avoid client-side timeout issues
+    // Currently disabled due to API performance issues (60+ second response times)
+    // The albums API needs optimization before we can enable server-side pre-fetching
+    let albums: any[] = [];
+    console.log(`🏢 Server-side: Skipping album pre-fetch (API performance issue) - client will fetch`);
+
+    // Uncomment this when the albums API is optimized:
+    // try {
+    //   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+    //                  (process.env.NODE_ENV === 'production' ? 'https://fuckit-production.up.railway.app' : 'http://localhost:3002');
+    //   const albumsResponse = await fetch(`${baseUrl}/api/albums?publisher=${encodeURIComponent(publisherId)}&limit=100`, {
+    //     signal: AbortSignal.timeout(60000)
+    //   });
+    //   if (albumsResponse.ok) {
+    //     const albumsData = await albumsResponse.json();
+    //     albums = albumsData.albums || [];
+    //   }
+    // } catch (error) {
+    //   console.error(`🏢 Server-side: Error pre-fetching albums:`, error);
+    // }
+
     // Convert to expected format
     const data = {
       publisherInfo: {
-        name: publisherFeed.title?.replace('<![CDATA[', '').replace(']]>', '') || publisherId,
-        description: publisherFeed.description?.replace('<![CDATA[', '').replace(']]>', '') || '',
-        image: publisherFeed.itunesImage || null,
-        feedUrl: publisherFeed.feed.originalUrl,
+        // Use the name from url-utils (e.g., "Nate Johnivan") instead of generic feed title ("Wavlake Publisher")
+        name: publisherInfo?.name || publisherFeed.title?.replace('<![CDATA[', '').replace(']]>', '') || publisherId,
+        description: publisherFeed.parsedData?.publisherInfo?.description || '',
+        image: publisherFeed.parsedData?.publisherInfo?.coverArt || null,
+        feedUrl: publisherFeed.originalUrl,
         feedGuid: publisherId // Use the publisherId which matches what the API uses
       },
-      publisherItems: [], // Will be populated by client-side API call
-      feedId: publisherFeed.feed.id
+      publisherItems, // Use actual publisher items from parsed data
+      albums, // Include pre-fetched albums
+      feedId: publisherFeed.id
     };
     
     console.log(`🏢 Server-side: Found publisher data for ${publisherId}:`, {
       name: data.publisherInfo.name,
-      feedGuid: data.publisherInfo.feedGuid
+      feedGuid: data.publisherInfo.feedGuid,
+      image: data.publisherInfo.image
     });
     
     return data;

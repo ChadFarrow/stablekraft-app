@@ -154,23 +154,12 @@ export async function GET(request: Request) {
       feedWhere.id = feedId;
     }
 
-    // Apply publisher filtering at database level for better performance
+    // Store publisher filter for in-memory filtering (much faster than 21 OR ILIKEs)
     let publisherRemoteGuids: Set<string> | null = null;
     if (publisher) {
       publisherRemoteGuids = await getPublisherRemoteItemUrls(publisher);
 
-      if (publisherRemoteGuids.size > 0) {
-        // Build OR conditions for all GUIDs
-        const guidConditions = Array.from(publisherRemoteGuids).map(guid => ({
-          originalUrl: {
-            contains: guid,
-            mode: 'insensitive' as const
-          }
-        }));
-
-        feedWhere.OR = guidConditions;
-        console.log(`🔍 Filtering at DB level for publisher "${publisher}" with ${publisherRemoteGuids.size} GUIDs`);
-      } else {
+      if (publisherRemoteGuids.size === 0) {
         console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
         // Return empty result early
         return NextResponse.json({
@@ -183,44 +172,112 @@ export async function GET(request: Request) {
           lastUpdated: new Date().toISOString()
         });
       }
+
+      console.log(`🔍 Will filter ${publisherRemoteGuids.size} GUIDs in-memory for publisher "${publisher}"`);
+      // NOTE: We don't add database-level filtering here because 21 OR ILIKE conditions are very slow
+      // Instead, we'll fetch more feeds and filter in-memory (much faster)
     }
 
-    // OPTIMIZED: Single query with include for better performance
-    const feeds = await prisma.feed.findMany({
-      where: feedWhere,
-      include: {
-        Track: {
+    // OPTIMIZED: For publisher filtering, use two-phase approach to avoid slow queries
+    let feeds;
+    let tracks;
+    let tracksByFeed: Record<string, any[]> = {};
+
+    if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
+      // Phase 1: Load feed metadata only (fast, no tracks)
+      console.log(`🚀 Phase 1: Loading feed metadata...`);
+      const allFeeds = await prisma.feed.findMany({
+        where: feedWhere,
+        orderBy: [
+          { priority: 'asc' },
+          { createdAt: 'desc' }
+        ],
+        take: 500  // Load more since we're not loading tracks yet
+      });
+
+      // Phase 2: Filter in-memory by GUID
+      const matchedFeeds = allFeeds.filter(feed => {
+        const feedUrl = feed.originalUrl || '';
+        for (const guid of publisherRemoteGuids) {
+          if (feedUrl.includes(guid)) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      console.log(`🔍 Phase 2: Matched ${matchedFeeds.length}/${allFeeds.length} feeds by GUID`);
+
+      // Phase 3: Load tracks only for matched feeds (much faster!)
+      if (matchedFeeds.length > 0) {
+        const feedIds = matchedFeeds.map(f => f.id);
+        tracks = await prisma.track.findMany({
           where: {
+            feedId: { in: feedIds },
             audioUrl: { not: '' }
           },
           orderBy: [
             { trackOrder: 'asc' },
             { publishedAt: 'asc' },
             { createdAt: 'asc' }
-          ],
-          take: 50 // Limit tracks per feed for performance
-        }
-      },
-      orderBy: [
-        { priority: 'asc' },
-        { createdAt: 'desc' }
-      ],
-      take: publisher ? undefined : 500 // No limit when filtering by publisher
-    });
-    
-    // Extract tracks from the included data
-    const tracks = feeds.flatMap(feed => feed.Track);
-    
-    console.log(`📊 Loaded ${feeds.length} feeds from database`);
-    
-    // Group tracks by feed
-    const tracksByFeed = tracks.reduce((acc, track) => {
-      if (!acc[track.feedId]) {
-        acc[track.feedId] = [];
+          ]
+        });
+
+        // Group tracks by feed
+        tracksByFeed = tracks.reduce((acc, track) => {
+          if (!acc[track.feedId]) {
+            acc[track.feedId] = [];
+          }
+          acc[track.feedId].push(track);
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        feeds = matchedFeeds;
+        console.log(`📊 Phase 3: Loaded ${tracks.length} tracks for ${feeds.length} matched feeds`);
+      } else {
+        feeds = [];
+        tracks = [];
+        console.log(`⚠️  No feeds matched publisher GUIDs`);
       }
-      acc[track.feedId].push(track);
-      return acc;
-    }, {} as Record<string, any[]>);
+    } else {
+      // Normal query for non-publisher requests
+      const feedLimit = 500;
+      feeds = await prisma.feed.findMany({
+        where: feedWhere,
+        include: {
+          Track: {
+            where: {
+              audioUrl: { not: '' }
+            },
+            orderBy: [
+              { trackOrder: 'asc' },
+              { publishedAt: 'asc' },
+              { createdAt: 'asc' }
+            ],
+            take: 20
+          }
+        },
+        orderBy: [
+          { priority: 'asc' },
+          { createdAt: 'desc' }
+        ],
+        take: feedLimit
+      });
+
+      // Extract tracks from the included data
+      tracks = feeds.flatMap(feed => feed.Track);
+
+      console.log(`📊 Loaded ${feeds.length} feeds from database`);
+
+      // Group tracks by feed
+      tracksByFeed = tracks.reduce((acc, track) => {
+        if (!acc[track.feedId]) {
+          acc[track.feedId] = [];
+        }
+        acc[track.feedId].push(track);
+        return acc;
+      }, {} as Record<string, any[]>);
+    }
     
     // Transform feeds into album format
     let albums = feeds.map(feed => {
@@ -379,11 +436,9 @@ export async function GET(request: Request) {
       return !isBowlAfterBowlPodcast;
     });
 
-    // Publisher filtering is now done at database level, so no need to filter again
+    // Publisher filtering is already done in the 3-phase approach above (loading feeds)
+    // No need to filter again here
     let publisherFilteredAlbums = podcastFilteredAlbums;
-    if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
-      console.log(`🔍 Publisher filter "${publisher}": ${podcastFilteredAlbums.length} albums returned from database`);
-    }
     
     // Apply filtering by type
     let filteredAlbums = publisherFilteredAlbums;
@@ -407,9 +462,17 @@ export async function GET(request: Request) {
     }
     
     // Add playlist albums if they're requested or if we're looking for specific album titles
-    const playlistAlbums = await getPlaylistAlbums();
-    if (playlistAlbums.length > 0) {
-      filteredAlbums.push(...playlistAlbums);
+    // Skip for publisher requests to avoid timeouts
+    if (!publisher) {
+      try {
+        const playlistAlbums = await getPlaylistAlbums();
+        if (playlistAlbums.length > 0) {
+          filteredAlbums.push(...playlistAlbums);
+        }
+      } catch (error) {
+        console.error('Skipping playlist albums due to error:', error);
+        // Continue without playlist albums
+      }
     }
     
     // Sort albums: Albums first (7+ tracks), then EPs (2-6 tracks), then Singles (1 track)

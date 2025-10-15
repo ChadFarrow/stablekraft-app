@@ -8973,9 +8973,121 @@
       "addedAt": "2025-01-27T00:00:00.000Z",
       "lastUpdated": "2025-01-27T00:00:00.000Z",
       "parseStatus": "success",
-      "lastParsed": "2025-09-25T20:24:15.111Z",
+      "lastParsed": "2025-10-14T23:46:17.082Z",
       "parsedData": {
-        "publisherItems": []
+        "publisherItems": [
+          {
+            "feedGuid": "e678589b-5a9f-4918-9622-34119d2eed2c",
+            "feedUrl": "https://wavlake.com/feed/music/e678589b-5a9f-4918-9622-34119d2eed2c",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "3a152941-c914-43da-aeca-5d7c58892a7f",
+            "feedUrl": "https://wavlake.com/feed/music/3a152941-c914-43da-aeca-5d7c58892a7f",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "a97e0586-ecda-4b79-9c38-be9a9effe05a",
+            "feedUrl": "https://wavlake.com/feed/music/a97e0586-ecda-4b79-9c38-be9a9effe05a",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "0ed13237-aca9-446f-9a03-de1a2d9331a3",
+            "feedUrl": "https://wavlake.com/feed/music/0ed13237-aca9-446f-9a03-de1a2d9331a3",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "ce8c4910-51bf-4d5e-a0b3-338e58e5ee79",
+            "feedUrl": "https://wavlake.com/feed/music/ce8c4910-51bf-4d5e-a0b3-338e58e5ee79",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "acb43f23-cfec-4cc1-a418-4087a5378129",
+            "feedUrl": "https://wavlake.com/feed/music/acb43f23-cfec-4cc1-a418-4087a5378129",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "d1a871a7-7e4c-4a91-b799-87dcbb6bc41d",
+            "feedUrl": "https://wavlake.com/feed/music/d1a871a7-7e4c-4a91-b799-87dcbb6bc41d",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "3294d8b5-f9f6-4241-a298-f04df818390c",
+            "feedUrl": "https://wavlake.com/feed/music/3294d8b5-f9f6-4241-a298-f04df818390c",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "91367816-33e6-4b6e-8eb7-44b2832708fd",
+            "feedUrl": "https://wavlake.com/feed/music/91367816-33e6-4b6e-8eb7-44b2832708fd",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+            "feedUrl": "https://wavlake.com/feed/music/8c8f8133-7ef1-4b72-a641-4e1a6a44d626",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "d677db67-0310-4813-970e-e65927c689f1",
+            "feedUrl": "https://wavlake.com/feed/music/d677db67-0310-4813-970e-e65927c689f1",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "d7a1d7bc-ae06-4b3b-a3fa-4e203d68dbaf",
+            "feedUrl": "https://wavlake.com/feed/music/d7a1d7bc-ae06-4b3b-a3fa-4e203d68dbaf",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "c7e2ac2e-0877-4398-b8bc-4f80735d0e4e",
+            "feedUrl": "https://wavlake.com/feed/music/c7e2ac2e-0877-4398-b8bc-4f80735d0e4e",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+            "feedUrl": "https://wavlake.com/feed/music/65d6530c-22a8-4be3-9fed-0a0ea4e74d72",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "6dc5c681-8beb-4193-93a3-d405c962d103",
+            "feedUrl": "https://wavlake.com/feed/music/6dc5c681-8beb-4193-93a3-d405c962d103",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "9720d58b-22a5-4047-81de-f1940fec41c7",
+            "feedUrl": "https://wavlake.com/feed/music/9720d58b-22a5-4047-81de-f1940fec41c7",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "624b19ac-5d8b-4fd6-8589-0eef7bcb9c9e",
+            "feedUrl": "https://wavlake.com/feed/music/624b19ac-5d8b-4fd6-8589-0eef7bcb9c9e",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "b54b9a19-b6ed-46c1-806c-7e82f7550edc",
+            "feedUrl": "https://wavlake.com/feed/music/b54b9a19-b6ed-46c1-806c-7e82f7550edc",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+            "feedUrl": "https://wavlake.com/feed/music/f6bbce4b-4d7a-42ba-9464-6a870b4a387e",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "21536269-5192-49e7-a819-fab00f4a159e",
+            "feedUrl": "https://wavlake.com/feed/music/21536269-5192-49e7-a819-fab00f4a159e",
+            "medium": "music"
+          },
+          {
+            "feedGuid": "d3145292-bf71-415f-a841-7f5c9a9466e1",
+            "feedUrl": "https://wavlake.com/feed/music/d3145292-bf71-415f-a841-7f5c9a9466e1",
+            "medium": "music"
+          }
+        ],
+        "publisherInfo": {
+          "coverArt": "https://d12wklypp119aj.cloudfront.net/image/aa909244-7555-4b52-ad88-7233860c6fb4.jpg",
+          "title": "Wavlake Publisher",
+          "artist": "Nate Johnivan",
+          "description": "Independent artist and music creator"
+        }
       }
     },
     {
@@ -77650,6 +77762,6 @@
       ]
     }
   ],
-  "lastUpdated": "2025-09-25T20:28:45.666Z",
+  "lastUpdated": "2025-10-14T23:46:18.250Z",
   "version": 1
 }

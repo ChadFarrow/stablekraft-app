@@ -109,12 +109,11 @@ export class FeedParser {
                  } else if (feed.type === 'publisher') {
            // Parse publisher feed
            try {
-             const publisherInfo = await RSSParser.parsePublisherFeedInfo(feed.originalUrl);
-             const publisherItems = await RSSParser.parsePublisherFeed(feed.originalUrl);
-             
+             const publisherData = await RSSParser.parsePublisherFeed(feed.originalUrl);
+
              parsedData.parsedData = {
-               publisherInfo: publisherInfo || undefined,
-               publisherItems
+               publisherInfo: publisherData.publisherInfo,
+               publisherItems: publisherData.remoteItems
              };
              parsedData.parseStatus = 'success';
            } catch (error) {
@@ -200,12 +199,11 @@ export class FeedParser {
           parsedData.parseError = 'No album data found';
         }
              } else if (feed.type === 'publisher') {
-         const publisherInfo = await RSSParser.parsePublisherFeedInfo(feed.originalUrl);
-         const publisherItems = await RSSParser.parsePublisherFeed(feed.originalUrl);
-         
+         const publisherData = await RSSParser.parsePublisherFeed(feed.originalUrl);
+
          parsedData.parsedData = {
-           publisherInfo: publisherInfo || undefined,
-           publisherItems
+           publisherInfo: publisherData.publisherInfo,
+           publisherItems: publisherData.remoteItems
          };
          parsedData.parseStatus = 'success';
        }
