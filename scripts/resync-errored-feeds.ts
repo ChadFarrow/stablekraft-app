@@ -85,12 +85,12 @@ async function resyncFeed(guid: string): Promise<boolean> {
       let v4vRecipient = null;
       let v4vValue = null;
 
-      // Extract V4V data if available
-      if (albumData.value4Value) {
-        const mainRecipient = albumData.value4Value.destinations?.find(d => !d.fee);
+      // Extract V4V data from the raw value (stored as any)
+      if (albumData.v4vValue && albumData.v4vValue.destinations) {
+        const mainRecipient = albumData.v4vValue.destinations.find((d: any) => !d.fee);
         if (mainRecipient) {
           v4vRecipient = mainRecipient.address;
-          v4vValue = albumData.value4Value;
+          v4vValue = albumData.v4vValue;
         }
       }
 
