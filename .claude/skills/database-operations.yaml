@@ -1,0 +1,46 @@
+name: database-operations
+description: Manage music track database operations including CRUD operations, queries, and analytics
+
+instructions: |
+  Execute database operations for the music streaming platform using Prisma ORM.
+
+  Available operations:
+  - create: Create new records (tracks, feeds, playlists)
+  - read: Query existing records with filters
+  - update: Update existing records
+  - delete: Delete records
+  - bulk_operations: Perform batch operations
+  - analytics: Generate database analytics and reports
+
+  When executing operations:
+  1. Use the Bash tool to run database scripts with: `set -a && source .env.local && set +a && node -e "..."`
+  2. For complex queries, create a Node.js script using Prisma Client
+  3. Always validate inputs before executing operations
+  4. Return structured results with success status, data, and error information
+
+  Example usage:
+  To query tracks with missing metadata:
+  ```bash
+  set -a && source .env.local && set +a && node -e "
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    async function queryTracks() {
+      const tracks = await prisma.track.findMany({
+        where: { album: null },
+        take: 10,
+        include: { Feed: true }
+      });
+      console.log(JSON.stringify(tracks, null, 2));
+      await prisma.\$disconnect();
+    }
+    queryTracks();
+  "
+  ```
+
+  Always disconnect Prisma client after operations.
+
+categories:
+  - data
+  - database
+  - analytics

@@ -1,0 +1,61 @@
+name: v4v-resolution
+description: Resolve Value4Value Lightning Network payment information for music tracks and artists
+
+instructions: |
+  Resolve Value4Value (V4V) payment information using the Podcast Index API and RSS feed data.
+
+  V4V Resolution capabilities:
+  - Extract Lightning addresses from RSS <podcast:value> tags
+  - Parse value splits and payment percentages
+  - Resolve custom keys and values for payment routing
+  - Fetch boostagram information from Podcast Index
+  - Validate Lightning addresses and node pubkeys
+
+  When resolving V4V data:
+  1. Check RSS feed for <podcast:value> block
+  2. Extract recipient information (name, address, split percentage)
+  3. Parse custom_key and custom_value for payment routing
+  4. Validate Lightning addresses (starts with LNURL or email format)
+  5. Store resolved data in database for caching
+
+  V4V Data structure:
+  ```typescript
+  {
+    recipients: [{
+      name: string,
+      type: 'node' | 'address',
+      address: string,
+      customKey?: string,
+      customValue?: string,
+      split: number (percentage)
+    }],
+    value_time_splits: [{
+      start_time: number,
+      end_time: number,
+      remote_percentage: number,
+      remote_item: { feed_guid: string }
+    }]
+  }
+  ```
+
+  Example RSS V4V block:
+  ```xml
+  <podcast:value type="lightning" method="keysend">
+    <podcast:valueRecipient
+      name="Artist"
+      type="node"
+      address="[node_pubkey]"
+      customKey="696969"
+      customValue="[custom_value]"
+      split="95"/>
+  </podcast:value>
+  ```
+
+  Use environment variables for Podcast Index API:
+  - PODCAST_INDEX_API_KEY
+  - PODCAST_INDEX_API_SECRET
+
+categories:
+  - payments
+  - lightning
+  - v4v

@@ -1,0 +1,44 @@
+name: rss-parsing
+description: Parse podcast RSS feeds and extract metadata including episodes, chapters, and music track information
+
+instructions: |
+  Parse RSS feeds using the project's RSS parser library to extract structured metadata.
+
+  Key capabilities:
+  - Parse RSS/Atom feeds with podcast namespace extensions
+  - Extract episode metadata (title, description, audio URL, duration)
+  - Parse podcast chapters (start time, title)
+  - Extract Value4Value time splits and payment info
+  - Handle podcast:liveItem tags for live content
+  - Extract music track information from chapters
+
+  When parsing feeds:
+  1. Use the RSSParser class from lib/rss-parser/index.ts
+  2. Handle both regular <item> and <podcast:liveItem> tags
+  3. Extract V4V data for Lightning payments
+  4. Parse chapters for music track boundaries
+  5. Validate and sanitize all URLs
+  6. Handle errors gracefully with retries
+
+  Example usage:
+  ```typescript
+  import { RSSParser } from '@/lib/rss-parser';
+
+  const album = await RSSParser.parseAlbumFeed('https://example.com/feed.xml');
+
+  console.log(`Parsed: ${album.title}`);
+  console.log(`Tracks: ${album.tracks.length}`);
+  console.log(`V4V Recipient: ${album.value4Value?.lightning_address}`);
+  ```
+
+  The parser automatically:
+  - Extracts cover art from multiple sources
+  - Parses durations and converts to seconds
+  - Cleans HTML content from descriptions
+  - Resolves artist and album information
+  - Extracts funding and publisher data
+
+categories:
+  - parsing
+  - rss
+  - metadata

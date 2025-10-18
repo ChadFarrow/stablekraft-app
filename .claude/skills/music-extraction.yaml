@@ -1,0 +1,44 @@
+name: music-extraction
+description: Extract music tracks from podcast episodes using chapters, value splits, and content analysis
+
+instructions: |
+  Extract individual music tracks from podcast episodes by analyzing multiple data sources.
+
+  Extraction methods:
+  1. Chapter Analysis: Parse chapter titles for "Artist - Song" patterns
+  2. Value4Value Splits: Identify music tracks from time-based payment splits
+  3. Description Parsing: Extract track lists from episode descriptions
+  4. Audio Analysis: Identify music segments from audio content (when available)
+
+  When extracting music:
+  1. Parse chapter metadata for track boundaries (start_time, end_time)
+  2. Extract artist and track names from chapter titles
+  3. Match V4V splits to identify artist payment information
+  4. Deduplicate tracks found across multiple sources
+  5. Validate track durations (default min: 30s, max: 600s)
+  6. Preserve V4V payment data (lightning_address, custom_key, custom_value)
+
+  Common patterns for chapter titles:
+  - "Artist - Song Title"
+  - "Song Title by Artist"
+  - "Track: Song Title - Artist"
+
+  Example workflow:
+  1. Read episode from database with chapters and V4V splits
+  2. Parse each chapter title for music track information
+  3. Match V4V splits by time range to chapters
+  4. Create track objects with metadata
+  5. Store tracks in database with episode reference
+
+  Output format:
+  - title: Track title
+  - artist: Artist name
+  - start_time: Start time in episode (seconds)
+  - end_time: End time in episode (seconds)
+  - v4v_recipient: Lightning payment address
+  - v4v_value: Payment split configuration
+
+categories:
+  - music
+  - extraction
+  - metadata
