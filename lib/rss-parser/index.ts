@@ -290,8 +290,14 @@ export class RSSParser {
   }
 
   private static extractTracks(channel: Element): RSSTrack[] {
+    // Get both regular items and podcast:liveItem elements
     const items = RSSUtils.getElementsByTagName(channel, 'item');
-    return items.map((item, index) => this.parseTrackFromItem(item, index + 1)).filter(Boolean) as RSSTrack[];
+    const liveItems = RSSUtils.getElementsByTagName(channel, 'podcast:liveItem');
+
+    // Combine both types of items
+    const allItems = [...items, ...liveItems];
+
+    return allItems.map((item, index) => this.parseTrackFromItem(item, index + 1)).filter(Boolean) as RSSTrack[];
   }
 
   private static parseTrackFromItem(item: Element, trackNumber: number): RSSTrack | null {

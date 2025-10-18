@@ -87,6 +87,7 @@
     "@prisma/client": "^6.16.2",
     "@types/canvas-confetti": "^1.9.0",
     "@types/colorthief": "^2.6.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/xml2js": "^0.4.14",
     "eslint": "^8",
     "eslint-config-next": "^14.0.4",
