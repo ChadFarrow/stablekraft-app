@@ -1006,9 +1006,11 @@ export default function HomePage() {
       {/* Preload background image after critical content - Always render but handle loading client-side */}
       <div className="hidden">
         {isClient && isCriticalLoaded && (
-          <img
+          <Image
             src="/stablekraft-rocket-new.png"
             alt=""
+            width={1920}
+            height={1080}
             onLoad={() => setBackgroundImageLoaded(true)}
             onError={() => setBackgroundImageLoaded(true)}
           />

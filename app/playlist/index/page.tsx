@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 interface PlaylistItem {
@@ -191,15 +192,12 @@ function PlaylistContent() {
 
               {/* Playlist Artwork */}
               {playlist.image && (
-                <div className="mb-4">
-                  <img 
-                    src={playlist.image} 
+                <div className="mb-4 relative h-48">
+                  <Image
+                    src={playlist.image}
                     alt={`${playlist.title} artwork`}
-                    className="w-full h-48 object-cover rounded-lg"
-                    onError={(e) => {
-                      // Fallback to color indicator if image fails
-                      e.currentTarget.style.display = 'none';
-                    }}
+                    fill
+                    className="object-cover rounded-lg"
                   />
                 </div>
               )}

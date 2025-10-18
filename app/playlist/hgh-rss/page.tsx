@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Suspense } from 'react';
 import HGHPlaylistAlbum from '@/components/HGHPlaylistAlbum';
 
@@ -27,14 +28,13 @@ export default function HGHPlaylistPage() {
         <div className="flex flex-col gap-6 mb-8">
           {/* Playlist Art */}
           <div className="relative group mx-auto w-[200px] h-[200px] sm:w-[240px] sm:h-[240px] md:w-[280px] md:h-[280px]">
-            <img 
+            <Image
               src="https://raw.githubusercontent.com/ChadFarrow/ITDV-music-playlist/refs/heads/main/docs/HGH-playlist-art.webp"
               alt="Homegrown Hits"
-              className="rounded-lg object-cover shadow-2xl w-full h-full"
-              onError={(e) => {
-                // Fallback to a generic music icon if HGH logo fails to load
-                e.currentTarget.src = 'https://via.placeholder.com/280x280/1f2937/9ca3af?text=HGH';
-              }}
+              width={280}
+              height={280}
+              className="rounded-lg object-cover shadow-2xl"
+              priority
             />
           </div>
           

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Play, Pause, Music, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 
 interface MusicTrack {
@@ -216,12 +217,13 @@ export default function ITDVMusicPlaylistPage() {
               }`}
             >
               {/* Album art */}
-              <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 relative">
                 {track.image ? (
-                  <img 
-                    src={track.image} 
+                  <Image
+                    src={track.image}
                     alt={track.resolvedTitle || track.title}
-                    className="w-full h-full object-cover rounded-lg"
+                    fill
+                    className="object-cover rounded-lg"
                   />
                 ) : (
                   <Music className="w-8 h-8 text-gray-500" />

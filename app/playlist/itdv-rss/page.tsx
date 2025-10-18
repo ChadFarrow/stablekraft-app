@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Suspense } from 'react';
 import ITDVPlaylistAlbum from '@/components/ITDVPlaylistAlbum';
 
@@ -27,10 +28,13 @@ export default function ITDVPlaylistPage() {
         <div className="flex flex-col gap-6 mb-8">
           {/* Playlist Art */}
           <div className="relative group mx-auto w-[200px] h-[200px] sm:w-[240px] sm:h-[240px] md:w-[280px] md:h-[280px]">
-            <img 
+            <Image
               src="https://www.doerfelverse.com/art/itdvchadf.png"
               alt="Into The Doerfel-Verse"
-              className="rounded-lg object-cover shadow-2xl w-full h-full"
+              width={280}
+              height={280}
+              className="rounded-lg object-cover shadow-2xl"
+              priority
             />
           </div>
           
