@@ -115,17 +115,24 @@ Comprehensive code quality analysis and cleanup performed on the StableKraft cod
 
 ---
 
-### 5. File Organization
+### 5. File Organization - FIXED ✅
 
 **Issues:**
-- Test file in root: `test-stay-awhile.js` should be in `/tests` or `/scripts`
+- Test files in root (12 files starting with `test-*`)
+- Utility scripts scattered in root (13 files)
 - Skills directory has own node_modules (now gitignored)
 
 **Fixed:**
 - ✅ Added `skills/node_modules/` to .gitignore
+- ✅ Moved all test files to `/scripts/tests/` (12 files)
+- ✅ Moved all utility scripts to `/scripts/utils/` (13 files)
+- ✅ Created `/scripts/README.md` documenting script organization
+- ✅ Root directory now only contains necessary config files
 
-**Remaining:**
-- Move or remove test files from root directory
+**Files Moved:**
+- Test files: `test-*.js` → `/scripts/tests/`
+- Utilities: `check-*.js`, `fix-*.js`, `lookup-*.js`, etc. → `/scripts/utils/`
+- Configuration files remain in root (required by their tools)
 
 ---
 
@@ -136,11 +143,12 @@ Comprehensive code quality analysis and cleanup performed on the StableKraft cod
 - **ESLint Warnings:** 20+
 - **Build Status:** ❌ Would fail with errors
 
-### After Cleanup (Phase 1 - Critical + Image Optimization)
+### After Cleanup (Phase 1-3 Complete)
 - **Critical Errors:** 0
 - **ESLint Warnings:** 5 (non-blocking hook dependencies)
 - **Build Status:** ✅ Passes successfully
 - **Image Optimization:** ✅ All img tags replaced with Next.js Image
+- **File Organization:** ✅ All scripts organized into proper directories
 
 ---
 
@@ -151,20 +159,11 @@ Comprehensive code quality analysis and cleanup performed on the StableKraft cod
    - Safer than ignoring them
    - Prevents subtle bugs
 
-2. **Replace img tags with Next.js Image** - 1-2 hours
-   - Improves performance metrics
-   - Better user experience
-
 ### Medium Priority
-3. **Console.log migration** - 4-6 hours
+2. **Console.log migration** - 4-6 hours
    - Create automated migration script
    - Test logging in development
    - Verify production behavior
-
-### Low Priority
-4. **File organization** - 30 minutes
-   - Move test files
-   - Clean up root directory
 
 ---
 
@@ -256,6 +255,14 @@ log.debug('DEBUG:', data); // Automatically filtered in production
 - [x] Improve performance metrics (LCP, bandwidth)
 - [x] Test and verify all images load correctly
 
+### Phase 3: File Organization
+- [x] Identify all test and utility scripts in root directory
+- [x] Create organized directory structure (`scripts/tests/`, `scripts/utils/`)
+- [x] Move 12 test files to `scripts/tests/`
+- [x] Move 13 utility scripts to `scripts/utils/`
+- [x] Create comprehensive `scripts/README.md` documentation
+- [x] Verify root directory only contains necessary config files
+
 ---
 
 ## 📌 Notes
@@ -275,9 +282,11 @@ log.debug('DEBUG:', data); // Automatically filtered in production
 ---
 
 **Report Generated:** 2025-10-18
-**Last Updated:** 2025-10-18 (Phase 2 Complete)
+**Last Updated:** 2025-10-18 (Phase 3 Complete)
 **Analyzed Files:** 191
 **Critical Fixes Applied:** 1
 **Performance Improvements:** Image Optimization Complete
+**Organization Improvements:** File Organization Complete
 **Build Status:** ✅ Passing
 **Warnings Eliminated:** 13+ (3 critical hooks + 10 image warnings)
+**Files Organized:** 25 (12 test files + 13 utility scripts)

@@ -1,102 +1,69 @@
-# Wavlake Feed Sync Scripts
+# Scripts Directory
 
-## Overview
+This directory contains utility scripts and test files for the StableKraft project.
 
-These scripts use the Podcast Index API to sync Wavlake feeds without hitting rate limits.
+## Directory Structure
 
-## Scripts
+### `/scripts/tests/`
+Test scripts for validating various components and functionality:
+- `test-album-pages.js` - Album page functionality tests
+- `test-all-feeds-background.js` - Background feed processing tests
+- `test-client-data-service.js` - Client-side data service tests
+- `test-missing-albums.js` - Missing album detection tests
+- `test-music-parser.js` - Music parsing functionality tests
+- `test-podcastindex-v4v.js` - Podcast Index V4V integration tests
+- `test-publisher-feed.js` - Publisher feed tests
+- `test-quick-feeds.js` - Quick feed validation tests
+- `test-rss-debug.js` - RSS parsing debug tests
+- `test-stay-awhile.js` - Stay Awhile feed tests
+- `test-stay-awhile-debug.js` - Stay Awhile debug tests
+- `test-with-app-parser.js` - Application parser tests
 
-### 1. `test-podcast-index.ts`
-Tests if feeds can be found in the Podcast Index API.
+### `/scripts/utils/`
+Utility scripts for maintenance and fixes:
+- `check-missing-albums.js` - Identify albums missing metadata
+- `check-missing-albums-and-cdn.js` - Check albums and CDN status
+- `cleanup-and-consolidate-scripts.js` - Script consolidation utility
+- `clear-v4v-cache.js` - Clear Value4Value cache
+- `fix-dane-ray-coleman.js` - Specific artist metadata fix
+- `fix-titles-now.js` - Title metadata correction
+- `force-v4v-resolution.js` - Force V4V metadata resolution
+- `lookup-ep54-feeds.js` - Episode 54 feed lookup
+- `lookup-ep56-feeds.js` - Episode 56 feed lookup
+- `lookup-missing-feed.js` - Missing feed detection
+- `preview-itdv.js` - Preview ITDV feed content
+- `quick-duration-fix.js` - Fix track duration metadata
+- `search-podcast-index-for-placeholders.js` - Find placeholder content
 
+### Root `/scripts/`
+Production-ready scripts for database operations and feed management:
+- `fix-missing-track-metadata.ts` - Populate missing album/artist metadata
+- `resync-feeds-missing-audio.ts` - Resync feeds with missing audio URLs
+- `identify-missing-publisher-albums.ts` - Find missing publisher content
+- `sync-missing-publisher-albums.ts` - Sync missing publisher albums
+- `resync-errored-feeds.ts` - Retry failed feed fetches
+- `generate-feed-report.ts` - Generate comprehensive feed reports
+
+## Usage
+
+### Running Test Scripts
 ```bash
-npx tsx scripts/test-podcast-index.ts
+node scripts/tests/test-album-pages.js
 ```
 
-### 2. `sync-wavlake-feeds-small.ts`
-Syncs 10 feeds as a test (recommended to run first).
-
+### Running Utility Scripts
 ```bash
-npx tsx scripts/sync-wavlake-feeds-small.ts
+node scripts/utils/clear-v4v-cache.js
 ```
 
-**Test Results:** 80% success rate (8/10 feeds synced)
-
-### 3. `sync-wavlake-feeds.ts` (SLOW - Not Recommended)
-Full sync using Podcast Index + Wavlake RSS fetching (estimated time: ~60-70 minutes).
-
+### Running Production Scripts (TypeScript)
 ```bash
-npx tsx scripts/sync-wavlake-feeds.ts
+npx tsx scripts/fix-missing-track-metadata.ts
 ```
 
-**Note:** This method is slow because it still fetches RSS from Wavlake with 3-second delays.
-Use `sync-wavlake-fast.ts` instead!
+## Notes
 
-### 4. `sync-wavlake-fast.ts` ⚡ (RECOMMENDED)
-Ultra-fast sync using ONLY Podcast Index API - **30x faster!**
-
-```bash
-npx tsx scripts/sync-wavlake-fast.ts
-```
-
-**Production Results:**
-- ✅ **608 feeds synced** (97.7% success rate)
-- 📀 **2,061 tracks added**
-- ⏱️ **17.1 minutes total** (vs 70 minutes with slow method)
-- 🚀 **35.6 feeds/minute** (vs 1.2 feeds/min)
-
-## How It Works
-
-### Fast Method (Recommended)
-1. **Query Podcast Index API** for feed metadata (no rate limits)
-2. **Fetch episodes from Podcast Index API** (no Wavlake access needed!)
-3. **Update database** with tracks, V4V data, metadata
-4. **Mark feeds as active** once successfully synced
-
-### Slow Method (Legacy)
-1. Query Podcast Index API for feed metadata
-2. Fetch RSS from Wavlake with 3-second delays (rate limiting)
-3. Parse RSS and update database
-4. Much slower due to Wavlake rate limits
-
-## Rate Limiting
-
-### Fast Method
-- **Podcast Index API:** 150ms delay between requests
-- **No Wavlake fetching** = No rate limit issues!
-- **Batch processing:** 100 feeds per batch
-
-### Slow Method (Legacy)
-- **Wavlake RSS:** 3 seconds delay (respects rate limits)
-- **Batch processing:** 50 feeds per batch
-
-## Actual Production Results
-
-**Fast sync completed:**
-- **Total feeds processed:** 622
-- **Success rate:** 97.7% (608/622)
-- **Tracks added:** 2,061
-- **Time:** 17.1 minutes
-- **Speed:** 35.6 feeds/minute
-
-## Recovery After Sync
-
-**Actual results from production sync:**
-- **~996 feeds** recovered (388 from slow sync + 608 from fast sync)
-- **~2,061+ tracks** added to database
-- **Database health** improved from 45% active to **91%+ active** 🎯
-
-## Monitoring Progress
-
-The script outputs real-time progress:
-- Current feed being processed
-- Success/failure status
-- Progress percentage
-- Batch summaries
-
-## Re-running
-
-You can safely re-run the scripts:
-- Already synced feeds will be skipped (they're marked as active)
-- Failed feeds will be retried
-- No duplicate data will be created
+- Test scripts are for development/debugging and not part of the automated test suite
+- Utility scripts are one-off tools for specific maintenance tasks
+- Production scripts use TypeScript and Prisma for database operations
+- Always backup the database before running fix/sync scripts
