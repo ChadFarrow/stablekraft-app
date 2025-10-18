@@ -47,13 +47,17 @@ export async function GET() {
     console.log(`📊 Loaded static mapping for ${Object.keys(staticMapping).length} publishers`);
 
     // Get all album feeds to count matches
+    // Note: We need to load feeds with tracks to match the /api/albums filtering logic
     const allFeeds = await prisma.feed.findMany({
       where: {
         type: 'album',
         status: 'active'
       },
       select: {
+        id: true,
         originalUrl: true,
+        title: true,
+        artist: true,
         _count: {
           select: { Track: true }
         }
@@ -81,6 +85,26 @@ export async function GET() {
           const matchesGuid = remoteGuids.some(guid => feedUrl.includes(guid));
 
           if (matchesGuid) {
+            // Apply the same filtering as /api/albums:
+            // 1. Exclude feeds with no tracks
+            if (feed._count.Track === 0) {
+              continue;
+            }
+
+            // 2. Exclude Bowl After Bowl podcast content (but keep Bowl Covers)
+            const feedTitle = feed.title?.toLowerCase() || '';
+            const feedArtist = feed.artist?.toLowerCase() || '';
+            const isBowlAfterBowlPodcast = (
+              (feedTitle.includes('bowl after bowl') && !feedTitle.includes('covers')) ||
+              (feedArtist.includes('bowl after bowl') && !feedTitle.includes('covers')) ||
+              (feedUrl.toLowerCase().includes('bowlafterbowl.com') && !feedTitle.includes('covers') && feed.id !== 'bowl-covers')
+            );
+
+            if (isBowlAfterBowlPodcast) {
+              console.log(`🚫 Filtering out Bowl After Bowl podcast from publisher count: ${feed.title} by ${feed.artist}`);
+              continue;
+            }
+
             albumCount++;
             trackCount += feed._count.Track;
           }
