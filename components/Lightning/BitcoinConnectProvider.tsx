@@ -54,25 +54,55 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
     // Initialize Bitcoin Connect on component mount (client-side only)
     if (typeof window !== 'undefined') {
-      import('@getalby/bitcoin-connect').then(({ init, requestProvider }) => {
+      import('@getalby/bitcoin-connect').then(({ init, onConnected, onDisconnected }) => {
         console.log('Initializing Bitcoin Connect early for browser extension detection');
         init({
           appName: 'StableKraft',
+          showBalance: true, // Show balance in the modal
           // Don't specify filters to allow all connection methods including browser extensions
         });
         console.log('Bitcoin Connect initialized');
 
-        // Check if there's already a connected provider (from previous session)
-        requestProvider().then((existingProvider) => {
-          if (existingProvider) {
-            console.log('Found existing Bitcoin Connect provider from previous session');
-            setProvider(existingProvider);
-            setIsConnected(true);
+        // Listen for connection events
+        onConnected((provider) => {
+          console.log('Bitcoin Connect: Wallet connected event received');
+          setProvider(provider);
+          setIsConnected(true);
+          setIsLoading(false);
+        });
+
+        onDisconnected(() => {
+          console.log('Bitcoin Connect: Wallet disconnected event received');
+          setProvider(null);
+          setIsConnected(false);
+        });
+
+        // Check for existing connection from localStorage
+        // Bitcoin Connect automatically persists connections
+        import('@getalby/bitcoin-connect').then(({ requestProvider }) => {
+          // Don't launch modal, just check if provider exists
+          // Use a try-catch to avoid triggering the modal
+          try {
+            const checkProvider = async () => {
+              try {
+                // Check if webln is already available (browser extension)
+                if ((window as any).webln) {
+                  console.log('Found existing WebLN provider');
+                  const existingProvider = (window as any).webln;
+                  setProvider(existingProvider);
+                  setIsConnected(true);
+                }
+              } catch (err) {
+                console.log('No WebLN provider available');
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            checkProvider();
+          } catch (error) {
+            console.log('Error checking for provider:', error);
+            setIsLoading(false);
           }
-          setIsLoading(false);
-        }).catch((error) => {
-          console.log('No existing provider:', error);
-          setIsLoading(false);
         });
       }).catch((error) => {
         console.error('Failed to load Bitcoin Connect:', error);
@@ -114,70 +144,19 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     };
   }, []);
 
-  const checkConnection = async () => {
-    try {
-      console.log('Checking existing connection...');
-
-      // Only check for existing Bitcoin Connect connections, skip auto WebLN
-      // This allows users to choose their preferred wallet via the modal
-      console.log('Checking Bitcoin Connect for existing provider...');
-      const bitcoinConnect = await import('@getalby/bitcoin-connect');
-      const existingProvider = await bitcoinConnect.requestProvider();
-      if (existingProvider) {
-        console.log('Found existing Bitcoin Connect provider, setting connected state');
-        setProvider(existingProvider);
-        setIsConnected(true);
-      } else {
-        console.log('No existing Bitcoin Connect provider found');
-        setIsConnected(false);
-      }
-    } catch (error) {
-      console.log('No existing connection:', error);
-      setIsConnected(false);
-    } finally {
-      console.log('Finished checking connection, setting loading to false');
-      setIsLoading(false);
-    }
-  };
-
   const connect = async () => {
     try {
       console.log('Attempting to connect wallet...');
       setIsLoading(true);
 
-      // Always show Bitcoin Connect modal to let user choose their wallet
-      // Don't auto-detect WebLN - let the modal handle all connection options
+      // Use requestProvider() which automatically shows modal if no provider exists
+      // This is the recommended approach per Bitcoin Connect docs
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
-      console.log('Bitcoin Connect imported, launching modal...');
+      console.log('Bitcoin Connect imported, requesting provider...');
 
-      // Launch the modal (Bitcoin Connect already initialized on mount)
       try {
-        console.log('Launching Bitcoin Connect modal...');
-        await bitcoinConnect.launchModal();
-        console.log('Modal launched successfully');
-
-        // Force modal interactivity immediately - remove pointer-events: none that might be set
-        setTimeout(() => {
-          const modal = document.querySelector('bc-modal, bc-modal-wrapper');
-          if (modal && modal instanceof HTMLElement) {
-            // Force all pointer events on
-            modal.style.pointerEvents = 'auto';
-            const modalContent = modal.shadowRoot || modal;
-            const allElements = modalContent.querySelectorAll('*');
-            allElements.forEach(el => {
-              if (el instanceof HTMLElement) {
-                el.style.pointerEvents = 'auto';
-              }
-            });
-
-            // Simulate a click on the modal to "activate" it
-            modal.click();
-
-            console.log('Modal interactivity forced');
-          }
-        }, 50);
-
-        // Try to get provider after modal interaction
+        // requestProvider will automatically launch modal if needed
+        // If already connected, it returns existing provider
         const newProvider = await bitcoinConnect.requestProvider();
         console.log('Provider request result:', newProvider);
 
@@ -188,9 +167,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         } else {
           console.log('No provider returned - user may have cancelled');
         }
-      } catch (modalError) {
-        console.error('Modal error:', modalError);
-        throw modalError;
+      } catch (providerError) {
+        console.error('Provider request error:', providerError);
+        // User may have cancelled or there was an error
+        throw providerError;
       }
 
     } catch (error) {

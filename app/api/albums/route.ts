@@ -129,9 +129,9 @@ export async function GET(request: Request) {
       // Only show publisher feeds when explicitly requested
       feedWhere.type = 'publisher';
     } else {
-      // For all other filters, exclude podcasts and publisher feeds
+      // For all other filters, exclude podcasts, publisher feeds, and test feeds
       feedWhere.type = { 
-        notIn: ['podcast', 'publisher']
+        notIn: ['podcast', 'publisher', 'test']
       };
     }
     

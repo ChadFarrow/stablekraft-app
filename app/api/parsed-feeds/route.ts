@@ -5,8 +5,13 @@ export async function GET(request: Request) {
   try {
     console.log('🔍 Database Parsed Feeds API: Getting all feeds with metadata');
     
-    // Get all feeds from database with their tracks
+    // Get all feeds from database with their tracks (excluding test feeds)
     const feeds = await prisma.feed.findMany({
+      where: {
+        type: {
+          notIn: ['test'] // Exclude test feeds from main parsed-feeds API
+        }
+      },
       include: {
         Track: {
           where: {

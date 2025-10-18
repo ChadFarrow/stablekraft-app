@@ -1260,8 +1260,68 @@ export default function HomePage() {
               );
             })()}
             
+            {/* Test Feeds Section */}
+            {(() => {
+              const [testFeeds, setTestFeeds] = useState<any[]>([]);
+              const [testFeedsLoading, setTestFeedsLoading] = useState(true);
 
-            
+              useEffect(() => {
+                const loadTestFeeds = async () => {
+                  try {
+                    const response = await fetch('/api/feeds?type=test&status=active');
+                    if (response.ok) {
+                      const data = await response.json();
+                      setTestFeeds(data.feeds || []);
+                    }
+                  } catch (error) {
+                    console.error('Error loading test feeds:', error);
+                  } finally {
+                    setTestFeedsLoading(false);
+                  }
+                };
+
+                loadTestFeeds();
+              }, []);
+
+              return (
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold mb-2 text-white">
+                    Test Feeds
+                    {testFeedsLoading && (
+                      <span className="ml-2 text-xs text-stablekraft-teal">(Loading...)</span>
+                    )}
+                  </h3>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {testFeeds.length > 0 ? (
+                      testFeeds.map((feed) => (
+                        <Link
+                          key={`test-feed-${feed.id}`}
+                          href={`/album/${feed.id}`}
+                          className="flex items-center justify-between bg-orange-800/20 hover:bg-orange-800/30 rounded p-1.5 transition-colors group border border-orange-700/30"
+                          onClick={() => setIsSidebarOpen(false)}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <svg className="w-3 h-3 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            <span className="text-xs text-orange-300 group-hover:text-orange-200 truncate flex-1">
+                              {feed.title}
+                            </span>
+                          </div>
+                          <span className="text-xs text-orange-500 group-hover:text-orange-400 ml-1">
+                            {feed._count?.Track || 0}
+                          </span>
+                        </Link>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 italic">
+                        {testFeedsLoading ? 'Loading test feeds...' : 'No test feeds available'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             
             {/* Version Display - Moved to top for better visibility */}
             <div className="mt-auto pt-2 border-t border-gray-700">
