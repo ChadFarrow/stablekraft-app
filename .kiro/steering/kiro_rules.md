@@ -1,7 +1,5 @@
 ---
-description: Guidelines for creating and maintaining Kiro rules to ensure consistency and effectiveness.
-globs: .kiro/steering/*.md
-alwaysApply: true
+inclusion: always
 ---
 
 - **Required Rule Structure:**

@@ -3,6 +3,9 @@ import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discov
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 
+// Increase timeout for this route to 5 minutes
+export const maxDuration = 300;
+
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 // Force recompilation
 

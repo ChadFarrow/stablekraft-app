@@ -3,6 +3,9 @@ import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discov
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 
+// Increase timeout for this route to 5 minutes
+export const maxDuration = 300;
+
 const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
 
 // Persistent cache duration - 90 days for static playlists (manual refresh when needed)
@@ -125,7 +128,7 @@ export async function GET(request: Request) {
     );
 
     // Create tracks for ALL remote items, using resolved data when available
-    const tracks = remoteItems.map((item, index) => {
+    const allTracks = remoteItems.map((item, index) => {
       const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
 
       if (resolvedTrack) {
@@ -147,22 +150,15 @@ export async function GET(request: Request) {
           guid: resolvedTrack.guid
         };
       } else {
-        // Use placeholder data
-        return {
-          id: `iam-track-${index + 1}`,
-          title: `Music Reference #${index + 1}`,
-          artist: 'Featured in It\'s a Mood Podcast',
-          audioUrl: '',
-          url: '', // Add url property for compatibility
-          duration: 180,
-          publishedAt: new Date().toISOString(),
-          image: artworkUrl || '/placeholder-podcast.jpg',
-          feedGuid: item.feedGuid,
-          itemGuid: item.itemGuid,
-          description: `Music track referenced in It's a Mood podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
-        };
+        // Return null for unresolved tracks (will be filtered out)
+        return null;
       }
-    });
+    }).filter(Boolean); // Remove null entries
+
+    // Filter to only include tracks with valid audio URLs
+    const tracks = allTracks.filter(track => track && track.url && track.url.length > 0);
+
+    console.log(`🎯 Filtered tracks: ${allTracks.length} total -> ${tracks.length} playable (removed ${allTracks.length - tracks.length} without audio)`);
 
     // Create a single virtual album that represents the IAM playlist
     const playlistAlbum = {

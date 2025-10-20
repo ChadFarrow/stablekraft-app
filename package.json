@@ -41,7 +41,10 @@
     "db:reset": "prisma migrate reset",
     "migrate-to-db": "ts-node scripts/migrate-to-database.ts",
     "auto-playlist-workflow": "node scripts/automated-playlist-workflow.js",
-    "discover-playlist-feeds": "node scripts/auto-discover-playlist-feeds.js"
+    "discover-playlist-feeds": "node scripts/auto-discover-playlist-feeds.js",
+    "skills:integrate": "cd skills && npm run integrate",
+    "skills:validate": "cd skills && npm run validate",
+    "skills:setup": "cd skills && npm install"
   },
   "dependencies": {
     "@getalby/bitcoin-connect": "^3.11.0",

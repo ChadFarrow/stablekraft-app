@@ -1,7 +1,5 @@
 ---
-description: Guidelines for continuously improving Kiro rules based on emerging code patterns and best practices.
-globs: **/*
-alwaysApply: true
+inclusion: always
 ---
 
 - **Rule Improvement Triggers:**

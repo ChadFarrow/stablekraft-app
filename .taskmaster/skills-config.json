@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "specification": "https://github.com/anthropics/skills/blob/main/agent_skills_spec.md",
+  "skills": [
+    {
+      "name": "database-operations",
+      "description": "Manage music track database operations including CRUD operations, queries, and analytics",
+      "path": "database-operations",
+      "status": "pending",
+      "integration_status": "not_started"
+    },
+    {
+      "name": "music-extraction",
+      "description": "Extract music tracks from podcast episodes using chapters, value splits, and content analysis",
+      "path": "music-extraction",
+      "status": "pending",
+      "integration_status": "not_started"
+    },
+    {
+      "name": "rss-parsing",
+      "description": "Parse podcast RSS feeds and extract metadata including episodes, chapters, and music track information",
+      "path": "rss-parsing",
+      "status": "pending",
+      "integration_status": "not_started"
+    },
+    {
+      "name": "v4v-resolution",
+      "description": "Resolve Value4Value Lightning Network payment information for music tracks and artists",
+      "path": "v4v-resolution",
+      "status": "pending",
+      "integration_status": "not_started"
+    }
+  ],
+  "integration": {
+    "task_master_ai": {
+      "enabled": true,
+      "tasks_created": 4,
+      "last_updated": "2025-10-18T20:11:47.176Z"
+    }
+  }
+}

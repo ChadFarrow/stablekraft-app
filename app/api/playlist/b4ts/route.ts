@@ -4,6 +4,9 @@ import { playlistCache } from '@/lib/playlist-cache';
 import { headers } from 'next/headers';
 import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 
+// Increase timeout for this route to 5 minutes
+export const maxDuration = 300;
+
 const B4TS_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml';
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;

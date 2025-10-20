@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { prisma } from '@/lib/prisma';
 
+// Increase timeout for this route to 5 minutes
+export const maxDuration = 300;
+
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
 
 // Simple cache to prevent multiple rapid calls

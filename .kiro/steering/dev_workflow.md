@@ -1,7 +1,5 @@
 ---
-description: Guide for using Taskmaster to manage task-driven development workflows
-globs: **/*
-alwaysApply: true
+inclusion: always
 ---
 
 # Taskmaster Development Workflow

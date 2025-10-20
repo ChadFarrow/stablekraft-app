@@ -1,0 +1,38 @@
+{
+  "name": "podcast-music-skills",
+  "version": "1.0.0",
+  "description": "Anthropic Skills specification implementation for podcast music processing",
+  "main": "skills-registry.ts",
+  "type": "module",
+  "scripts": {
+    "integrate": "node integrate-skills.js",
+    "test": "echo 'Skills testing not yet implemented'",
+    "validate": "node validate-skills.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "anthropic-skills",
+    "ai-agents",
+    "podcast",
+    "music",
+    "rss",
+    "lightning-network",
+    "value4value"
+  ],
+  "author": "Podcast Music Site",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/podcast-music-site"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

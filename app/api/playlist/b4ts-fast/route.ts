@@ -53,7 +53,10 @@ export async function GET(request: NextRequest) {
     };
 
     console.log('⚡ Returning fast B4TS playlist placeholder');
-    return NextResponse.json(placeholderPlaylist);
+    return NextResponse.json({
+      ...placeholderPlaylist,
+      tracks: [] // Return empty tracks array for PlaylistTemplate compatibility
+    });
 
   } catch (error) {
     console.error('❌ Error in fast B4TS playlist:', error);
