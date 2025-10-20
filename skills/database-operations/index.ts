@@ -501,7 +501,9 @@ export class DatabaseOperationsSkill {
           description: data.description,
           isPublic: data.isPublic || false,
           createdBy: data.createdBy,
-          image: data.image
+          image: data.image,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       });
 
