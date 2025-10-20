@@ -3,10 +3,6 @@ import { PrismaClient } from '@prisma/client';
 import { resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
-
-// Increase timeout for this route to 5 minutes
-export const maxDuration = 300;
-
 import { prisma } from '@/lib/prisma';
 
 // Increase timeout for this route to 5 minutes
