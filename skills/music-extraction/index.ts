@@ -231,9 +231,9 @@ export class MusicExtractionSkill {
       let match;
       while ((match = pattern.exec(episodeData.description)) !== null) {
         const [, timeOrTitle, titleOrArtist, artistOrTime] = match;
-        
-        let title: string;
-        let artist: string;
+
+        let title: string = '';
+        let artist: string = '';
         let duration = 180; // Default 3 minutes
 
         if (pattern === musicPatterns[0]) {
@@ -254,6 +254,11 @@ export class MusicExtractionSkill {
           title = timeOrTitle.trim();
           artist = titleOrArtist.trim();
           duration = this.parseTimeToSeconds(artistOrTime);
+        }
+
+        // Skip if title or artist is empty
+        if (!title || !artist) {
+          continue;
         }
 
         // Filter by duration
