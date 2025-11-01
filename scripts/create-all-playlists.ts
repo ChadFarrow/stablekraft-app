@@ -217,7 +217,7 @@ async function createAllPlaylists() {
       include: {
         _count: {
           select: {
-            tracks: true
+            PlaylistTrack: true
           }
         }
       },
@@ -229,7 +229,7 @@ async function createAllPlaylists() {
     console.log('\n✨ All playlists processed successfully!');
     console.log('📊 Final playlist summary:');
     for (const playlist of allPlaylists) {
-      console.log(`   - ${playlist.name}: ${playlist._count.tracks} tracks`);
+      console.log(`   - ${playlist.name}: ${playlist._count.PlaylistTrack} tracks`);
     }
     
   } catch (error) {
