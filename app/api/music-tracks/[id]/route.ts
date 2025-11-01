@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { musicTrackDB } from '@/lib/music-track-database';
+import { prisma } from '@/lib/prisma';
 import { createErrorLogger } from '@/lib/error-utils';
 
 const logger = createErrorLogger('MusicTrackAPI');
@@ -21,8 +21,22 @@ export async function GET(
 
     logger.info('Fetching track by ID', { trackId: id });
 
-    // Try to get track from database
-    const track = await musicTrackDB.getMusicTrack(id);
+    // Get track from Prisma database
+    const track = await prisma.track.findUnique({
+      where: { id },
+      include: {
+        Feed: {
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            type: true,
+            originalUrl: true,
+            image: true
+          }
+        }
+      }
+    });
     
     if (!track) {
       return NextResponse.json({ 
@@ -31,34 +45,34 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Transform the track data to include proper value information
+    // Transform the track data to match expected format
     const transformedTrack = {
       id: track.id,
       title: track.title,
-      artist: track.artist,
-      episodeTitle: track.episodeTitle,
-      episodeDate: track.episodeDate,
-      startTime: track.startTime,
-      endTime: track.endTime,
-      duration: track.duration,
+      artist: track.artist || track.Feed.artist || null,
+      episodeTitle: track.subtitle || null,
+      episodeDate: track.publishedAt || null,
+      startTime: track.startTime || null,
+      endTime: track.endTime || null,
+      duration: track.duration || null,
       audioUrl: track.audioUrl,
-      image: track.image,
-      description: track.description,
-      source: track.source,
-      feedUrl: track.feedUrl,
+      image: track.image || track.itunesImage || track.Feed.image || null,
+      description: track.description || track.itunesSummary || null,
+      source: track.Feed.type || 'album', // Derive source from Feed.type
+      feedUrl: track.Feed.originalUrl || null,
       feedId: track.feedId,
-      valueForValue: track.valueForValue ? {
-        lightningAddress: track.valueForValue.lightningAddress || '',
-        suggestedAmount: track.valueForValue.suggestedAmount || 0,
-        currency: track.valueForValue.currency || 'sats',
-        customKey: track.valueForValue.customKey || '',
-        customValue: track.valueForValue.customValue || '',
-        recipientType: track.valueForValue.recipientType || 'remote',
-        percentage: track.valueForValue.percentage || 100
+      guid: track.guid || null,
+      valueForValue: track.v4vValue ? {
+        lightningAddress: (track.v4vValue as any).lightningAddress || '',
+        suggestedAmount: (track.v4vValue as any).suggestedAmount || 0,
+        customKey: (track.v4vValue as any).customKey || '',
+        customValue: (track.v4vValue as any).customValue || '',
+        remotePercentage: (track.v4vValue as any).remotePercentage || 100,
+        feedGuid: (track.v4vValue as any).feedGuid || null,
+        itemGuid: (track.v4vValue as any).itemGuid || null
       } : null,
-      discoveredAt: track.discoveredAt,
-      lastUpdated: track.lastUpdated,
-      extractionMethod: track.extractionMethod
+      discoveredAt: track.createdAt,
+      lastUpdated: track.updatedAt
     };
 
     logger.info('Successfully fetched track', { 

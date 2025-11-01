@@ -6,10 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { V4VResolver } from '@/lib/v4v-resolver';
 import { enhancedMusicService } from '@/lib/enhanced-music-service';
-import { musicTrackDB } from '@/lib/music-track-database';
+import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { promises as fs } from 'fs';
-import path from 'path';
 
 // Cache management
 const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -76,7 +74,7 @@ export class MusicAPIHandler {
       const params = this.parseRequestParams(searchParams);
 
       // Route to appropriate handler based on parameters
-      if (params.feedUrl === 'local://database' || (!params.feedUrl && params.artist)) {
+      if (!params.feedUrl && (params.artist || params.title || params.feedId || params.episodeId)) {
         return this.handleDatabaseQuery(params);
       }
 
@@ -213,12 +211,8 @@ export class MusicAPIHandler {
       await this.extractAndStoreTracks(params.extractFromFeed);
     }
 
-    // Load from enhanced service or database
-    if (params.feedUrl === 'local://database') {
-      return this.handleUnifiedDatabaseQuery(params);
-    } else {
-      return this.handleLegacyDatabaseQuery(params);
-    }
+    // Use Prisma database query
+    return this.handleLegacyDatabaseQuery(params);
   }
 
   private static async handleUnifiedDatabaseQuery(params: MusicRequestParams): Promise<NextResponse> {
@@ -275,25 +269,66 @@ export class MusicAPIHandler {
 
   private static async handleLegacyDatabaseQuery(params: MusicRequestParams): Promise<NextResponse> {
     try {
-      // Build query filters
-      const filters: any = {};
-      if (params.artist) filters.artist = params.artist;
-      if (params.title) filters.title = params.title;
-      if (params.feedId) filters.feedId = params.feedId;
-      if (params.episodeId) filters.episodeId = params.episodeId;
-      if (params.source) filters.source = params.source;
-      if (params.hasV4VData !== undefined) filters.hasV4VData = params.hasV4VData;
+      // Build Prisma where clause
+      const where: any = {};
+      
+      if (params.artist) {
+        where.artist = { contains: params.artist, mode: 'insensitive' };
+      }
+      if (params.title) {
+        where.title = { contains: params.title, mode: 'insensitive' };
+      }
+      if (params.feedId) {
+        where.feedId = params.feedId;
+      }
+      if (params.episodeId) {
+        where.guid = params.episodeId;
+      }
+      // Note: source is not in Track schema, skip this filter
+      if (params.hasV4VData !== undefined && params.hasV4VData) {
+        where.v4vValue = { not: null };
+      }
 
-      // Query database
-      const tracks = await musicTrackDB.searchMusicTracks(filters, params.page || 1, params.pageSize || 20);
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 20;
+      const skip = (page - 1) * pageSize;
+
+      // Query database with Prisma
+      const [tracks, total] = await Promise.all([
+        prisma.track.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: { publishedAt: 'desc' },
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true
+              }
+            }
+          }
+        }),
+        prisma.track.count({ where })
+      ]);
 
       return NextResponse.json({
         success: true,
-        data: tracks,
-        message: `Found ${tracks.tracks.length} tracks matching query`
+        data: {
+          tracks,
+          pagination: {
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
+          }
+        },
+        message: `Found ${tracks.length} tracks matching query`
       });
     } catch (error) {
-      logger.error('Legacy database query failed', error);
+      logger.error('Database query failed', error);
       throw error;
     }
   }
@@ -433,7 +468,45 @@ export class MusicAPIHandler {
 
       for (const trackData of tracks) {
         try {
-          const track = await musicTrackDB.addMusicTrack(trackData);
+          // Find or create feed
+          let feed = await prisma.feed.findFirst({
+            where: { originalUrl: trackData.feedUrl || 'unknown' }
+          });
+          
+          if (!feed && trackData.feedUrl) {
+            feed = await prisma.feed.create({
+              data: {
+                id: `feed-${Date.now()}`,
+                title: 'Imported Feed',
+                originalUrl: trackData.feedUrl,
+                type: 'album',
+                status: 'active'
+              }
+            });
+          }
+          
+          if (!feed) {
+            throw new Error('Feed is required but not found');
+          }
+
+          const track = await prisma.track.create({
+            data: {
+              id: trackData.id || `track-${Date.now()}-${Math.random()}`,
+              feedId: feed.id,
+              title: trackData.title,
+              artist: trackData.artist || null,
+              album: trackData.album || null,
+              audioUrl: trackData.audioUrl || '',
+              startTime: trackData.startTime || null,
+              endTime: trackData.endTime || null,
+              duration: Math.round(trackData.duration) || null,
+              image: trackData.image || null,
+              description: trackData.description || null,
+              guid: trackData.episodeId || null,
+              publishedAt: trackData.episodeDate || null,
+              v4vValue: trackData.valueForValue || null
+            }
+          });
           addedTracks.push(track);
         } catch (error) {
           errors.push({
@@ -463,7 +536,46 @@ export class MusicAPIHandler {
 
   private static async handleAddTrack(trackData: any): Promise<NextResponse> {
     try {
-      const track = await musicTrackDB.addMusicTrack(trackData);
+      // Find or create feed
+      let feed = await prisma.feed.findFirst({
+        where: { originalUrl: trackData.feedUrl || 'unknown' }
+      });
+      
+      if (!feed && trackData.feedUrl) {
+        feed = await prisma.feed.create({
+          data: {
+            id: `feed-${Date.now()}`,
+            title: 'Imported Feed',
+            originalUrl: trackData.feedUrl,
+            type: 'album',
+            status: 'active'
+          }
+        });
+      }
+      
+      if (!feed) {
+        throw new Error('Feed is required but not found');
+      }
+
+      const track = await prisma.track.create({
+        data: {
+          id: trackData.id || `track-${Date.now()}-${Math.random()}`,
+          feedId: feed.id,
+          title: trackData.title,
+          artist: trackData.artist || null,
+          album: trackData.album || null,
+          audioUrl: trackData.audioUrl || '',
+          startTime: trackData.startTime || null,
+          endTime: trackData.endTime || null,
+          duration: Math.round(trackData.duration) || null,
+          image: trackData.image || null,
+          description: trackData.description || null,
+          guid: trackData.episodeId || null,
+          publishedAt: trackData.episodeDate || null,
+          v4vValue: trackData.valueForValue || null
+        }
+      });
+      
       return NextResponse.json({
         success: true,
         data: track,
@@ -545,41 +657,61 @@ export class MusicAPIHandler {
 
   private static async saveTracksToDatabase(tracks: any[], feedUrl: string): Promise<void> {
     try {
-      const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-      const existingData = await fs.readFile(dataPath, 'utf8');
-      const musicData = JSON.parse(existingData);
-
-      // Check for duplicates
-      const existingIds = new Set(musicData.musicTracks.map((t: any) =>
-        `${t.episodeTitle}-${t.startTime}-${t.endTime}-${t.title}`
-      ));
-
-      const newTracks = tracks.filter(track => {
-        const trackKey = `${track.episodeTitle}-${track.startTime}-${track.endTime}-${track.title}`;
-        return !existingIds.has(trackKey);
+      // Find or create feed
+      let feed = await prisma.feed.findFirst({
+        where: { originalUrl: feedUrl }
       });
-
-      if (newTracks.length === 0) {
-        logger.info('No new tracks to save (all already exist)');
-        return;
+      
+      if (!feed) {
+        feed = await prisma.feed.create({
+          data: {
+            id: `feed-${Date.now()}`,
+            title: 'Imported Feed',
+            originalUrl: feedUrl,
+            type: 'album',
+            status: 'active'
+          }
+        });
       }
 
-      // Add tracks with IDs
-      const tracksWithIds = newTracks.map(track => ({
-        ...track,
-        id: `track-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        feedUrl,
-        extractionMethod: 'api-extraction',
-        discoveredAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
-      }));
+      // Save tracks to Prisma
+      for (const track of tracks) {
+        try {
+          // Check if track already exists (by guid or unique combination)
+          const existing = await prisma.track.findFirst({
+            where: {
+              feedId: feed.id,
+              title: track.title,
+              ...(track.guid && { guid: track.guid })
+            }
+          });
 
-      musicData.musicTracks.push(...tracksWithIds);
-      musicData.metadata.totalTracks = musicData.musicTracks.length;
-      musicData.metadata.lastUpdated = new Date().toISOString();
-
-      await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
-      logger.info(`Saved ${tracksWithIds.length} new tracks to database`);
+          if (!existing) {
+            await prisma.track.create({
+              data: {
+                id: track.id || `track-${Date.now()}-${Math.random()}`,
+                feedId: feed.id,
+                title: track.title,
+                artist: track.artist || null,
+                album: track.album || null,
+                audioUrl: track.audioUrl || '',
+                startTime: track.startTime || null,
+                endTime: track.endTime || null,
+                duration: Math.round(track.duration) || null,
+                image: track.image || null,
+                description: track.description || null,
+                guid: track.guid || track.episodeId || null,
+                publishedAt: track.publishedAt || track.episodeDate || null,
+                v4vValue: track.valueForValue || null
+              }
+            });
+          }
+        } catch (error) {
+          logger.warn('Failed to save individual track', { track: track.title, error });
+        }
+      }
+      
+      logger.info(`Saved tracks to Prisma database for feed ${feedUrl}`);
     } catch (error) {
       logger.error('Failed to save tracks to database', error);
     }
@@ -590,25 +722,50 @@ export class MusicAPIHandler {
 
     const result = await MusicTrackParser.extractMusicTracks(feedUrl);
 
+    // Find or create feed
+    let feed = await prisma.feed.findFirst({
+      where: { originalUrl: feedUrl }
+    });
+    
+    if (!feed) {
+      feed = await prisma.feed.create({
+        data: {
+          id: `feed-${Date.now()}`,
+          title: 'Extracted Feed',
+          originalUrl: feedUrl,
+          type: 'album',
+          status: 'active'
+        }
+      });
+    }
+
     for (const track of result.tracks) {
       try {
-        await musicTrackDB.addMusicTrack({
-          title: track.title,
-          artist: track.artist,
-          episodeId: track.episodeId,
-          episodeTitle: track.episodeTitle,
-          episodeDate: track.episodeDate,
-          startTime: track.startTime,
-          endTime: track.endTime,
-          duration: track.duration,
-          audioUrl: track.audioUrl,
-          image: track.image,
-          description: track.description,
-          valueForValue: track.valueForValue,
-          source: track.source,
-          feedUrl: track.feedUrl,
-          feedId: 'unknown',
-          extractionMethod: 'api-extraction'
+        await prisma.track.create({
+          data: {
+            id: track.id || `track-${Date.now()}-${Math.random()}`,
+            feedId: feed.id,
+            title: track.title,
+            artist: track.artist || null,
+            album: null,
+            audioUrl: track.audioUrl || '',
+            startTime: track.startTime || null,
+            endTime: track.endTime || null,
+            duration: Math.round(track.duration) || null,
+            image: track.image || null,
+            description: track.description || null,
+            guid: track.episodeId || null,
+            publishedAt: track.episodeDate || null,
+            v4vValue: track.valueForValue ? {
+              lightningAddress: track.valueForValue.lightningAddress,
+              suggestedAmount: track.valueForValue.suggestedAmount,
+              customKey: track.valueForValue.customKey,
+              customValue: track.valueForValue.customValue,
+              remotePercentage: track.valueForValue.remotePercentage,
+              feedGuid: track.valueForValue.feedGuid,
+              itemGuid: track.valueForValue.itemGuid
+            } : null
+          }
         });
       } catch (error) {
         logger.warn('Failed to store individual track', { track: track.title, error });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { musicTrackDB } from '@/lib/music-track-database';
+import { prisma } from '@/lib/prisma';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { createErrorLogger } from '@/lib/error-utils';
 
@@ -27,27 +27,66 @@ export async function GET(request: NextRequest) {
       try {
         const result = await MusicTrackParser.extractMusicTracks(extractFromFeed);
         
-        // Store tracks in database
+        // Find or create feed in Prisma
+        let feed = await prisma.feed.findFirst({
+          where: { originalUrl: extractFromFeed }
+        });
+        
+        if (!feed) {
+          // Create feed if it doesn't exist
+          feed = await prisma.feed.create({
+            data: {
+              id: `feed-${Date.now()}`,
+              title: 'Extracted Feed',
+              originalUrl: extractFromFeed,
+              type: 'album',
+              status: 'active'
+            }
+          });
+          logger.info('Created new feed for extraction', { feedId: feed.id });
+        }
+        
+        // Store tracks in Prisma database
         const storedTracks = [];
         for (const track of result.tracks) {
           try {
-            const storedTrack = await musicTrackDB.addMusicTrack({
+            const trackData: any = {
+              id: track.id || `track-${Date.now()}-${Math.random()}`,
+              feedId: feed.id,
               title: track.title,
-              artist: track.artist,
-              episodeId: track.episodeId,
-              episodeTitle: track.episodeTitle,
-              episodeDate: track.episodeDate,
-              startTime: track.startTime,
-              endTime: track.endTime,
-              duration: track.duration,
-              audioUrl: track.audioUrl,
-              image: track.image,
-              description: track.description,
-              valueForValue: track.valueForValue,
-              source: track.source,
-              feedUrl: track.feedUrl,
-              feedId: 'unknown',
-              extractionMethod: 'api-extraction'
+              artist: track.artist || null,
+              album: null,
+              audioUrl: track.audioUrl || '',
+              startTime: track.startTime || null,
+              endTime: track.endTime || null,
+              duration: Math.round(track.duration) || null,
+              image: track.image || null,
+              description: track.description || null,
+              guid: track.episodeId || null,
+              publishedAt: track.episodeDate || null,
+              v4vValue: track.valueForValue ? {
+                lightningAddress: track.valueForValue.lightningAddress,
+                suggestedAmount: track.valueForValue.suggestedAmount,
+                customKey: track.valueForValue.customKey,
+                customValue: track.valueForValue.customValue,
+                remotePercentage: track.valueForValue.remotePercentage,
+                feedGuid: track.valueForValue.feedGuid,
+                itemGuid: track.valueForValue.itemGuid
+              } : null
+            };
+            
+            const storedTrack = await prisma.track.create({
+              data: trackData,
+              include: {
+                Feed: {
+                  select: {
+                    id: true,
+                    title: true,
+                    artist: true,
+                    type: true
+                  }
+                }
+              }
             });
             storedTracks.push(storedTrack);
           } catch (error) {
@@ -55,20 +94,9 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Store extraction result
-        await musicTrackDB.saveExtractionResult({
-          feedUrl: extractFromFeed,
-          feedId: 'extracted',
-          musicTracks: storedTracks.map(t => t.id),
-          valueTimeSplits: [],
-          boostagrams: [],
-          relatedFeeds: [],
-          extractionStats: result.extractionStats,
-          extractionMethod: 'api-extraction',
-          extractionVersion: '1.0.0',
-          success: true
-        });
-
+        // Note: Extraction results are not stored in Prisma schema
+        // This functionality would require a new table or can be logged separately
+        
         logger.info('Successfully extracted and stored tracks', { 
           feedUrl: extractFromFeed, 
           tracksStored: storedTracks.length 
@@ -81,42 +109,88 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build search filters
-    const filters: any = {};
-    if (artist) filters.artist = artist;
-    if (title) filters.title = title;
-    if (feedId) filters.feedId = feedId;
-    if (episodeId) filters.episodeId = episodeId;
-    if (source) filters.source = source;
-    if (hasV4VData !== null) {
-      filters.hasV4VData = hasV4VData === 'true';
+    // Build Prisma where clause
+    const where: any = {};
+    
+    if (artist) {
+      where.artist = { contains: artist, mode: 'insensitive' };
+    }
+    
+    if (title) {
+      where.title = { contains: title, mode: 'insensitive' };
+    }
+    
+    if (feedId) {
+      where.feedId = feedId;
+    }
+    
+    // Note: episodeId might map to guid field, but since it's not guaranteed,
+    // we'll filter by guid if episodeId is provided
+    if (episodeId) {
+      where.guid = episodeId;
+    }
+    
+    // Note: source is not in Track schema, skip this filter
+    // Source information can be derived from Feed.type if needed
+    
+    if (hasV4VData !== null && hasV4VData === 'true') {
+      where.v4vValue = { not: null };
     }
 
-    logger.info('Searching tracks with filters', { filters, page, pageSize });
+    logger.info('Searching tracks with filters', { where, page, pageSize });
 
-    // Search tracks with better error handling
-    let searchResult;
+    // Search tracks with Prisma
+    const skip = (page - 1) * pageSize;
+    
+    let tracks, total;
     try {
-      searchResult = await musicTrackDB.searchMusicTracks(filters, page, pageSize);
+      [tracks, total] = await Promise.all([
+        prisma.track.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: { publishedAt: 'desc' },
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true,
+                image: true
+              }
+            }
+          }
+        }),
+        prisma.track.count({ where })
+      ]);
+      
       logger.info('Search completed successfully', { 
-        total: searchResult.total, 
-        page: searchResult.page,
-        pageSize: searchResult.pageSize 
+        total, 
+        page,
+        pageSize 
       });
     } catch (searchError) {
       logger.error('Search failed', { error: (searchError as Error).message });
       throw searchError;
     }
     
-    // Get database statistics with better error handling
+    // Get database statistics with Prisma
     let stats;
     try {
-      stats = await musicTrackDB.getStatistics();
-      logger.info('Statistics retrieved successfully', { 
-        totalTracks: stats.totalTracks,
-        totalEpisodes: stats.totalEpisodes,
-        totalFeeds: stats.totalFeeds
-      });
+      const [totalTracks, totalFeeds] = await Promise.all([
+        prisma.track.count(),
+        prisma.feed.count()
+      ]);
+      
+      stats = {
+        totalTracks,
+        totalFeeds,
+        // Episodes concept doesn't exist in Prisma schema, use track count as approximation
+        totalEpisodes: totalTracks
+      };
+      
+      logger.info('Statistics retrieved successfully', { stats });
     } catch (statsError) {
       logger.error('Statistics failed', { error: (statsError as Error).message });
       throw statsError;
@@ -125,14 +199,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        tracks: searchResult.tracks,
+        tracks,
         pagination: {
-          total: searchResult.total,
-          page: searchResult.page,
-          pageSize: searchResult.pageSize,
-          totalPages: Math.ceil(searchResult.total / searchResult.pageSize)
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize)
         },
-        filters: searchResult.filters,
+        filters: where,
         statistics: stats
       }
     });
@@ -183,27 +257,54 @@ export async function POST(request: NextRequest) {
             
             const result = await MusicTrackParser.extractMusicTracks(feedUrl);
             
-            // Store tracks in database
+            // Find or create feed in Prisma
+            let feed = await prisma.feed.findFirst({
+              where: { originalUrl: feedUrl }
+            });
+            
+            if (!feed) {
+              feed = await prisma.feed.create({
+                data: {
+                  id: `feed-${Date.now()}`,
+                  title: 'Extracted Feed',
+                  originalUrl: feedUrl,
+                  type: 'album',
+                  status: 'active'
+                }
+              });
+            }
+            
+            // Store tracks in Prisma database
             const storedTracks = [];
             for (const track of result.tracks) {
               try {
-                const storedTrack = await musicTrackDB.addMusicTrack({
+                const trackData: any = {
+                  id: track.id || `track-${Date.now()}-${Math.random()}`,
+                  feedId: feed.id,
                   title: track.title,
-                  artist: track.artist,
-                  episodeId: track.episodeId,
-                  episodeTitle: track.episodeTitle,
-                  episodeDate: track.episodeDate,
-                  startTime: track.startTime,
-                  endTime: track.endTime,
-                  duration: track.duration,
-                  audioUrl: track.audioUrl,
-                  image: track.image,
-                  description: track.description,
-                  valueForValue: track.valueForValue,
-                  source: track.source,
-                  feedUrl: track.feedUrl,
-                  feedId: 'unknown',
-                  extractionMethod: 'bulk-extraction'
+                  artist: track.artist || null,
+                  album: null,
+                  audioUrl: track.audioUrl || '',
+                  startTime: track.startTime || null,
+                  endTime: track.endTime || null,
+                  duration: Math.round(track.duration) || null,
+                  image: track.image || null,
+                  description: track.description || null,
+                  guid: track.episodeId || null,
+                  publishedAt: track.episodeDate || null,
+                  v4vValue: track.valueForValue ? {
+                    lightningAddress: track.valueForValue.lightningAddress,
+                    suggestedAmount: track.valueForValue.suggestedAmount,
+                    customKey: track.valueForValue.customKey,
+                    customValue: track.valueForValue.customValue,
+                    remotePercentage: track.valueForValue.remotePercentage,
+                    feedGuid: track.valueForValue.feedGuid,
+                    itemGuid: track.valueForValue.itemGuid
+                  } : null
+                };
+                
+                const storedTrack = await prisma.track.create({
+                  data: trackData
                 });
                 storedTracks.push(storedTrack);
               } catch (error) {
@@ -211,19 +312,7 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Store extraction result
-            await musicTrackDB.saveExtractionResult({
-              feedUrl,
-              feedId: 'bulk-extracted',
-              musicTracks: storedTracks.map(t => t.id),
-              valueTimeSplits: [],
-              boostagrams: [],
-              relatedFeeds: [],
-              extractionStats: result.extractionStats,
-              extractionMethod: 'bulk-extraction',
-              extractionVersion: '1.0.0',
-              success: true
-            });
+            // Note: Extraction results are not stored in Prisma schema
 
             results.push({
               feedUrl,
@@ -241,7 +330,17 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const stats = await musicTrackDB.getStatistics();
+        // Get statistics
+        const [totalTracks, totalFeeds] = await Promise.all([
+          prisma.track.count(),
+          prisma.feed.count()
+        ]);
+        
+        const stats = {
+          totalTracks,
+          totalFeeds,
+          totalEpisodes: totalTracks
+        };
 
         return NextResponse.json({
           success: true,
@@ -265,18 +364,35 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const updatedTrack = await musicTrackDB.updateMusicTrack(trackId, updates);
-        if (!updatedTrack) {
-          return NextResponse.json(
-            { error: 'Track not found' },
-            { status: 404 }
-          );
-        }
+        try {
+          const updatedTrack = await prisma.track.update({
+            where: { id: trackId },
+            data: updates,
+            include: {
+              Feed: {
+                select: {
+                  id: true,
+                  title: true,
+                  artist: true,
+                  type: true
+                }
+              }
+            }
+          });
 
-        return NextResponse.json({
-          success: true,
-          data: updatedTrack
-        });
+          return NextResponse.json({
+            success: true,
+            data: updatedTrack
+          });
+        } catch (error) {
+          if ((error as any).code === 'P2025') {
+            return NextResponse.json(
+              { error: 'Track not found' },
+              { status: 404 }
+            );
+          }
+          throw error;
+        }
 
       default:
         return NextResponse.json(

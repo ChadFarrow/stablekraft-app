@@ -23,7 +23,6 @@ export default function MusicSegmentsPage() {
 
   // Unified feed URLs - all segments are V4V-enabled
   const feedUrls = [
-    'local://database', // Primary source with 2,640+ segments
     'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml',
     'http://localhost:3000/001-to-060-lightning-thrashes-playlist.xml',
   ];
