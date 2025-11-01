@@ -260,7 +260,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
 
       if (track && track.Feed) {
         // Create track object with feed context
-        const resolvedTrack = {
+        const resolvedTrack: any = {
           id: track.id,
           title: track.title,
           artist: track.artist || track.Feed.artist || 'Unknown Artist',
