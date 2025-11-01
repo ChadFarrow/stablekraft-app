@@ -31,6 +31,7 @@
     "fix-artwork": "node scripts/fix-all-album-artwork.js",
     "check-albums": "./scripts/check-album-issues.sh",
     "test-rss-parser": "node scripts/test-rss-parser.js",
+    "test-add-playlist": "node scripts/test-add-playlist-endpoint.js",
     "reparse-database": "node scripts/reparse-main-branch-database.js",
     "reparse-database-robust": "node scripts/reparse-database-robust.js",
     "db:generate": "prisma generate",
