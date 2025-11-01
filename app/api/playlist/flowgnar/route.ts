@@ -84,7 +84,7 @@ export async function GET() {
       albumUrl: `/playlist/flowgnar`,
       playlistContext: {
         source: 'flowgnar-playlist',
-        originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml'
+        originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-music-playlist.xml'
       }
     };
 

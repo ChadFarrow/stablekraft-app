@@ -18,18 +18,8 @@ interface PlaylistItem {
 }
 
 // Static playlists - RSS feeds that are musicL compliant
+// Updated to match: https://github.com/ChadFarrow/chadf-musicl-playlists/blob/main/FEEDS.md
 const staticPlaylists: PlaylistItem[] = [
-  {
-    id: 'upbeats',
-    title: 'Upbeats Playlist',
-    description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
-    trackCount: 495,
-    episodes: '554 remote items',
-    href: '/playlist/upbeats',
-    type: 'rss',
-    color: 'bg-green-600',
-    medium: 'musicL'
-  },
   {
     id: 'b4ts',
     title: 'Behind the Sch3m3s Music Playlist',
@@ -39,6 +29,39 @@ const staticPlaylists: PlaylistItem[] = [
     href: '/playlist/b4ts',
     type: 'rss',
     color: 'bg-orange-600',
+    medium: 'musicL'
+  },
+  {
+    id: 'flowgnar',
+    title: 'Flowgnar Music Playlist',
+    description: 'Curated playlist from Flowgnar podcast featuring Value4Value independent artists',
+    trackCount: 0,
+    episodes: 'remote items',
+    href: '/playlist/flowgnar',
+    type: 'rss',
+    color: 'bg-teal-600',
+    medium: 'musicL'
+  },
+  {
+    id: 'hgh',
+    title: 'Homegrown Hits Music Playlist',
+    description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
+    trackCount: 841,
+    episodes: '841 remote items',
+    href: '/playlist/hgh',
+    type: 'rss',
+    color: 'bg-purple-600',
+    medium: 'musicL'
+  },
+  {
+    id: 'iam',
+    title: 'It\'s A Mood Music Playlist',
+    description: 'Every music reference from It\'s A Mood podcast',
+    trackCount: 0,
+    episodes: 'remote items',
+    href: '/playlist/iam',
+    type: 'rss',
+    color: 'bg-pink-600',
     medium: 'musicL'
   },
   {
@@ -53,14 +76,14 @@ const staticPlaylists: PlaylistItem[] = [
     medium: 'musicL'
   },
   {
-    id: 'hgh',
-    title: 'Homegrown Hits Music Playlist',
-    description: 'Curated playlist from Homegrown Hits podcast featuring Value4Value independent artists',
-    trackCount: 841,
-    episodes: '841 remote items',
-    href: '/playlist/hgh',
+    id: 'mmm',
+    title: 'Mutton, Mead & Music Playlist',
+    description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
+    trackCount: 0,
+    episodes: 'remote items',
+    href: '/playlist/mmm',
     type: 'rss',
-    color: 'bg-purple-600',
+    color: 'bg-amber-600',
     medium: 'musicL'
   },
   {
@@ -83,6 +106,17 @@ const staticPlaylists: PlaylistItem[] = [
     href: '/playlist/sas',
     type: 'rss',
     color: 'bg-orange-500',
+    medium: 'musicL'
+  },
+  {
+    id: 'upbeats',
+    title: 'Upbeats Playlist',
+    description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+    trackCount: 495,
+    episodes: '554 remote items',
+    href: '/playlist/upbeats',
+    type: 'rss',
+    color: 'bg-green-600',
     medium: 'musicL'
   }
 ];
@@ -135,7 +169,9 @@ function PlaylistContent() {
       'lightning-thrashes': 'bg-red-600',
       'top100-music': 'bg-yellow-600',
       'upbeats': 'bg-green-600',
-      'flowgnar': 'bg-teal-600'
+      'flowgnar': 'bg-teal-600',
+      'iam': 'bg-pink-600',
+      'mmm': 'bg-amber-600'
     };
     
     // Check if playlist name contains key identifiers
@@ -143,6 +179,8 @@ function PlaylistContent() {
     if (name.includes('flowgnar')) return 'bg-teal-600';
     if (name.includes('upbeats')) return 'bg-green-600';
     if (name.includes('behind') || name.includes('b4ts') || name.includes('sch3m3s')) return 'bg-orange-600';
+    if (name.includes('iam') || name.includes('mood')) return 'bg-pink-600';
+    if (name.includes('mmm') || name.includes('mutton') || name.includes('mead')) return 'bg-amber-600';
     
     return colors[id as keyof typeof colors] || 'bg-gray-600';
   };
@@ -299,6 +337,18 @@ function PlaylistContent() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open HGH Player
+            </Link>
+            <Link
+              href="/playlist/iam"
+              className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open IAM Player
+            </Link>
+            <Link
+              href="/playlist/mmm"
+              className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open MMM Player
             </Link>
             <Link
               href="/playlist/mmt"
