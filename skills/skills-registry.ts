@@ -105,7 +105,7 @@ export class SkillsRegistry {
       metadata: {
         author: 'Podcast Music Site',
         created: new Date().toISOString(),
-        dependencies: ['lib/music-track-database', '@prisma/client']
+        dependencies: ['@prisma/client']
       }
     });
   }

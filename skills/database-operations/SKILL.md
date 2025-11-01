@@ -170,8 +170,7 @@ const bulkResult = await executeDatabaseOperation({
 
 - `prisma`: Database ORM
 - `@prisma/client`: Prisma client
-- `lib/music-track-database.ts`: Database service layer
-- `lib/enhanced-music-service.ts`: Enhanced operations
+- `lib/enhanced-music-service.ts`: Enhanced operations (optional)
 
 ## Performance Optimizations
 

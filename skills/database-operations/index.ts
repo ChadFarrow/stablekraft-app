@@ -471,12 +471,61 @@ export class DatabaseOperationsSkill {
 
   private static async createEpisode(data: any): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Episodes concept doesn't exist in Prisma schema as separate entity
-      // Episodes are represented as tracks with guid field
-      // This would need to be mapped to Track model if needed
+      // Episodes are represented as tracks in Prisma schema
+      const prisma = await this.getPrismaClient();
+      
+      // Find or create feed
+      let feed;
+      if (data.feedId) {
+        feed = await prisma.feed.findUnique({ where: { id: data.feedId } });
+      } else if (data.feedUrl) {
+        feed = await prisma.feed.findFirst({ where: { originalUrl: data.feedUrl } });
+      }
+      
+      if (!feed && data.feedUrl) {
+        // Create feed if it doesn't exist
+        feed = await prisma.feed.create({
+          data: {
+            id: `feed-${Date.now()}`,
+            title: data.feedTitle || 'Untitled Feed',
+            originalUrl: data.feedUrl,
+            type: 'album',
+            status: 'active',
+            updatedAt: new Date()
+          }
+        });
+      }
+      
+      if (!feed) {
+        return {
+          success: false,
+          error: 'Feed is required for episode creation'
+        };
+      }
+      
+      const track = await prisma.track.create({
+        data: {
+          id: data.id || `track-${Date.now()}-${Math.random()}`,
+          feedId: feed.id,
+          guid: data.guid || data.episodeId || null,
+          title: data.title || data.episodeTitle || 'Untitled Episode',
+          artist: data.artist || null,
+          album: data.album || null,
+          audioUrl: data.audioUrl || '',
+          startTime: data.startTime || null,
+          endTime: data.endTime || null,
+          duration: data.duration ? Math.round(data.duration) : null,
+          image: data.image || null,
+          description: data.description || null,
+          publishedAt: data.publishedAt || data.episodeDate ? new Date(data.publishedAt || data.episodeDate) : new Date(),
+          v4vValue: data.v4vValue || data.valueForValue || null,
+          updatedAt: new Date()
+        }
+      });
+      
       return {
-        success: false,
-        error: 'Episode creation not supported - use Track model instead'
+        success: true,
+        data: track
       };
     } catch (error) {
       return {
@@ -550,12 +599,37 @@ export class DatabaseOperationsSkill {
 
   private static async updateEpisode(id: string, data: any): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Update method not implemented in musicTrackDB, would need to be added
+      // Episodes are represented as tracks in Prisma schema
+      const prisma = await this.getPrismaClient();
+      const track = await prisma.track.update({
+        where: { id },
+        data: {
+          title: data.title,
+          artist: data.artist,
+          album: data.album,
+          audioUrl: data.audioUrl,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          duration: data.duration ? Math.round(data.duration) : undefined,
+          image: data.image,
+          description: data.description,
+          guid: data.guid || data.episodeId,
+          publishedAt: data.publishedAt || data.episodeDate ? new Date(data.publishedAt || data.episodeDate) : undefined,
+          v4vValue: data.v4vValue || data.valueForValue,
+          updatedAt: new Date()
+        }
+      });
       return {
-        success: false,
-        error: 'Episode update not implemented'
+        success: true,
+        data: track
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Episode not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update episode'
@@ -565,12 +639,21 @@ export class DatabaseOperationsSkill {
 
   private static async deleteEpisode(id: string): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Delete method not implemented in musicTrackDB, would need to be added
+      // Episodes are represented as tracks in Prisma schema
+      const prisma = await this.getPrismaClient();
+      await prisma.track.delete({
+        where: { id }
+      });
       return {
-        success: false,
-        error: 'Episode delete not implemented'
+        success: true
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Episode not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete episode'
@@ -580,10 +663,65 @@ export class DatabaseOperationsSkill {
 
   private static async searchEpisodes(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Search method not implemented in musicTrackDB, would need to be added
+      // Episodes are represented as tracks in Prisma schema
+      const prisma = await this.getPrismaClient();
+      const page = options.pagination?.page || 1;
+      const pageSize = options.pagination?.page_size || 20;
+      const skip = (page - 1) * pageSize;
+      
+      // Build Prisma where clause
+      const where: any = {};
+      
+      if (filters.guid) {
+        where.guid = { contains: filters.guid, mode: 'insensitive' };
+      }
+      if (filters.title) {
+        where.title = { contains: filters.title, mode: 'insensitive' };
+      }
+      if (filters.artist) {
+        where.artist = { contains: filters.artist, mode: 'insensitive' };
+      }
+      if (filters.feedId) {
+        where.feedId = filters.feedId;
+      }
+      
+      // Build orderBy
+      const orderBy: any = {};
+      const sortField = options.sorting?.field || 'publishedAt';
+      const sortDirection = options.sorting?.direction || 'desc';
+      orderBy[sortField] = sortDirection;
+      
+      const [episodes, total] = await Promise.all([
+        prisma.track.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy,
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true,
+                originalUrl: true
+              }
+            }
+          }
+        }),
+        prisma.track.count({ where })
+      ]);
+      
       return {
-        success: false,
-        error: 'Episode search not implemented'
+        success: true,
+        data: episodes,
+        count: episodes.length,
+        metadata: {
+          page,
+          page_size: pageSize,
+          total,
+          has_more: skip + pageSize < total
+        }
       };
     } catch (error) {
       return {
@@ -674,12 +812,37 @@ export class DatabaseOperationsSkill {
 
   private static async updateFeed(id: string, data: any): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Update method not implemented in musicTrackDB, would need to be added
+      const prisma = await this.getPrismaClient();
+      const feed = await prisma.feed.update({
+        where: { id },
+        data: {
+          title: data.title,
+          description: data.description,
+          cdnUrl: data.cdnUrl,
+          type: data.type,
+          artist: data.artist,
+          image: data.image,
+          language: data.language,
+          category: data.category,
+          explicit: data.explicit,
+          priority: data.priority,
+          status: data.status,
+          v4vRecipient: data.v4vRecipient,
+          v4vValue: data.v4vValue,
+          updatedAt: new Date()
+        }
+      });
       return {
-        success: false,
-        error: 'Feed update not implemented'
+        success: true,
+        data: feed
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Feed not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update feed'
@@ -689,12 +852,20 @@ export class DatabaseOperationsSkill {
 
   private static async deleteFeed(id: string): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Delete method not implemented in musicTrackDB, would need to be added
+      const prisma = await this.getPrismaClient();
+      await prisma.feed.delete({
+        where: { id }
+      });
       return {
-        success: false,
-        error: 'Feed delete not implemented'
+        success: true
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Feed not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete feed'
@@ -704,10 +875,61 @@ export class DatabaseOperationsSkill {
 
   private static async searchFeeds(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
-      // Note: Search method not implemented in musicTrackDB, would need to be added
+      const prisma = await this.getPrismaClient();
+      const page = options.pagination?.page || 1;
+      const pageSize = options.pagination?.page_size || 20;
+      const skip = (page - 1) * pageSize;
+      
+      // Build Prisma where clause
+      const where: any = {};
+      
+      if (filters.title) {
+        where.title = { contains: filters.title, mode: 'insensitive' };
+      }
+      if (filters.artist) {
+        where.artist = { contains: filters.artist, mode: 'insensitive' };
+      }
+      if (filters.type) {
+        where.type = filters.type;
+      }
+      if (filters.status) {
+        where.status = filters.status;
+      }
+      if (filters.originalUrl) {
+        where.originalUrl = { contains: filters.originalUrl, mode: 'insensitive' };
+      }
+      
+      // Build orderBy
+      const orderBy: any = {};
+      const sortField = options.sorting?.field || 'updatedAt';
+      const sortDirection = options.sorting?.direction || 'desc';
+      orderBy[sortField] = sortDirection;
+      
+      const [feeds, total] = await Promise.all([
+        prisma.feed.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy,
+          include: options.include_relations ? {
+            _count: {
+              select: { Track: true }
+            }
+          } : undefined
+        }),
+        prisma.feed.count({ where })
+      ]);
+      
       return {
-        success: false,
-        error: 'Feed search not implemented'
+        success: true,
+        data: feeds,
+        count: feeds.length,
+        metadata: {
+          page,
+          page_size: pageSize,
+          total,
+          has_more: skip + pageSize < total
+        }
       };
     } catch (error) {
       return {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
 
 interface PlaylistTrack {
   feedGuid: string;
@@ -34,75 +33,101 @@ export async function POST(request: NextRequest) {
 
     console.log(`🎵 Adding ${tracks.length} tracks from "${playlistName}" to database`);
 
-    // Read the existing music database
-    const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-    let musicData: { musicTracks: any[] };
-
-    try {
-      const existingData = await fs.readFile(dataPath, 'utf8');
-      musicData = JSON.parse(existingData);
-    } catch (error) {
-      // Create new database structure if file doesn't exist
-      console.log('📝 Creating new music-tracks.json database');
-      musicData = { musicTracks: [] };
-    }
-
-    // Check for existing tracks to avoid duplicates
-    const existingTrackIds = new Set(
-      musicData.musicTracks.map((t: any) => `${t.episodeId}`)
-    );
-
     const newTracks: any[] = [];
     const skippedTracks: any[] = [];
 
-    tracks.forEach((track, index) => {
-      const episodeId = `${track.feedGuid}-${track.itemGuid}`;
+    // Process each track
+    for (const track of tracks) {
+      const guid = `${track.feedGuid}-${track.itemGuid}`;
       
-      if (existingTrackIds.has(episodeId)) {
+      // Check if track already exists by guid
+      const existingTrack = await prisma.track.findUnique({
+        where: { guid }
+      });
+
+      if (existingTrack) {
         skippedTracks.push({
           title: track.title,
           artist: track.artist,
           reason: 'Already exists in database'
         });
-        return;
+        continue;
       }
 
-      // Create database track entry compatible with existing system
-      const dbTrack = {
-        id: `${playlistName.toLowerCase().replace(/\s+/g, '-')}-playlist-${Date.now()}-${index}`,
-        title: track.title,
-        artist: track.artist,
-        episodeId: episodeId,
-        episodeTitle: track.feedTitle || playlistName,
-        episodeDate: new Date().toISOString(),
-        startTime: 0,
-        endTime: track.duration || 300,
-        duration: track.duration || 300,
-        audioUrl: track.audioUrl || '',
-        image: track.artworkUrl || '',
-        source: source,
-        feedUrl: track.feedUrl,
-        discoveredAt: new Date().toISOString(),
+      // Find or create feed
+      let feed = await prisma.feed.findFirst({
+        where: { originalUrl: track.feedUrl }
+      });
+
+      if (!feed) {
+        feed = await prisma.feed.create({
+          data: {
+            id: `feed-${track.feedGuid}`,
+            title: track.feedTitle || playlistName,
+            originalUrl: track.feedUrl,
+            type: 'album',
+            status: 'active',
+            updatedAt: new Date()
+          }
+        });
+      }
+
+      // Create track ID
+      const trackId = `track-${track.feedGuid}-${track.itemGuid}-${Date.now()}`;
+
+      // Prepare track data with V4V information
+      const v4vValue = {
+        lightningAddress: '',
+        suggestedAmount: 0,
+        remotePercentage: 90,
+        feedGuid: track.feedGuid,
+        itemGuid: track.itemGuid,
+        resolved: !!track.audioUrl,
+        resolvedTitle: track.title,
+        resolvedArtist: track.artist,
+        resolvedAudioUrl: track.audioUrl,
+        resolvedImage: track.artworkUrl,
         playlist: {
           name: playlistName,
-          description: playlistDescription || `Track from ${playlistName} playlist`
-        },
-        valueForValue: {
-          lightningAddress: '',
-          suggestedAmount: 0,
-          remotePercentage: 90,
-          feedGuid: track.feedGuid,
-          itemGuid: track.itemGuid,
-          resolved: !!track.audioUrl,
-          resolvedTitle: track.title,
-          resolvedArtist: track.artist,
-          resolvedAudioUrl: track.audioUrl,
-          resolvedImage: track.artworkUrl
+          description: playlistDescription || `Track from ${playlistName} playlist`,
+          source: source
         }
       };
 
-      newTracks.push(dbTrack);
-    });
+      try {
+        const createdTrack = await prisma.track.create({
+          data: {
+            id: trackId,
+            guid: guid,
+            feedId: feed.id,
+            title: track.title,
+            artist: track.artist || null,
+            album: track.feedTitle || null,
+            audioUrl: track.audioUrl || '',
+            duration: track.duration ? Math.round(track.duration) : null,
+            image: track.artworkUrl || null,
+            publishedAt: new Date(),
+            v4vValue: v4vValue,
+            updatedAt: new Date()
+          }
+        });
+
+        newTracks.push({
+          id: createdTrack.id,
+          title: createdTrack.title,
+          artist: createdTrack.artist,
+          audioUrl: createdTrack.audioUrl,
+          image: createdTrack.image
+        });
+      } catch (trackError) {
+        console.error(`Failed to create track ${trackId}:`, trackError);
+        skippedTracks.push({
+          title: track.title,
+          artist: track.artist,
+          reason: `Database error: ${trackError instanceof Error ? trackError.message : 'Unknown error'}`
+        });
+      }
+    }
 
     if (newTracks.length === 0) {
       return NextResponse.json({
@@ -113,12 +138,6 @@ export async function POST(request: NextRequest) {
         skippedTracks
       });
     }
-
-    // Add new tracks to the database
-    musicData.musicTracks.push(...newTracks);
-
-    // Save back to database file
-    await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
 
     console.log(`✅ Added ${newTracks.length} new tracks to database, skipped ${skippedTracks.length} duplicates`);
 
@@ -154,15 +173,41 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const playlistName = url.searchParams.get('playlist');
 
-    const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-    const existingData = await fs.readFile(dataPath, 'utf8');
-    const musicData = JSON.parse(existingData);
-
     if (playlistName) {
       // Return tracks for a specific playlist
-      const playlistTracks = musicData.musicTracks.filter((track: any) => 
-        track.playlist?.name?.toLowerCase() === playlistName.toLowerCase()
-      );
+      // Search for tracks where v4vValue contains the playlist name
+      const tracks = await prisma.track.findMany({
+        where: {
+          v4vValue: {
+            path: ['playlist', 'name'],
+            equals: playlistName
+          }
+        },
+        include: {
+          Feed: {
+            select: {
+              id: true,
+              title: true,
+              originalUrl: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      const playlistTracks = tracks.map(track => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        audioUrl: track.audioUrl,
+        duration: track.duration,
+        image: track.image,
+        feedUrl: track.Feed.originalUrl,
+        publishedAt: track.publishedAt
+      }));
 
       return NextResponse.json({
         playlistName,
@@ -170,38 +215,96 @@ export async function GET(request: NextRequest) {
         tracks: playlistTracks
       });
     } else {
-      // Return all playlists
-      const playlists = new Map();
-      
-      musicData.musicTracks.forEach((track: any) => {
-        if (track.playlist?.name) {
-          const name = track.playlist.name;
+      // Return all playlists by extracting from v4vValue
+      const tracks = await prisma.track.findMany({
+        where: {
+          v4vValue: {
+            path: ['playlist'],
+            not: null
+          }
+        },
+        select: {
+          v4vValue: true
+        }
+      });
+
+      const playlists = new Map<string, {
+        name: string;
+        description?: string;
+        trackCount: number;
+        hasAudio: number;
+        hasArtwork: number;
+      }>();
+
+      let totalTracks = 0;
+
+      for (const track of tracks) {
+        const v4v = track.v4vValue as any;
+        if (v4v?.playlist?.name) {
+          const name = v4v.playlist.name;
           if (!playlists.has(name)) {
             playlists.set(name, {
               name,
-              description: track.playlist.description,
+              description: v4v.playlist.description,
               trackCount: 0,
               hasAudio: 0,
               hasArtwork: 0
             });
           }
-          const playlist = playlists.get(name);
+          const playlist = playlists.get(name)!;
           playlist.trackCount++;
-          if (track.audioUrl) playlist.hasAudio++;
-          if (track.image) playlist.hasArtwork++;
+          totalTracks++;
         }
-      });
+      }
+
+      // Get more accurate counts by querying tracks with audio/image
+      for (const [name, playlist] of playlists.entries()) {
+        const tracksWithData = await prisma.track.count({
+          where: {
+            v4vValue: {
+              path: ['playlist', 'name'],
+              equals: name
+            }
+          }
+        });
+
+        const tracksWithAudio = await prisma.track.count({
+          where: {
+            v4vValue: {
+              path: ['playlist', 'name'],
+              equals: name
+            },
+            audioUrl: { not: '' }
+          }
+        });
+
+        const tracksWithArtwork = await prisma.track.count({
+          where: {
+            v4vValue: {
+              path: ['playlist', 'name'],
+              equals: name
+            },
+            image: { not: null }
+          }
+        });
+
+        playlist.hasAudio = tracksWithAudio;
+        playlist.hasArtwork = tracksWithArtwork;
+      }
 
       return NextResponse.json({
         playlists: Array.from(playlists.values()),
-        totalTracks: musicData.musicTracks.length
+        totalTracks: totalTracks
       });
     }
 
   } catch (error) {
     console.error('Error retrieving playlist data:', error);
     return NextResponse.json(
-      { error: 'Failed to retrieve playlist data' },
+      { 
+        error: 'Failed to retrieve playlist data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

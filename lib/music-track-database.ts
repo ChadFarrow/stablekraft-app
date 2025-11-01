@@ -1,9 +1,14 @@
 /**
  * Music Track Database Service
  * 
+ * @deprecated This service uses JSON file storage and is being phased out.
+ * Please use Prisma with PostgreSQL directly via `@/lib/prisma` instead.
+ * 
  * This service manages the music track database using JSON file storage,
  * providing CRUD operations, search functionality, and integration with
  * the existing feed parsing system.
+ * 
+ * Migration path: Use `prisma.track` and `prisma.feed` directly instead.
  */
 
 import fs from 'fs';
