@@ -505,7 +505,8 @@ export class MusicAPIHandler {
               description: trackData.description || null,
               guid: trackData.episodeId || null,
               publishedAt: trackData.episodeDate || null,
-              v4vValue: trackData.valueForValue || null
+              v4vValue: trackData.valueForValue || null,
+              updatedAt: new Date()
             }
           });
           addedTracks.push(track);
@@ -549,7 +550,8 @@ export class MusicAPIHandler {
             title: 'Imported Feed',
             originalUrl: trackData.feedUrl,
             type: 'album',
-            status: 'active'
+            status: 'active',
+            updatedAt: new Date()
           }
         });
       }
@@ -573,7 +575,8 @@ export class MusicAPIHandler {
           description: trackData.description || null,
           guid: trackData.episodeId || null,
           publishedAt: trackData.episodeDate || null,
-          v4vValue: trackData.valueForValue || null
+          v4vValue: trackData.valueForValue || null,
+          updatedAt: new Date()
         }
       });
       
@@ -670,7 +673,8 @@ export class MusicAPIHandler {
             title: 'Imported Feed',
             originalUrl: feedUrl,
             type: 'album',
-            status: 'active'
+            status: 'active',
+            updatedAt: new Date()
           }
         });
       }
@@ -703,7 +707,8 @@ export class MusicAPIHandler {
                 description: track.description || null,
                 guid: track.guid || track.episodeId || null,
                 publishedAt: track.publishedAt || track.episodeDate || null,
-                v4vValue: track.valueForValue || null
+                v4vValue: track.valueForValue || null,
+                updatedAt: new Date()
               }
             });
           }
@@ -766,7 +771,8 @@ export class MusicAPIHandler {
               remotePercentage: track.valueForValue.remotePercentage,
               feedGuid: track.valueForValue.feedGuid,
               itemGuid: track.valueForValue.itemGuid
-            } : null
+            } : undefined,
+            updatedAt: new Date()
           }
         });
       } catch (error) {

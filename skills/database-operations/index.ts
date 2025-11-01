@@ -235,7 +235,8 @@ export class DatabaseOperationsSkill {
           description: data.description || null,
           guid: data.episodeId || data.guid || null,
           publishedAt: data.episodeDate ? new Date(data.episodeDate) : null,
-          v4vValue: data.valueForValue || null
+          v4vValue: data.valueForValue || null,
+          updatedAt: new Date()
         }
       });
       
@@ -488,7 +489,7 @@ export class DatabaseOperationsSkill {
   private static async readEpisode(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
       const prisma = await this.getPrismaClient();
-      let tracks;
+      let tracks: any[];
       
       if (filters.guid) {
         // Find tracks by guid (which represents episode ID)
