@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 interface PlaylistTrack {
   feedGuid: string;
@@ -220,7 +221,7 @@ export async function GET(request: NextRequest) {
         where: {
           v4vValue: {
             path: ['playlist'],
-            not: null
+            not: Prisma.JsonNull
           }
         },
         select: {
