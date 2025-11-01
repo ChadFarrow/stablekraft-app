@@ -11,7 +11,7 @@ const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-mus
 let playlistCache: { data: any; timestamp: number } | null = null;
 const CACHE_DURATION = 60000; // 1 minute cache
 
-// Clear cache to ensure fresh artwork
+// Clear cache to ensure fresh artwork and processing
 playlistCache = null;
 
 interface RemoteItem {
@@ -281,6 +281,12 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           }
         };
 
+        // If audioUrl is missing, mark for API resolution to fill in the gap
+        if (!track.audioUrl) {
+          resolvedTrack.needsApiResolution = true;
+          console.log(`🔍 Track "${track.title}" needs API resolution for missing audioUrl`);
+        }
+
         resolvedTracks.push(resolvedTrack);
       } else {
         unresolvedItems.push(remoteItem);
@@ -328,6 +334,43 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           }
         } catch (error) {
           console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // Third pass: Enhance database tracks that need API resolution for missing audioUrls
+    const tracksNeedingEnhancement = resolvedTracks.filter(track => track.needsApiResolution);
+    if (tracksNeedingEnhancement.length > 0) {
+      console.log(`🔗 Enhancing ${tracksNeedingEnhancement.length} database tracks with API data...`);
+      
+      for (const track of tracksNeedingEnhancement) {
+        try {
+          const apiResult = await resolveItemGuid(track.playlistContext.feedGuid, track.playlistContext.itemGuid);
+          
+          if (apiResult && apiResult.audioUrl) {
+            // Update the track with API-resolved audio URL
+            track.audioUrl = apiResult.audioUrl;
+            track.url = apiResult.audioUrl;
+            
+            // Also enhance other missing fields if available
+            if (!track.duration && apiResult.duration) {
+              track.duration = apiResult.duration;
+            }
+            if (!track.image && apiResult.image) {
+              track.image = apiResult.image;
+            }
+            
+            console.log(`✅ Enhanced ${track.title} with audio URL: ${apiResult.audioUrl}`);
+          }
+          
+          // Remove the needsApiResolution flag
+          delete track.needsApiResolution;
+        } catch (error) {
+          console.error(`❌ Error enhancing ${track.title}:`, error);
+          delete track.needsApiResolution;
         }
         
         // Small delay to avoid rate limiting
