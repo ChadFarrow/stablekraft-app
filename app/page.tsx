@@ -784,7 +784,7 @@ export default function HomePage() {
   const loadMusicTracksFromRSS = async (limit: number = 50) => {
     try {
       // Load music tracks from the RSS feed with pagination for performance
-      const response = await fetch(`/api/music-tracks?feedUrl=local://database&limit=${limit}&offset=0`);
+      const response = await fetch(`/api/tracks?limit=${limit}&page=1`);
       if (!response.ok) {
         console.warn('Failed to load music tracks from RSS');
         return [];

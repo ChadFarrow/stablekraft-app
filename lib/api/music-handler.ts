@@ -480,7 +480,8 @@ export class MusicAPIHandler {
                 title: 'Imported Feed',
                 originalUrl: trackData.feedUrl,
                 type: 'album',
-                status: 'active'
+                status: 'active',
+                updatedAt: new Date()
               }
             });
           }
@@ -728,15 +729,16 @@ export class MusicAPIHandler {
     });
     
     if (!feed) {
-      feed = await prisma.feed.create({
-        data: {
-          id: `feed-${Date.now()}`,
-          title: 'Extracted Feed',
-          originalUrl: feedUrl,
-          type: 'album',
-          status: 'active'
-        }
-      });
+        feed = await prisma.feed.create({
+          data: {
+            id: `feed-${Date.now()}`,
+            title: 'Extracted Feed',
+            originalUrl: feedUrl,
+            type: 'album',
+            status: 'active',
+            updatedAt: new Date()
+          }
+        });
     }
 
     for (const track of result.tracks) {

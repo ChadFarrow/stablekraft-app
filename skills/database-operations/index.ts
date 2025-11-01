@@ -1,12 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { musicTrackDB } from '../../lib/music-track-database';
-import type { 
-  MusicTrackRecord, 
-  EpisodeRecord, 
-  MusicFeedRecord,
-  MusicTrackSearchFilters,
-  MusicTrackSearchResult
-} from '../../lib/music-track-schema';
 
 export interface DatabaseOperationInput {
   operation: 'create' | 'read' | 'update' | 'delete' | 'search' | 'batch';
@@ -204,7 +196,49 @@ export class DatabaseOperationsSkill {
 
   private static async createTrack(data: any): Promise<DatabaseOperationOutput> {
     try {
-      const track = await musicTrackDB.addMusicTrack(data);
+      const prisma = await this.getPrismaClient();
+      
+      // Find or create feed
+      let feed = await prisma.feed.findFirst({
+        where: { originalUrl: data.feedUrl || 'unknown' }
+      });
+      
+      if (!feed && data.feedUrl) {
+        feed = await prisma.feed.create({
+          data: {
+            id: data.feedId || `feed-${Date.now()}`,
+            title: data.feedTitle || 'Imported Feed',
+            originalUrl: data.feedUrl,
+            type: 'album',
+            status: 'active',
+            updatedAt: new Date()
+          }
+        });
+      }
+      
+      if (!feed) {
+        throw new Error('Feed is required but not found');
+      }
+
+      const track = await prisma.track.create({
+        data: {
+          id: data.id || `track-${Date.now()}-${Math.random()}`,
+          feedId: feed.id,
+          title: data.title,
+          artist: data.artist || null,
+          album: data.album || null,
+          audioUrl: data.audioUrl || '',
+          startTime: data.startTime || null,
+          endTime: data.endTime || null,
+          duration: data.duration ? Math.round(data.duration) : null,
+          image: data.image || null,
+          description: data.description || null,
+          guid: data.episodeId || data.guid || null,
+          publishedAt: data.episodeDate ? new Date(data.episodeDate) : null,
+          v4vValue: data.valueForValue || null
+        }
+      });
+      
       return {
         success: true,
         data: track
@@ -219,7 +253,29 @@ export class DatabaseOperationsSkill {
 
   private static async readTrack(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
-      const track = await musicTrackDB.getMusicTrack(filters.id);
+      const prisma = await this.getPrismaClient();
+      const track = await prisma.track.findUnique({
+        where: { id: filters.id },
+        include: {
+          Feed: {
+            select: {
+              id: true,
+              title: true,
+              artist: true,
+              type: true,
+              originalUrl: true
+            }
+          }
+        }
+      });
+      
+      if (!track) {
+        return {
+          success: false,
+          error: 'Track not found'
+        };
+      }
+      
       return {
         success: true,
         data: track
@@ -234,12 +290,35 @@ export class DatabaseOperationsSkill {
 
   private static async updateTrack(id: string, data: any): Promise<DatabaseOperationOutput> {
     try {
-      const track = await musicTrackDB.updateMusicTrack(id, data);
+      const prisma = await this.getPrismaClient();
+      const track = await prisma.track.update({
+        where: { id },
+        data: {
+          title: data.title,
+          artist: data.artist,
+          album: data.album,
+          audioUrl: data.audioUrl,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          duration: data.duration ? Math.round(data.duration) : undefined,
+          image: data.image,
+          description: data.description,
+          guid: data.episodeId || data.guid,
+          publishedAt: data.episodeDate ? new Date(data.episodeDate) : undefined,
+          v4vValue: data.valueForValue
+        }
+      });
       return {
         success: true,
         data: track
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Track not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update track'
@@ -249,11 +328,20 @@ export class DatabaseOperationsSkill {
 
   private static async deleteTrack(id: string): Promise<DatabaseOperationOutput> {
     try {
-      const success = await musicTrackDB.deleteMusicTrack(id);
+      const prisma = await this.getPrismaClient();
+      await prisma.track.delete({
+        where: { id }
+      });
       return {
-        success
+        success: true
       };
     } catch (error) {
+      if ((error as any).code === 'P2025') {
+        return {
+          success: false,
+          error: 'Track not found'
+        };
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete track'
@@ -261,22 +349,61 @@ export class DatabaseOperationsSkill {
     }
   }
 
-  private static async searchTracks(filters: MusicTrackSearchFilters, options: any): Promise<DatabaseOperationOutput> {
+  private static async searchTracks(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
+      const prisma = await this.getPrismaClient();
       const page = options.pagination?.page || 1;
       const pageSize = options.pagination?.page_size || 20;
+      const skip = (page - 1) * pageSize;
       
-      const result = await musicTrackDB.searchMusicTracks(filters, page, pageSize);
+      // Build Prisma where clause
+      const where: any = {};
+      
+      if (filters.artist) {
+        where.artist = { contains: filters.artist, mode: 'insensitive' };
+      }
+      if (filters.title) {
+        where.title = { contains: filters.title, mode: 'insensitive' };
+      }
+      if (filters.feedId) {
+        where.feedId = filters.feedId;
+      }
+      if (filters.episodeId) {
+        where.guid = filters.episodeId;
+      }
+      if (filters.hasV4VData) {
+        where.v4vValue = { not: null };
+      }
+      
+      const [tracks, total] = await Promise.all([
+        prisma.track.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: { publishedAt: 'desc' },
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true
+              }
+            }
+          }
+        }),
+        prisma.track.count({ where })
+      ]);
       
       return {
         success: true,
-        data: result.tracks,
-        count: result.total,
+        data: tracks,
+        count: total,
         metadata: {
-          page: result.page,
-          page_size: result.pageSize,
-          total: result.total,
-          has_more: (result.page * result.pageSize) < result.total
+          page,
+          page_size: pageSize,
+          total,
+          has_more: (page * pageSize) < total
         }
       };
     } catch (error) {
@@ -289,25 +416,39 @@ export class DatabaseOperationsSkill {
 
   private static async batchTrackOperation(data: any, options: any): Promise<DatabaseOperationOutput> {
     try {
+      const prisma = await this.getPrismaClient();
       const { operation, tracks } = data;
       const results = [];
 
       for (const track of tracks) {
-        let result;
-        switch (operation) {
-          case 'create':
-            result = await musicTrackDB.addMusicTrack(track);
-            break;
-          case 'update':
-            result = await musicTrackDB.updateMusicTrack(track.id, track);
-            break;
-          case 'delete':
-            result = await musicTrackDB.deleteMusicTrack(track.id);
-            break;
-          default:
-            throw new Error(`Unsupported batch operation: ${operation}`);
+        try {
+          let result;
+          switch (operation) {
+            case 'create':
+              result = await this.createTrack(track);
+              if (result.success) {
+                results.push(result.data);
+              }
+              break;
+            case 'update':
+              result = await this.updateTrack(track.id, track);
+              if (result.success) {
+                results.push(result.data);
+              }
+              break;
+            case 'delete':
+              result = await this.deleteTrack(track.id);
+              if (result.success) {
+                results.push({ id: track.id, deleted: true });
+              }
+              break;
+            default:
+              throw new Error(`Unsupported batch operation: ${operation}`);
+          }
+        } catch (error) {
+          // Continue with other tracks even if one fails
+          console.error('Batch operation failed for track:', error);
         }
-        results.push(result);
       }
 
       return {
@@ -329,10 +470,12 @@ export class DatabaseOperationsSkill {
 
   private static async createEpisode(data: any): Promise<DatabaseOperationOutput> {
     try {
-      const episode = await musicTrackDB.addEpisode(data);
+      // Note: Episodes concept doesn't exist in Prisma schema as separate entity
+      // Episodes are represented as tracks with guid field
+      // This would need to be mapped to Track model if needed
       return {
-        success: true,
-        data: episode
+        success: false,
+        error: 'Episode creation not supported - use Track model instead'
       };
     } catch (error) {
       return {
@@ -344,11 +487,52 @@ export class DatabaseOperationsSkill {
 
   private static async readEpisode(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
-      let episode;
+      const prisma = await this.getPrismaClient();
+      let tracks;
+      
       if (filters.guid) {
-        episode = await musicTrackDB.getEpisodeByGuid(filters.guid);
+        // Find tracks by guid (which represents episode ID)
+        tracks = await prisma.track.findMany({
+          where: { guid: filters.guid },
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true
+              }
+            }
+          }
+        });
+      } else if (filters.id) {
+        // Find track by ID
+        const track = await prisma.track.findUnique({
+          where: { id: filters.id },
+          include: {
+            Feed: {
+              select: {
+                id: true,
+                title: true,
+                artist: true,
+                type: true
+              }
+            }
+          }
+        });
+        tracks = track ? [track] : [];
       } else {
-        episode = await musicTrackDB.getEpisode(filters.id);
+        tracks = [];
+      }
+      
+      // Return first track as episode representation
+      const episode = tracks[0] || null;
+      
+      if (!episode) {
+        return {
+          success: false,
+          error: 'Episode not found'
+        };
       }
       
       return {
@@ -414,7 +598,27 @@ export class DatabaseOperationsSkill {
 
   private static async createFeed(data: any): Promise<DatabaseOperationOutput> {
     try {
-      const feed = await musicTrackDB.addMusicFeed(data);
+      const prisma = await this.getPrismaClient();
+      const feed = await prisma.feed.create({
+        data: {
+          id: data.id || `feed-${Date.now()}`,
+          title: data.title || 'Untitled Feed',
+          description: data.description || null,
+          originalUrl: data.feedUrl || data.originalUrl || '',
+          cdnUrl: data.cdnUrl || null,
+          type: data.type || 'album',
+          artist: data.artist || null,
+          image: data.image || null,
+          language: data.language || null,
+          category: data.category || null,
+          explicit: data.explicit || false,
+          priority: data.priority || 'normal',
+          status: data.status || 'active',
+          v4vRecipient: data.v4vRecipient || null,
+          v4vValue: data.v4vValue || null,
+          updatedAt: new Date()
+        }
+      });
       return {
         success: true,
         data: feed
@@ -429,7 +633,32 @@ export class DatabaseOperationsSkill {
 
   private static async readFeed(filters: any, options: any): Promise<DatabaseOperationOutput> {
     try {
-      const feed = await musicTrackDB.getMusicFeed(filters.id);
+      const prisma = await this.getPrismaClient();
+      let feed;
+      
+      if (filters.id) {
+        feed = await prisma.feed.findUnique({
+          where: { id: filters.id },
+          include: options.include_relations ? {
+            Track: true
+          } : undefined
+        });
+      } else if (filters.originalUrl) {
+        feed = await prisma.feed.findFirst({
+          where: { originalUrl: filters.originalUrl },
+          include: options.include_relations ? {
+            Track: true
+          } : undefined
+        });
+      }
+      
+      if (!feed) {
+        return {
+          success: false,
+          error: 'Feed not found'
+        };
+      }
+      
       return {
         success: true,
         data: feed
@@ -740,7 +969,18 @@ export class DatabaseOperationsSkill {
    */
   static async getDatabaseStats(): Promise<DatabaseOperationOutput> {
     try {
-      const stats = await musicTrackDB.getStatistics();
+      const prisma = await this.getPrismaClient();
+      const [totalTracks, totalFeeds] = await Promise.all([
+        prisma.track.count(),
+        prisma.feed.count()
+      ]);
+      
+      const stats = {
+        totalTracks,
+        totalFeeds,
+        totalEpisodes: totalTracks // Episodes concept doesn't exist in Prisma, use track count
+      };
+      
       return {
         success: true,
         data: stats
@@ -757,7 +997,8 @@ export class DatabaseOperationsSkill {
    * Clear database cache
    */
   static clearCache(): void {
-    musicTrackDB.clearCache();
+    // Prisma doesn't have a file-based cache to clear
+    // This is kept for backward compatibility but does nothing
   }
 
   /**
@@ -765,7 +1006,24 @@ export class DatabaseOperationsSkill {
    */
   static async exportDatabase(): Promise<DatabaseOperationOutput> {
     try {
-      const data = await musicTrackDB.exportDatabase();
+      const prisma = await this.getPrismaClient();
+      
+      // Export all data from Prisma
+      const [tracks, feeds] = await Promise.all([
+        prisma.track.findMany({
+          include: {
+            Feed: true
+          }
+        }),
+        prisma.feed.findMany()
+      ]);
+      
+      const data = {
+        tracks,
+        feeds,
+        exportedAt: new Date().toISOString()
+      };
+      
       return {
         success: true,
         data
@@ -783,7 +1041,38 @@ export class DatabaseOperationsSkill {
    */
   static async importDatabase(data: any): Promise<DatabaseOperationOutput> {
     try {
-      await musicTrackDB.importDatabase(data);
+      const prisma = await this.getPrismaClient();
+      
+      // Import feeds first (tracks depend on feeds)
+      if (data.feeds && Array.isArray(data.feeds)) {
+        for (const feedData of data.feeds) {
+          try {
+            await prisma.feed.upsert({
+              where: { id: feedData.id },
+              update: feedData,
+              create: feedData
+            });
+          } catch (error) {
+            console.error('Failed to import feed:', error);
+          }
+        }
+      }
+      
+      // Import tracks
+      if (data.tracks && Array.isArray(data.tracks)) {
+        for (const trackData of data.tracks) {
+          try {
+            await prisma.track.upsert({
+              where: { id: trackData.id },
+              update: trackData,
+              create: trackData
+            });
+          } catch (error) {
+            console.error('Failed to import track:', error);
+          }
+        }
+      }
+      
       return {
         success: true
       };

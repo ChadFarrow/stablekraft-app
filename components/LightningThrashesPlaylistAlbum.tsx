@@ -55,23 +55,13 @@ export default function LightningThrashesPlaylistAlbum() {
         dataSource = 'API (no filter)';
         
         if (!response.ok || (await response.clone().json()).data?.tracks?.length === 0) {
-          // Try with different source filter
-          response = await fetch('/api/music-tracks/database?pageSize=1000&feedUrl=lightning-thrashes', { signal: controller.signal });
-          dataSource = 'API (feedUrl filter)';
-          
-          if (!response.ok || (await response.clone().json()).data?.tracks?.length === 0) {
-            // Fall back to static file
-            console.log('API endpoints returned no data, trying static file...');
-            response = await fetch('/music-tracks.json', { signal: controller.signal });
-            dataSource = 'Static file';
-            isApiData = false;
-          }
+          // Try with different source filter or use tracks API
+          response = await fetch('/api/tracks?limit=1000', { signal: controller.signal });
+          dataSource = 'API (tracks endpoint)';
         }
       } catch (error) {
-        console.log('API failed, trying static data...', error);
-        response = await fetch('/music-tracks.json', { signal: controller.signal });
-        dataSource = 'Static file (fallback)';
-        isApiData = false;
+        console.log('API failed:', error);
+        throw new Error('Failed to load tracks from API');
       }
       clearTimeout(timeoutId);
 
@@ -80,7 +70,18 @@ export default function LightningThrashesPlaylistAlbum() {
       }
       
       const data = await response.json();
-      const allTracks = isApiData ? (data.data?.tracks || []) : (data.musicTracks || []);
+      // Handle different API response formats
+      let allTracks: any[] = [];
+      if (data.data?.tracks) {
+        // Response from /api/music-tracks/database
+        allTracks = data.data.tracks;
+      } else if (data.tracks) {
+        // Response from /api/tracks
+        allTracks = data.tracks;
+      } else if (data.musicTracks) {
+        // Fallback for old format (shouldn't happen anymore)
+        allTracks = data.musicTracks;
+      }
       
       console.log('📊 Data source:', dataSource);
       console.log('📊 Raw data structure:', Object.keys(data));

@@ -235,7 +235,7 @@ export default function MusicTrackList({ initialFeedUrls = [], onPlayTrack, sele
             <button
               onClick={() => {
                 // Force load from local database only
-                const localFeedUrls = ['local://database'];
+                const localFeedUrls: string[] = [];
                 const originalUrls = feedUrls;
                 feedUrls.splice(0, feedUrls.length, ...localFeedUrls);
                 loadMusicTracks();

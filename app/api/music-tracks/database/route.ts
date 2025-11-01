@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
               title: 'Extracted Feed',
               originalUrl: extractFromFeed,
               type: 'album',
-              status: 'active'
+              status: 'active',
+              updatedAt: new Date()
             }
           });
           logger.info('Created new feed for extraction', { feedId: feed.id });
@@ -269,7 +270,8 @@ export async function POST(request: NextRequest) {
                   title: 'Extracted Feed',
                   originalUrl: feedUrl,
                   type: 'album',
-                  status: 'active'
+                  status: 'active',
+                  updatedAt: new Date()
                 }
               });
             }

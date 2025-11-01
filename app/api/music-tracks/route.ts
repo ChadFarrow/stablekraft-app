@@ -3,8 +3,6 @@ import { MusicTrackParser } from '@/lib/music-track-parser';
 import { V4VResolver } from '@/lib/v4v-resolver';
 import { enhancedMusicService } from '@/lib/enhanced-music-service';
 import { logger } from '@/lib/logger';
-import { promises as fs } from 'fs';
-import path from 'path';
 
 // In-memory cache for server-side caching
 const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -32,70 +30,134 @@ function setCache(key: string, data: any, ttl: number = CACHE_TTL): void {
 
 async function saveTracksToDatabase(tracks: any[], feedUrl: string): Promise<void> {
   try {
-    const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-    const existingData = await fs.readFile(dataPath, 'utf8');
-    const musicData = JSON.parse(existingData);
+    const { prisma } = await import('@/lib/prisma');
     
-    // Check for existing tracks to avoid duplicates
-    const existingTrackIds = new Set(musicData.musicTracks.map((t: any) => 
-      `${t.episodeTitle}-${t.startTime}-${t.endTime}-${t.title}`
-    ));
-    
-    // Filter out tracks that already exist
-    const newTracks = tracks.filter(track => {
-      const trackKey = `${track.episodeTitle}-${track.startTime}-${track.endTime}-${track.title}`;
-      return !existingTrackIds.has(trackKey);
+    // Find or create feed
+    let feed = await prisma.feed.findFirst({
+      where: { originalUrl: feedUrl }
     });
     
-    if (newTracks.length === 0) {
-      logger.info('📝 No new tracks to save (all already exist in database)');
-      return;
+    if (!feed) {
+      feed = await prisma.feed.create({
+        data: {
+          id: `feed-${Date.now()}`,
+          title: 'Extracted Feed',
+          originalUrl: feedUrl,
+          type: 'album',
+          status: 'active',
+          updatedAt: new Date()
+        }
+      });
+      logger.info(`📝 Created new feed: ${feed.id}`);
     }
     
-    // Generate unique IDs for new tracks
-    const tracksWithIds = newTracks.map(track => ({
-      ...track,
-      id: `track-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      feedUrl,
-      extractionMethod: 'api-extraction',
-      discoveredAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString()
-    }));
+    // Save tracks to Prisma
+    let savedCount = 0;
+    let skippedCount = 0;
     
-    // Add new tracks to existing data
-    musicData.musicTracks.push(...tracksWithIds);
+    for (const track of tracks) {
+      try {
+        // Check if track already exists
+        const existing = await prisma.track.findFirst({
+          where: {
+            feedId: feed.id,
+            title: track.title,
+            ...(track.startTime && { startTime: track.startTime }),
+            ...(track.endTime && { endTime: track.endTime })
+          }
+        });
+        
+        if (!existing) {
+          await prisma.track.create({
+            data: {
+              id: track.id || `track-${Date.now()}-${Math.random()}`,
+              feedId: feed.id,
+              title: track.title,
+              artist: track.artist || null,
+              album: track.album || null,
+              audioUrl: track.audioUrl || track.url || '',
+              startTime: track.startTime || null,
+              endTime: track.endTime || null,
+              duration: track.duration ? Math.round(track.duration) : null,
+              image: track.image || null,
+              description: track.description || null,
+              guid: track.guid || track.episodeId || null,
+              publishedAt: track.publishedAt || track.episodeDate ? new Date(track.episodeDate) : null,
+              v4vValue: track.valueForValue || null
+            }
+          });
+          savedCount++;
+        } else {
+          skippedCount++;
+        }
+      } catch (error) {
+        logger.warn('Failed to save individual track', { track: track.title, error });
+      }
+    }
     
-    // Update metadata
-    musicData.metadata.totalTracks = musicData.musicTracks.length;
-    musicData.metadata.lastUpdated = new Date().toISOString();
-    musicData.metadata.totalExtractions = (musicData.metadata.totalExtractions || 0) + 1;
-    
-    // Save back to file
-    await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
-    
-    logger.info(`💾 Saved ${tracksWithIds.length} new tracks to database (${tracks.length - tracksWithIds.length} already existed)`);
+    logger.info(`💾 Saved ${savedCount} new tracks to Prisma database (${skippedCount} already existed)`);
   } catch (error) {
-    console.error('Failed to save tracks to database:', error);
+    logger.error('Failed to save tracks to database', error);
   }
 }
 
 async function loadTracksFromDatabase(feedUrl: string): Promise<any[] | null> {
   try {
-    const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-    const existingData = await fs.readFile(dataPath, 'utf8');
-    const musicData = JSON.parse(existingData);
+    const { prisma } = await import('@/lib/prisma');
     
-    // Filter tracks by feed URL
-    const tracks = musicData.musicTracks.filter((track: any) => track.feedUrl === feedUrl);
+    // Find feed by URL
+    const feed = await prisma.feed.findFirst({
+      where: { originalUrl: feedUrl }
+    });
+    
+    if (!feed) {
+      return null;
+    }
+    
+    // Load tracks from Prisma
+    const tracks = await prisma.track.findMany({
+      where: { feedId: feed.id },
+      orderBy: { publishedAt: 'desc' },
+      include: {
+        Feed: {
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            type: true,
+            originalUrl: true
+          }
+        }
+      }
+    });
     
     if (tracks.length > 0) {
-      logger.info(`📖 Found ${tracks.length} tracks in database for ${feedUrl}`);
-      return tracks;
+      // Transform to match expected format
+      const transformedTracks = tracks.map(track => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist || track.Feed.artist || null,
+        album: track.album || null,
+        audioUrl: track.audioUrl,
+        duration: track.duration || null,
+        startTime: track.startTime || null,
+        endTime: track.endTime || null,
+        image: track.image || track.itunesImage || null,
+        description: track.description || track.itunesSummary || null,
+        feedUrl: track.Feed.originalUrl || null,
+        feedId: track.feedId,
+        valueForValue: track.v4vValue || null,
+        publishedAt: track.publishedAt || null,
+        guid: track.guid || null
+      }));
+      
+      logger.info(`📖 Found ${transformedTracks.length} tracks in Prisma database for ${feedUrl}`);
+      return transformedTracks;
     }
     
     return null;
   } catch (error) {
-    console.error('Failed to load tracks from database:', error);
+    logger.error('Failed to load tracks from database', error);
     return null;
   }
 }
@@ -118,42 +180,83 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Handle local database request with enhanced service
-    if (feedUrl === 'local://database') {
-      logger.info('🎵 Loading tracks from local database using enhanced service');
+    // Handle database query (no feedUrl means query database)
+    if (!feedUrl || feedUrl === 'local://database') {
+      logger.info('🎵 Loading tracks from Prisma database');
       try {
-        // Use enhanced music service for unified track access
+        const { prisma } = await import('@/lib/prisma');
+        
+        // Build where clause for Prisma query
+        const where: any = {};
         const enhancedOnly = searchParams.get('enhanced') === 'true';
         
-        if (enhancedOnly) {
-          // Get only enhanced tracks
-          const allUnifiedTracks = await enhancedMusicService.getUnifiedMusicTracks();
-          const enhancedTracks = allUnifiedTracks.filter(track => track.enhancement?.enhanced);
-          
-          // Apply pagination
-          const paginatedTracks = enhancedTracks.slice(offset, offset + limit);
-          
-          return NextResponse.json({
-            success: true,
-            data: {
-              tracks: paginatedTracks,
-              relatedFeeds: [],
-              metadata: {
-                totalTracks: enhancedTracks.length,
-                returnedTracks: paginatedTracks.length,
-                offset,
-                limit,
-                source: 'enhanced-database'
+        // Execute query with pagination
+        const [tracks, total] = await Promise.all([
+          prisma.track.findMany({
+            where,
+            skip: offset,
+            take: limit,
+            orderBy: { publishedAt: 'desc' },
+            include: {
+              Feed: {
+                select: {
+                  id: true,
+                  title: true,
+                  artist: true,
+                  type: true,
+                  image: true
+                }
               }
-            },
-            message: `Successfully loaded ${paginatedTracks.length} enhanced tracks from database (${offset + 1}-${offset + paginatedTracks.length} of ${enhancedTracks.length})`
-          });
-        }
+            }
+          }),
+          prisma.track.count({ where })
+        ]);
         
-        // Get unified tracks (enhanced + legacy)
-        let allTracks = await enhancedMusicService.getUnifiedMusicTracks();
+        // Transform to match expected format
+        const transformedTracks = tracks.map(track => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist || track.Feed.artist || null,
+          album: track.album || null,
+          audioUrl: track.audioUrl,
+          duration: track.duration || null,
+          startTime: track.startTime || null,
+          endTime: track.endTime || null,
+          image: track.image || track.itunesImage || track.Feed.image || null,
+          description: track.description || track.itunesSummary || null,
+          feedUrl: track.Feed.originalUrl || null,
+          feedId: track.feedId,
+          valueForValue: track.v4vValue || null,
+          publishedAt: track.publishedAt || null,
+          guid: track.guid || null
+        }));
         
-        // Handle V4V resolution for unified tracks if requested
+        return NextResponse.json({
+          success: true,
+          data: {
+            tracks: transformedTracks,
+            relatedFeeds: [],
+            metadata: {
+              totalTracks: total,
+              returnedTracks: transformedTracks.length,
+              offset,
+              limit,
+              source: 'prisma-database'
+            }
+          },
+          message: `Successfully loaded ${transformedTracks.length} tracks from database (${offset + 1}-${offset + transformedTracks.length} of ${total})`
+        });
+      } catch (error) {
+        logger.error('Failed to load tracks from Prisma database', error);
+        return NextResponse.json(
+          { error: 'Failed to load tracks from database' },
+          { status: 500 }
+        );
+      }
+    }
+    
+    // Handle feed extraction for actual feed URLs
+    logger.info(`🎵 Extracting music tracks from: ${feedUrl}`);
         if (resolveV4V) {
           logger.info('🔍 Checking unified database tracks for V4V resolution...');
 
@@ -374,32 +477,25 @@ export async function GET(request: NextRequest) {
           
           // Save updated tracks back to database if any were resolved
           if (resolvedCount > 0 && saveToDatabase) {
-            logger.info('💾 Saving updated V4V resolutions to database...');
+            logger.info('💾 Saving updated V4V resolutions to Prisma database...');
             try {
-              const dataPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-              const existingData = await fs.readFile(dataPath, 'utf8');
-              const musicData = JSON.parse(existingData);
+              const { prisma } = await import('@/lib/prisma');
               
-              // Update tracks in the database
-              musicData.musicTracks.forEach((dbTrack: any) => {
-                const updatedTrack = databaseTracks.find((t: any) => 
-                  t.episodeTitle === dbTrack.episodeTitle && 
-                  t.startTime === dbTrack.startTime && 
-                  t.endTime === dbTrack.endTime && 
-                  t.title === dbTrack.title
-                );
-                if (updatedTrack) {
-                  dbTrack.valueForValue = updatedTrack.valueForValue;
+              // Update tracks in Prisma database
+              for (const updatedTrack of databaseTracks) {
+                if (updatedTrack.id && updatedTrack.valueForValue) {
+                  await prisma.track.update({
+                    where: { id: updatedTrack.id },
+                    data: {
+                      v4vValue: updatedTrack.valueForValue
+                    }
+                  });
                 }
-              });
+              }
               
-              // Update metadata
-              musicData.metadata.lastUpdated = new Date().toISOString();
-              
-              await fs.writeFile(dataPath, JSON.stringify(musicData, null, 2));
-              logger.info('✅ Database updated with V4V resolutions');
+              logger.info('✅ Prisma database updated with V4V resolutions');
             } catch (error) {
-              console.error('Failed to save V4V resolutions to database:', error);
+              logger.error('Failed to save V4V resolutions to database', error);
             }
           }
         }
