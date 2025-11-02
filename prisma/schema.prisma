@@ -46,8 +46,10 @@ model Feed {
   Track        Track[]
 
   @@index([lastFetched])
+  @@index([status])
   @@index([status, lastFetched])
   @@index([status, priority])
+  @@index([status, type])
   @@index([type])
 }
 
@@ -99,6 +101,7 @@ model Track {
   @@index([artist])
   @@index([feedId])
   @@index([feedId, trackOrder])
+  @@index([feedId, publishedAt])
   @@index([guid])
   @@index([publishedAt])
   @@index([title])
