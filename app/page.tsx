@@ -328,18 +328,20 @@ export default function HomePage() {
     const nextPage = currentPage + 1;
 
     try {
-      // Load next page from API (server-side sorted)
+      // Load next page from API (server-side sorted globally: Albums → EPs → Singles)
       const startIndex = (nextPage - 1) * ALBUMS_PER_PAGE;
       const newAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
       
       if (newAlbums.length > 0) {
-        // Append new albums to existing ones
-        setDisplayedAlbums(prev => [...prev, ...newAlbums]);
+        // Append new albums to existing ones (already sorted globally from server)
+        // The API returns albums in correct global order: Albums → EPs → Singles
+        setDisplayedAlbums(prev => {
+          const updated = [...prev, ...newAlbums];
+          const totalLoaded = updated.length;
+          setHasMoreAlbums(totalLoaded < totalAlbums);
+          return updated;
+        });
         setCurrentPage(nextPage);
-        
-        // Check if there are more albums to load
-        const totalLoaded = displayedAlbums.length + newAlbums.length;
-        setHasMoreAlbums(totalLoaded < totalAlbums);
       } else {
         setHasMoreAlbums(false);
       }
@@ -349,7 +351,7 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, hasMoreAlbums, currentPage, activeFilter, totalAlbums]);
+  }, [isLoading, hasMoreAlbums, currentPage, activeFilter, totalAlbums, displayedAlbums.length]);
   
   // Keep loadPage for backward compatibility (used by pagination buttons)
   const loadPage = async (page: number) => {
