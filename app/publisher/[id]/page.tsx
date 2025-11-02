@@ -249,12 +249,20 @@ async function loadPublisherData(publisherId: string) {
     // If we have remote items, find feeds by their GUIDs
     if (remoteItemGuids.length > 0) {
       console.log(`🔍 Looking for albums by remote item GUIDs: ${remoteItemGuids.slice(0, 5).join(', ')}...`);
+      
+      // Create OR conditions for each GUID (match by ID or URL)
+      const guidConditions = remoteItemGuids.map(guid => ({
+        OR: [
+          { id: { equals: guid } },
+          { id: { contains: guid.split('-')[0] } }, // Try partial match
+          { originalUrl: { contains: guid } }, // Match GUID in URL
+          { originalUrl: { contains: guid.replace(/-/g, '') } } // Match without hyphens
+        ]
+      }));
+      
       relatedFeeds = await prisma.feed.findMany({
         where: {
-          OR: [
-            { id: { in: remoteItemGuids } },
-            { originalUrl: { contains: remoteItemGuids[0] } } // Also try URL matching
-          ],
+          OR: guidConditions,
           type: { in: ['album', 'music'] },
           status: 'active'
         },
