@@ -417,9 +417,17 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
       zIndex: 1  // Override global background (which is z-0)
     };
 
-    // Use proxy for better caching and original image quality
+    // For backgrounds, use enhanced proxy for better quality and upscaling
+    // This ensures high-resolution backgrounds even from low-res sources
     const highResBackgroundUrl = backgroundImage && isClient
-      ? getAlbumArtworkUrl(backgroundImage, 'xl', true)
+      ? (() => {
+          // Use proxy with enhancement for external images, direct URL for internal
+          if (backgroundImage.includes('re.podtards.com') || backgroundImage.startsWith('/')) {
+            return getAlbumArtworkUrl(backgroundImage, 'xl', false);
+          }
+          // For external images, use enhanced proxy
+          return `/api/proxy-image?url=${encodeURIComponent(backgroundImage)}&enhance=true&minWidth=1920&minHeight=1080`;
+        })()
       : null;
 
     const style = highResBackgroundUrl ? {

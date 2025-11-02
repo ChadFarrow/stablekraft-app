@@ -66,27 +66,104 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the image data
-    const imageBuffer = await response.arrayBuffer();
+    const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+    // Check if we should enhance the image (for backgrounds, use enhance=true parameter)
+    const enhance = searchParams.get('enhance') === 'true';
+    const minWidth = parseInt(searchParams.get('minWidth') || '1920');
+    const minHeight = parseInt(searchParams.get('minHeight') || '1080');
+    
+    let processedBuffer = imageBuffer;
+    let finalContentType = contentType || 'image/jpeg';
+    
+    // Enhance image quality for backgrounds if requested
+    if (enhance) {
+      try {
+        const image = sharp(imageBuffer);
+        const metadata = await image.metadata();
+        
+        // Check if image needs upscaling for background use
+        const needsUpscale = metadata.width && metadata.height && 
+                            (metadata.width < minWidth || metadata.height < minHeight);
+        
+        if (needsUpscale && metadata.width && metadata.height) {
+          // Upscale image to minimum dimensions while maintaining aspect ratio
+          const aspectRatio = metadata.width / metadata.height;
+          let targetWidth = minWidth;
+          let targetHeight = minHeight;
+          
+          if (aspectRatio > 1) {
+            // Landscape: fit to width
+            targetHeight = Math.round(minWidth / aspectRatio);
+          } else {
+            // Portrait: fit to height
+            targetWidth = Math.round(minHeight * aspectRatio);
+          }
+          
+          console.log(`🖼️ Upscaling image from ${metadata.width}x${metadata.height} to ${targetWidth}x${targetHeight}`);
+          
+          processedBuffer = await image
+            .resize(targetWidth, targetHeight, {
+              fit: 'fill',
+              kernel: sharp.kernel.lanczos3, // High-quality upscaling
+              withoutEnlargement: false // Allow upscaling
+            })
+            .jpeg({ 
+              quality: 95, // High quality for backgrounds
+              mozjpeg: true 
+            })
+            .toBuffer();
+          
+          finalContentType = 'image/jpeg';
+        } else if (!metadata.format || metadata.format === 'gif') {
+          // For GIFs or unsupported formats, convert to high-quality JPEG for backgrounds
+          processedBuffer = await sharp(imageBuffer)
+            .jpeg({ 
+              quality: 95,
+              mozjpeg: true 
+            })
+            .toBuffer();
+          
+          finalContentType = 'image/jpeg';
+        } else {
+          // Just optimize existing image without resizing
+          processedBuffer = await sharp(imageBuffer)
+            .jpeg({ 
+              quality: 95,
+              mozjpeg: true 
+            })
+            .toBuffer();
+          
+          finalContentType = 'image/jpeg';
+        }
+      } catch (sharpError) {
+        console.warn('⚠️ Sharp processing failed, using original image:', sharpError);
+        // Fall back to original buffer if sharp processing fails
+        processedBuffer = imageBuffer;
+      }
+    }
 
     // Set headers for image serving
     const headers = new Headers();
-    // Use detected content-type or infer from URL extension
-    let finalContentType = contentType;
+    // Use detected content-type or inferred type
     if (!isValidImageType) {
       if (imageUrl.toLowerCase().includes('.png')) finalContentType = 'image/png';
       else if (imageUrl.toLowerCase().includes('.gif')) finalContentType = 'image/gif';
       else if (imageUrl.toLowerCase().includes('.webp')) finalContentType = 'image/webp';
       else finalContentType = 'image/jpeg'; // Default fallback
     }
-    headers.set('Content-Type', finalContentType || 'image/jpeg');
-    headers.set('Content-Length', imageBuffer.byteLength.toString());
+    headers.set('Content-Type', finalContentType);
+    headers.set('Content-Length', processedBuffer.length.toString());
     headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400'); // 1 hour client, 24 hours CDN
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
     headers.set('X-Image-Proxy', 're.podtards.com');
+    if (enhance) {
+      headers.set('X-Image-Enhanced', 'true');
+    }
     headers.set('Vary', 'Accept-Encoding');
 
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(processedBuffer, {
       status: 200,
       headers
     });
