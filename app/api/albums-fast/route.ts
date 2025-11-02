@@ -176,23 +176,22 @@ export async function GET(request: Request) {
         console.log('🔄 Fetching albums from database...');
       }
       
-      // OPTIMIZED: Only apply pagination when filter is 'all' (no filtering needed)
-      // For filters, we need to load all feeds to filter correctly and get accurate count
+      // Load all feeds to maintain global sort order
+      // Even for 'all' filter, we need all feeds to ensure correct sorting
+      // (Albums → EPs → Singles, then alphabetically within each format)
       totalFeedCount = await prisma.feed.count({
         where: { status: 'active' }
       });
       
-      // For 'all' filter, use pagination to only load what's needed
-      // For other filters, load all feeds to filter and count accurately
-      shouldPaginate = filter === 'all';
-      const feedsToLoad = shouldPaginate 
-        ? Math.min(totalFeedCount, offset + limit + 50) // Buffer for pagination
-        : totalFeedCount; // Load all for filtering
+      // Always load all feeds to maintain global sort order
+      // Pagination happens after sorting, not at the database level
+      shouldPaginate = false; // Disable DB-level pagination to maintain sort order
+      const feedsToLoad = totalFeedCount; // Load all feeds
       
       // Get active feeds with their tracks directly from database
       feeds = await prisma.feed.findMany({
         where: { status: 'active' },
-        skip: shouldPaginate ? Math.max(0, offset - 10) : 0, // Small buffer before offset for pagination
+          skip: 0, // Load all feeds to maintain global sort order
         take: feedsToLoad,
         include: {
           Track: {
@@ -263,63 +262,12 @@ export async function GET(request: Request) {
         where: { status: 'active' }
       });
       
-      // Determine pagination strategy for cached data
-      shouldPaginate = filter === 'all';
-      
-      // Check if cached data has enough feeds for the requested offset
-      const cachedFeedsCount = cachedData!.feeds.length;
-      const neededFeedsCount = offset + limit + 50; // Need enough for offset + limit + buffer
-      
-      if (shouldPaginate && cachedFeedsCount < neededFeedsCount) {
-        // Cache doesn't have enough feeds, need to load from database
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🔄 Cache has ${cachedFeedsCount} feeds, but need ${neededFeedsCount} - loading from database`);
-        }
-        
-        // Load needed feeds from database
-        const feedsToLoad = Math.min(totalFeedCount, offset + limit + 50);
-        feeds = await prisma.feed.findMany({
-          where: { status: 'active' },
-          skip: shouldPaginate ? Math.max(0, offset - 10) : 0,
-          take: feedsToLoad,
-          include: {
-            Track: {
-              where: {
-                audioUrl: { not: '' }
-              },
-              orderBy: [
-                { trackOrder: 'asc' },
-                { publishedAt: 'asc' },
-                { createdAt: 'asc' }
-              ],
-              take: 50
-            },
-            _count: {
-              select: { Track: true }
-            }
-          },
-          orderBy: [
-            { priority: 'asc' },
-            { createdAt: 'desc' }
-          ]
-        });
-        
-        // Load publisher stats from file
-        publisherStats = cachedData!.publisherStats; // Reuse cached publisher stats
-      } else {
-        // Use cached data
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`⚡ Using cached database results (${cachedData!.feeds.length} albums)`);
-        }
-        feeds = cachedData!.feeds;
-        publisherStats = cachedData!.publisherStats;
-        
-        // Apply pagination to cached data if needed
-        if (shouldPaginate) {
-          const feedsToLoad = Math.min(feeds.length, offset + limit + 50);
-          feeds = feeds.slice(Math.max(0, offset - 10), feedsToLoad);
-        }
+      // Use cached data - cache contains all feeds, so we can slice after sorting
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚡ Using cached database results (${cachedData!.feeds.length} feeds)`);
       }
+      feeds = cachedData!.feeds; // Cache contains all feeds, sorted correctly
+      publisherStats = cachedData!.publisherStats;
     }
     
     // Transform feeds into album format for frontend
@@ -451,18 +399,8 @@ export async function GET(request: Request) {
     }
     
     // Get accurate total count of filtered results
-    // For filters, we loaded all feeds, so filteredAlbums.length is the accurate total count
-    // For 'all' filter with pagination, we need to estimate total count
+    // Since we always load all feeds, filteredAlbums.length is the accurate total count
     let totalCount = filteredAlbums.length;
-    
-    // If using pagination for 'all' filter and we loaded a subset, estimate total
-    // by using the ratio of loaded feeds vs filtered albums
-    if (filter === 'all' && shouldPaginate && feeds.length < totalFeedCount) {
-      // Estimate: if we filtered X albums from Y feeds, total would be approximately:
-      // (filteredAlbums / loadedFeeds) * totalFeeds
-      // But since 'all' filter doesn't actually filter, we can use totalFeedCount as approximation
-      totalCount = totalFeedCount;
-    }
     
     // Apply final pagination to filtered results
     const paginatedAlbums = filteredAlbums.slice(offset, offset + limit);
