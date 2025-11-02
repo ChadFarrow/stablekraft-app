@@ -201,6 +201,12 @@ test-*.html
 failed-uploads.txt
 relay-events.json
 batch-*.txt
+# Root level analysis/data files (should be in data/ or docs/)
+lightning-thrashes-*.json
+itdv-music-feed-*.json
+lighthouse-baseline.json
+feeds-*.json
+*.code-workspace
 # Keep .taskmaster files (task management)
 !.taskmaster/
 
