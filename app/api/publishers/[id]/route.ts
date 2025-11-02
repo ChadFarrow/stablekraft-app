@@ -34,9 +34,53 @@ export async function GET(
     
     console.log(`📊 Loaded ${feeds.length} feeds from database for publisher lookup`);
     
-    // Find feeds that match the publisher ID by artist name or slug
-    // Prioritize exact artist matches over ID matches to avoid confusion
+    // First, try to find the publisher feed itself
+    const publisherFeeds = await prisma.feed.findMany({
+      where: {
+        type: 'publisher',
+        status: 'active'
+      },
+      select: {
+        id: true,
+        title: true,
+        artist: true,
+        description: true,
+        image: true,
+        originalUrl: true
+      }
+    });
+    
+    // Try to match publisher feed by slug
+    const searchId = publisherId.toLowerCase();
+    let publisherFeed = null;
+    
+    // Try matching by title or artist slug
+    publisherFeed = publisherFeeds.find((feed) => {
+      // Try matching by title slug
+      if (feed.title) {
+        const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
+        if (titleToSlug === searchId) return true;
+      }
+      // Try matching by artist slug
+      if (feed.artist) {
+        const artistToSlug = feed.artist.toLowerCase().replace(/\s+/g, '-');
+        if (artistToSlug === searchId) return true;
+      }
+      return false;
+    });
+    
+    // If publisher feed found, find albums by matching artist
     const matchingFeeds = feeds.filter(feed => {
+      // If we found a publisher feed, match by artist
+      if (publisherFeed) {
+        const publisherArtist = (publisherFeed.artist || publisherFeed.title)?.toLowerCase();
+        const feedArtist = feed.artist?.toLowerCase();
+        if (publisherArtist && feedArtist && publisherArtist === feedArtist) {
+          return true;
+        }
+      }
+      
+      // Fallback: match by artist slug or name directly
       const feedSlug = generateAlbumSlug(feed.artist || feed.title);
       const feedId = feed.id.split('-')[0];
       
@@ -48,7 +92,6 @@ export async function GET(
       }
       
       // Second priority: feed ID matches, but only if artist doesn't conflict
-      // This prevents iroh-album-* feeds with Joe Martin content from matching "iroh"
       if (feedId === publisherId || feed.id.includes(publisherId)) {
         // If the publisher ID is "iroh", only match if the artist is actually "IROH"
         if (publisherId === 'iroh') {
@@ -78,8 +121,8 @@ export async function GET(
     
     console.log(`✅ Found ${matchingFeeds.length} feeds for publisher: ${publisherId}`);
     
-    // Create publisher info from the feeds
-    const primaryFeed = matchingFeeds[0];
+    // Create publisher info from the publisher feed (if found) or primary album feed
+    const primaryFeed = publisherFeed || matchingFeeds[0];
     const totalTracks = matchingFeeds.reduce((sum, feed) => sum + feed.Track.length, 0);
     
     // Create album items from the feeds
@@ -102,16 +145,18 @@ export async function GET(
     
     const response = {
       id: publisherId,
-      title: primaryFeed.artist || primaryFeed.title,
-      originalUrl: primaryFeed.originalUrl,
+      title: primaryFeed?.artist || primaryFeed?.title || publisherId,
+      originalUrl: primaryFeed?.originalUrl || '',
       parseStatus: 'success',
       lastParsed: new Date().toISOString(),
       publisherInfo: {
-        title: primaryFeed.artist || primaryFeed.title,
-        artist: primaryFeed.artist,
-        feedGuid: primaryFeed.id,
-        image: primaryFeed.image,
-        description: primaryFeed.description
+        name: primaryFeed?.artist || primaryFeed?.title || publisherId,
+        title: primaryFeed?.title || primaryFeed?.artist || publisherId,
+        artist: primaryFeed?.artist,
+        feedGuid: primaryFeed?.id || '',
+        feedUrl: primaryFeed?.originalUrl || '',
+        image: primaryFeed?.image,
+        description: primaryFeed?.description
       },
       publisherItems: publisherItems,
       itemCount: publisherItems.length,

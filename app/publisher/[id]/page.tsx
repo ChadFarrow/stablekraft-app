@@ -80,7 +80,7 @@ async function loadPublisherData(publisherId: string) {
     // Also try matching by slug if title doesn't match
     if (!publisherFeed) {
       const searchId = publisherId.toLowerCase();
-      // Convert any publisher feed title to slug format and compare
+      // Convert any publisher feed title or artist to slug format and compare
       const allPublishers = await prisma.feed.findMany({
         where: {
           type: 'publisher',
@@ -97,9 +97,17 @@ async function loadPublisherData(publisherId: string) {
       });
       
       publisherFeed = allPublishers.find((feed) => {
-        if (!feed.title) return false;
-        const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
-        return titleToSlug === searchId;
+        // Try matching by title slug
+        if (feed.title) {
+          const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
+          if (titleToSlug === searchId) return true;
+        }
+        // Try matching by artist slug
+        if (feed.artist) {
+          const artistToSlug = feed.artist.toLowerCase().replace(/\s+/g, '-');
+          if (artistToSlug === searchId) return true;
+        }
+        return false;
       });
     }
     
