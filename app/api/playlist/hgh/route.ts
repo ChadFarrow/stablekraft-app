@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
+import { resolveItemGuid } from '@/lib/feed-discovery';
+import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 import { prisma } from '@/lib/prisma';
 
 // Increase timeout for this route to 5 minutes
@@ -99,26 +100,15 @@ export async function GET(request: Request) {
     console.log('📋 Found remote items:', remoteItems.length);
     console.log('🎨 Found artwork URL:', artworkUrl);
 
-    // Resolve playlist items to get actual track data from the database
     console.log('🔍 Resolving playlist items to actual tracks...');
+    
+    // AUTOMATIC FEED POPULATION - This is now automatic for all playlists!
+    const allFeedGuids = parseRemoteItemsForFeeds(xmlText);
+    await autoPopulateFeeds(allFeedGuids, 'Homegrown Hits');
+    
+    // Resolve playlist items to get actual track data from the database
     const resolvedTracks = await resolvePlaylistItems(remoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
-
-    // Auto-discover and add unresolved feeds to database
-    const unresolvedItems = remoteItems.filter(item => {
-      return !resolvedTracks.find(track => track.playlistContext?.itemGuid === item.itemGuid);
-    });
-    
-    if (unresolvedItems.length > 0) {
-      console.log(`🔍 Processing ${unresolvedItems.length} unresolved items for feed discovery...`);
-      try {
-        const addedFeedsCount = await processPlaylistFeedDiscovery(unresolvedItems);
-        console.log(`✅ Feed discovery: ${addedFeedsCount} new feeds added to database`);
-      } catch (error) {
-        console.error('❌ Error during feed discovery:', error);
-        // Continue with playlist creation even if feed discovery fails
-      }
-    }
 
     // Create a map of resolved tracks by itemGuid for quick lookup
     const resolvedTrackMap = new Map(
@@ -126,7 +116,7 @@ export async function GET(request: Request) {
     );
 
     // Create tracks for ALL remote items, using resolved data when available
-    const tracks = remoteItems.map((item, index) => {
+    const tracksUnsorted = remoteItems.map((item, index) => {
       const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
 
       if (resolvedTrack) {
@@ -163,6 +153,19 @@ export async function GET(request: Request) {
           description: `Music track referenced in Homegrown Hits podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
         };
       }
+    });
+
+    // Sort tracks alphabetically by artist, then by title
+    const tracks = tracksUnsorted.sort((a, b) => {
+      const artistA = (a.artist || '').toLowerCase();
+      const artistB = (b.artist || '').toLowerCase();
+      if (artistA !== artistB) {
+        return artistA.localeCompare(artistB);
+      }
+      // If artists are the same, sort by title
+      const titleA = (a.title || '').toLowerCase();
+      const titleB = (b.title || '').toLowerCase();
+      return titleA.localeCompare(titleB);
     });
 
     // Create a single virtual album that represents the HGH playlist
