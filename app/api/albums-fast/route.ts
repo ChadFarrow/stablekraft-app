@@ -386,8 +386,8 @@ export async function GET(request: Request) {
         return aFormatOrder - bFormatOrder;
       }
       
-      // Then sort alphabetically by title within each format
-      return a.title.localeCompare(b.title);
+      // Then sort alphabetically by title within each format (case-insensitive)
+      return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
     });
     
     // Add playlist albums only when specifically requesting playlists
