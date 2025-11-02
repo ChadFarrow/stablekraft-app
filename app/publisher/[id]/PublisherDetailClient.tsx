@@ -182,9 +182,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       console.log('📋 Publisher items count:', initialData.publisherItems?.length);
       console.log('📋 Publisher info:', initialData.publisherInfo);
       
-      // Set publisher info from initial data if available
-      if (initialData.publisherInfo && !publisherInfo) {
-        console.log('📋 Setting publisher info from initial data');
+      // Set publisher info from initial data if available (update even if already set)
+      if (initialData.publisherInfo) {
+        console.log('📋 Setting publisher info from initial data:', initialData.publisherInfo);
         setPublisherInfo({
           title: initialData.publisherInfo.name || initialData.publisherInfo.title || publisherId,
           description: initialData.publisherInfo.description || '',
@@ -192,6 +192,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           coverArt: initialData.publisherInfo.image,
           avatarArt: initialData.publisherInfo.image
         });
+        setIsLoading(false);
       }
       
       // PRIORITY 1: Use albums from server-side (already fetched and optimized)
