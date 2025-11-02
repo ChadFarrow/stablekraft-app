@@ -196,47 +196,150 @@ async function loadPublisherData(publisherId: string) {
       artistName = publisherFeed.artist || publisherFeed.title;
     }
 
-    // Get related albums for this publisher (feeds with same artist) - optimized query
-    // Match by artist field (case-insensitive)
-    const relatedFeeds = await prisma.feed.findMany({
-      where: {
-        artist: { equals: artistName, mode: 'insensitive' },
-        type: { in: ['album', 'music'] },
-        status: 'active'
-      },
-      select: {
-        id: true,
-        title: true,
-        artist: true,
-        description: true,
-        image: true,
-        lastFetched: true,
-        createdAt: true,
-        originalUrl: true,
-        Track: {
-          where: {
-            audioUrl: { not: '' }
-          },
-          orderBy: [
-            { trackOrder: 'asc' },
-            { publishedAt: 'asc' },
-            { createdAt: 'asc' }
+    // Try to fetch and parse publisher feed to get remote items
+    let remoteItemGuids: string[] = [];
+    if (publisherFeed.originalUrl && publisherFeed.originalUrl.trim() !== '') {
+      try {
+        console.log(`📡 Fetching publisher feed XML to extract remote items: ${publisherFeed.originalUrl}`);
+        const feedResponse = await fetch(publisherFeed.originalUrl, {
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
+        
+        if (feedResponse.ok) {
+          const xmlText = await feedResponse.text();
+          
+          // Extract podcast:remoteItem tags (for music/album feeds, not publisher references)
+          const remoteItemRegex = /<podcast:remoteItem[^>]*>/g;
+          const matches = xmlText.match(remoteItemRegex) || [];
+          
+          for (const match of matches) {
+            const feedGuidMatch = match.match(/feedGuid="([^"]+)"/);
+            const feedUrlMatch = match.match(/feedUrl="([^"]+)"/);
+            const mediumMatch = match.match(/medium="([^"]+)"/);
+            
+            const medium = mediumMatch?.[1] || 'music';
+            
+            // Only collect album/music remote items, not publisher references
+            if (medium === 'music' && feedGuidMatch) {
+              remoteItemGuids.push(feedGuidMatch[1]);
+            } else if (!mediumMatch && feedGuidMatch) {
+              // Default to music if no medium specified
+              remoteItemGuids.push(feedGuidMatch[1]);
+            }
+            
+            // Also try to match by feedUrl pattern (music feeds have /feed/music/, not /feed/artist/)
+            if (feedUrlMatch && feedUrlMatch[1].includes('/feed/music/')) {
+              if (feedGuidMatch) {
+                remoteItemGuids.push(feedGuidMatch[1]);
+              }
+            }
+          }
+          
+          console.log(`📋 Found ${remoteItemGuids.length} album remote items in publisher feed`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch publisher feed XML:', error);
+        // Continue with artist-based matching as fallback
+      }
+    }
+    
+    // Get related albums for this publisher - try remote items first, then fall back to artist matching
+    let relatedFeeds: any[] = [];
+    
+    // If we have remote items, find feeds by their GUIDs
+    if (remoteItemGuids.length > 0) {
+      console.log(`🔍 Looking for albums by remote item GUIDs: ${remoteItemGuids.slice(0, 5).join(', ')}...`);
+      relatedFeeds = await prisma.feed.findMany({
+        where: {
+          OR: [
+            { id: { in: remoteItemGuids } },
+            { originalUrl: { contains: remoteItemGuids[0] } } // Also try URL matching
           ],
+          type: { in: ['album', 'music'] },
+          status: 'active'
+        },
           select: {
             id: true,
             title: true,
-            duration: true,
-            audioUrl: true,
-            trackOrder: true,
-            publishedAt: true
+            artist: true,
+            description: true,
+            image: true,
+            lastFetched: true,
+            createdAt: true,
+            originalUrl: true,
+            Track: {
+              where: {
+                audioUrl: { not: '' }
+              },
+              orderBy: [
+                { trackOrder: 'asc' },
+                { publishedAt: 'asc' },
+                { createdAt: 'asc' }
+              ],
+              select: {
+                id: true,
+                title: true,
+                duration: true,
+                audioUrl: true,
+                trackOrder: true,
+                publishedAt: true
+              }
+            }
+          },
+          orderBy: [
+            { priority: 'asc' },
+            { createdAt: 'desc' }
+          ]
+      });
+      
+      console.log(`✅ Found ${relatedFeeds.length} albums via remote item GUIDs`);
+    }
+    
+    // Fallback: If no albums found via remote items, try artist matching
+    if (relatedFeeds.length === 0) {
+      console.log(`🔍 No albums found via remote items, trying artist matching: "${artistName}"`);
+      relatedFeeds = await prisma.feed.findMany({
+        where: {
+          artist: { equals: artistName, mode: 'insensitive' },
+          type: { in: ['album', 'music'] },
+          status: 'active'
+        },
+        select: {
+          id: true,
+          title: true,
+          artist: true,
+          description: true,
+          image: true,
+          lastFetched: true,
+          createdAt: true,
+          originalUrl: true,
+          Track: {
+            where: {
+              audioUrl: { not: '' }
+            },
+            orderBy: [
+              { trackOrder: 'asc' },
+              { publishedAt: 'asc' },
+              { createdAt: 'asc' }
+            ],
+            select: {
+              id: true,
+              title: true,
+              duration: true,
+              audioUrl: true,
+              trackOrder: true,
+              publishedAt: true
+            }
           }
-        }
-      },
-      orderBy: [
-        { priority: 'asc' },
-        { createdAt: 'desc' }
-      ]
-    });
+        },
+        orderBy: [
+          { priority: 'asc' },
+          { createdAt: 'desc' }
+        ]
+      });
+      
+      console.log(`✅ Found ${relatedFeeds.length} albums via artist matching`);
+    }
 
     // Transform related feeds to albums format with actual tracks
     const albums = relatedFeeds
