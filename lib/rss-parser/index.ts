@@ -205,7 +205,7 @@ export class RSSParser {
                 const channels = xmlDoc.getElementsByTagName('channel');
                 if (channels && channels.length > 0) {
                   const channel = channels[0];
-                  const publisher = this.extractPublisher(channel);
+                  const publisher = this.extractPublisher(channel as any);
                   if (publisher) {
                     podcastIndexResult.publisher = publisher;
                     verboseLog('[RSSParser] Extracted publisher info from RSS feed', {
@@ -383,7 +383,7 @@ export class RSSParser {
       const podroll = this.extractPodroll(channel);
 
       // Extract publisher info
-      const publisher = this.extractPublisher(channel);
+      const publisher = this.extractPublisher(channel as any);
 
       // Extract V4V data
       const value4Value = this.extractValue4Value(channel);
@@ -566,7 +566,7 @@ export class RSSParser {
     return [];
   }
 
-  private static extractPublisher(channel: Element): RSSPublisher | undefined {
+  private static extractPublisher(channel: any): RSSPublisher | undefined {
     // Extract podcast:remoteItem elements with medium="publisher" from channel
     // These reference the publisher feed for album feeds
     const allElements = channel.getElementsByTagName('*');
