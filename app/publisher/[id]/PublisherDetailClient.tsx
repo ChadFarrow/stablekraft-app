@@ -180,6 +180,19 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       console.log('📋 Using initial data for publisher');
       console.log('📋 Server-provided albums count:', initialData.albums?.length);
       console.log('📋 Publisher items count:', initialData.publisherItems?.length);
+      console.log('📋 Publisher info:', initialData.publisherInfo);
+      
+      // Set publisher info from initial data if available
+      if (initialData.publisherInfo && !publisherInfo) {
+        console.log('📋 Setting publisher info from initial data');
+        setPublisherInfo({
+          title: initialData.publisherInfo.name || initialData.publisherInfo.title || publisherId,
+          description: initialData.publisherInfo.description || '',
+          artist: initialData.publisherInfo.name || initialData.publisherInfo.artist || publisherId,
+          coverArt: initialData.publisherInfo.image,
+          avatarArt: initialData.publisherInfo.image
+        });
+      }
       
       // PRIORITY 1: Use albums from server-side (already fetched and optimized)
       if (initialData.albums && initialData.albums.length > 0) {
