@@ -16,14 +16,12 @@ interface NowPlayingProps {
   track: Track;
   isPlaying: boolean;
   currentTime: number;
-  volume: number;
   isShuffleMode?: boolean;
   repeatMode?: 'none' | 'one' | 'all';
   onPlayPause: () => void;
   onPrevious: () => void;
   onNext: () => void;
   onSeek: (time: number) => void;
-  onVolumeChange: (volume: number) => void;
   onClose: () => void;
   onToggleShuffle?: () => void;
   onToggleRepeat?: () => void;
@@ -34,14 +32,12 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
   track,
   isPlaying,
   currentTime,
-  volume,
   isShuffleMode = false,
   repeatMode = 'none',
   onPlayPause,
   onPrevious,
   onNext,
   onSeek,
-  onVolumeChange,
   onClose,
   onToggleShuffle,
   onToggleRepeat,
@@ -241,27 +237,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
         </span>
       </div>
       
-      {/* Volume Control and Close Button - Hide volume on mobile */}
+      {/* Close Button */}
       <div className="flex items-center gap-3">
-        {/* Volume Control - Hidden on mobile */}
-        <div className="hidden md:flex items-center gap-2">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-          </svg>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={volume}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-            style={{
-              background: `linear-gradient(to right, white 0%, white ${volume * 100}%, #4b5563 ${volume * 100}%, #4b5563 100%)`
-            }}
-          />
-        </div>
-        
         <button
           onClick={onClose}
           className="text-white hover:text-gray-300 transition-colors"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import NowPlaying from './NowPlaying';
 import { useAudio } from '@/contexts/AudioContext';
 
@@ -25,8 +25,6 @@ const GlobalNowPlayingBar: React.FC = () => {
     toggleShuffle
   } = useAudio();
 
-  const [volume, setVolume] = useState(0.6);
-
   // Don't render if nothing is playing or if fullscreen mode is active
   if (!currentPlayingAlbum || isFullscreenMode) {
     return null;
@@ -42,11 +40,6 @@ const GlobalNowPlayingBar: React.FC = () => {
 
   const handleSeek = (time: number) => {
     seek(time);
-  };
-
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume);
-    // TODO: Implement volume control in AudioContext
   };
 
   const handleClose = () => {
@@ -123,14 +116,12 @@ const GlobalNowPlayingBar: React.FC = () => {
         track={currentTrack}
         isPlaying={isPlaying}
         currentTime={currentTime}
-        volume={volume}
         isShuffleMode={isShuffleMode}
         repeatMode={repeatMode}
         onPlayPause={handlePlayPause}
         onPrevious={playPreviousTrack}
         onNext={playNextTrack}
         onSeek={handleSeek}
-        onVolumeChange={handleVolumeChange}
         onClose={handleClose}
         onToggleShuffle={toggleShuffle}
         onToggleRepeat={handleToggleRepeat}
