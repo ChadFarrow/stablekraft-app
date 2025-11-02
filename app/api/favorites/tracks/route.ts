@@ -106,20 +106,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify track exists
-    const track = await prisma.track.findUnique({
+    // Verify track exists - try id first, then guid
+    let track = await prisma.track.findUnique({
       where: { id: trackId }
     });
 
+    // If not found by id, try guid
     if (!track) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Track not found'
-        },
-        { status: 404 }
-      );
+      track = await prisma.track.findUnique({
+        where: { guid: trackId }
+      });
     }
+
+    // If still not found, allow saving anyway (tracks might not be in DB yet)
+    // This allows favoriting tracks that haven't been indexed yet
+    // The trackId will be stored and can be matched later when the track is added to DB
 
     // Check if already favorited
     const existing = await prisma.favoriteTrack.findUnique({
