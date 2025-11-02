@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
 
     logger.info('Fetching value splits', { feedGuid, itemGuid, trackId });
 
-    let matchingFeed = null;
-    let matchingTrack = null;
+    let matchingFeed: any = null;
+    let matchingTrack: any = null;
 
     // First try to find by specific track if itemGuid provided
     if (itemGuid) {
