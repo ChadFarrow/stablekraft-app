@@ -5,16 +5,229 @@
 import { AppError, ErrorCodes, withRetry, createErrorLogger } from '../error-utils';
 import { RSSUtils, verboseLog } from './utils';
 import type { RSSAlbum, RSSTrack, RSSValue4Value, RSSPublisher } from './types';
+import crypto from 'crypto';
 
 export * from './types';
 
 export class RSSParser {
   private static readonly logger = createErrorLogger('RSSParser');
 
+  /**
+   * Try to fetch from PodcastIndex API first
+   * Returns null if PodcastIndex is not available or doesn't have the feed
+   */
+  private static async tryPodcastIndexAPI(feedUrl: string): Promise<RSSAlbum | null> {
+    const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
+    const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
+    const PODCAST_INDEX_BASE_URL = 'https://api.podcastindex.org/api/1.0';
+
+    // Check if API keys are available (server-side only)
+    if (typeof window !== 'undefined' || !PODCAST_INDEX_API_KEY || !PODCAST_INDEX_API_SECRET) {
+      return null;
+    }
+
+    try {
+      verboseLog('[RSSParser] Trying PodcastIndex API first', { feedUrl });
+
+      // Generate auth headers for PodcastIndex
+      const apiHeaderTime = Math.floor(Date.now() / 1000);
+      const hash = crypto.createHash('sha1');
+      hash.update(PODCAST_INDEX_API_KEY + PODCAST_INDEX_API_SECRET + apiHeaderTime);
+      const hashString = hash.digest('hex');
+
+      // Fetch episodes by feed URL from PodcastIndex
+      const apiUrl = `${PODCAST_INDEX_BASE_URL}/episodes/byfeedurl?url=${encodeURIComponent(feedUrl)}&max=1000`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'X-Auth-Key': PODCAST_INDEX_API_KEY,
+          'X-Auth-Date': apiHeaderTime.toString(),
+          'Authorization': hashString,
+          'User-Agent': 're.podtards.com'
+        }
+      });
+
+      if (!response.ok) {
+        // PodcastIndex API failed - will fall back to direct RSS
+        verboseLog('[RSSParser] PodcastIndex API failed, will fall back to direct RSS', {
+          feedUrl,
+          status: response.status
+        });
+        return null;
+      }
+
+      const data = await response.json();
+
+      // Check if PodcastIndex has valid data for this feed
+      if (!data.items || !data.items.length || !data.feed || !data.feed.title) {
+        verboseLog('[RSSParser] PodcastIndex missing feed data, will fall back to direct RSS', { feedUrl });
+        return null;
+      }
+
+      // Convert PodcastIndex JSON to RSSAlbum format
+      return this.convertPodcastIndexToRSSAlbum(data, feedUrl);
+
+    } catch (error) {
+      // PodcastIndex API error - will fall back to direct RSS
+      verboseLog('[RSSParser] PodcastIndex API error, will fall back to direct RSS', {
+        feedUrl,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Convert PodcastIndex API JSON response to RSSAlbum format
+   */
+  private static convertPodcastIndexToRSSAlbum(data: any, feedUrl: string): RSSAlbum {
+    const feed = data.feed || {};
+    const items = data.items || [];
+
+    // Extract tracks from PodcastIndex items
+    const tracks: RSSTrack[] = items.map((item: any, index: number) => {
+      // Parse duration (can be in seconds or "MM:SS" or "HH:MM:SS" format)
+      let durationInSeconds = 0;
+      if (item.duration) {
+        const durationStr = item.duration.toString();
+        if (durationStr.includes(':')) {
+          const parts = durationStr.split(':').map(Number);
+          if (parts.length === 2) {
+            durationInSeconds = parts[0] * 60 + parts[1];
+          } else if (parts.length === 3) {
+            durationInSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+          }
+        } else {
+          durationInSeconds = parseInt(durationStr, 10);
+        }
+      }
+
+      const duration = durationInSeconds > 0 
+        ? `${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`
+        : '0:00';
+
+      return {
+        title: item.title || `Track ${index + 1}`,
+        duration,
+        url: item.enclosureUrl || '',
+        trackNumber: index + 1,
+        subtitle: item.subtitle || '',
+        summary: RSSUtils.cleanHtmlContent(item.description || ''),
+        image: item.image || feed.image || feed.artwork || null,
+        explicit: item.itunesExplicit === 'yes' || item.explicit === true,
+        keywords: item.itunesKeywords ? (Array.isArray(item.itunesKeywords) ? item.itunesKeywords : item.itunesKeywords.split(',').map((k: string) => k.trim())) : [],
+        guid: item.guid || item.id || `${feedUrl}-item-${index}`,
+        id: item.guid || item.id || `${feedUrl}-item-${index}`,
+        publishedAt: item.datePublished ? new Date(item.datePublished * 1000).toISOString() : new Date().toISOString(),
+        v4vRecipient: item.value?.model?.recipients?.[0]?.name || null,
+        v4vValue: item.value || null,
+        musicTrack: true
+      };
+    });
+
+    // Calculate total duration
+    const totalSeconds = tracks.reduce((sum, track) => {
+      const [mins, secs] = track.duration.split(':').map(Number);
+      return sum + (mins * 60) + secs;
+    }, 0);
+    const duration = totalSeconds > 0
+      ? `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`
+      : '0:00';
+
+    // Extract publisher info if available in feed
+    let publisher: RSSPublisher | undefined;
+    // Note: PodcastIndex API may not include publisher info from remoteItem
+    // We'll need to extract it from the RSS feed URL if available
+
+    // Extract categories and keywords
+    const categories: string[] = feed.itunesCategories || [];
+    const keywords: string[] = feed.itunesKeywords 
+      ? (Array.isArray(feed.itunesKeywords) ? feed.itunesKeywords : feed.itunesKeywords.split(',').map((k: string) => k.trim()))
+      : [];
+
+    // Determine release date
+    const releaseDate = feed.lastUpdateTime 
+      ? new Date(feed.lastUpdateTime * 1000).toISOString()
+      : tracks.length > 0 && tracks[0].publishedAt
+        ? tracks[0].publishedAt
+        : new Date().toISOString();
+
+    const album: RSSAlbum = {
+      title: feed.title || 'Unknown Title',
+      artist: feed.author || feed.ownerName || 'Unknown Artist',
+      description: RSSUtils.cleanHtmlContent(feed.description || ''),
+      coverArt: feed.image || feed.artwork || null,
+      tracks,
+      releaseDate,
+      duration,
+      link: feed.link || feed.url || feedUrl,
+      explicit: feed.itunesExplicit === 'yes' || feed.explicit === true,
+      language: feed.language || 'en',
+      keywords,
+      categories,
+      publisher,
+      isMusicTrackAlbum: true,
+      source: feedUrl,
+      id: this.generateAlbumId(feed.title || 'Unknown', feed.author || 'Unknown'),
+      feedId: feedUrl,
+      feedGuid: feed.podcastGuid || undefined,
+      feedUrl: feedUrl
+    };
+
+    this.logger.info('Successfully parsed feed from PodcastIndex API', {
+      feedUrl,
+      title: album.title,
+      trackCount: album.tracks.length
+    });
+
+    return album;
+  }
+
   static async parseAlbumFeed(feedUrl: string): Promise<RSSAlbum | null> {
     return withRetry(async () => {
       verboseLog('[RSSParser] Parsing RSS feed', { feedUrl });
 
+      // Try PodcastIndex API first (server-side only)
+      if (typeof window === 'undefined') {
+        const podcastIndexResult = await this.tryPodcastIndexAPI(feedUrl);
+        if (podcastIndexResult) {
+          // Successfully got data from PodcastIndex - but we still need to extract publisher
+          // from the original RSS feed since PodcastIndex API doesn't include remoteItem elements
+          // Do a lightweight RSS fetch just to extract publisher info
+          try {
+            const rssResponse = await fetch(feedUrl);
+            if (rssResponse.ok) {
+              const xmlText = await rssResponse.text();
+              if (RSSUtils.isValidRSSContent(xmlText)) {
+                const { DOMParser } = await import('@xmldom/xmldom');
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                const channels = xmlDoc.getElementsByTagName('channel');
+                if (channels && channels.length > 0) {
+                  const channel = channels[0];
+                  const publisher = this.extractPublisher(channel);
+                  if (publisher) {
+                    podcastIndexResult.publisher = publisher;
+                    verboseLog('[RSSParser] Extracted publisher info from RSS feed', {
+                      feedUrl,
+                      publisherGuid: publisher.feedGuid
+                    });
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            // If RSS fetch fails for publisher extraction, continue with PodcastIndex result
+            verboseLog('[RSSParser] Failed to extract publisher from RSS (non-critical)', {
+              feedUrl,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+          return podcastIndexResult;
+        }
+      }
+
+      // Fall back to direct RSS fetch
       // For server-side fetching, always use direct URLs
       // For client-side fetching, use the proxy
       const isServer = typeof window === 'undefined';

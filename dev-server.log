@@ -6085,3 +6085,24 @@ prisma:query SELECT COUNT(*) AS "_count$_all" FROM (SELECT "public"."Track"."id"
  ✓ Compiled in 31ms (184 modules)
  ✓ Compiled in 38ms (184 modules)
  ✓ Compiled in 48ms (184 modules)
+ ✓ Compiled /api/albums-fast in 179ms (332 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/chad-mini/Vibe/apps/FUCKIT/.next/prerender-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/chad-mini/Vibe/apps/FUCKIT/.next/prerender-manifest.json',
+  page: '/api/albums-fast'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 592ms (665 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/chad-mini/Vibe/apps/FUCKIT/.next/prerender-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/chad-mini/Vibe/apps/FUCKIT/.next/prerender-manifest.json'
+}
+Time 2.1635
+ GET /api/albums-fast?limit=50&offset=0&filter=all 500 in 1720ms
+ ✓ Compiled in 88ms (335 modules)
+ ✓ Compiled in 43ms (109 modules)
+ ✓ Compiled in 141ms (438 modules)

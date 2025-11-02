@@ -88,6 +88,19 @@ export async function GET(request: Request) {
           keywords: track.itunesKeywords || []
         }));
         
+        // Get publisher info from stored database fields (not parsed in real-time)
+        let publisherInfo = null;
+        if (feed.v4vValue && typeof feed.v4vValue === 'object' && 'publisher' in feed.v4vValue) {
+          const pubData = (feed.v4vValue as any).publisher;
+          if (pubData?.feedGuid && pubData?.feedUrl) {
+            publisherInfo = {
+              feedGuid: pubData.feedGuid,
+              feedUrl: pubData.feedUrl,
+              medium: pubData.medium || 'publisher'
+            };
+          }
+        }
+        
         parsedData = {
           album: {
             id: feed.id,
@@ -99,7 +112,8 @@ export async function GET(request: Request) {
             explicit: tracks.some(t => t.explicit) || feed.explicit,
             tracks: tracks,
             feedId: feed.id,
-            feedUrl: feed.originalUrl
+            feedUrl: feed.originalUrl,
+            ...(publisherInfo ? { publisher: publisherInfo } : {})
           }
         };
       }
