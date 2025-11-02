@@ -203,8 +203,44 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
     } catch (error) {
       console.log(`🚨 Error in loadTracks for ${config.title}:`, error);
+      
+      // Handle network errors more gracefully
+      let errorMessage = 'Failed to load tracks';
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Network error: Unable to connect to the server. Please check your connection and try again.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       logger.error(`❌ Error loading ${config.title} tracks:`, error);
-      setError(error instanceof Error ? error.message : 'Failed to load tracks');
+      setError(errorMessage);
+      
+      // Try to use cached data as fallback if available
+      try {
+        const cachedDataStr = localStorage.getItem(config.cacheKey);
+        if (cachedDataStr) {
+          const cachedData: CachedData = JSON.parse(cachedDataStr);
+          const cacheAge = Date.now() - cachedData.timestamp;
+          const maxCacheAge = config.cacheDuration || 3600000; // Default 1 hour
+          
+          // Use cached data even if it's old (better than nothing)
+          if (cachedData.tracks && cachedData.tracks.length > 0) {
+            console.log(`⚠️ Using cached data as fallback for ${config.title} (cache age: ${Math.floor(cacheAge / 1000)}s)`);
+            setTracks(cachedData.tracks);
+            if (cachedData.artwork) {
+              setPlaylistArtwork(cachedData.artwork);
+            }
+            if (cachedData.link) {
+              setPlaylistLink(cachedData.link);
+            }
+            setCacheStatus('stale');
+            setError(null); // Clear error if we have cached data
+            return; // Don't set loading to false here, let finally do it
+          }
+        }
+      } catch (cacheError) {
+        console.warn(`Failed to read cache for ${config.title}:`, cacheError);
+      }
     } finally {
       console.log(`🚨 loadTracks finally block for ${config.title}`);
       setLoading(false);
