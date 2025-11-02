@@ -435,36 +435,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-stablekraft-teal" />
-          <p className="text-gray-300">Loading {config.title}...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Error Loading Playlist</h2>
-          <p className="text-gray-300 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-stablekraft-teal text-white px-4 py-2 rounded-lg hover:bg-stablekraft-orange transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Optimized background style calculation - memoized to prevent repeated logs
+  // MUST be called before any early returns to follow React hooks rules
   const backgroundStyle = useMemo(() => {
     // Create a fixed background that overrides the global layout background
     const baseStyle = {
@@ -507,6 +479,36 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
     return style;
   }, [playlistArtwork, isClient]);
+
+  // Early returns AFTER all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-stablekraft-teal" />
+          <p className="text-gray-300">Loading {config.title}...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Error Loading Playlist</h2>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-stablekraft-teal text-white px-4 py-2 rounded-lg hover:bg-stablekraft-orange transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden">
