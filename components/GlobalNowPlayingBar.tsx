@@ -3,6 +3,7 @@
 import React from 'react';
 import NowPlaying from './NowPlaying';
 import { useAudio } from '@/contexts/AudioContext';
+import { getPlaceholderImageUrl } from '@/lib/cdn-utils';
 
 const GlobalNowPlayingBar: React.FC = () => {
   const {
@@ -72,16 +73,35 @@ const GlobalNowPlayingBar: React.FC = () => {
     return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
   };
 
+  // Get the artwork URL with proper fallbacks
+  const getArtworkUrl = (): string => {
+    const track = currentPlayingAlbum.tracks?.[currentTrackIndex];
+    const trackImage = track?.image;
+    const albumCoverArt = currentPlayingAlbum.coverArt;
+    
+    // Prioritize track image, then album cover art
+    // Check if track image is valid
+    if (trackImage && trackImage.trim() !== '' && trackImage !== 'null') {
+      return getProxiedImageUrl(trackImage);
+    }
+    
+    // Fallback to album cover art if valid
+    if (albumCoverArt && albumCoverArt.trim() !== '' && albumCoverArt !== 'null') {
+      return getProxiedImageUrl(albumCoverArt);
+    }
+    
+    // Use placeholder when no artwork is available
+    return getPlaceholderImageUrl('thumbnail');
+  };
+
   // Create track object for NowPlaying component
   const currentTrack = {
     title: currentPlayingAlbum.tracks?.[currentTrackIndex]?.title || `Track ${currentTrackIndex + 1}`,
     artist: currentPlayingAlbum.artist,
     albumTitle: currentPlayingAlbum.title,
     duration: duration || 0,
-    // Prioritize individual track image, fallback to album coverArt, and proxy external URLs
-    albumArt: getProxiedImageUrl(
-      currentPlayingAlbum.tracks?.[currentTrackIndex]?.image || currentPlayingAlbum.coverArt || ''
-    )
+    // Get artwork URL with proper fallbacks
+    albumArt: getArtworkUrl()
   };
 
   // Debug logging for artwork troubleshooting
