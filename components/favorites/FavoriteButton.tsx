@@ -123,8 +123,6 @@ export default function FavoriteButton({
           (error as any).status = response.status;
           throw error;
         }
-
-        toast.success(isTrack ? 'Track added to favorites' : 'Album added to favorites');
       } else {
         // Remove from favorites
         const response = await fetch(`${apiBase}/${itemId}`, {
@@ -144,8 +142,6 @@ export default function FavoriteButton({
           (error as any).status = response.status;
           throw error;
         }
-
-        toast.success(isTrack ? 'Track removed from favorites' : 'Album removed from favorites');
       }
     } catch (error) {
       // Revert optimistic update on error
