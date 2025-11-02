@@ -297,7 +297,7 @@ export default function HomePage() {
       setEnhancedAlbums(pageAlbums);
       setDisplayedAlbums(pageAlbums);
       setAlbums(pageAlbums); // Also set the main albums state
-      setHasMoreAlbums(totalCount > ALBUMS_PER_PAGE);
+      setHasMoreAlbums(pageAlbums.length >= ALBUMS_PER_PAGE);
       setIsCriticalLoaded(true);
       setIsEnhancedLoaded(true);
       setLoadingProgress(100);
