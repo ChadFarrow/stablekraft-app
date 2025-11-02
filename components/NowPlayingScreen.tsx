@@ -326,7 +326,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             )}
 
             {/* Favorite Button - Top-right corner overlay */}
-            {(currentTrack?.guid || currentTrack?.id) && (
+            {currentTrack?.guid && (
               <div
                 className="absolute top-4 right-4 z-20"
                 onClick={(e) => {
@@ -341,7 +341,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                   }}
                 >
                   <FavoriteButton
-                    trackId={currentTrack.guid || currentTrack.id}
+                    trackId={currentTrack.guid}
                     size={22}
                     className="text-white"
                   />
