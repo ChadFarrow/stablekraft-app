@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
       // For now, use Prisma's contains search which works well with indexes
       // Full-text search will be enabled when searchVector is populated via migration
       
-      tracks = await prisma.track.findMany({
+      let tracks = await prisma.track.findMany({
         where: {
           AND: whereConditions
         },
