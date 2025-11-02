@@ -7,6 +7,7 @@ import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 interface NowPlayingScreenProps {
   isOpen?: boolean;
@@ -310,7 +311,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             {(currentTrack?.v4vRecipient || currentTrack?.v4vValue) && (
               <button
                 onClick={() => setShowBoostModal(true)}
-                className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg"
+                className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg z-20"
                 style={{
                   backgroundColor: '#FBBF24', // Yellow color
                   color: '#000000',
@@ -322,6 +323,30 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               >
                 <Zap className="w-6 h-6" fill="#000000" />
               </button>
+            )}
+
+            {/* Favorite Button - Top-right corner overlay */}
+            {(currentTrack?.guid || currentTrack?.id) && (
+              <div
+                className="absolute top-4 right-4 z-20"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                <div
+                  className="bg-black/60 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors shadow-lg"
+                  style={{
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  <FavoriteButton
+                    trackId={currentTrack.guid || currentTrack.id}
+                    size={22}
+                    className="text-white"
+                  />
+                </div>
+              </div>
             )}
 
             {/* Reflection effect */}
