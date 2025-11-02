@@ -139,8 +139,8 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
     console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
     console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
     
-    // Look for podcast:valueRecipient tags within the value
-    const recipientRegex = /<podcast:valueRecipient[^>]*\/>/g;
+    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags)
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|><\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
@@ -225,8 +225,8 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
     console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
     
-    // Look for podcast:valueRecipient tags within the value
-    const recipientRegex = /<podcast:valueRecipient[^>]*\/>/g;
+    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags)
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|><\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
