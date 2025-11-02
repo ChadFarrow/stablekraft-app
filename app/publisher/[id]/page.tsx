@@ -96,19 +96,43 @@ async function loadPublisherData(publisherId: string) {
         }
       });
       
+      console.log(`🔍 Found ${allPublishers.length} publisher feeds in database`);
+      console.log(`🔍 Searching for publisher with slug: "${searchId}"`);
+      
+      // Log first few publishers for debugging
+      if (allPublishers.length > 0) {
+        console.log(`📋 Sample publishers (first 5):`);
+        allPublishers.slice(0, 5).forEach((feed, idx) => {
+          const titleSlug = feed.title?.toLowerCase().replace(/\s+/g, '-') || 'no-title';
+          const artistSlug = feed.artist?.toLowerCase().replace(/\s+/g, '-') || 'no-artist';
+          console.log(`  ${idx + 1}. id="${feed.id}", title="${feed.title}", artist="${feed.artist}"`);
+          console.log(`     title-slug="${titleSlug}", artist-slug="${artistSlug}"`);
+        });
+      }
+      
       publisherFeed = allPublishers.find((feed) => {
         // Try matching by title slug
         if (feed.title) {
           const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
-          if (titleToSlug === searchId) return true;
+          if (titleToSlug === searchId) {
+            console.log(`✅ Matched publisher by title slug: "${feed.title}" -> "${titleToSlug}"`);
+            return true;
+          }
         }
         // Try matching by artist slug
         if (feed.artist) {
           const artistToSlug = feed.artist.toLowerCase().replace(/\s+/g, '-');
-          if (artistToSlug === searchId) return true;
+          if (artistToSlug === searchId) {
+            console.log(`✅ Matched publisher by artist slug: "${feed.artist}" -> "${artistToSlug}"`);
+            return true;
+          }
         }
         return false;
       });
+      
+      if (!publisherFeed) {
+        console.log(`❌ No publisher feed matched slug "${searchId}"`);
+      }
     }
     
     if (!publisherFeed) {
