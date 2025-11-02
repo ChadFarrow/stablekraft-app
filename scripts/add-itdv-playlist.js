@@ -5,7 +5,6 @@
  * Plus add complete albums that playlist tracks belong to
  */
 
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -120,11 +119,18 @@ async function addITDVPlaylist() {
             });
         }
         
-        // Load existing database
-        const musicDbPath = path.join(process.cwd(), 'data', 'music-tracks.json');
-        const musicData = JSON.parse(fs.readFileSync(musicDbPath, 'utf8'));
-        
-        console.log(`\n📊 Current database has ${musicData.musicTracks.length} tracks`);
+        // All data is now stored in Prisma database
+        // Get current track count from database
+        let currentTrackCount = 0;
+        try {
+            const { PrismaClient } = require('@prisma/client');
+            const prismaCheck = new PrismaClient();
+            currentTrackCount = await prismaCheck.track.count();
+            await prismaCheck.$disconnect();
+            console.log(`\n📊 Current database has ${currentTrackCount} tracks`);
+        } catch (error) {
+            console.log(`\n📊 Checking current database...`);
+        }
         
         // Convert tracks to database format
         const dbTracks = [];
@@ -205,62 +211,102 @@ async function addITDVPlaylist() {
         
         console.log(`\n📦 Created ${dbTracks.length} database tracks`);
         
-        // Check for existing ITDV tracks to avoid duplicates
-        const existingITDVTracks = musicData.musicTracks.filter(track => 
-            track.source === 'ITDV Playlist Import'
-        );
+        console.log(`\n💾 Adding ${dbTracks.length} ITDV tracks to Prisma database...`);
         
-        if (existingITDVTracks.length > 0) {
-            console.log(`⚠️ Found ${existingITDVTracks.length} existing ITDV tracks - removing them first`);
-            musicData.musicTracks = musicData.musicTracks.filter(track => 
-                track.source !== 'ITDV Playlist Import'
-            );
-        }
+        // Convert dbTracks to Prisma format and add to database
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
         
-        // Add new tracks
-        musicData.musicTracks.push(...dbTracks);
+        let addedCount = 0;
+        let updatedCount = 0;
+        let errorCount = 0;
         
-        console.log(`➕ Added ${dbTracks.length} ITDV tracks to database`);
-        
-        // Update metadata
-        musicData.metadata = {
-            ...musicData.metadata,
-            lastUpdated: new Date().toISOString(),
-            itdvPlaylistImport: {
-                date: new Date().toISOString(),
-                sourceUrl: playlistUrl,
-                tracksAdded: dbTracks.length,
-                albumsAdded: albumFeeds.length,
-                singlesAdded: singleTrackFeeds.length + singleTracks.length,
-                note: 'Added tracks from ITDV music playlist'
-            }
-        };
-        
-        // Create backup
-        const backupPath = path.join(process.cwd(), 'data', `music-tracks-backup-itdv-playlist-${Date.now()}.json`);
-        const backupData = JSON.parse(fs.readFileSync(musicDbPath, 'utf8'));
-        fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
-        console.log(`\n📋 Backup created: ${path.basename(backupPath)}`);
-        
-        // Save updated database
-        fs.writeFileSync(musicDbPath, JSON.stringify(musicData, null, 2));
-        console.log(`💾 Database updated: ${musicData.musicTracks.length} total tracks`);
-        
-        // Regenerate optimized cache
-        console.log('\n🔄 Regenerating optimized cache...');
-        const { execSync } = require('child_process');
         try {
-            execSync('node scripts/create-optimized-cache.js', { stdio: 'pipe' });
-            console.log('✅ Optimized cache regenerated');
-        } catch (error) {
-            console.log('⚠️ Please manually regenerate cache');
+            for (const dbTrack of dbTracks) {
+                try {
+                    // Find or create feed
+                    let feed = await prisma.feed.findFirst({
+                        where: { originalUrl: dbTrack.feedUrl }
+                    });
+                    
+                    if (!feed && dbTrack.feedUrl) {
+                        feed = await prisma.feed.create({
+                            data: {
+                                id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                title: dbTrack.feedTitle || 'ITDV Playlist Feed',
+                                artist: dbTrack.feedArtist || null,
+                                originalUrl: dbTrack.feedUrl,
+                                type: 'album',
+                                status: 'active',
+                                image: dbTrack.feedImage || null,
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
+                    
+                    if (!feed) {
+                        throw new Error('Could not create feed');
+                    }
+                    
+                    // Generate track ID
+                    const trackId = dbTrack.guid || 
+                        `itdv-${feed.id}-${dbTrack.title.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`;
+                    
+                    // Check if track exists
+                    const existing = await prisma.track.findUnique({ where: { id: trackId } });
+                    
+                    const trackData = {
+                        id: trackId,
+                        guid: dbTrack.guid || trackId,
+                        title: dbTrack.title,
+                        artist: dbTrack.feedArtist || null,
+                        album: dbTrack.feedTitle || null,
+                        audioUrl: dbTrack.enclosureUrl || '',
+                        duration: dbTrack.duration ? Math.round(dbTrack.duration) : null,
+                        image: dbTrack.image || dbTrack.feedImage || null,
+                        description: dbTrack.description || null,
+                        feedId: feed.id,
+                        publishedAt: dbTrack.datePublished ? new Date(dbTrack.datePublished) : new Date(),
+                        updatedAt: new Date()
+                    };
+                    
+                    if (existing) {
+                        await prisma.track.update({
+                            where: { id: trackId },
+                            data: trackData
+                        });
+                        updatedCount++;
+                    } else {
+                        await prisma.track.create({ data: trackData });
+                        addedCount++;
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.warn(`⚠️  Failed to add track "${dbTrack.title}": ${error.message}`);
+                }
+            }
+            
+            console.log(`✅ Added ${addedCount} new tracks, updated ${updatedCount} existing tracks`);
+            if (errorCount > 0) {
+                console.log(`⚠️  ${errorCount} tracks failed to add`);
+            }
+            
+        } finally {
+            await prisma.$disconnect();
         }
+        
         
         console.log('\n✅ ITDV playlist import complete!');
         console.log(`📊 Summary:`);
-        console.log(`  Total tracks added: ${dbTracks.length}`);
+        console.log(`  Total tracks processed: ${dbTracks.length}`);
+        console.log(`  New tracks added to Prisma: ${addedCount}`);
+        console.log(`  Existing tracks updated: ${updatedCount}`);
+        if (errorCount > 0) {
+            console.log(`  Errors: ${errorCount}`);
+        }
         console.log(`  Albums/EPs: ${albumFeeds.length}`);
         console.log(`  Singles: ${singleTrackFeeds.length + singleTracks.length}`);
+        console.log(`\n💾 All data saved to Prisma database (PostgreSQL)`);
         
     } catch (error) {
         console.error('❌ Error importing ITDV playlist:', error);

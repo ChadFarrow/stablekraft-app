@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
 const path = require('path');
 const { XMLParser } = require('fast-xml-parser');
 
@@ -8,14 +7,8 @@ async function addHghPlaylistTracks() {
     console.log('🎵 Adding HGH Music Playlist Remote Items\n');
     console.log('=' .repeat(60) + '\n');
     
-    // Load music tracks
-    const musicTracksPath = path.join(__dirname, '..', 'data', 'music-tracks.json');
-    const musicData = JSON.parse(fs.readFileSync(musicTracksPath, 'utf8'));
-    
-    // Create backup
-    const backupPath = musicTracksPath + `.backup-hgh-import-${Date.now()}`;
-    console.log(`📦 Creating backup at ${path.basename(backupPath)}\n`);
-    fs.copyFileSync(musicTracksPath, backupPath);
+    // All data is now stored in Prisma database
+    // No JSON file operations needed
     
     // Fetch the HGH playlist XML
     const playlistUrl = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -52,16 +45,37 @@ async function addHghPlaylistTracks() {
         let skippedCount = 0;
         let duplicateCount = 0;
         
-        const existingGuids = new Set();
-        musicData.musicTracks.forEach(track => {
-            if (track.feedGuid && track.itemGuid) {
-                const combinedGuid = `${track.feedGuid}:${typeof track.itemGuid === 'string' ? track.itemGuid : track.itemGuid?._}`;
-                existingGuids.add(combinedGuid);
-            }
-        });
+        // Check existing tracks in Prisma database
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
         
-        console.log(`📊 Existing tracks in database: ${musicData.musicTracks.length}`);
-        console.log(`📊 Unique existing GUIDs: ${existingGuids.size}\n`);
+        const existingGuids = new Set();
+        try {
+            // Get all existing tracks with V4V data to check for duplicates
+            const existingTracks = await prisma.track.findMany({
+                where: {
+                    v4vValue: { not: null }
+                },
+                select: {
+                    v4vValue: true
+                }
+            });
+            
+            existingTracks.forEach(track => {
+                if (track.v4vValue && typeof track.v4vValue === 'object') {
+                    const v4v = track.v4vValue as any;
+                    if (v4v.feedGuid && v4v.itemGuid) {
+                        const combinedGuid = `${v4v.feedGuid}:${v4v.itemGuid}`;
+                        existingGuids.add(combinedGuid);
+                    }
+                }
+            });
+            
+            console.log(`📊 Existing tracks in Prisma database: ${existingTracks.length}`);
+            console.log(`📊 Unique existing GUIDs: ${existingGuids.size}\n`);
+        } catch (error) {
+            console.warn(`⚠️  Could not check existing tracks: ${error.message}`);
+        }
         
         for (const [index, item] of remoteItems.entries()) {
             // Look for podcast:remoteItem in the item
@@ -80,9 +94,9 @@ async function addHghPlaylistTracks() {
             }
             
             // Handle array of remoteItems or single remoteItem
-            const remoteItems = Array.isArray(remoteItemRef) ? remoteItemRef : [remoteItemRef];
+            const remoteItemArray = Array.isArray(remoteItemRef) ? remoteItemRef : [remoteItemRef];
             
-            for (const remoteItem of remoteItems) {
+            for (const remoteItem of remoteItemArray) {
                 const feedGuid = remoteItem['@_feedGuid'];
                 const itemGuid = remoteItem['@_itemGuid'];
                 
@@ -100,55 +114,83 @@ async function addHghPlaylistTracks() {
                     continue;
                 }
                 
-                // Add new track
-                const newTrack = {
-                    id: `hgh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    feedGuid: feedGuid,
-                    itemGuid: itemGuid,
-                    title: `Track ${addedCount + 1}`,
-                    artist: 'Unknown Artist',
-                    album: 'HGH Playlist Import',
-                    artwork: '/stablekraft-rocket.png', // Use main page background
-                    duration: 5999, // 99:99 placeholder
-                    source: 'HGH Playlist Import',
-                    needsResolution: true,
-                    durationSource: {
-                        method: 'placeholder-duration',
-                        reason: 'recognizable placeholder (99:99)',
-                        assignedDate: new Date().toISOString()
-                    },
-                    artworkSource: {
-                        method: 'main-page-background',
-                        reason: 'using site\'s main background image as placeholder',
-                        assignedDate: new Date().toISOString()
-                    },
-                    importedDate: new Date().toISOString(),
-                    originalPlaylist: 'HGH Music Playlist'
-                };
+                // Add new track to Prisma database
+                try {
+                    const trackId = `hgh-${feedGuid.substring(0, 8)}-${itemGuid.substring(0, 8)}-${Date.now()}`;
+                    
+                    // Find or create feed (using Podcast Index feed URL pattern)
+                    const feedUrl = `https://podcastindex.org/podcast/${feedGuid}`;
+                    let feed = await prisma.feed.findFirst({
+                        where: { originalUrl: feedUrl }
+                    });
+                    
+                    if (!feed) {
+                        feed = await prisma.feed.create({
+                            data: {
+                                id: `hgh-feed-${feedGuid.substring(0, 8)}`,
+                                title: 'HGH Playlist Import',
+                                artist: 'Unknown Artist',
+                                originalUrl: feedUrl,
+                                type: 'album',
+                                status: 'active',
+                                image: '/stablekraft-rocket.png',
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
+                    
+                    // Check if track already exists
+                    const existing = await prisma.track.findUnique({ where: { id: trackId } });
+                    
+                    if (!existing) {
+                        await prisma.track.create({
+                            data: {
+                                id: trackId,
+                                guid: itemGuid,
+                                title: `Track ${addedCount + 1}`, // Will be resolved later
+                                artist: 'Unknown Artist',
+                                album: 'HGH Playlist Import',
+                                audioUrl: '', // Will be resolved later
+                                duration: 5999, // Placeholder 99:99
+                                image: '/stablekraft-rocket.png',
+                                feedId: feed.id,
+                                v4vValue: {
+                                    feedGuid: feedGuid,
+                                    itemGuid: itemGuid,
+                                    needsResolution: true,
+                                    source: 'HGH Playlist Import'
+                                },
+                                publishedAt: new Date(),
+                                updatedAt: new Date()
+                            }
+                        });
+                        addedCount++;
+                        console.log(`✅ Added to Prisma: ${feedGuid.substring(0, 8)}... : ${itemGuid.substring(0, 8)}...`);
+                    } else {
+                        duplicateCount++;
+                        console.log(`🔄 Duplicate (already in Prisma): ${feedGuid.substring(0, 8)}...`);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️  Failed to add track to Prisma: ${error.message}`);
+                }
                 
-                musicData.musicTracks.push(newTrack);
                 existingGuids.add(combinedGuid);
-                addedCount++;
-                
-                console.log(`✅ Added: ${feedGuid.substring(0, 8)}...${feedGuid.substring(-8)} : ${itemGuid.substring(0, 8)}...`);
             }
         }
         
-        // Update metadata
-        musicData.metadata.lastHghImport = {
-            date: new Date().toISOString(),
-            sourceUrl: playlistUrl,
-            itemsProcessed: remoteItems.length,
-            tracksAdded: addedCount,
-            duplicatesSkipped: duplicateCount,
-            itemsSkipped: skippedCount,
-            method: 'HGH Playlist Remote Items Import'
-        };
+        // Close Prisma connection
+        await prisma.$disconnect();
         
-        musicData.metadata.lastUpdated = new Date().toISOString();
-        
-        // Save updated data
-        fs.writeFileSync(musicTracksPath, JSON.stringify(musicData, null, 2));
+        // Get final track count from Prisma
+        let totalTracks = 0;
+        try {
+            const { PrismaClient } = require('@prisma/client');
+            const prismaFinal = new PrismaClient();
+            totalTracks = await prismaFinal.track.count();
+            await prismaFinal.$disconnect();
+        } catch (error) {
+            console.warn(`⚠️  Could not get final track count: ${error.message}`);
+        }
         
         console.log('\n' + '=' .repeat(60));
         console.log('📊 HGH Import Summary:');
@@ -156,7 +198,7 @@ async function addHghPlaylistTracks() {
         console.log(`  ✅ Tracks added: ${addedCount}`);
         console.log(`  🔄 Duplicates skipped: ${duplicateCount}`);
         console.log(`  ⚠️  Items skipped: ${skippedCount}`);
-        console.log(`  📈 New total tracks: ${musicData.musicTracks.length}`);
+        console.log(`  📈 Total tracks in database: ${totalTracks}`);
         
         console.log('\n🎯 Next Steps:');
         console.log('1. Run comprehensive-music-discovery.js to resolve metadata');
