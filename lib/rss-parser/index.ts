@@ -4,7 +4,7 @@
  */
 import { AppError, ErrorCodes, withRetry, createErrorLogger } from '../error-utils';
 import { RSSUtils, verboseLog } from './utils';
-import type { RSSAlbum, RSSTrack, RSSValue4Value } from './types';
+import type { RSSAlbum, RSSTrack, RSSValue4Value, RSSPublisher } from './types';
 
 export * from './types';
 
@@ -353,8 +353,33 @@ export class RSSParser {
     return [];
   }
 
-  private static extractPublisher(channel: Element): any {
-    // Placeholder for publisher extraction
+  private static extractPublisher(channel: Element): RSSPublisher | undefined {
+    // Extract podcast:remoteItem elements with medium="publisher" from channel
+    // These reference the publisher feed for album feeds
+    const allElements = channel.getElementsByTagName('*');
+    
+    for (let i = 0; i < allElements.length; i++) {
+      const element = allElements[i];
+      const tagName = element.tagName || element.nodeName;
+      
+      // Look for podcast:remoteItem or remoteItem elements
+      if (tagName === 'podcast:remoteItem' || tagName === 'remoteItem') {
+        const feedGuid = RSSUtils.getElementAttribute(element, 'feedGuid');
+        const feedUrlAttr = RSSUtils.getElementAttribute(element, 'feedUrl');
+        const medium = RSSUtils.getElementAttribute(element, 'medium') || 'music';
+        
+        // Only return if this is a publisher reference
+        if (medium === 'publisher' && feedGuid && feedUrlAttr) {
+          return {
+            feedGuid,
+            feedUrl: feedUrlAttr,
+            medium: 'publisher'
+          };
+        }
+      }
+    }
+    
+    // No publisher reference found
     return undefined;
   }
 

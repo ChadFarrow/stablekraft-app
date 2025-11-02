@@ -4,25 +4,36 @@ import { createRSSParser } from '../src/lib/rss-parser-config.js';
 import fs from 'fs';
 import path from 'path';
 
+/**
+ * @deprecated This script uses JSON file storage which has been migrated to Prisma.
+ * Please use Prisma database directly instead of this script.
+ * 
+ * This script is kept for backward compatibility but should not be used in production.
+ * All database operations should use Prisma via @/lib/prisma
+ */
+
 async function reparseMainBranchDatabase() {
-  console.log('\n🔄 REPARSING MAIN BRANCH DATABASE WITH NEW RSS PARSER\n');
+  console.log('\n⚠️  WARNING: This script uses deprecated JSON file storage.');
+  console.log('   All database operations should use Prisma instead.\n');
+  console.log('🔄 REPARSING MAIN BRANCH DATABASE WITH NEW RSS PARSER\n');
   console.log('═'.repeat(70));
   
   try {
     const parser = createRSSParser();
     const startTime = Date.now();
     
-    // Load existing main branch database
-    console.log('📁 Loading main branch database...');
+    // Load existing main branch database (DEPRECATED - using JSON)
+    console.log('📁 Loading main branch database from JSON (DEPRECATED)...');
     const mainBranchPath = path.join(process.cwd(), 'data', 'music-tracks.json');
     
     if (!fs.existsSync(mainBranchPath)) {
-      console.log('❌ Main branch database not found. Make sure you are in the correct directory.');
+      console.log('❌ Main branch database JSON file not found.');
+      console.log('   This script is deprecated. Use Prisma database operations instead.');
       return;
     }
     
     const mainBranchData = JSON.parse(fs.readFileSync(mainBranchPath, 'utf8'));
-    console.log(`   ✅ Loaded ${mainBranchData.musicTracks?.length || 0} tracks from main branch`);
+    console.log(`   ✅ Loaded ${mainBranchData.musicTracks?.length || 0} tracks from JSON file (DEPRECATED)`);
     
     // Create enhanced database structure
     const enhancedDatabase = {

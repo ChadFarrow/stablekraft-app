@@ -52,7 +52,14 @@ export async function GET(
     
     // Try to match publisher feed by slug
     const searchId = publisherId.toLowerCase();
-    let publisherFeed = null;
+    let publisherFeed: {
+      id: string;
+      title: string;
+      artist: string | null;
+      description: string | null;
+      image: string | null;
+      originalUrl: string;
+    } | null | undefined = null;
     
     // Try matching by title or artist slug
     publisherFeed = publisherFeeds.find((feed) => {
