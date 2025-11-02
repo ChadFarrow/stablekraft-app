@@ -88,30 +88,56 @@ export async function GET(request: NextRequest) {
       // Build WHERE conditions
       const whereConditions: any[] = [];
 
-      // Build text search conditions
-      const textSearchConditions: any[] = [
-        { title: { contains: query, mode: 'insensitive' } },
-        { artist: { contains: query, mode: 'insensitive' } },
-        { album: { contains: query, mode: 'insensitive' } },
-        { subtitle: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } }
-      ];
+      // Check if we have a natural language "X by Y" pattern (both title and artist in fieldFilters)
+      const hasTitleArtistPattern = fieldFilters.title && fieldFilters.artist;
 
-      // Add keyword and category search
-      parsedQuery.terms.forEach(term => {
-        textSearchConditions.push({
-          itunesKeywords: { has: term }
+      if (hasTitleArtistPattern) {
+        // For "X by Y" pattern, require both title AND artist to match
+        whereConditions.push({
+          AND: [
+            { title: { contains: fieldFilters.title[0], mode: 'insensitive' } },
+            { artist: { contains: fieldFilters.artist[0], mode: 'insensitive' } }
+          ]
         });
-        textSearchConditions.push({
-          itunesCategories: { has: term }
+
+        // Add other field filters (like album:xxx) if any
+        Object.entries(fieldFilters).forEach(([field, values]) => {
+          if (field !== 'title' && field !== 'artist') {
+            if (values.length === 1) {
+              whereConditions.push({ [field]: { contains: values[0], mode: 'insensitive' } });
+            } else {
+              whereConditions.push({
+                OR: values.map(v => ({ [field]: { contains: v, mode: 'insensitive' } }))
+              });
+            }
+          }
         });
-      });
+      } else {
+        // Default behavior: OR conditions across all fields
+        const textSearchConditions: any[] = [
+          { title: { contains: query, mode: 'insensitive' } },
+          { artist: { contains: query, mode: 'insensitive' } },
+          { album: { contains: query, mode: 'insensitive' } },
+          { subtitle: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } }
+        ];
 
-      whereConditions.push({ OR: textSearchConditions });
+        // Add keyword and category search
+        parsedQuery.terms.forEach(term => {
+          textSearchConditions.push({
+            itunesKeywords: { has: term }
+          });
+          textSearchConditions.push({
+            itunesCategories: { has: term }
+          });
+        });
 
-      // Add field filters if any
-      if (Object.keys(fieldFilters).length > 0) {
-        whereConditions.push(fieldFilters);
+        whereConditions.push({ OR: textSearchConditions });
+
+        // Add field filters if any
+        if (Object.keys(fieldFilters).length > 0) {
+          whereConditions.push(fieldFilters);
+        }
       }
 
       // Use hybrid search: full-text search when searchVector exists, otherwise use contains
@@ -144,28 +170,64 @@ export async function GET(request: NextRequest) {
       tracks.sort((a, b) => {
         const queryLower = query.toLowerCase();
         
-        // Title exact match gets highest priority
-        const aTitleExact = a.title.toLowerCase() === queryLower ? 1000 : 0;
-        const bTitleExact = b.title.toLowerCase() === queryLower ? 1000 : 0;
-        
-        // Title starts with query
-        const aTitleStarts = a.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
-        const bTitleStarts = b.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
-        
-        // Title contains query
-        const aTitleContains = a.title.toLowerCase().includes(queryLower) ? 100 : 0;
-        const bTitleContains = b.title.toLowerCase().includes(queryLower) ? 100 : 0;
-        
-        // Artist match
-        const aArtistMatch = a.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
-        const bArtistMatch = b.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
-        
-        // Calculate scores
-        const aScore = aTitleExact + aTitleStarts + aTitleContains + aArtistMatch;
-        const bScore = bTitleExact + bTitleStarts + bTitleContains + bArtistMatch;
-        
-        if (aScore !== bScore) {
-          return bScore - aScore; // Higher score first
+        // If we have a title+artist pattern, prioritize exact matches
+        if (hasTitleArtistPattern) {
+          const titlePart = fieldFilters.title[0].toLowerCase();
+          const artistPart = fieldFilters.artist[0].toLowerCase();
+          
+          const aTitleMatch = a.title?.toLowerCase().includes(titlePart) || false;
+          const aArtistMatch = a.artist?.toLowerCase().includes(artistPart) || false;
+          const bTitleMatch = b.title?.toLowerCase().includes(titlePart) || false;
+          const bArtistMatch = b.artist?.toLowerCase().includes(artistPart) || false;
+          
+          // Both title and artist match (highest priority)
+          const aBothMatch = aTitleMatch && aArtistMatch ? 2000 : 0;
+          const bBothMatch = bTitleMatch && bArtistMatch ? 2000 : 0;
+          
+          // Title exact match
+          const aTitleExact = a.title?.toLowerCase() === titlePart ? 500 : 0;
+          const bTitleExact = b.title?.toLowerCase() === titlePart ? 500 : 0;
+          
+          // Artist exact match
+          const aArtistExact = a.artist?.toLowerCase() === artistPart ? 300 : 0;
+          const bArtistExact = b.artist?.toLowerCase() === artistPart ? 300 : 0;
+          
+          // Title starts with
+          const aTitleStarts = a.title?.toLowerCase().startsWith(titlePart) ? 100 : 0;
+          const bTitleStarts = b.title?.toLowerCase().startsWith(titlePart) ? 100 : 0;
+          
+          // Calculate scores
+          const aScore = aBothMatch + aTitleExact + aArtistExact + aTitleStarts;
+          const bScore = bBothMatch + bTitleExact + bArtistExact + bTitleStarts;
+          
+          if (aScore !== bScore) {
+            return bScore - aScore; // Higher score first
+          }
+        } else {
+          // Default sorting logic for non-pattern queries
+          // Title exact match gets highest priority
+          const aTitleExact = a.title.toLowerCase() === queryLower ? 1000 : 0;
+          const bTitleExact = b.title.toLowerCase() === queryLower ? 1000 : 0;
+          
+          // Title starts with query
+          const aTitleStarts = a.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+          const bTitleStarts = b.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+          
+          // Title contains query
+          const aTitleContains = a.title.toLowerCase().includes(queryLower) ? 100 : 0;
+          const bTitleContains = b.title.toLowerCase().includes(queryLower) ? 100 : 0;
+          
+          // Artist match
+          const aArtistMatch = a.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
+          const bArtistMatch = b.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
+          
+          // Calculate scores
+          const aScore = aTitleExact + aTitleStarts + aTitleContains + aArtistMatch;
+          const bScore = bTitleExact + bTitleStarts + bTitleContains + bArtistMatch;
+          
+          if (aScore !== bScore) {
+            return bScore - aScore; // Higher score first
+          }
         }
         
         // Fall back to recency

@@ -47,6 +47,26 @@ export function parseSearchQuery(query: string): ParsedQuery {
     return '';
   }).trim();
 
+  // Detect natural language "X by Y" pattern (e.g., "late by nate johnivan")
+  // Only if no explicit field filters already exist for title or artist
+  // and the pattern isn't already handled by field filters
+  if (!result.fieldFilters.title && !result.fieldFilters.artist) {
+    const byPatternRegex = /^(.+?)\s+by\s+(.+)$/i;
+    const byMatch = queryWithoutFields.match(byPatternRegex);
+    if (byMatch) {
+      const titlePart = byMatch[1].trim();
+      const artistPart = byMatch[2].trim();
+      // Only extract if both parts have content and "by" is clearly a separator
+      // (not part of another word like "abyss" or "maybe")
+      if (titlePart.length > 0 && artistPart.length > 0) {
+        result.fieldFilters.title = [titlePart];
+        result.fieldFilters.artist = [artistPart];
+        // Don't add to terms since we've extracted them as field filters
+        return result;
+      }
+    }
+  }
+
   // Extract operators (+, -)
   const words = queryWithoutFields.split(/\s+/).filter(w => w.length > 0);
   words.forEach(word => {
