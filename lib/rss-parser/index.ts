@@ -155,7 +155,7 @@ export class RSSParser {
     const album: RSSAlbum = {
       title: feed.title || 'Unknown Title',
       artist: feed.author || feed.ownerName || 'Unknown Artist',
-      description: RSSUtils.cleanHtmlContent(feed.description || ''),
+      description: RSSUtils.cleanHtmlContent(feed.description || '') || '',
       coverArt: feed.image || feed.artwork || null,
       tracks,
       releaseDate,
