@@ -1035,10 +1035,10 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       </span>
 
                       {/* Favorite Button */}
-                      {track.guid && (
+                      {(track.guid || track.url || track.title) && (
                         <div onClick={(e) => e.stopPropagation()}>
                           <FavoriteButton
-                            trackId={track.guid}
+                            trackId={track.guid || track.url || `${album.feedId}-${track.title}`}
                             size={20}
                             className="text-white"
                           />
