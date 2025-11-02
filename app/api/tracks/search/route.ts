@@ -1,18 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ApiCache } from '@/lib/api-utils';
+import { parseSearchQuery, normalizeQuery, buildFieldFilters } from '@/lib/search-utils';
+
+// Initialize cache instance
+const searchCache = new ApiCache();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // GET /api/tracks/search - Advanced search endpoint
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q');
+    const rawQuery = searchParams.get('q');
     const type = searchParams.get('type'); // 'all' | 'music' | 'podcast' | 'v4v'
     
-    if (!query) {
+    if (!rawQuery) {
       return NextResponse.json(
         { error: 'Search query is required' },
         { status: 400 }
       );
+    }
+
+    // Normalize and parse query
+    const query = normalizeQuery(rawQuery);
+    const parsedQuery = parseSearchQuery(query);
+    
+    // Build cache key
+    const cacheKey = `tracks-search:${type}:${query}`;
+    
+    // Check cache
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: {
+          'X-Cache': 'HIT',
+          'Cache-Control': 'public, max-age=300'
+        }
+      });
     }
     
     // Build search conditions
@@ -22,9 +46,17 @@ export async function GET(request: NextRequest) {
         { artist: { contains: query, mode: 'insensitive' as const } },
         { album: { contains: query, mode: 'insensitive' as const } },
         { description: { contains: query, mode: 'insensitive' as const } },
-        { subtitle: { contains: query, mode: 'insensitive' as const } }
+        { subtitle: { contains: query, mode: 'insensitive' as const } },
+        // Add keyword and category search
+        ...parsedQuery.terms.flatMap(term => [
+          { itunesKeywords: { has: term } },
+          { itunesCategories: { has: term } }
+        ])
       ]
     };
+
+    // Add field filters if any
+    const fieldFilters = buildFieldFilters(parsedQuery);
     
     // Add type-specific filters
     let typeFilter = {};
@@ -47,8 +79,12 @@ export async function GET(request: NextRequest) {
     }
     
     // Combine conditions
+    const whereConditions: any[] = [searchConditions, typeFilter];
+    if (Object.keys(fieldFilters).length > 0) {
+      whereConditions.push(fieldFilters);
+    }
     const where = {
-      AND: [searchConditions, typeFilter]
+      AND: whereConditions
     };
     
     // Execute search with limits for performance
@@ -71,6 +107,31 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+
+    // Apply relevance-based sorting
+    const queryLower = query.toLowerCase();
+    results.sort((a, b) => {
+      // Title exact match gets highest priority
+      const aTitleExact = a.title.toLowerCase() === queryLower ? 1000 : 0;
+      const bTitleExact = b.title.toLowerCase() === queryLower ? 1000 : 0;
+      
+      // Title starts with query
+      const aTitleStarts = a.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+      const bTitleStarts = b.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+      
+      // Calculate scores
+      const aScore = aTitleExact + aTitleStarts;
+      const bScore = bTitleExact + bTitleStarts;
+      
+      if (aScore !== bScore) {
+        return bScore - aScore;
+      }
+      
+      // Fall back to publishedAt
+      const aTime = a.publishedAt?.getTime() || 0;
+      const bTime = b.publishedAt?.getTime() || 0;
+      return bTime - aTime;
+    });
     
     // Group results by category
     const groupedResults = {
@@ -82,7 +143,15 @@ export async function GET(request: NextRequest) {
       total: results.length
     };
     
-    return NextResponse.json(groupedResults);
+    // Cache the results
+    searchCache.set(cacheKey, groupedResults, CACHE_TTL);
+    
+    return NextResponse.json(groupedResults, {
+      headers: {
+        'X-Cache': 'MISS',
+        'Cache-Control': 'public, max-age=300'
+      }
+    });
   } catch (error) {
     console.error('Error searching tracks:', error);
     return NextResponse.json(

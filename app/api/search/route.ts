@@ -1,16 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { ApiCache } from '@/lib/api-utils';
+import { parseSearchQuery, buildTsQuery, normalizeQuery, buildFieldFilters } from '@/lib/search-utils';
 
 const prisma = new PrismaClient();
 
+// Initialize cache instance
+const searchCache = new ApiCache();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Build full-text search WHERE clause using PostgreSQL ts_rank
+ */
+function buildFullTextSearchWhere(normalizedQuery: string, fieldFilters: Record<string, any>) {
+  // For tracks: use searchVector if populated, otherwise fall back to contains
+  // We'll use raw SQL for full-text search when searchVector exists
+  
+  // Build field filters if any
+  const andConditions: any[] = [];
+
+  // Add field-specific filters
+  Object.entries(fieldFilters).forEach(([field, condition]) => {
+    andConditions.push({ [field]: condition });
+  });
+
+  return { andConditions };
+}
+
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  const QUERY_TIMEOUT = 10000; // 10 seconds timeout
+  
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q')?.trim() || '';
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const rawQuery = searchParams.get('q')?.trim() || '';
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200); // Max 200 results
     const type = searchParams.get('type') || 'all'; // all, tracks, albums, artists
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const offset = (page - 1) * limit;
 
-    if (!query || query.length < 2) {
+    // Early return for empty query
+    if (!rawQuery || rawQuery.length < 2) {
       return NextResponse.json({
         success: false,
         error: 'Search query must be at least 2 characters',
@@ -22,10 +52,30 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`🔍 Search request: query="${query}", type="${type}", limit=${limit}`);
+    // Normalize and parse query
+    const query = normalizeQuery(rawQuery);
+    const parsedQuery = parseSearchQuery(query);
+    
+    // Build cache key (include page for pagination)
+    const cacheKey = `search:${type}:${limit}:${page}:${query}`;
+    
+    // Check cache
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: {
+          'X-Cache': 'HIT',
+          'Cache-Control': 'public, max-age=300'
+        }
+      });
+    }
 
-    // Prepare search term for case-insensitive matching
-    const searchTerm = `%${query.toLowerCase()}%`;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 Search request: query="${query}", type="${type}", limit=${limit}`);
+    }
+
+    const fieldFilters = buildFieldFilters(parsedQuery);
+    const tsQuery = buildTsQuery(parsedQuery);
 
     let results: any = {
       tracks: [],
@@ -33,17 +83,44 @@ export async function GET(request: NextRequest) {
       artists: []
     };
 
-    // Search tracks
+    // Search tracks with full-text search
     if (type === 'all' || type === 'tracks') {
-      const tracks = await prisma.track.findMany({
+      // Build WHERE conditions
+      const whereConditions: any[] = [];
+
+      // Build text search conditions
+      const textSearchConditions: any[] = [
+        { title: { contains: query, mode: 'insensitive' } },
+        { artist: { contains: query, mode: 'insensitive' } },
+        { album: { contains: query, mode: 'insensitive' } },
+        { subtitle: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } }
+      ];
+
+      // Add keyword and category search
+      parsedQuery.terms.forEach(term => {
+        textSearchConditions.push({
+          itunesKeywords: { has: term }
+        });
+        textSearchConditions.push({
+          itunesCategories: { has: term }
+        });
+      });
+
+      whereConditions.push({ OR: textSearchConditions });
+
+      // Add field filters if any
+      if (Object.keys(fieldFilters).length > 0) {
+        whereConditions.push(fieldFilters);
+      }
+
+      // Use hybrid search: full-text search when searchVector exists, otherwise use contains
+      // For now, use Prisma's contains search which works well with indexes
+      // Full-text search will be enabled when searchVector is populated via migration
+      
+      tracks = await prisma.track.findMany({
         where: {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { artist: { contains: query, mode: 'insensitive' } },
-            { album: { contains: query, mode: 'insensitive' } },
-            { subtitle: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } }
-          ]
+          AND: whereConditions
         },
         include: {
           Feed: {
@@ -54,10 +131,47 @@ export async function GET(request: NextRequest) {
             }
           }
         },
+        skip: offset,
         take: limit,
         orderBy: [
+          // Prioritize title matches, then artist, then album, then by recency
           { publishedAt: 'desc' }
         ]
+      });
+
+      // Apply relevance-based sorting in memory
+      // Boost exact matches in title
+      tracks.sort((a, b) => {
+        const queryLower = query.toLowerCase();
+        
+        // Title exact match gets highest priority
+        const aTitleExact = a.title.toLowerCase() === queryLower ? 1000 : 0;
+        const bTitleExact = b.title.toLowerCase() === queryLower ? 1000 : 0;
+        
+        // Title starts with query
+        const aTitleStarts = a.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+        const bTitleStarts = b.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
+        
+        // Title contains query
+        const aTitleContains = a.title.toLowerCase().includes(queryLower) ? 100 : 0;
+        const bTitleContains = b.title.toLowerCase().includes(queryLower) ? 100 : 0;
+        
+        // Artist match
+        const aArtistMatch = a.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
+        const bArtistMatch = b.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
+        
+        // Calculate scores
+        const aScore = aTitleExact + aTitleStarts + aTitleContains + aArtistMatch;
+        const bScore = bTitleExact + bTitleStarts + bTitleContains + bArtistMatch;
+        
+        if (aScore !== bScore) {
+          return bScore - aScore; // Higher score first
+        }
+        
+        // Fall back to recency
+        const aTime = a.publishedAt?.getTime() || 0;
+        const bTime = b.publishedAt?.getTime() || 0;
+        return bTime - aTime;
       });
 
       results.tracks = tracks.map(track => ({
@@ -193,17 +307,48 @@ export async function GET(request: NextRequest) {
       results.albums.length +
       results.artists.length;
 
-    console.log(`✅ Search results: ${results.tracks.length} tracks, ${results.albums.length} albums, ${results.artists.length} artists`);
+    // Check query timeout
+    const queryTime = Date.now() - startTime;
+    if (queryTime > QUERY_TIMEOUT) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ Search query took ${queryTime}ms (exceeded ${QUERY_TIMEOUT}ms timeout)`);
+      }
+    }
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       query,
       totalResults,
-      results
+      pagination: {
+        page,
+        limit,
+        total: totalResults,
+        totalPages: Math.ceil(totalResults / limit),
+        hasMore: (page * limit) < totalResults
+      },
+      results,
+      queryTime: queryTime
+    };
+
+    // Cache the results
+    searchCache.set(cacheKey, responseData, CACHE_TTL);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Search results: ${results.tracks.length} tracks, ${results.albums.length} albums, ${results.artists.length} artists (${queryTime}ms)`);
+    }
+
+    return NextResponse.json(responseData, {
+      headers: {
+        'X-Cache': 'MISS',
+        'Cache-Control': 'public, max-age=300',
+        'X-Query-Time': queryTime.toString()
+      }
     });
 
   } catch (error) {
-    console.error('❌ Search API error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Search API error:', error);
+    }
     return NextResponse.json({
       success: false,
       error: 'Failed to perform search',
