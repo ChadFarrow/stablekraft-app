@@ -135,16 +135,69 @@ async function loadPublisherData(publisherId: string) {
       }
     }
     
-    if (!publisherFeed) {
-      console.log(`❌ Publisher not found in database: ${publisherId}`);
-      return null;
-    }
+    // If no publisher feed found, try to find albums by artist name and create publisher info from them
+    let artistName: string | null = null;
     
-    console.log(`✅ Publisher found: ${publisherFeed.title || publisherFeed.id}`);
+    if (!publisherFeed) {
+      console.log(`⚠️ No publisher feed found for "${publisherId}", trying to find albums by artist name...`);
+      
+      // Try to find albums/music feeds with matching artist name
+      const searchId = publisherId.toLowerCase();
+      const possibleArtistNames = [
+        searchId, // "bennyjeans"
+        searchId.replace(/-/g, ' '), // "benny jeans"
+      ];
+      
+      // Find the first album feed to get the artist name
+      const firstAlbumFeed = await prisma.feed.findFirst({
+        where: {
+          type: { in: ['album', 'music'] },
+          status: 'active',
+          OR: [
+            { artist: { equals: possibleArtistNames[0], mode: 'insensitive' } },
+            { artist: { equals: possibleArtistNames[1], mode: 'insensitive' } },
+          ]
+        },
+        select: {
+          id: true,
+          title: true,
+          artist: true,
+          description: true,
+          image: true,
+          originalUrl: true
+        }
+      });
+      
+      if (firstAlbumFeed) {
+        artistName = firstAlbumFeed.artist || firstAlbumFeed.title;
+        console.log(`✅ Found albums by artist: "${artistName}"`);
+        
+        // Create a synthetic publisher feed from the first album
+        publisherFeed = {
+          id: `publisher-${publisherId}`,
+          title: artistName || publisherId,
+          artist: artistName || null,
+          description: `Albums by ${artistName || publisherId}`,
+          image: firstAlbumFeed.image || null,
+          originalUrl: '',
+          type: 'publisher' as any,
+          status: 'active' as any,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any;
+        
+        console.log(`📝 Created synthetic publisher feed for "${artistName}"`);
+      } else {
+        console.log(`❌ No albums found for artist matching "${publisherId}"`);
+        return null;
+      }
+    } else {
+      console.log(`✅ Publisher found: ${publisherFeed.title || publisherFeed.id}`);
+      artistName = publisherFeed.artist || publisherFeed.title;
+    }
 
     // Get related albums for this publisher (feeds with same artist) - optimized query
     // Match by artist field (case-insensitive)
-    const artistName = publisherFeed.artist || publisherFeed.title;
     const relatedFeeds = await prisma.feed.findMany({
       where: {
         artist: { equals: artistName, mode: 'insensitive' },
