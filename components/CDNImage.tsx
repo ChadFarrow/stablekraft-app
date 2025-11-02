@@ -45,6 +45,8 @@ export default function CDNImage({
   const [isGif, setIsGif] = useState(false);
   const [showGif, setShowGif] = useState(false);
   const [gifLoaded, setGifLoaded] = useState(false);
+  const [gifPlaceholder, setGifPlaceholder] = useState<string | null>(null);
+  const [placeholderLoaded, setPlaceholderLoaded] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
 
   // Check if we're on mobile
@@ -91,6 +93,42 @@ export default function CDNImage({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Load GIF placeholder (first frame) for faster initial render
+  useEffect(() => {
+    if (!isGif || !isClient || !currentSrc || placeholderLoaded) return;
+
+    // Only fetch placeholder for external GIFs (not data URLs or API routes)
+    if (currentSrc.startsWith('data:') || currentSrc.includes('/api/')) {
+      setPlaceholderLoaded(true);
+      return;
+    }
+
+    // Generate placeholder URL
+    const placeholderUrl = `/api/gif-placeholder?url=${encodeURIComponent(currentSrc)}`;
+    
+    // Preload the placeholder
+    const img = new Image();
+    img.onload = () => {
+      setGifPlaceholder(placeholderUrl);
+      setPlaceholderLoaded(true);
+      
+      // Once placeholder is loaded, start preloading the full GIF in the background
+      // This ensures the full GIF is ready when we want to show it
+      if (currentSrc && !gifLoaded) {
+        const fullGifImg = new Image();
+        fullGifImg.onload = () => {
+          setGifLoaded(true);
+        };
+        fullGifImg.src = currentSrc;
+      }
+    };
+    img.onerror = () => {
+      // If placeholder fails, just proceed without it
+      setPlaceholderLoaded(true);
+    };
+    img.src = placeholderUrl;
+  }, [isGif, isClient, currentSrc, placeholderLoaded, gifLoaded]);
 
   // Intersection Observer for GIF lazy loading
   useEffect(() => {
@@ -328,6 +366,8 @@ export default function CDNImage({
     setHasError(false);
     setRetryCount(0);
     setGifLoaded(false);
+    setGifPlaceholder(null);
+    setPlaceholderLoaded(false);
     
     // Clear existing timeout
     if (timeoutId) {
@@ -413,45 +453,104 @@ export default function CDNImage({
       )}
       
       {isClient && isMobile ? (
-        // Enhanced mobile image handling
-        <img
-          src={showGif && currentSrc ? currentSrc : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='}
-          alt={alt}
-          width={dims.width}
-          height={dims.height}
-          className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ${className || ''}`}
-          onError={handleError}
-          onLoad={handleLoad}
-          loading={priority ? 'eager' : 'lazy'}
-          referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
-          style={{ 
-            objectFit: 'cover',
-            width: '100%',
-            height: '100%',
-            display: 'block',
-            ...style
-          }}
-          {...props}
-        />
+        // Enhanced mobile image handling with GIF placeholder support
+        <>
+          {/* Show placeholder first for GIFs */}
+          {isGif && placeholderLoaded && gifPlaceholder && !gifLoaded && (
+            <img
+              src={gifPlaceholder}
+              alt={alt}
+              width={dims.width}
+              height={dims.height}
+              className={`opacity-100 transition-opacity duration-300 ${className || ''}`}
+              loading={priority ? 'eager' : 'lazy'}
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              style={{ 
+                objectFit: 'cover',
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                ...style
+              }}
+              {...props}
+            />
+          )}
+          {/* Show full GIF when loaded or if no placeholder */}
+          {(!isGif || !placeholderLoaded || !gifPlaceholder || gifLoaded) && (
+            <img
+              src={showGif && currentSrc ? currentSrc : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='}
+              alt={alt}
+              width={dims.width}
+              height={dims.height}
+              className={`${isLoading && !(isGif && placeholderLoaded) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ${className || ''}`}
+              onError={handleError}
+              onLoad={() => {
+                // If this is the full GIF loading, mark it as loaded
+                if (isGif) {
+                  setGifLoaded(true);
+                }
+                handleLoad();
+              }}
+              loading={priority ? 'eager' : 'lazy'}
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              style={{ 
+                objectFit: 'cover',
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                ...style
+              }}
+              {...props}
+            />
+          )}
+        </>
       ) : (
-        // Use Next.js Image for desktop with full optimization
-        <Image
-          src={showGif && currentSrc ? currentSrc : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='}
-          alt={alt}
-          width={dims.width}
-          height={dims.height}
-          className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-          priority={priority}
-          quality={quality}
-          sizes={getResponsiveSizes()}
-          onError={handleError}
-          onLoad={handleLoad}
-          placeholder={placeholder}
-          unoptimized={currentSrc.includes('/api/optimized-images/') || currentSrc.includes('/api/placeholder-image/')} // Don't optimize API images or SVG placeholders
-          style={style}
-          {...props}
-        />
+        // Use Next.js Image for desktop with full optimization and GIF placeholder support
+        <>
+          {/* Show placeholder first for GIFs */}
+          {isGif && placeholderLoaded && gifPlaceholder && !gifLoaded && (
+            <Image
+              src={gifPlaceholder}
+              alt={alt}
+              width={dims.width}
+              height={dims.height}
+              className={`opacity-100 transition-opacity duration-300`}
+              priority={priority}
+              quality={quality}
+              sizes={getResponsiveSizes()}
+              unoptimized
+              style={style}
+              {...props}
+            />
+          )}
+          {/* Show full GIF when loaded or if no placeholder */}
+          {(!isGif || !placeholderLoaded || !gifPlaceholder || gifLoaded) && (
+            <Image
+              src={showGif && currentSrc ? currentSrc : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='}
+              alt={alt}
+              width={dims.width}
+              height={dims.height}
+              className={`${isLoading && !(isGif && placeholderLoaded) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+              priority={priority}
+              quality={quality}
+              sizes={getResponsiveSizes()}
+              onError={handleError}
+              onLoad={() => {
+                // If this is the full GIF loading, mark it as loaded
+                if (isGif) {
+                  setGifLoaded(true);
+                }
+                handleLoad();
+              }}
+              placeholder={placeholder}
+              unoptimized={currentSrc.includes('/api/optimized-images/') || currentSrc.includes('/api/placeholder-image/') || isGif} // Don't optimize API images, SVG placeholders, or GIFs
+              style={style}
+              {...props}
+            />
+          )}
+        </>
       )}
       
       {/* Debug info in development */}
