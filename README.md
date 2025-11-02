@@ -31,7 +31,6 @@ The codebase recently underwent a comprehensive 5-phase refactoring:
 ```
 lib/
 ├── api/                          # Consolidated API handlers
-│   ├── music-handler.ts         # Music track operations
 │   ├── playlist-handler.ts      # Playlist management
 │   └── cache-handler.ts         # Cache operations
 ├── music-track-parser/          # Modular music parsing
@@ -142,9 +141,9 @@ npx prisma db push
 ## API Endpoints
 
 ### Music Operations
-- `GET /api/music` - Query music tracks with filters
-- `POST /api/music` - Add tracks or bulk operations
-- `DELETE /api/music` - Clear caches
+- `GET /api/music-tracks` - Query music tracks with filters
+- `POST /api/music-tracks` - Add tracks or bulk operations
+- `GET /api/music-tracks/database` - Database operations for tracks
 
 ### Playlist Operations
 - `GET /api/playlist` - Get playlist data
