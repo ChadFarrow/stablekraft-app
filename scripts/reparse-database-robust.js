@@ -3,27 +3,47 @@
 import { createRSSParser } from '../src/lib/rss-parser-config.js';
 import fs from 'fs';
 import path from 'path';
+import {
+  printSectionHeader,
+  formatConsoleOutput,
+  createStatsTracker,
+  createProgressTracker,
+  saveProgress,
+  formatDuration
+} from './utils/database-utils.js';
+
+/**
+ * @deprecated This script uses JSON file storage which has been migrated to Prisma.
+ * Please use Prisma database directly instead of this script.
+ */
 
 async function reparseMainBranchDatabaseRobust() {
-  console.log('\n🔄 ROBUST DATABASE REPARSE WITH PROGRESS SAVING\n');
-  console.log('═'.repeat(70));
+  formatConsoleOutput('warning', 'WARNING: This script uses deprecated JSON file storage.');
+  formatConsoleOutput('warning', 'All database operations should use Prisma instead.');
+  printSectionHeader('Robust Database Reparse with Progress Saving');
   
   try {
     const parser = createRSSParser();
     const startTime = Date.now();
     
-    // Load existing main branch database
-    console.log('📁 Loading main branch database...');
+    // Load existing main branch database (DEPRECATED - using JSON)
+    formatConsoleOutput('info', 'Loading main branch database from JSON (DEPRECATED)...');
     const mainBranchPath = path.join(process.cwd(), 'data', 'music-tracks.json');
+    
+    if (!fs.existsSync(mainBranchPath)) {
+      formatConsoleOutput('error', 'Main branch database JSON file not found.');
+      formatConsoleOutput('warning', 'This script is deprecated. Use Prisma database operations instead.');
+      return;
+    }
+    
     const mainBranchData = JSON.parse(fs.readFileSync(mainBranchPath, 'utf8'));
-    console.log(`   ✅ Loaded ${mainBranchData.musicTracks.length} tracks`);
+    formatConsoleOutput('success', `Loaded ${mainBranchData.musicTracks.length} tracks from JSON file (DEPRECATED)`);
     
     // Set up progress tracking
     const progressFile = path.join(process.cwd(), 'data', 'reparse-progress.json');
     const enhancedFile = path.join(process.cwd(), 'data', 'enhanced-music-tracks.json');
     
-    // Check for existing progress
-    let startIndex = 0;
+    // Initialize enhanced database
     let enhancedDatabase = {
       metadata: {
         originalCount: mainBranchData.musicTracks.length,
@@ -45,30 +65,36 @@ async function reparseMainBranchDatabaseRobust() {
       }
     };
     
-    if (fs.existsSync(progressFile)) {
-      const progress = JSON.parse(fs.readFileSync(progressFile, 'utf8'));
-      startIndex = progress.lastProcessedIndex + 1;
-      console.log(`   📄 Resuming from track ${startIndex + 1}`);
+    // Use progress tracker utility
+    const progressTracker = createProgressTracker(progressFile, mainBranchData.musicTracks.length);
+    const startIndex = progressTracker.getStartIndex();
+    
+    if (progressTracker.isResuming()) {
+      formatConsoleOutput('info', `Resuming from track ${startIndex + 1}`);
     }
     
+    // Load existing enhanced database if present
     if (fs.existsSync(enhancedFile)) {
       enhancedDatabase = JSON.parse(fs.readFileSync(enhancedFile, 'utf8'));
-      console.log(`   📄 Loaded existing enhanced database with ${enhancedDatabase.enhancedTracks.length} tracks`);
+      formatConsoleOutput('info', `Loaded existing enhanced database with ${enhancedDatabase.enhancedTracks.length} tracks`);
     }
+    
+    // Create stats tracker
+    const statsTracker = createStatsTracker(enhancedDatabase.enhancementStats);
     
     // Process in smaller batches with frequent saves
     const BATCH_SIZE = 3;
-    const SAVE_EVERY = 30; // Save every 10 batches
+    const SAVE_EVERY = 30;
     const totalTracks = mainBranchData.musicTracks.length;
     
-    console.log(`\n🔄 Processing ${totalTracks - startIndex} remaining tracks in batches of ${BATCH_SIZE}...\n`);
+    formatConsoleOutput('progress', `Processing ${totalTracks - startIndex} remaining tracks in batches of ${BATCH_SIZE}...`);
     
     for (let i = startIndex; i < totalTracks; i += BATCH_SIZE) {
       const batch = mainBranchData.musicTracks.slice(i, Math.min(i + BATCH_SIZE, totalTracks));
       const batchNum = Math.floor((i - startIndex) / BATCH_SIZE) + 1;
       const totalBatches = Math.ceil((totalTracks - startIndex) / BATCH_SIZE);
       
-      console.log(`📦 Batch ${batchNum}/${totalBatches} (tracks ${i + 1}-${Math.min(i + BATCH_SIZE, totalTracks)})...`);
+      formatConsoleOutput('batch', `Batch ${batchNum}/${totalBatches}`, `tracks ${i + 1}-${Math.min(i + BATCH_SIZE, totalTracks)}`);
       
       // Process batch
       const batchPromises = batch.map(async (track, batchIndex) => {
@@ -109,18 +135,18 @@ async function reparseMainBranchDatabaseRobust() {
             enhancedAt: new Date().toISOString()
           };
           
-          // Update stats
-          enhancedDatabase.enhancementStats.successful++;
-          if (enhancedTrack.enhancements.artistNameImproved) enhancedDatabase.enhancementStats.artistNamesFixed++;
-          if (enhancedTrack.enhancements.valueForValueAdded) enhancedDatabase.enhancementStats.valueForValueEnabled++;
-          if (enhancedTrack.enhancements.audioUrlAdded) enhancedDatabase.enhancementStats.audioUrlsAdded++;
-          if (enhancedTrack.enhancements.durationResolved) enhancedDatabase.enhancementStats.durationResolved++;
+          // Update stats using tracker
+          statsTracker.increment('successful');
+          if (enhancedTrack.enhancements.artistNameImproved) statsTracker.increment('artistNamesFixed');
+          if (enhancedTrack.enhancements.valueForValueAdded) statsTracker.increment('valueForValueEnabled');
+          if (enhancedTrack.enhancements.audioUrlAdded) statsTracker.increment('audioUrlsAdded');
+          if (enhancedTrack.enhancements.durationResolved) statsTracker.increment('durationResolved');
           
-          console.log(`   ${globalIndex + 1}. ✅ "${resolved.item.title}" by ${resolved.feed.itunes?.author || 'Unknown'}`);
+          formatConsoleOutput('success', `${globalIndex + 1}. "${resolved.item.title}"`, `by ${resolved.feed.itunes?.author || 'Unknown'}`);
           return enhancedTrack;
           
         } catch (error) {
-          enhancedDatabase.enhancementStats.failed++;
+          statsTracker.increment('failed');
           const failedTrack = {
             originalIndex: globalIndex,
             originalData: track,
@@ -128,7 +154,7 @@ async function reparseMainBranchDatabaseRobust() {
             failedAt: new Date().toISOString()
           };
           
-          console.log(`   ${globalIndex + 1}. ❌ "${track.title}" - ${error.message.substring(0, 50)}...`);
+          formatConsoleOutput('error', `${globalIndex + 1}. "${track.title}"`, `${error.message.substring(0, 50)}...`);
           return { failed: true, data: failedTrack };
         }
       });
@@ -147,28 +173,25 @@ async function reparseMainBranchDatabaseRobust() {
       });
       
       // Update stats
-      enhancedDatabase.enhancementStats.processed = i + batch.length;
-      enhancedDatabase.enhancementStats.remaining = totalTracks - (i + batch.length);
+      const processed = i + batch.length;
+      statsTracker.update('processed', processed);
+      statsTracker.update('remaining', totalTracks - processed);
+      
+      // Sync stats back to enhancedDatabase
+      enhancedDatabase.enhancementStats = statsTracker.getStats();
       
       // Save progress periodically
       if (batchNum % SAVE_EVERY === 0 || i + BATCH_SIZE >= totalTracks) {
-        console.log(`   💾 Saving progress... (${enhancedDatabase.enhancementStats.processed}/${totalTracks} processed)`);
+        formatConsoleOutput('save', `Saving progress... (${processed}/${totalTracks} processed)`);
         
         // Save enhanced database
-        fs.writeFileSync(enhancedFile, JSON.stringify(enhancedDatabase, null, 2), 'utf8');
+        saveProgress(enhancedFile, enhancedDatabase);
         
         // Save progress marker
-        fs.writeFileSync(progressFile, JSON.stringify({
-          lastProcessedIndex: i + batch.length - 1,
-          timestamp: new Date().toISOString(),
-          batchesCompleted: batchNum
-        }, null, 2), 'utf8');
+        progressTracker.update(i + batch.length - 1, batchNum);
         
         // Show current stats
-        const processed = enhancedDatabase.enhancementStats.processed;
-        const successful = enhancedDatabase.enhancementStats.successful;
-        const failed = enhancedDatabase.enhancementStats.failed;
-        console.log(`   📊 Stats: ${successful} enhanced, ${failed} failed (${((successful/processed)*100).toFixed(1)}% success)`);
+        statsTracker.printStats(totalTracks);
       }
       
       // Brief pause to respect API limits
@@ -183,41 +206,38 @@ async function reparseMainBranchDatabaseRobust() {
     // Final save
     enhancedDatabase.metadata.completedAt = new Date().toISOString();
     enhancedDatabase.metadata.processingTimeSeconds = duration;
-    fs.writeFileSync(enhancedFile, JSON.stringify(enhancedDatabase, null, 2), 'utf8');
+    enhancedDatabase.enhancementStats = statsTracker.getStats();
+    saveProgress(enhancedFile, enhancedDatabase);
     
     // Create backup of original
     const backupPath = path.join(process.cwd(), 'data', `music-tracks-backup-before-enhancement-${Date.now()}.json`);
-    fs.writeFileSync(backupPath, JSON.stringify(mainBranchData, null, 2), 'utf8');
+    saveProgress(backupPath, mainBranchData);
     
     // Clean up progress file
-    if (fs.existsSync(progressFile)) {
-      fs.unlinkSync(progressFile);
-    }
+    progressTracker.clear();
     
-    console.log('\n═'.repeat(70));
-    console.log('🎉 DATABASE ENHANCEMENT COMPLETE!');
-    console.log('═'.repeat(70));
+    printSectionHeader('Database Enhancement Complete');
     
-    const stats = enhancedDatabase.enhancementStats;
-    console.log(`📊 FINAL RESULTS:`);
+    const stats = statsTracker.getStats();
+    formatConsoleOutput('stats', 'Final Results:');
     console.log(`   Total Processed: ${stats.processed}`);
     console.log(`   Successfully Enhanced: ${stats.successful}`);
     console.log(`   Failed to Enhance: ${stats.failed}`);
     console.log(`   Success Rate: ${((stats.successful / stats.processed) * 100).toFixed(1)}%`);
     console.log(`   Processing Time: ${Math.round(duration)}s (${Math.round(duration/60)}m)`);
     
-    console.log(`\n🎯 ENHANCEMENTS APPLIED:`);
+    formatConsoleOutput('info', '\nEnhancements Applied:');
     console.log(`   Artist Names Fixed: ${stats.artistNamesFixed}`);
     console.log(`   Value4Value Added: ${stats.valueForValueEnabled}`);
     console.log(`   Audio URLs Added: ${stats.audioUrlsAdded}`);
     console.log(`   Durations Resolved: ${stats.durationResolved}`);
     
-    console.log(`\n📁 FILES CREATED:`);
+    formatConsoleOutput('info', '\nFiles Created:');
     console.log(`   Enhanced Database: ${enhancedFile}`);
     console.log(`   Original Backup: ${backupPath}`);
     
     if (stats.successful > 0) {
-      console.log(`\n🎵 SAMPLE ENHANCED TRACKS:`);
+      formatConsoleOutput('info', '\nSample Enhanced Tracks:');
       enhancedDatabase.enhancedTracks.slice(0, 5).forEach((track, index) => {
         console.log(`   ${index + 1}. "${track.enhancedMetadata.title}"`);
         console.log(`      Artist: ${track.enhancedMetadata.artist}`);
@@ -229,11 +249,10 @@ async function reparseMainBranchDatabaseRobust() {
       });
     }
     
-    console.log(`\n✨ Your database now has proper artist names, Value4Value support,`);
-    console.log(`   and direct audio URLs for ${stats.successful} tracks!`);
+    formatConsoleOutput('complete', `\nYour database now has proper artist names, Value4Value support, and direct audio URLs for ${stats.successful} tracks!`);
     
   } catch (error) {
-    console.error('\n❌ Error during database enhancement:', error.message);
+    formatConsoleOutput('error', 'Error during database enhancement:', error.message);
     console.error(error.stack);
     process.exit(1);
   }
