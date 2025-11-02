@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { playlistCache } from '@/lib/playlist-cache';
-import { headers } from 'next/headers';
 import { autoPopulateFeeds, parseRemoteItemsForFeeds } from '@/lib/auto-populate-feeds';
 
 // Increase timeout for this route to 5 minutes
@@ -115,7 +114,12 @@ async function resolveItemGuid(feedGuid: string, itemGuid: string) {
 }
 
 async function fetchPlaylistXML(url: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+    },
+    signal: AbortSignal.timeout(30000) // 30 second timeout
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch playlist: ${response.status}`);
   }
@@ -139,8 +143,7 @@ function parseRemoteItems(xmlText: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const headersList = await headers();
-    const userAgent = headersList.get('user-agent') || 'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
     
     console.log('🎵 Fetching B4TS playlist...', { userAgent });
 
@@ -156,9 +159,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch playlist XML
-    const xmlText = await fetchPlaylistXML(B4TS_PLAYLIST_URL);
-    console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
+    // Fetch playlist XML with error handling
+    let xmlText: string;
+    try {
+      xmlText = await fetchPlaylistXML(B4TS_PLAYLIST_URL);
+      console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
+    } catch (fetchError) {
+      console.error('❌ Error fetching playlist XML:', fetchError);
+      // Try to use cached data if available
+      if (!refresh) {
+        const cachedData = playlistCache.getCachedData('b4ts-playlist');
+        if (cachedData) {
+          console.log('⚠️ Using cached data due to fetch error');
+          return NextResponse.json({
+            ...cachedData,
+            tracks: cachedData.albums?.[0]?.tracks || []
+          });
+        }
+      }
+      throw new Error(`Failed to fetch playlist XML: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+    }
     
     // Parse remote items
     const remoteItems = parseRemoteItems(xmlText);
@@ -319,8 +339,8 @@ export async function GET(request: NextRequest) {
     playlistCache.setCachedData('b4ts-playlist', responseData);
 
     return NextResponse.json({
-      success: true,
-      tracks: playlistAlbum.tracks // Return tracks directly for PlaylistTemplate compatibility
+      ...responseData,
+      tracks: playlistAlbum.tracks // Also include tracks directly for PlaylistTemplate compatibility
     });
   } catch (error) {
     console.error('❌ Error fetching B4TS playlist:', error);

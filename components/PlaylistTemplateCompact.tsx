@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 
 interface PlaylistTemplateCompactProps {
   config: PlaylistConfig;
@@ -24,10 +25,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(null);
   const [playlistArtwork, setPlaylistArtwork] = useState<string | null>(null);
   const [playlistLink, setPlaylistLink] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('episode-desc');
+  
+  // Client-side check
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Always call the hook, but only use it if enabled
   const audioContext = useAudio();
@@ -124,18 +131,25 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       console.log(`🔍 Raw API data for ${config.title}:`, data);
 
       // Handle both album format and direct tracks format
+      // Prioritize albums format to get artwork, but fall back to direct tracks if needed
       let tracksData = [];
       let artworkUrl = null;
-      if (data.tracks) {
-        // Direct tracks format (like /api/itdv-resolved-songs)
-        tracksData = data.tracks;
-        console.log(`🔍 Direct tracks format: ${tracksData.length} tracks`);
-      } else if (data.albums && data.albums[0] && data.albums[0].tracks) {
-        // Album format (like /api/playlist/itdv)
+      
+      if (data.albums && data.albums[0] && data.albums[0].tracks) {
+        // Album format (like /api/playlist/itdv, flowgnar)
         tracksData = data.albums[0].tracks;
-        artworkUrl = data.albums[0].coverArt || data.albums[0].image || data.playlist?.artwork;
+        artworkUrl = data.albums[0].coverArt || data.albums[0].image || data.playlist?.artwork || data.data?.playlist?.image;
         console.log(`🔍 Album format: ${tracksData.length} tracks from album "${data.albums[0].title}"`);
         console.log(`🎨 Playlist artwork URL:`, artworkUrl);
+      } else if (data.tracks) {
+        // Direct tracks format (like /api/itdv-resolved-songs)
+        tracksData = data.tracks;
+        // Still try to extract artwork from albums or playlist data if available
+        artworkUrl = data.albums?.[0]?.coverArt || data.albums?.[0]?.image || data.playlist?.artwork || data.data?.playlist?.image;
+        console.log(`🔍 Direct tracks format: ${tracksData.length} tracks`);
+        if (artworkUrl) {
+          console.log(`🎨 Found artwork in direct tracks format:`, artworkUrl);
+        }
       } else {
         console.log(`🚨 Unknown API format:`, Object.keys(data));
         tracksData = [];
@@ -450,27 +464,56 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     );
   }
 
+  // Optimized background style calculation - memoized to prevent repeated logs
+  const backgroundStyle = useMemo(() => {
+    // Create a fixed background that overrides the global layout background
+    const baseStyle = {
+      position: 'fixed' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1  // Override global background (which is z-0)
+    };
+
+    // For backgrounds, use enhanced proxy for better quality and upscaling
+    // This ensures high-resolution backgrounds even from low-res sources
+    const highResBackgroundUrl = playlistArtwork && isClient
+      ? (() => {
+          // Use proxy with enhancement for external images, direct URL for internal
+          if (playlistArtwork.includes('re.podtards.com') || playlistArtwork.startsWith('/')) {
+            return getAlbumArtworkUrl(playlistArtwork, 'xl', false);
+          }
+          // For external images, use enhanced proxy
+          return `/api/proxy-image?url=${encodeURIComponent(playlistArtwork)}&enhance=true&minWidth=1920&minHeight=1080`;
+        })()
+      : null;
+
+    const style = highResBackgroundUrl ? {
+      ...baseStyle,
+      backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${highResBackgroundUrl}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+      // Add image rendering optimizations for better quality
+      filter: 'blur(0px) contrast(1.05) brightness(0.95)',
+      imageRendering: 'high-quality' as any,
+      WebkitBackfaceVisibility: 'hidden' as any,
+      transform: 'translateZ(0)' as any,
+    } : {
+      ...baseStyle,
+      background: 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55), rgb(17, 24, 39))'
+    };
+
+    return style;
+  }, [playlistArtwork, isClient]);
+
   return (
     <div className="min-h-screen text-white relative overflow-hidden">
       {/* Background layer - similar to album pages */}
       <div 
         className="fixed inset-0"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0, 
-          bottom: 0,
-          zIndex: 1,
-          ...(playlistArtwork ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('${playlistArtwork}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundAttachment: 'fixed'
-          } : {
-            background: 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55), rgb(17, 24, 39))'
-          })
-        }}
+        style={backgroundStyle}
       />
 
       {/* Content overlay - positioned above background like album pages */}
