@@ -115,7 +115,12 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
       href={albumUrl}
       className={`group relative bg-black/40 backdrop-blur-md rounded-xl border border-gray-700/50 overflow-hidden transition-all duration-300 hover:bg-black/50 hover:border-cyan-400/30 hover:scale-[1.02] active:scale-[0.98] block shadow-lg hover:shadow-xl hover:shadow-cyan-400/10 ${className}`}
       onClick={(e) => {
-        // Navigation handled by Link component
+        // Prevent navigation if user was scrolling
+        if (shouldPreventClick()) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
       }}
       aria-label={isPublisherCard ? `View artist page for ${album.title}` : `View album details for ${album.title} by ${album.artist}`}
     >

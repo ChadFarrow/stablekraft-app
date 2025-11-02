@@ -15,6 +15,7 @@ import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import NowPlayingScreen from '@/components/NowPlayingScreen';
 import SearchBar from '@/components/SearchBar';
+import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 
 
 
@@ -92,6 +93,7 @@ devLog('🚀 Feeds will be loaded dynamically from /api/feeds endpoint');
 
 export default function HomePage() {
   const router = useRouter();
+  const { shouldPreventClick } = useScrollDetectionContext();
   const [isLoading, setIsLoading] = useState(true);
   const [albums, setAlbums] = useState<RSSAlbum[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -287,9 +289,10 @@ export default function HomePage() {
       // OPTIMIZED: Load albums in single API call (includes totalCount in response)
       // Removed redundant count query - totalCount is now included in albums response
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
-      const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+      const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
       
-      // Note: totalCount is now set in loadAlbumsData from API response
+      // Update total albums count from API response (for pagination)
+      setTotalAlbums(totalCount);
       
       // For all filters, show first 12 items in server-provided order
       setCriticalAlbums(pageAlbums.slice(0, 12));
@@ -297,7 +300,10 @@ export default function HomePage() {
       setEnhancedAlbums(pageAlbums);
       setDisplayedAlbums(pageAlbums);
       setAlbums(pageAlbums); // Also set the main albums state
-      setHasMoreAlbums(pageAlbums.length >= ALBUMS_PER_PAGE);
+      
+      // Use totalCount to correctly determine if there are more albums
+      // If we got a full page (50 albums) and there's more than what we loaded, there are more
+      setHasMoreAlbums(pageAlbums.length >= ALBUMS_PER_PAGE && pageAlbums.length < totalCount);
       setIsCriticalLoaded(true);
       setIsEnhancedLoaded(true);
       setLoadingProgress(100);
@@ -327,24 +333,35 @@ export default function HomePage() {
     setIsLoading(true);
     const nextPage = currentPage + 1;
 
-    try {
-      // Load next page from API (server-side sorted globally: Albums → EPs → Singles)
-      const startIndex = (nextPage - 1) * ALBUMS_PER_PAGE;
-      const newAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
-      
-      if (newAlbums.length > 0) {
-        // Append new albums to existing ones (already sorted globally from server)
-        // The API returns albums in correct global order: Albums → EPs → Singles
-        setDisplayedAlbums(prev => {
-          const updated = [...prev, ...newAlbums];
-          const totalLoaded = updated.length;
-          setHasMoreAlbums(totalLoaded < totalAlbums);
-          return updated;
-        });
-        setCurrentPage(nextPage);
-      } else {
-        setHasMoreAlbums(false);
-      }
+      try {
+        // Load next page from API (server-side sorted globally: Albums → EPs → Singles)
+        const startIndex = (nextPage - 1) * ALBUMS_PER_PAGE;
+        const { albums: newAlbums, totalCount: newTotalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+        
+        // Update totalAlbums if we got a new total count (should be the same, but ensure consistency)
+        if (newTotalCount > 0) {
+          setTotalAlbums(newTotalCount);
+        }
+        
+        if (newAlbums.length > 0) {
+          // Append new albums to existing ones (already sorted globally from server)
+          // The API returns albums in correct global order: Albums → EPs → Singles
+          setDisplayedAlbums(prev => {
+            const updated = [...prev, ...newAlbums];
+            const totalLoaded = updated.length;
+            // Check if there are more albums:
+            // 1. If we loaded fewer albums than requested, we've reached the end
+            // 2. Otherwise, check if total loaded is less than total count
+            const hasMore = newAlbums.length >= ALBUMS_PER_PAGE && totalLoaded < newTotalCount;
+            console.log(`📊 Pagination check: loaded=${newAlbums.length}, totalLoaded=${totalLoaded}, totalCount=${newTotalCount}, hasMore=${hasMore}`);
+            setHasMoreAlbums(hasMore);
+            return updated;
+          });
+          setCurrentPage(nextPage);
+        } else {
+          console.log('📊 No more albums returned, stopping pagination');
+          setHasMoreAlbums(false);
+        }
     } catch (error) {
       console.error('Error loading more albums:', error);
       setError('Failed to load more albums');
@@ -474,27 +491,31 @@ export default function HomePage() {
         };
       } else if (newFilter === 'playlist') {
         // Special handling for playlist filter - multiple playlists
-        const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
+        const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
         
         resultData = {
           albums: pageAlbums,
-          totalCount: pageAlbums.length,
-          hasMore: false
+          totalCount: totalCount,
+          hasMore: pageAlbums.length < totalCount
         };
       } else {
         // Parallel fetch for count and data
-        const [totalCountResponse, pageAlbums] = await Promise.all([
+        const [totalCountResponse, albumsResult] = await Promise.all([
           fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}`),
           loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter)
         ]);
         
         const totalCountData = await totalCountResponse.json();
-        const totalCount = totalCountData.totalCount || 0;
+        const totalCountFromAPI = totalCountData.totalCount || 0;
+        const { albums: pageAlbums, totalCount } = albumsResult;
+        
+        // Use the totalCount from loadAlbumsData (more accurate) or fall back to API count
+        const finalTotalCount = totalCount > 0 ? totalCount : totalCountFromAPI;
         
         resultData = {
           albums: pageAlbums,
-          totalCount: totalCount,
-          hasMore: totalCount > ALBUMS_PER_PAGE
+          totalCount: finalTotalCount,
+          hasMore: pageAlbums.length < finalTotalCount
         };
       }
       
@@ -526,12 +547,12 @@ export default function HomePage() {
   const totalPages = Math.ceil(totalAlbums / ALBUMS_PER_PAGE);
   const loadedAlbumsCount = displayedAlbums.length;
 
-  const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all') => {
+  const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all'): Promise<{ albums: RSSAlbum[]; totalCount: number }> => {
     try {
       // Handle artists filter separately - don't call albums API for publishers
       if (filter === 'artists') {
         console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
-        return []; // Return empty array to prevent showing wrong data
+        return { albums: [], totalCount: 0 }; // Return empty array to prevent showing wrong data
       }
 
       // Handle playlist filter separately - use fast endpoint for better performance
@@ -545,7 +566,7 @@ export default function HomePage() {
             const data = await response.json();
             if (data.success && data.albums) {
               console.log(`✅ Loaded ${data.albums.length} playlists from fast endpoint`);
-              return data.albums;
+              return { albums: data.albums, totalCount: data.albums.length };
             }
           }
           
@@ -665,11 +686,11 @@ export default function HomePage() {
             console.warn('⚠️ Failed to load SAS playlist');
           }
 
-          return allAlbums;
+          return { albums: allAlbums, totalCount: allAlbums.length };
           
         } catch (error) {
           console.error('❌ Error loading playlists:', error);
-          return [];
+          return { albums: [], totalCount: 0 };
         }
       }
       
@@ -682,7 +703,10 @@ export default function HomePage() {
           const age = Date.now() - parseInt(timestamp);
           if (age < 15 * 60 * 1000) { // 15 minutes cache for better performance
             console.log('📦 Using cached albums');
-            return JSON.parse(cached);
+            const cachedAlbums = JSON.parse(cached);
+            // For cached data, we need to estimate totalCount - use a large number to allow pagination
+            // The actual totalCount will be updated from the next API call
+            return { albums: cachedAlbums, totalCount: cachedAlbums.length >= ALBUMS_PER_PAGE ? 10000 : cachedAlbums.length };
           }
         }
       }
@@ -776,14 +800,14 @@ export default function HomePage() {
         }
       }
       
-      return rssAlbums;
+      return { albums: rssAlbums, totalCount };
       
     } catch (err) {
       const errorMessage = getErrorMessage(err);
       console.error('❌ Error loading main feed tracks:', err);
       setError(`Error loading main feed tracks: ${errorMessage}`);
       toast.error(`Failed to load albums: ${errorMessage}`);
-      return [];
+      return { albums: [], totalCount: 0 };
     } finally {
       setIsLoading(false);
     }
@@ -1307,7 +1331,15 @@ export default function HomePage() {
                       key={`test-feed-${feed.id}`}
                       href={`/album/${feed.id}`}
                       className="flex items-center justify-between bg-orange-800/20 hover:bg-orange-800/30 rounded p-1.5 transition-colors group border border-orange-700/30"
-                      onClick={() => setIsSidebarOpen(false)}
+                      onClick={(e) => {
+                        // Prevent navigation if user was scrolling
+                        if (shouldPreventClick()) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          return;
+                        }
+                        setIsSidebarOpen(false);
+                      }}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <svg className="w-3 h-3 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
