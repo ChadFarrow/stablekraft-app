@@ -31,11 +31,15 @@ async function getPlaylistAlbums() {
     
     // Check if we have cached playlist data and it's still fresh
     if (playlistCache && (now - playlistCacheTimestamp) < PLAYLIST_CACHE_DURATION) {
-      console.log('⚡ Using cached playlist data');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⚡ Using cached playlist data');
+      }
       return playlistCache;
     }
     
-    console.log('🔄 Fetching playlist data...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Fetching playlist data...');
+    }
     const playlistAlbums = [];
     
     // Fetch Upbeats playlist
@@ -123,10 +127,14 @@ async function getPlaylistAlbums() {
     playlistCache = playlistAlbums;
     playlistCacheTimestamp = now;
     
-    console.log(`✅ Cached ${playlistAlbums.length} playlists for fast access`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Cached ${playlistAlbums.length} playlists for fast access`);
+    }
     return playlistAlbums;
   } catch (error) {
-    console.error('Error fetching playlist albums:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching playlist albums:', error);
+    }
     return playlistCache || []; // Return cached data if available, empty array otherwise
   }
 }
@@ -140,7 +148,9 @@ export async function GET(request: Request) {
 
     // Redirect publisher filter requests to the publishers API
     if (filter === 'publishers' || filter === 'artists') {
-      console.log(`🚫 albums-fast: Rejecting ${filter} filter - should use /api/publishers instead`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 albums-fast: Rejecting ${filter} filter - should use /api/publishers instead`);
+      }
       return NextResponse.json({
         albums: [],
         totalCount: 0,
@@ -158,13 +168,32 @@ export async function GET(request: Request) {
     
     let feeds: FeedWithTracks[];
     let publisherStats: Array<{ name: string; albumCount: number }>;
+    let totalFeedCount = 0; // Will be set below for use in totalCount calculation
+    let shouldPaginate = false; // Will be set below
     
     if (shouldRefreshCache) {
-      console.log('🔄 Fetching albums from database...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Fetching albums from database...');
+      }
       
-      // Get all active feeds with their tracks directly from database
+      // OPTIMIZED: Only apply pagination when filter is 'all' (no filtering needed)
+      // For filters, we need to load all feeds to filter correctly and get accurate count
+      totalFeedCount = await prisma.feed.count({
+        where: { status: 'active' }
+      });
+      
+      // For 'all' filter, use pagination to only load what's needed
+      // For other filters, load all feeds to filter and count accurately
+      shouldPaginate = filter === 'all';
+      const feedsToLoad = shouldPaginate 
+        ? Math.min(totalFeedCount, offset + limit + 50) // Buffer for pagination
+        : totalFeedCount; // Load all for filtering
+      
+      // Get active feeds with their tracks directly from database
       feeds = await prisma.feed.findMany({
         where: { status: 'active' },
+        skip: shouldPaginate ? Math.max(0, offset - 10) : 0, // Small buffer before offset for pagination
+        take: feedsToLoad,
         include: {
           Track: {
             where: {
@@ -197,25 +226,57 @@ export async function GET(request: Request) {
         if (fs.existsSync(publisherDataPath)) {
           const publisherData = JSON.parse(fs.readFileSync(publisherDataPath, 'utf8'));
           publisherStats = publisherData.publishers || [];
-          console.log(`📊 Loaded ${publisherStats.length} publisher feeds from publisher-stats.json`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`📊 Loaded ${publisherStats.length} publisher feeds from publisher-stats.json`);
+          }
         } else {
-          console.log('⚠️ No publisher-stats.json found, using empty publisher stats');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('⚠️ No publisher-stats.json found, using empty publisher stats');
+          }
           publisherStats = [];
         }
       } catch (error) {
-        console.error('❌ Error loading publisher stats:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Error loading publisher stats:', error);
+        }
         publisherStats = [];
       }
       
-      // Cache the results
-      cachedData = { feeds, publisherStats };
-      cacheTimestamp = now;
-      
-      console.log(`✅ Loaded ${feeds.length} albums from database`);
+      // Cache the results only for 'all' filter with no pagination (first page)
+      // This provides fast cache hits for common initial load
+      const shouldCache = filter === 'all' && offset === 0 && limit >= 50;
+      if (shouldCache) {
+        cachedData = { feeds, publisherStats };
+        cacheTimestamp = now;
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ Loaded and cached ${feeds.length} albums from database`);
+        }
+      } else {
+        // Don't cache filtered or paginated results
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ Loaded ${feeds.length} albums from database (${filter !== 'all' ? 'filtered' : 'paginated'}, not cached)`);
+        }
+      }
     } else {
-      console.log(`⚡ Using cached database results (${cachedData!.feeds.length} albums)`);
+      // Use cached data, but still need total count for pagination
+      totalFeedCount = await prisma.feed.count({
+        where: { status: 'active' }
+      });
+      
+      // Determine pagination strategy for cached data
+      shouldPaginate = filter === 'all';
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚡ Using cached database results (${cachedData!.feeds.length} albums)`);
+      }
       feeds = cachedData!.feeds;
       publisherStats = cachedData!.publisherStats;
+      
+      // Apply pagination to cached data if needed
+      if (shouldPaginate) {
+        const feedsToLoad = Math.min(feeds.length, offset + limit + 50);
+        feeds = feeds.slice(Math.max(0, offset - 10), feedsToLoad);
+      }
     }
     
     // Transform feeds into album format for frontend
@@ -278,7 +339,7 @@ export async function GET(request: Request) {
         (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
       );
       
-      if (isBowlAfterBowlPodcast) {
+      if (isBowlAfterBowlPodcast && process.env.NODE_ENV === 'development') {
         console.log(`🚫 Filtering out Bowl After Bowl podcast: ${album.title} by ${album.artist}`);
       }
       
@@ -346,14 +407,27 @@ export async function GET(request: Request) {
       }
     }
     
-    // Apply pagination
-    const totalCount = filteredAlbums.length;
+    // Get accurate total count of filtered results
+    // For filters, we loaded all feeds, so filteredAlbums.length is the accurate total count
+    // For 'all' filter with pagination, we need to estimate total count
+    let totalCount = filteredAlbums.length;
+    
+    // If using pagination for 'all' filter and we loaded a subset, estimate total
+    // by using the ratio of loaded feeds vs filtered albums
+    if (filter === 'all' && shouldPaginate && feeds.length < totalFeedCount) {
+      // Estimate: if we filtered X albums from Y feeds, total would be approximately:
+      // (filteredAlbums / loadedFeeds) * totalFeeds
+      // But since 'all' filter doesn't actually filter, we can use totalFeedCount as approximation
+      totalCount = totalFeedCount;
+    }
+    
+    // Apply final pagination to filtered results
     const paginatedAlbums = filteredAlbums.slice(offset, offset + limit);
     
     return NextResponse.json({
       success: true,
       albums: paginatedAlbums,
-      totalCount,
+      totalCount, // Total count of filtered results (for pagination)
       publisherStats,
       metadata: {
         returnedAlbums: paginatedAlbums.length,
@@ -368,6 +442,7 @@ export async function GET(request: Request) {
     });
     
   } catch (error) {
+    // Always log errors, even in production
     console.error('❌ Albums Fast API Error:', error);
     return NextResponse.json({
       error: 'Failed to load albums',

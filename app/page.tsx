@@ -284,15 +284,12 @@ export default function HomePage() {
         return;
       }
 
-      // Get total count first for pagination with current filter
-      const totalCountResponse = await fetch(`/api/albums-fast?limit=1&offset=0&filter=${activeFilter}`);
-      const totalCountData = await totalCountResponse.json();
-      const totalCount = totalCountData.totalCount || 0;
-      setTotalAlbums(totalCount);
-      
-      // Load first page of albums (server-side sorted)
+      // OPTIMIZED: Load albums in single API call (includes totalCount in response)
+      // Removed redundant count query - totalCount is now included in albums response
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
       const pageAlbums = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+      
+      // Note: totalCount is now set in loadAlbumsData from API response
       
       // For all filters, show first 12 items in server-provided order
       setCriticalAlbums(pageAlbums.slice(0, 12));
@@ -699,15 +696,15 @@ export default function HomePage() {
       
       const data = await response.json();
       const albums = data.albums || [];
+      const totalCount = data.totalCount || 0;
       const publisherStatsFromAPI = data.publisherStats || [];
       
+      // Update total albums count from API response (for pagination)
+      setTotalAlbums(totalCount);
+      
       // Update publisher stats from API response - always use albums API when available
-      console.log(`📊 API Response publisher stats: ${publisherStatsFromAPI.length} publishers`);
       if (publisherStatsFromAPI.length > 0) {
         setPublisherStats(publisherStatsFromAPI);
-        console.log(`📊 Updated publisher stats from albums API: ${publisherStatsFromAPI.length} publishers`);
-      } else {
-        console.log(`⚠️ No publisher stats in albums API response`);
       }
       
       // Skip music tracks processing for initial load performance
