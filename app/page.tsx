@@ -253,6 +253,32 @@ export default function HomePage() {
     loadTestFeeds();
   }, []);
 
+  // Load publisher stats separately to ensure they're always available, even when using cache
+  useEffect(() => {
+    const loadPublisherStats = async () => {
+      // Only load if not already loaded
+      if (publisherStats.length > 0) return;
+
+      try {
+        const response = await fetch('/api/albums-fast?limit=1&offset=0&tier=all&filter=all');
+        if (response.ok) {
+          const data = await response.json();
+          const stats = data.publisherStats || [];
+          if (stats.length > 0) {
+            setPublisherStats(stats);
+            console.log(`📊 Loaded ${stats.length} publisher stats separately`);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading publisher stats:', error);
+      }
+    };
+
+    // Load after a short delay to allow main content to load first
+    const timer = setTimeout(loadPublisherStats, 500);
+    return () => clearTimeout(timer);
+  }, [publisherStats.length]);
+
 
   // Delay background image loading until after critical content
   useEffect(() => {
@@ -1180,9 +1206,9 @@ export default function HomePage() {
               <SearchBar className="w-full md:max-w-md" />
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              {/* Left side - Filter buttons */}
-              <div className="flex gap-1 overflow-x-auto flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+              {/* Filter buttons - Wrap on mobile, horizontal on desktop */}
+              <div className="flex flex-wrap gap-1.5 sm:gap-1 flex-1 min-w-0">
                 {[
                   { value: 'all', label: 'All' },
                   { value: 'albums', label: 'Albums' },
@@ -1195,7 +1221,7 @@ export default function HomePage() {
                     key={filter.value}
                     onClick={() => handleFilterChange(filter.value as FilterType)}
                     disabled={isFilterLoading}
-                    className={`px-3 py-2 rounded text-sm font-medium whitespace-nowrap transition-all ${
+                    className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded text-xs sm:text-sm font-medium whitespace-nowrap transition-all min-h-[44px] sm:min-h-0 ${
                       activeFilter === filter.value
                         ? 'bg-stablekraft-teal text-white shadow-sm'
                         : 'text-gray-300 hover:text-white hover:bg-gray-700'
@@ -1267,10 +1293,10 @@ export default function HomePage() {
         </div>
         
         {/* Sidebar */}
-        <div className={`fixed top-0 left-0 h-full w-80 bg-gray-900/95 backdrop-blur-sm transform transition-transform duration-300 z-30 border-r border-gray-700 ${
+        <div className={`fixed top-0 left-0 h-full w-80 bg-gray-900/95 backdrop-blur-sm transform transition-transform duration-300 z-30 border-r border-gray-700 overflow-y-auto ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
-          <div className="p-4 pt-16 flex flex-col h-full">
+          <div className="p-4 pt-16 flex flex-col min-h-full">
             <h2 className="text-lg font-bold mb-4 text-white">Menu</h2>
             
             {/* Navigation Links */}
