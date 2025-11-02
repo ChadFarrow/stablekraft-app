@@ -369,7 +369,14 @@ async function loadPublisherData(publisherId: string) {
         coverArt: feed.image,
         releaseDate: feed.lastFetched || feed.createdAt,
         trackCount: feed.Track.length,
-        tracks: feed.Track.map(track => ({
+        tracks: feed.Track.map((track: {
+          id: string;
+          title: string | null;
+          duration: number | null;
+          audioUrl: string;
+          trackOrder: number | null;
+          publishedAt: Date | null;
+        }) => ({
           id: track.id,
           title: track.title || 'Unknown Track',
           duration: track.duration || '0:00',
