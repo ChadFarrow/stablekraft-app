@@ -368,10 +368,10 @@ export default function BaseMusicTrackCard({
             {variant === 'v4v' && (
               <>
                 {/* Favorite Button */}
-                {(track.id || track.guid || track.trackId) && (
+                {(track.id || (isV4VTrack(track) && track.valueForValue?.itemGuid)) && (
                   <div onClick={(e) => e.stopPropagation()}>
                     <FavoriteButton
-                      trackId={track.id || track.guid || track.trackId}
+                      trackId={track.id || (isV4VTrack(track) ? track.valueForValue?.itemGuid : undefined)}
                       size={18}
                       className="text-white"
                     />
