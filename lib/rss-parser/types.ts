@@ -18,6 +18,7 @@ export interface RSSTrack {
   musicTrack?: boolean;
   episodeId?: string;
   episodeDate?: Date;
+  publishedAt?: string; // ISO string date for publication date
   source?: string;
   artist?: string;
   guid?: string;
