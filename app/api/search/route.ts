@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
               whereConditions.push({ [field]: { contains: values[0], mode: 'insensitive' } });
             } else {
               whereConditions.push({
-                OR: values.map(v => ({ [field]: { contains: v, mode: 'insensitive' } }))
+                OR: values.map((v: string) => ({ [field]: { contains: v, mode: 'insensitive' } }))
               });
             }
           }
