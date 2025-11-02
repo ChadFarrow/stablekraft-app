@@ -245,14 +245,9 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
           <div
             className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 z-20"
             onClick={(e) => {
-              e.preventDefault();
               e.stopPropagation();
             }}
             onTouchStart={(e) => {
-              e.stopPropagation();
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
               e.stopPropagation();
             }}
           >

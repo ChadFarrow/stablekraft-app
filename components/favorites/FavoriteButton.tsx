@@ -73,10 +73,7 @@ export default function FavoriteButton({
     checkFavorite();
   }, [sessionId, itemId, trackId, feedId, isTrack, isLoading]);
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-
+  const toggleFavorite = async () => {
     if (isToggling || isLoadingState || !itemId) {
       return;
     }
@@ -174,6 +171,30 @@ export default function FavoriteButton({
     }
   };
 
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await toggleFavorite();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    // Mark that we're interacting with button
+    (e.currentTarget as HTMLElement).dataset.touched = 'true';
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const button = e.currentTarget as HTMLElement;
+    if (button.dataset.touched === 'true') {
+      delete button.dataset.touched;
+      // Small delay to ensure it's a deliberate tap, not accidental during scroll
+      await toggleFavorite();
+    }
+  };
+
   if (isLoadingState || !itemId) {
     return null;
   }
@@ -181,7 +202,9 @@ export default function FavoriteButton({
   return (
     <button
       onClick={handleClick}
-      className={`favorite-button ${className} transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center ${
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className={`favorite-button ${className} transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center touch-manipulation ${
         isToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'
       }`}
       aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
