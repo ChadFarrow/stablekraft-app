@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import ClientErrorBoundary from '@/components/ClientErrorBoundary'
 import { ToastContainer } from '@/components/Toast'
 import { AudioProvider } from '@/contexts/AudioContext'
+import { SessionProvider } from '@/contexts/SessionContext'
 import LightningWrapper from '@/components/LightningWrapper'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
@@ -117,8 +118,9 @@ export default function RootLayout({
           <ErrorBoundary>
             <LightningWrapper>
               <ScrollDetectionProvider>
-                <AudioProvider>
-                  <div className="min-h-screen relative">
+                <SessionProvider>
+                  <AudioProvider>
+                    <div className="min-h-screen relative">
                     {/* Background Image - Lazy loaded for better performance */}
                     <div 
                       className="fixed inset-0 z-0"
@@ -147,7 +149,8 @@ export default function RootLayout({
                   <NowPlayingScreen />
                   <ToastContainer />
                   <ServiceWorkerRegistration />
-                </AudioProvider>
+                  </AudioProvider>
+                </SessionProvider>
               </ScrollDetectionProvider>
             </LightningWrapper>
           </ErrorBoundary>

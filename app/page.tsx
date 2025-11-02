@@ -147,6 +147,7 @@ export default function HomePage() {
   const [testFeeds, setTestFeeds] = useState<any[]>([]);
   const [testFeedsLoading, setTestFeedsLoading] = useState(true);
 
+
   // Shuffle functionality is now handled by the global AudioContext
   const handleShuffle = async () => {
     try {
@@ -251,6 +252,7 @@ export default function HomePage() {
 
     loadTestFeeds();
   }, []);
+
 
   // Delay background image loading until after critical content
   useEffect(() => {
@@ -865,7 +867,7 @@ export default function HomePage() {
       if (track.source === 'description') {
         // Only include if it looks like a real song title
         const hasArtist = track.artist && track.artist.length > 2 && !track.artist.includes('Unknown');
-        const hasGoodTitle = track.title.length > 5 && !track.title.includes('http');
+        const hasGoodTitle = track.title.length > 5 && !track.title.includes('not http');
         return hasArtist && hasGoodTitle;
       }
       
@@ -1178,9 +1180,9 @@ export default function HomePage() {
               <SearchBar className="w-full md:max-w-md" />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               {/* Left side - Filter buttons */}
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 overflow-x-auto flex-1 min-w-0">
                 {[
                   { value: 'all', label: 'All' },
                   { value: 'albums', label: 'Albums' },
@@ -1205,7 +1207,20 @@ export default function HomePage() {
               </div>
               
               {/* Right side - Action buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Favorites Button */}
+                <Link
+                  href="/favorites"
+                  className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center"
+                  title="View Favorites"
+                  aria-label="View Favorites"
+                  style={{ minWidth: '36px', minHeight: '36px' }}
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style={{ display: 'block' }}>
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                </Link>
+                
                 {/* Shuffle Button */}
                 <button
                   onClick={handleShuffle}
@@ -1260,6 +1275,16 @@ export default function HomePage() {
             
             {/* Navigation Links */}
             <div className="mb-4 space-y-1">
+              <Link 
+                href="/favorites" 
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-300 hover:text-white"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                <svg className="w-5 h-5 text-red-500 fill-red-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <span className="text-sm text-gray-300 font-medium">Favorites</span>
+              </Link>
               <Link 
                 href="/about" 
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-300"

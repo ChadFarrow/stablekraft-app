@@ -6,6 +6,7 @@ import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider'
 import { Play, Pause } from 'lucide-react';
 import type { PlaylistTrack, PlaylistConfig } from './PlaylistAlbum';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 interface PlaylistAlbumProgressiveProps {
   tracks: any[]; // Pre-enriched track data
@@ -254,6 +255,17 @@ export default function PlaylistAlbumProgressive({
               </div>
               
               <div className="flex items-center gap-3">
+                {/* Favorite Button */}
+                {(track.valueForValue?.itemGuid || track.id || track.guid) && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      trackId={track.valueForValue?.itemGuid || track.id || track.guid}
+                      size={18}
+                      className="text-white"
+                    />
+                  </div>
+                )}
+
                 <BoostButton
                   trackId={track.valueForValue?.itemGuid || track.id}
                   feedId={track.valueForValue?.feedGuid}

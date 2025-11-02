@@ -122,3 +122,27 @@ model UserPlaylist {
   @@index([createdBy])
   @@index([isPublic])
 }
+
+model FavoriteTrack {
+  id        String   @id @default(cuid())
+  sessionId String
+  trackId   String
+  createdAt DateTime @default(now())
+
+  @@unique([sessionId, trackId])
+  @@index([sessionId])
+  @@index([trackId])
+  @@index([sessionId, createdAt])
+}
+
+model FavoriteAlbum {
+  id        String   @id @default(cuid())
+  sessionId String
+  feedId    String
+  createdAt DateTime @default(now())
+
+  @@unique([sessionId, feedId])
+  @@index([sessionId])
+  @@index([feedId])
+  @@index([sessionId, createdAt])
+}

@@ -10,6 +10,7 @@ import { generateAlbumUrl } from '@/lib/url-utils';
 // import CDNImage from './CDNImage'; // Replaced with direct Next.js Image for performance
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 interface AlbumCardProps {
   album: RSSAlbum;
@@ -236,6 +237,32 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
               ? `${(album as any).albumCount || 0} ${((album as any).albumCount || 0) !== 1 ? 'releases' : 'release'}`
               : `${album.tracks?.length || 0} ${(album.tracks?.length || 0) !== 1 ? 'tracks' : 'track'}`
             }
+          </div>
+        )}
+
+        {/* Favorite Button - Heart icon in bottom-right corner */}
+        {(album as any).feedId && (
+          <div
+            className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 z-20"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
+              <FavoriteButton
+                feedId={(album as any).feedId}
+                size={18}
+                className="text-white"
+              />
+            </div>
           </div>
         )}
 

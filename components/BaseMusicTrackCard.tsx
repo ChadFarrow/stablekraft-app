@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { MusicTrackCardProps, V4VMusicTrack } from '@/types/music-track';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 export default function BaseMusicTrackCard({
   track,
@@ -366,15 +367,16 @@ export default function BaseMusicTrackCard({
             {/* Additional Actions */}
             {variant === 'v4v' && (
               <>
-                <button
-                  onClick={handleFavorite}
-                  className={`
-                    p-2 rounded-lg transition-colors
-                    ${isFavorited ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}
-                  `}
-                >
-                  <Heart className={`w-4 h-4 ${isFavorited ? 'fill-current' : ''}`} />
-                </button>
+                {/* Favorite Button */}
+                {(track.id || track.guid || track.trackId) && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      trackId={track.id || track.guid || track.trackId}
+                      size={18}
+                      className="text-white"
+                    />
+                  </div>
+                )}
 
                 <button
                   onClick={handleShare}

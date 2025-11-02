@@ -13,6 +13,7 @@ import ControlsBar from '@/components/ControlsBar';
 import BackButton from '@/components/BackButton';
 import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -1006,6 +1007,17 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       <span className="text-xs md:text-sm text-gray-400">
                         {formatDuration(track.duration)}
                       </span>
+
+                      {/* Favorite Button */}
+                      {track.guid && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <FavoriteButton
+                            trackId={track.guid}
+                            size={20}
+                            className="text-white"
+                          />
+                        </div>
+                      )}
 
                       {/* Boost Button */}
                       <BoostButton
