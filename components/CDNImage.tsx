@@ -107,27 +107,32 @@ export default function CDNImage({
     // Generate placeholder URL
     const placeholderUrl = `/api/gif-placeholder?url=${encodeURIComponent(currentSrc)}`;
     
-    // Preload the placeholder
-    const img = new Image();
-    img.onload = () => {
-      setGifPlaceholder(placeholderUrl);
+    // Preload the placeholder - only in browser context
+    if (typeof window !== 'undefined' && window.Image) {
+      const img = new window.Image();
+      img.onload = () => {
+        setGifPlaceholder(placeholderUrl);
+        setPlaceholderLoaded(true);
+        
+        // Once placeholder is loaded, start preloading the full GIF in the background
+        // This ensures the full GIF is ready when we want to show it
+        if (currentSrc && !gifLoaded) {
+          const fullGifImg = new window.Image();
+          fullGifImg.onload = () => {
+            setGifLoaded(true);
+          };
+          fullGifImg.src = currentSrc;
+        }
+      };
+      img.onerror = () => {
+        // If placeholder fails, just proceed without it
+        setPlaceholderLoaded(true);
+      };
+      img.src = placeholderUrl;
+    } else {
+      // Fallback if Image constructor is not available
       setPlaceholderLoaded(true);
-      
-      // Once placeholder is loaded, start preloading the full GIF in the background
-      // This ensures the full GIF is ready when we want to show it
-      if (currentSrc && !gifLoaded) {
-        const fullGifImg = new Image();
-        fullGifImg.onload = () => {
-          setGifLoaded(true);
-        };
-        fullGifImg.src = currentSrc;
-      }
-    };
-    img.onerror = () => {
-      // If placeholder fails, just proceed without it
-      setPlaceholderLoaded(true);
-    };
-    img.src = placeholderUrl;
+    }
   }, [isGif, isClient, currentSrc, placeholderLoaded, gifLoaded]);
 
   // Intersection Observer for GIF lazy loading
