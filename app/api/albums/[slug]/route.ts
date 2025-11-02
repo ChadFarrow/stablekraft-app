@@ -632,8 +632,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const albumId = albumSlug + '-' + feed.id.split('-')[0];
       
       // Check if this album matches the requested slug
-      if (albumId === slug || albumSlug === slug || albumTitle.toLowerCase().replace(/\s+/g, '-') === slug) {
-        console.log(`🔍 Found potential match: "${albumTitle}" with ${feed.Track.length} tracks`);
+      // Also check if slug matches the feed ID directly (e.g., "lnurl-test-feed")
+      if (albumId === slug || 
+          albumSlug === slug || 
+          albumTitle.toLowerCase().replace(/\s+/g, '-') === slug ||
+          feed.id === slug ||  // Direct feed ID match
+          feed.id.toLowerCase() === slug.toLowerCase()) {  // Case-insensitive feed ID match
+        console.log(`🔍 Found potential match: "${albumTitle}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
         potentialMatches.push({ feed, trackCount: feed.Track.length });
       }
     }
