@@ -55,7 +55,7 @@ async function loadPublisherData(publisherId: string) {
       }
     }
     
-    // If still not found, try by title match (handle URL slugs)
+    // If still not found, try by title or artist match (handle URL slugs)
     if (!publisherFeed) {
       const searchId = publisherId.toLowerCase();
       const possibleTitles = [
@@ -70,6 +70,8 @@ async function loadPublisherData(publisherId: string) {
           OR: [
             { title: { equals: possibleTitles[0], mode: 'insensitive' } },
             { title: { equals: possibleTitles[1], mode: 'insensitive' } },
+            { artist: { equals: possibleTitles[0], mode: 'insensitive' } },
+            { artist: { equals: possibleTitles[1], mode: 'insensitive' } },
           ]
         }
       });
@@ -109,10 +111,11 @@ async function loadPublisherData(publisherId: string) {
     console.log(`✅ Publisher found: ${publisherFeed.title || publisherFeed.id}`);
 
     // Get related albums for this publisher (feeds with same artist) - optimized query
-    // Only fetch essential fields and use a count query instead of including tracks
+    // Match by artist field (case-insensitive)
+    const artistName = publisherFeed.artist || publisherFeed.title;
     const relatedFeeds = await prisma.feed.findMany({
       where: {
-        artist: publisherFeed.artist,
+        artist: { equals: artistName, mode: 'insensitive' },
         type: { in: ['album', 'music'] },
         status: 'active'
       },
@@ -125,13 +128,22 @@ async function loadPublisherData(publisherId: string) {
         lastFetched: true,
         createdAt: true,
         originalUrl: true,
-        _count: {
+        Track: {
+          where: {
+            audioUrl: { not: '' }
+          },
+          orderBy: [
+            { trackOrder: 'asc' },
+            { publishedAt: 'asc' },
+            { createdAt: 'asc' }
+          ],
           select: {
-            Track: {
-              where: {
-                audioUrl: { not: '' }
-              }
-            }
+            id: true,
+            title: true,
+            duration: true,
+            audioUrl: true,
+            trackOrder: true,
+            publishedAt: true
           }
         }
       },
@@ -141,9 +153,9 @@ async function loadPublisherData(publisherId: string) {
       ]
     });
 
-    // Transform related feeds to albums format
+    // Transform related feeds to albums format with actual tracks
     const albums = relatedFeeds
-      .filter(feed => (feed._count?.Track || 0) > 0) // Only include feeds with tracks
+      .filter(feed => feed.Track.length > 0) // Only include feeds with tracks
       .map(feed => ({
         id: feed.id,
         title: feed.title,
@@ -151,7 +163,14 @@ async function loadPublisherData(publisherId: string) {
         description: feed.description,
         coverArt: feed.image,
         releaseDate: feed.lastFetched || feed.createdAt,
-        trackCount: feed._count?.Track || 0,
+        trackCount: feed.Track.length,
+        tracks: feed.Track.map(track => ({
+          id: track.id,
+          title: track.title || 'Unknown Track',
+          duration: track.duration || '0:00',
+          url: track.audioUrl || '',
+          trackNumber: track.trackOrder || 0
+        })),
         feedUrl: feed.originalUrl
       }));
 

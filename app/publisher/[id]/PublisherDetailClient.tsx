@@ -30,11 +30,36 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   console.log('🎯 Initial data received:', initialData);
   
   const [isLoading, setIsLoading] = useState(!initialData);
-  const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
+    const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
     // First priority: use pre-fetched albums from server if available
     if (initialData?.albums && initialData.albums.length > 0) {
       console.log('🎯 Using pre-fetched albums from server:', initialData.albums.length);
-      return initialData.albums;
+      // Convert server albums to RSSAlbum format
+      // Use actual tracks if provided, otherwise create placeholders
+      return initialData.albums.map((album: any) => ({
+        id: album.id,
+        title: album.title,
+        artist: album.artist,
+        description: album.description,
+        coverArt: album.coverArt,
+        releaseDate: album.releaseDate || new Date().toISOString(),
+        tracks: album.tracks && album.tracks.length > 0
+          ? album.tracks.map((track: any) => ({
+              id: track.id,
+              title: track.title,
+              duration: track.duration || '0:00',
+              url: track.url || track.audioUrl || '',
+              trackNumber: track.trackNumber || track.trackOrder || 0
+            }))
+          : Array(album.trackCount || 0).fill(null).map((_, i) => ({
+              id: `track-${i}-${album.id}`,
+              title: `${album.title} - Track ${i + 1}`,
+              duration: '0:00',
+              url: album.feedUrl || ''
+            })),
+        link: album.feedUrl || '',
+        feedUrl: album.feedUrl || ''
+      }));
     }
 
     // Fallback: Initialize albums from publisher items if available
@@ -150,13 +175,48 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       return;
     }
     
-          // If we have initial data, use it and convert publisher items to albums
-      if (initialData) {
-        console.log('📋 Using initial data for publisher');
-        console.log('📋 Publisher items count:', initialData.publisherItems?.length);
-        
-        // Convert publisher items to album format for display
-        if (initialData.publisherItems && initialData.publisherItems.length > 0) {
+    // If we have initial data, use it
+    if (initialData) {
+      console.log('📋 Using initial data for publisher');
+      console.log('📋 Server-provided albums count:', initialData.albums?.length);
+      console.log('📋 Publisher items count:', initialData.publisherItems?.length);
+      
+      // PRIORITY 1: Use albums from server-side (already fetched and optimized)
+      if (initialData.albums && initialData.albums.length > 0) {
+        console.log(`✅ Using ${initialData.albums.length} albums from server-side data`);
+        // Convert server albums to RSSAlbum format
+        // Use actual tracks if provided, otherwise create placeholders
+        const formattedAlbums = initialData.albums.map((album: any) => ({
+          id: album.id,
+          title: album.title,
+          artist: album.artist,
+          description: album.description,
+          coverArt: album.coverArt,
+          releaseDate: album.releaseDate || new Date().toISOString(),
+          tracks: album.tracks && album.tracks.length > 0
+            ? album.tracks.map((track: any) => ({
+                id: track.id,
+                title: track.title,
+                duration: track.duration || '0:00',
+                url: track.url || track.audioUrl || '',
+                trackNumber: track.trackNumber || track.trackOrder || 0
+              }))
+            : Array(album.trackCount || 0).fill(null).map((_, i) => ({
+                id: `track-${i}-${album.id}`,
+                title: `${album.title} - Track ${i + 1}`,
+                duration: '0:00',
+                url: album.feedUrl || ''
+              })),
+          link: album.feedUrl || '',
+          feedUrl: album.feedUrl || ''
+        }));
+        setAlbums(formattedAlbums);
+        setIsLoading(false);
+        return;
+      }
+      
+      // PRIORITY 2: Convert publisher items to album format for display
+      if (initialData.publisherItems && initialData.publisherItems.length > 0) {
           // Check if these are remoteItems (which only have feedGuid/feedUrl) or regular publisherItems
           console.log('🔍 Checking remoteItems condition for each item:');
           initialData.publisherItems.forEach((item, index) => {
@@ -173,6 +233,30 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           console.log('📋 Sample item:', initialData.publisherItems[0]);
           
           if (isRemoteItems) {
+            // If remoteItems but we have server albums, use those instead
+            if (initialData.albums && initialData.albums.length > 0) {
+              console.log(`✅ Using ${initialData.albums.length} server-provided albums for remoteItems`);
+              const formattedAlbums = initialData.albums.map((album: any) => ({
+                id: album.id,
+                title: album.title,
+                artist: album.artist,
+                description: album.description,
+                coverArt: album.coverArt,
+                releaseDate: album.releaseDate || new Date().toISOString(),
+                tracks: Array(album.trackCount || 0).fill(null).map((_, i) => ({
+                  id: `track-${i}-${album.id}`,
+                  title: `${album.title} - Track ${i + 1}`,
+                  duration: '0:00',
+                  url: album.feedUrl || ''
+                })),
+                link: album.feedUrl || '',
+                feedUrl: album.feedUrl || ''
+              }));
+              setAlbums(formattedAlbums);
+              setIsLoading(false);
+              return;
+            }
+            
             console.log('📋 Detected remoteItems - need to fetch actual album data');
             // For remoteItems, we need to fetch the actual album data using the feedGuids
             setAlbumsLoading(true);
@@ -211,6 +295,30 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
               setAlbums(albumsFromItems);
               console.log(`🏢 Albums state should now be set to ${albumsFromItems.length} albums`);
             } else {
+              // If no valid items but we have server albums, use those instead
+              if (initialData.albums && initialData.albums.length > 0) {
+                console.log(`✅ Using ${initialData.albums.length} server-provided albums instead of fetching`);
+                const formattedAlbums = initialData.albums.map((album: any) => ({
+                  id: album.id,
+                  title: album.title,
+                  artist: album.artist,
+                  description: album.description,
+                  coverArt: album.coverArt,
+                  releaseDate: album.releaseDate || new Date().toISOString(),
+                  tracks: Array(album.trackCount || 0).fill(null).map((_, i) => ({
+                    id: `track-${i}-${album.id}`,
+                    title: `${album.title} - Track ${i + 1}`,
+                    duration: '0:00',
+                    url: album.feedUrl || ''
+                  })),
+                  link: album.feedUrl || '',
+                  feedUrl: album.feedUrl || ''
+                }));
+                setAlbums(formattedAlbums);
+                setIsLoading(false);
+                return;
+              }
+              
               console.log(`⚠️ No valid albums found or items have zero tracks - fetching from main albums API`);
               // For publishers with empty titles or zero tracks, we need to fetch the actual album data
               setAlbumsLoading(true);
@@ -218,7 +326,15 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
             }
           }
         } else {
-          console.log('⚠️ No publisher items found');
+          // If no publisher items but we have server albums, don't fetch again
+          if (initialData.albums && initialData.albums.length > 0) {
+            console.log('✅ Using server-provided albums, no need to fetch');
+            setIsLoading(false);
+            return;
+          }
+          
+          // Only fetch if we truly have no data
+          console.log('⚠️ No publisher items found and no server albums - fetching from API');
           setAlbumsLoading(true);
           fetchPublisherAlbums();
         }
