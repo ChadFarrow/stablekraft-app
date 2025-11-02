@@ -1,15 +1,15 @@
 'use client';
 
-import { MusicTrackRecord } from '@/lib/music-track-schema';
+import { ExtendedTrack } from '@/lib/track-adapter';
 import BaseMusicTrackCard from './BaseMusicTrackCard';
 import type { V4VMusicTrack, BaseMusicTrack } from '@/types/music-track';
 
 interface V4VMusicTrackCardProps {
-  track: MusicTrackRecord;
-  onPlay?: (track: MusicTrackRecord) => void;
-  onViewDetails?: (track: MusicTrackRecord) => void;
-  onFavorite?: (track: MusicTrackRecord) => void;
-  onShare?: (track: MusicTrackRecord) => void;
+  track: ExtendedTrack;
+  onPlay?: (track: ExtendedTrack) => void;
+  onViewDetails?: (track: ExtendedTrack) => void;
+  onFavorite?: (track: ExtendedTrack) => void;
+  onShare?: (track: ExtendedTrack) => void;
   showV4VBadge?: boolean;
   compact?: boolean;
 }
@@ -23,7 +23,7 @@ export default function V4VMusicTrackCard({
   showV4VBadge = true,
   compact = false
 }: V4VMusicTrackCardProps) {
-  // Convert MusicTrackRecord to V4VMusicTrack format
+  // Convert ExtendedTrack to V4VMusicTrack format
   const v4vTrack: V4VMusicTrack = {
     id: track.id,
     title: track.title || 'Unknown Title',

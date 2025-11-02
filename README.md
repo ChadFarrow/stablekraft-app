@@ -40,9 +40,8 @@ lib/
 │   ├── deduplication.ts         # Track deduplication
 │   └── index.ts                 # Main parser
 ├── rss-parser/                  # Modular RSS parsing
-├── enhanced-music-service.ts    # Enhanced track management
+├── track-adapter.ts             # Track type adapter for Prisma
 ├── v4v-resolver.ts             # Value4Value resolution
-├── music-track-database.ts     # Database service
 └── feed-cache.ts               # Feed caching
 ```
 

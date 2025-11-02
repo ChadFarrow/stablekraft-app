@@ -114,7 +114,7 @@ console.log(`Extracted ${tracks.length} music tracks`);
 - `lib/music-track-parser/`: Core music parsing logic
 - `lib/rss-parser/`: RSS and chapter parsing
 - `lib/v4v-resolver.ts`: Value4Value resolution
-- `lib/enhanced-music-service.ts`: Metadata enhancement
+- `lib/track-adapter.ts`: Track type adapter for Prisma
 
 ## Performance Notes
 

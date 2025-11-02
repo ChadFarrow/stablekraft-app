@@ -5,8 +5,12 @@ import { EnhancedMusicTrack } from './enhanced-rss-parser';
 /**
  * Enhanced Music Tracks Service
  * 
- * Provides unified access to both legacy music tracks database
- * and the new enhanced database format, with migration utilities.
+ * @deprecated This service uses JSON file storage and is being phased out.
+ * Please use Prisma with PostgreSQL directly via `@/lib/prisma` instead.
+ * 
+ * This service provided unified access to both legacy music tracks database
+ * and the new enhanced database format. All functionality should now
+ * use Prisma Track and Feed models.
  */
 
 export interface MusicDatabase {

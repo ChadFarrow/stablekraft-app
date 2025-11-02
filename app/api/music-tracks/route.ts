@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { V4VResolver } from '@/lib/v4v-resolver';
-import { enhancedMusicService } from '@/lib/enhanced-music-service';
+// Removed: enhanced-music-service (migrated to Prisma)
 import { logger } from '@/lib/logger';
 
 // In-memory cache for server-side caching

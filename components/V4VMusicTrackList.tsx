@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MusicTrackRecord } from '@/lib/music-track-schema';
+import { ExtendedTrack } from '@/lib/track-adapter';
 import V4VMusicTrackCard from './V4VMusicTrackCard';
 import LoadingSpinner from './LoadingSpinner';
 import { 
@@ -21,7 +21,7 @@ import {
 
 interface V4VMusicTrackListProps {
   initialFeedUrls?: string[];
-  onPlayTrack?: (track: MusicTrackRecord) => void;
+  onPlayTrack?: (track: ExtendedTrack) => void;
   showDatabaseStats?: boolean;
   autoExtract?: boolean;
 }
@@ -46,7 +46,7 @@ export default function V4VMusicTrackList({
   autoExtract = false
 }: V4VMusicTrackListProps) {
   const router = useRouter();
-  const [tracks, setTracks] = useState<MusicTrackRecord[]>([]);
+  const [tracks, setTracks] = useState<ExtendedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,16 +170,16 @@ export default function V4VMusicTrackList({
     return Array.from(feeds).sort();
   }, [tracks]);
 
-  const handleViewTrackDetails = (track: MusicTrackRecord) => {
+  const handleViewTrackDetails = (track: ExtendedTrack) => {
     router.push(`/music-tracks/${track.id}`);
   };
 
-  const handleFavorite = (track: MusicTrackRecord) => {
+  const handleFavorite = (track: ExtendedTrack) => {
     // TODO: Implement favorite functionality
     console.log('Favorite track:', track.id);
   };
 
-  const handleShare = (track: MusicTrackRecord) => {
+  const handleShare = (track: ExtendedTrack) => {
     // TODO: Implement share functionality
     console.log('Share track:', track.id);
   };

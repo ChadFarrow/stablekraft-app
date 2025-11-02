@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import V4VMusicTrackList from '@/components/V4VMusicTrackList';
 import ITDVPlaylistAlbum from '@/components/ITDVPlaylistAlbum';
-import { MusicTrackRecord } from '@/lib/music-track-schema';
+import { ExtendedTrack } from '@/lib/track-adapter';
 import { useAudio } from '@/contexts/AudioContext';
 import { 
   Zap, 
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function MusicSegmentsPage() {
-  const [currentSegment, setCurrentSegment] = useState<MusicTrackRecord | null>(null);
+  const [currentSegment, setCurrentSegment] = useState<ExtendedTrack | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const { playTrack, isPlaying, pause, resume } = useAudio();
 
@@ -27,7 +27,7 @@ export default function MusicSegmentsPage() {
     'http://localhost:3000/001-to-060-lightning-thrashes-playlist.xml',
   ];
 
-  const handlePlaySegment = async (segment: MusicTrackRecord) => {
+  const handlePlaySegment = async (segment: ExtendedTrack) => {
     setCurrentSegment(segment);
     console.log('Playing segment:', segment);
     

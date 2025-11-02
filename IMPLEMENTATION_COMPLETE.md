@@ -26,7 +26,7 @@ The Anthropic Skills specification has been successfully implemented in your pod
 
 ### 4. **Database Operations Skill** (`skills/database-operations/`)
 - **Purpose**: Execute database operations for music tracks
-- **Implementation**: Wraps existing `lib/music-track-database` functionality
+- **Implementation**: Uses Prisma with PostgreSQL for database operations
 - **Input**: Operation type, entity data, and options
 - **Output**: Database operation results with metadata
 
