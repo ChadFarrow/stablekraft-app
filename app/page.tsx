@@ -437,26 +437,35 @@ export default function HomePage() {
         setPublisherStats(publisherStatsFromPublishers);
         
         // Convert publishers to album-like format for display
-        const publisherAlbums = publishers.map((publisher: any) => ({
-          id: publisher.id,
-          title: publisher.title,
-          artist: publisher.title,
-          description: publisher.description || `${publisher.itemCount} releases`,
-          coverArt: publisher.image,
-          tracks: Array(publisher.totalTracks || 1).fill(null).map((_, i) => ({
-            id: `track-${i}`,
-            title: `Track ${i + 1}`,
-            duration: '0:00',
-            url: publisher.originalUrl
-          })),
-          releaseDate: new Date().toISOString(),
-          link: `/publisher/${publisher.id}`,
-          feedUrl: publisher.originalUrl,
-          isPublisherCard: true,
-          publisherUrl: `/publisher/${publisher.id}`,
-          albumCount: publisher.itemCount,
-          totalTracks: publisher.totalTracks
-        }));
+        const publisherAlbums = publishers.map((publisher: any) => {
+          // Use generatePublisherSlug to create clean URLs from artist names
+          const publisherSlug = generatePublisherSlug({ 
+            title: publisher.title, 
+            artist: publisher.title,
+            feedGuid: publisher.feedGuid || publisher.id 
+          });
+          
+          return {
+            id: publisher.id,
+            title: publisher.title,
+            artist: publisher.title,
+            description: publisher.description || `${publisher.itemCount} releases`,
+            coverArt: publisher.image,
+            tracks: Array(publisher.totalTracks || 1).fill(null).map((_, i) => ({
+              id: `track-${i}`,
+              title: `Track ${i + 1}`,
+              duration: '0:00',
+              url: publisher.originalUrl
+            })),
+            releaseDate: new Date().toISOString(),
+            link: `/publisher/${publisherSlug}`,
+            feedUrl: publisher.originalUrl,
+            isPublisherCard: true,
+            publisherUrl: `/publisher/${publisherSlug}`,
+            albumCount: publisher.itemCount,
+            totalTracks: publisher.totalTracks
+          };
+        });
         
         resultData = {
           albums: publisherAlbums,

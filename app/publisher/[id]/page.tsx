@@ -26,74 +26,113 @@ async function loadPublisherData(publisherId: string) {
     console.log(`🏢 Server-side: Looking for publisher: ${publisherId}`);
     console.log(`🏢 Server-side: publisherInfo.feedGuid:`, publisherInfo?.feedGuid);
 
-    // Search for publisher feeds in the database
-    const publisherFeeds = await prisma.feed.findMany({
-      where: { 
-        type: 'publisher',
-        status: 'active'
-      },
-      include: {
-        Track: {
+    // Build a more targeted query instead of loading all publisher feeds
+    let publisherFeed = null;
+    
+    // First try to find by feedGuid if we have it
+    if (publisherInfo?.feedGuid) {
+      const feedGuidParts = publisherInfo.feedGuid.split('-');
+      const feedGuidPrefix = feedGuidParts[0];
+      
+      // Try direct match first
+      publisherFeed = await prisma.feed.findFirst({
+        where: {
+          type: 'publisher',
+          status: 'active',
+          id: publisherInfo.feedGuid
+        }
+      });
+      
+      // If not found, try prefix match (for IDs like wavlake-publisher-93fbacab)
+      if (!publisherFeed && feedGuidPrefix) {
+        publisherFeed = await prisma.feed.findFirst({
           where: {
-            audioUrl: { not: '' }
-          },
-          take: 10 // Limit tracks for performance
-        }
+            type: 'publisher',
+            status: 'active',
+            id: { contains: feedGuidPrefix }
+          }
+        });
       }
-    });
-
-    console.log(`🏢 Server-side: Found ${publisherFeeds.length} publisher feeds to search`);
-
-    // Try to find matching publisher feed
-    let publisherFeed = publisherFeeds.find((feed) => {
-      // First try matching by feedGuid from url-utils
-      if (publisherInfo?.feedGuid && feed.id) {
-        const feedGuidParts = publisherInfo.feedGuid.split('-');
-        if (feed.id.includes(feedGuidParts[0])) {
-          console.log(`🏢 Server-side: Matched by feedGuid prefix: ${feed.id}`);
-          return true;
-        }
-      }
-
-      // Then try title match (case-insensitive, handle URL slugs)
-      const cleanTitle = feed.title?.toLowerCase() || '';
+    }
+    
+    // If still not found, try by title match (handle URL slugs)
+    if (!publisherFeed) {
       const searchId = publisherId.toLowerCase();
-
-      // Direct match
-      if (cleanTitle === searchId) return true;
-
-      // Convert hyphens to spaces and compare (e.g., "the-doerfels" -> "the doerfels")
-      const slugToTitle = searchId.replace(/-/g, ' ');
-      if (cleanTitle === slugToTitle) return true;
-
-      // Convert spaces to hyphens and compare (e.g., "the doerfels" -> "the-doerfels")
-      const titleToSlug = cleanTitle.replace(/\s+/g, '-');
-      if (titleToSlug === searchId) return true;
-
-      return false;
-    });
+      const possibleTitles = [
+        searchId, // Direct match
+        searchId.replace(/-/g, ' '), // Convert hyphens to spaces
+      ];
+      
+      publisherFeed = await prisma.feed.findFirst({
+        where: {
+          type: 'publisher',
+          status: 'active',
+          OR: [
+            { title: { equals: possibleTitles[0], mode: 'insensitive' } },
+            { title: { equals: possibleTitles[1], mode: 'insensitive' } },
+          ]
+        }
+      });
+    }
+    
+    // Also try matching by slug if title doesn't match
+    if (!publisherFeed) {
+      const searchId = publisherId.toLowerCase();
+      // Convert any publisher feed title to slug format and compare
+      const allPublishers = await prisma.feed.findMany({
+        where: {
+          type: 'publisher',
+          status: 'active'
+        },
+        select: {
+          id: true,
+          title: true,
+          artist: true,
+          description: true,
+          image: true,
+          originalUrl: true
+        }
+      });
+      
+      publisherFeed = allPublishers.find((feed) => {
+        if (!feed.title) return false;
+        const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
+        return titleToSlug === searchId;
+      });
+    }
     
     if (!publisherFeed) {
       console.log(`❌ Publisher not found in database: ${publisherId}`);
-      console.log(`🔍 Available publishers:`, publisherFeeds.map((f) => f.title || 'Unknown'));
       return null;
     }
     
-    console.log(`✅ Publisher found: ${publisherFeed.title}`);
+    console.log(`✅ Publisher found: ${publisherFeed.title || publisherFeed.id}`);
 
-    // Get related albums for this publisher (feeds with same artist)
+    // Get related albums for this publisher (feeds with same artist) - optimized query
+    // Only fetch essential fields and use a count query instead of including tracks
     const relatedFeeds = await prisma.feed.findMany({
       where: {
         artist: publisherFeed.artist,
         type: { in: ['album', 'music'] },
         status: 'active'
       },
-      include: {
-        Track: {
-          where: {
-            audioUrl: { not: '' }
-          },
-          take: 1 // Just check if has tracks
+      select: {
+        id: true,
+        title: true,
+        artist: true,
+        description: true,
+        image: true,
+        lastFetched: true,
+        createdAt: true,
+        originalUrl: true,
+        _count: {
+          select: {
+            Track: {
+              where: {
+                audioUrl: { not: '' }
+              }
+            }
+          }
         }
       },
       orderBy: [
@@ -104,7 +143,7 @@ async function loadPublisherData(publisherId: string) {
 
     // Transform related feeds to albums format
     const albums = relatedFeeds
-      .filter(feed => feed.Track.length > 0) // Only include feeds with tracks
+      .filter(feed => (feed._count?.Track || 0) > 0) // Only include feeds with tracks
       .map(feed => ({
         id: feed.id,
         title: feed.title,
@@ -112,7 +151,7 @@ async function loadPublisherData(publisherId: string) {
         description: feed.description,
         coverArt: feed.image,
         releaseDate: feed.lastFetched || feed.createdAt,
-        trackCount: feed.Track.length,
+        trackCount: feed._count?.Track || 0,
         feedUrl: feed.originalUrl
       }));
 
