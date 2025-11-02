@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { createErrorLogger } from '@/lib/error-utils';
+import { prisma } from '@/lib/prisma';
 
 const logger = createErrorLogger('ValueSplitsAPI');
 
@@ -42,72 +41,140 @@ export async function GET(request: NextRequest) {
 
     logger.info('Fetching value splits', { feedGuid, itemGuid, trackId });
 
-    // Read feeds.json file
-    const feedsPath = path.join(process.cwd(), 'data', 'feeds.json');
-    
-    if (!fs.existsSync(feedsPath)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Feeds data not found'
-      }, { status: 404 });
-    }
+    let matchingFeed = null;
+    let matchingTrack = null;
 
-    const feedsData = JSON.parse(fs.readFileSync(feedsPath, 'utf8'));
-    const feeds: Feed[] = feedsData.feeds || [];
+    // First try to find by specific track if itemGuid provided
+    if (itemGuid) {
+      matchingTrack = await prisma.track.findFirst({
+        where: { guid: itemGuid },
+        include: { Feed: true }
+      });
+      
+      if (matchingTrack) {
+        matchingFeed = matchingTrack.Feed;
+        
+        // Check if track has its own V4V data
+        if (matchingTrack.v4vValue) {
+          try {
+            const trackV4V = JSON.parse(matchingTrack.v4vValue);
+            if (trackV4V.recipients && trackV4V.recipients.length > 0) {
+              const valueTag = {
+                type: 'lightning',
+                method: 'keysend',
+                recipients: trackV4V.recipients.map((recipient: any) => ({
+                  name: recipient.name || matchingFeed?.artist || 'Unknown',
+                  type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node',
+                  address: recipient.address || '',
+                  split: parseInt(recipient.split) || 100,
+                  fee: false
+                }))
+              };
 
-    let matchingFeed: Feed | null = null;
+              logger.info('Found track-specific value splits', { 
+                itemGuid,
+                recipientsCount: valueTag.recipients.length
+              });
 
-    // Find feed by feedGuid
-    if (feedGuid) {
-      matchingFeed = feeds.find(feed => feed.feedGuid === feedGuid) || null;
-    }
-
-    // If no feedGuid provided, try to find by trackId pattern
-    if (!matchingFeed && trackId) {
-      // Try to extract feedGuid from trackId if it follows a pattern
-      const trackIdParts = trackId.split('-');
-      if (trackIdParts.length >= 2) {
-        const possibleFeedGuid = trackIdParts[1];
-        matchingFeed = feeds.find(feed => feed.feedGuid === possibleFeedGuid) || null;
+              return NextResponse.json({
+                success: true,
+                data: valueTag
+              });
+            }
+          } catch (parseError) {
+            logger.warn('Failed to parse track V4V data', { itemGuid, error: parseError });
+          }
+        }
       }
     }
 
-    if (!matchingFeed || !matchingFeed.value) {
-      logger.info('No value splits found', { feedGuid, itemGuid, trackId });
+    // Find feed by feedGuid or trackId
+    if (!matchingFeed) {
+      if (feedGuid) {
+        matchingFeed = await prisma.feed.findFirst({
+          where: { id: feedGuid }
+        });
+      }
+
+      // If no feedGuid provided, try to find by trackId pattern
+      if (!matchingFeed && trackId) {
+        // Try to extract feedGuid from trackId if it follows a pattern
+        const trackIdParts = trackId.split('-');
+        if (trackIdParts.length >= 2) {
+          const possibleFeedGuid = trackIdParts[1];
+          matchingFeed = await prisma.feed.findFirst({
+            where: { id: possibleFeedGuid }
+          });
+        }
+      }
+    }
+
+    // Check if feed has V4V data
+    if (matchingFeed && matchingFeed.v4vValue) {
+      try {
+        const feedV4V = JSON.parse(matchingFeed.v4vValue);
+        if (feedV4V.recipients && feedV4V.recipients.length > 0) {
+          const valueTag = {
+            type: 'lightning',
+            method: 'keysend',
+            recipients: feedV4V.recipients.map((recipient: any) => ({
+              name: recipient.name || matchingFeed?.artist || 'Unknown',
+              type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node',
+              address: recipient.address || '',
+              split: parseInt(recipient.split) || 100,
+              fee: false
+            }))
+          };
+
+          logger.info('Found feed-level value splits', { 
+            feedGuid: matchingFeed.id,
+            recipientsCount: valueTag.recipients.length
+          });
+
+          return NextResponse.json({
+            success: true,
+            data: valueTag
+          });
+        }
+      } catch (parseError) {
+        logger.warn('Failed to parse feed V4V data', { feedGuid: matchingFeed.id, error: parseError });
+      }
+    }
+
+    // Check for simple lightning address fallback
+    const lightningAddress = matchingTrack?.v4vRecipient || matchingFeed?.v4vRecipient;
+    if (lightningAddress) {
+      const valueTag = {
+        type: 'lightning',
+        method: 'keysend',
+        recipients: [{
+          name: matchingFeed?.artist || 'Unknown Artist',
+          type: 'lnaddress' as const,
+          address: lightningAddress,
+          split: 100,
+          fee: false
+        }]
+      };
+
+      logger.info('Found lightning address fallback', { 
+        lightningAddress,
+        feedGuid: matchingFeed?.id
+      });
+
       return NextResponse.json({
         success: true,
-        data: {
-          type: 'lightning',
-          method: 'keysend',
-          recipients: []
-        }
+        data: valueTag
       });
     }
 
-    // Transform feed value data to ValueTag format
-    const valueTag = {
-      type: matchingFeed.value.model.type,
-      method: matchingFeed.value.model.method,
-      recipients: matchingFeed.value.destinations.map(dest => ({
-        name: dest.name,
-        type: dest.type,
-        address: dest.address,
-        split: dest.split,
-        fee: dest.fee || false,
-        customKey: dest.customKey,
-        customValue: dest.customValue
-      }))
-    };
-
-    logger.info('Found value splits', { 
-      feedGuid, 
-      recipientsCount: valueTag.recipients.length,
-      recipients: valueTag.recipients.map(r => ({ name: r.name, type: r.type, split: r.split }))
-    });
-
+    logger.info('No value splits found', { feedGuid, itemGuid, trackId });
     return NextResponse.json({
       success: true,
-      data: valueTag
+      data: {
+        type: 'lightning',
+        method: 'keysend',
+        recipients: []
+      }
     });
 
   } catch (error) {

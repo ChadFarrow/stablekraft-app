@@ -1,8 +1,7 @@
 import { Metadata } from 'next';
 import PublisherDetailClient from './PublisherDetailClient';
 import { getPublisherInfo } from '@/lib/url-utils';
-import fs from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -24,32 +23,30 @@ async function loadPublisherData(publisherId: string) {
   const actualFeedGuid = publisherInfo?.feedGuid || publisherId;
   
   try {
-    // Load from parsed-feeds.json which contains publisher items
-    const parsedFeedsPath = path.join(process.cwd(), 'data', 'parsed-feeds.json');
-
-    if (!fs.existsSync(parsedFeedsPath)) {
-      console.error('Parsed feeds file not found at:', parsedFeedsPath);
-      return null;
-    }
-
-    const fileContent = fs.readFileSync(parsedFeedsPath, 'utf-8');
-    const parsedData = JSON.parse(fileContent);
-    const publisherFeeds = parsedData.feeds || [];
-    
     console.log(`🏢 Server-side: Looking for publisher: ${publisherId}`);
     console.log(`🏢 Server-side: publisherInfo.feedGuid:`, publisherInfo?.feedGuid);
 
-    // Filter to only publisher type feeds first
-    const publisherTypeFeeds = publisherFeeds.filter((feed: any) => feed.type === 'publisher');
+    // Search for publisher feeds in the database
+    const publisherFeeds = await prisma.feed.findMany({
+      where: { 
+        type: 'publisher',
+        status: 'active'
+      },
+      include: {
+        Track: {
+          where: {
+            audioUrl: { not: '' }
+          },
+          take: 10 // Limit tracks for performance
+        }
+      }
+    });
 
-    console.log(`🏢 Server-side: Found ${publisherTypeFeeds.length} publisher feeds to search`);
-    console.log(`🏢 Server-side: Publisher feed IDs:`, publisherTypeFeeds.map((f: any) => f.id));
+    console.log(`🏢 Server-side: Found ${publisherFeeds.length} publisher feeds to search`);
 
-    // Try to find publisher feed - prioritize publisher type feeds
-    let publisherFeed = publisherTypeFeeds.find((feed: any) => {
-      console.log(`🏢 Server-side: Checking feed ${feed.id} against feedGuid ${publisherInfo?.feedGuid}`);
+    // Try to find matching publisher feed
+    let publisherFeed = publisherFeeds.find((feed) => {
       // First try matching by feedGuid from url-utils
-      // The feedGuid might be partial in the ID (e.g., "aa909244" instead of "aa909244-7555-4b52-ad88-7233860c6fb4")
       if (publisherInfo?.feedGuid && feed.id) {
         const feedGuidParts = publisherInfo.feedGuid.split('-');
         if (feed.id.includes(feedGuidParts[0])) {
@@ -59,7 +56,7 @@ async function loadPublisherData(publisherId: string) {
       }
 
       // Then try title match (case-insensitive, handle URL slugs)
-      const cleanTitle = feed.title?.replace('<![CDATA[', '').replace(']]>', '').toLowerCase() || '';
+      const cleanTitle = feed.title?.toLowerCase() || '';
       const searchId = publisherId.toLowerCase();
 
       // Direct match
@@ -77,114 +74,72 @@ async function loadPublisherData(publisherId: string) {
     });
     
     if (!publisherFeed) {
-      console.log(`❌ Publisher not found in static file: ${publisherId}`);
-      console.log(`🔍 Available publishers in static file:`, publisherFeeds.map((f: any) => 
-        f.title?.replace('<![CDATA[', '').replace(']]>', '') || 'Unknown'
-      ));
-      
-      // Fallback: Try to find publisher in the database via /api/publishers
-      console.log(`🔄 Falling back to /api/publishers for: ${publisherId}`);
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                       (process.env.NODE_ENV === 'production' ? 'https://fuckit-production.up.railway.app' : 'http://localhost:3002');
-        
-        const publishersResponse = await fetch(`${baseUrl}/api/publishers`);
-        if (publishersResponse.ok) {
-          const publishersData = await publishersResponse.json();
-          const publishers = publishersData.publishers || [];
-          
-          // Find matching publisher using same logic
-          const matchingPublisher = publishers.find((pub: any) => {
-            const cleanTitle = pub.title?.toLowerCase() || '';
-            const searchId = publisherId.toLowerCase();
-            
-            // Direct match
-            if (cleanTitle === searchId) return true;
-            if (pub.id === publisherId) return true;
-            
-            // Convert hyphens to spaces and compare
-            const slugToTitle = searchId.replace(/-/g, ' ');
-            if (cleanTitle === slugToTitle) return true;
-            
-            // Convert spaces to hyphens and compare
-            const titleToSlug = cleanTitle.replace(/\s+/g, '-');
-            if (titleToSlug === searchId) return true;
-            
-            return false;
-          });
-          
-          if (matchingPublisher) {
-            console.log(`✅ Publisher found in database: ${matchingPublisher.title}`);
-            
-            // Convert database publisher to expected format
-            return {
-              publisherInfo: {
-                name: matchingPublisher.title,
-                description: matchingPublisher.description || `${matchingPublisher.itemCount} releases`,
-                image: matchingPublisher.image,
-                feedUrl: matchingPublisher.originalUrl,
-                feedGuid: matchingPublisher.id
-              },
-              publisherItems: matchingPublisher.albums || [],
-              feedId: matchingPublisher.id
-            };
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Fallback API call failed:', fallbackError);
-      }
-      
+      console.log(`❌ Publisher not found in database: ${publisherId}`);
+      console.log(`🔍 Available publishers:`, publisherFeeds.map((f) => f.title || 'Unknown'));
       return null;
     }
     
     console.log(`✅ Publisher found: ${publisherFeed.title}`);
-    console.log(`📸 Publisher parsedData:`, JSON.stringify(publisherFeed.parsedData?.publisherInfo, null, 2));
 
-    // Extract publisher items from parsedData
-    const publisherItems = publisherFeed.parsedData?.publisherItems || [];
+    // Get related albums for this publisher (feeds with same artist)
+    const relatedFeeds = await prisma.feed.findMany({
+      where: {
+        artist: publisherFeed.artist,
+        type: { in: ['album', 'music'] },
+        status: 'active'
+      },
+      include: {
+        Track: {
+          where: {
+            audioUrl: { not: '' }
+          },
+          take: 1 // Just check if has tracks
+        }
+      },
+      orderBy: [
+        { priority: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
 
-    console.log(`🏢 Server-side: Found ${publisherItems.length} publisher items`);
+    // Transform related feeds to albums format
+    const albums = relatedFeeds
+      .filter(feed => feed.Track.length > 0) // Only include feeds with tracks
+      .map(feed => ({
+        id: feed.id,
+        title: feed.title,
+        artist: feed.artist,
+        description: feed.description,
+        coverArt: feed.image,
+        releaseDate: feed.lastFetched || feed.createdAt,
+        trackCount: feed.Track.length,
+        feedUrl: feed.originalUrl
+      }));
 
-    // TODO: Pre-fetch albums from the database to avoid client-side timeout issues
-    // Currently disabled due to API performance issues (60+ second response times)
-    // The albums API needs optimization before we can enable server-side pre-fetching
-    let albums: any[] = [];
-    console.log(`🏢 Server-side: Skipping album pre-fetch (API performance issue) - client will fetch`);
+    console.log(`🏢 Server-side: Found ${albums.length} related albums`);
 
-    // Uncomment this when the albums API is optimized:
-    // try {
-    //   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-    //                  (process.env.NODE_ENV === 'production' ? 'https://fuckit-production.up.railway.app' : 'http://localhost:3002');
-    //   const albumsResponse = await fetch(`${baseUrl}/api/albums?publisher=${encodeURIComponent(publisherId)}&limit=100`, {
-    //     signal: AbortSignal.timeout(60000)
-    //   });
-    //   if (albumsResponse.ok) {
-    //     const albumsData = await albumsResponse.json();
-    //     albums = albumsData.albums || [];
-    //   }
-    // } catch (error) {
-    //   console.error(`🏢 Server-side: Error pre-fetching albums:`, error);
-    // }
+    // Create publisher items (this might be empty for some publishers)
+    const publisherItems: any[] = []; // TODO: Extract from publisher feed if needed
 
     // Convert to expected format
     const data = {
       publisherInfo: {
-        // Use the name from url-utils (e.g., "Nate Johnivan") instead of generic feed title ("Wavlake Publisher")
-        name: publisherInfo?.name || publisherFeed.title?.replace('<![CDATA[', '').replace(']]>', '') || publisherId,
-        description: publisherFeed.parsedData?.publisherInfo?.description || '',
-        image: publisherFeed.parsedData?.publisherInfo?.coverArt || null,
+        name: publisherInfo?.name || publisherFeed.title || publisherId,
+        description: publisherFeed.description || `${albums.length} releases`,
+        image: publisherFeed.image,
         feedUrl: publisherFeed.originalUrl,
-        feedGuid: publisherId // Use the publisherId which matches what the API uses
+        feedGuid: publisherFeed.id
       },
-      publisherItems, // Use actual publisher items from parsed data
-      albums, // Include pre-fetched albums
+      publisherItems,
+      albums,
       feedId: publisherFeed.id
     };
     
     console.log(`🏢 Server-side: Found publisher data for ${publisherId}:`, {
       name: data.publisherInfo.name,
       feedGuid: data.publisherInfo.feedGuid,
-      image: data.publisherInfo.image
+      image: data.publisherInfo.image,
+      albumCount: albums.length
     });
     
     return data;
