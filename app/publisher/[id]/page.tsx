@@ -220,17 +220,26 @@ async function loadPublisherData(publisherId: string) {
             const medium = mediumMatch?.[1] || 'music';
             
             // Only collect album/music remote items, not publisher references
-            if (medium === 'music' && feedGuidMatch) {
-              remoteItemGuids.push(feedGuidMatch[1]);
-            } else if (!mediumMatch && feedGuidMatch) {
-              // Default to music if no medium specified
-              remoteItemGuids.push(feedGuidMatch[1]);
+            if (medium === 'publisher') {
+              // Skip publisher references - we only want albums
+              continue;
             }
             
-            // Also try to match by feedUrl pattern (music feeds have /feed/music/, not /feed/artist/)
-            if (feedUrlMatch && feedUrlMatch[1].includes('/feed/music/')) {
-              if (feedGuidMatch) {
-                remoteItemGuids.push(feedGuidMatch[1]);
+            // Collect album/music remote items
+            if (feedGuidMatch && feedGuidMatch[1]) {
+              const guid = feedGuidMatch[1];
+              
+              // Check if URL indicates this is a music/album feed (not a publisher feed)
+              const isAlbumFeed = feedUrlMatch && (
+                feedUrlMatch[1].includes('/feed/music/') || 
+                feedUrlMatch[1].includes('/feed/') && !feedUrlMatch[1].includes('/feed/artist/') ||
+                medium === 'music' ||
+                !mediumMatch // Default to music if no medium
+              );
+              
+              if (isAlbumFeed && !remoteItemGuids.includes(guid)) {
+                remoteItemGuids.push(guid);
+                console.log(`📋 Added remote item GUID: ${guid} (medium: ${medium}, url: ${feedUrlMatch?.[1]})`);
               }
             }
           }
