@@ -44,13 +44,36 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         coverArt: album.coverArt,
         releaseDate: album.releaseDate || new Date().toISOString(),
         tracks: album.tracks && album.tracks.length > 0
-          ? album.tracks.map((track: any) => ({
-              id: track.id,
-              title: track.title,
-              duration: track.duration || '0:00',
-              url: track.url || track.audioUrl || '',
-              trackNumber: track.trackNumber || track.trackOrder || 0
-            }))
+          ? album.tracks.map((track: any) => {
+              // Helper to format duration - handle both number (seconds) and string (MM:SS)
+              const formatDuration = (dur: string | number | null | undefined): string => {
+                if (!dur) return '0:00';
+                if (typeof dur === 'number') {
+                  const mins = Math.floor(dur / 60);
+                  const secs = Math.floor(dur % 60);
+                  return `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+                if (typeof dur === 'string' && dur.includes(':')) {
+                  return dur;
+                }
+                // If it's a numeric string, convert it
+                const num = parseFloat(String(dur));
+                if (!isNaN(num)) {
+                  const mins = Math.floor(num / 60);
+                  const secs = Math.floor(num % 60);
+                  return `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+                return '0:00';
+              };
+              
+              return {
+                id: track.id,
+                title: track.title,
+                duration: formatDuration(track.duration),
+                url: track.url || track.audioUrl || '',
+                trackNumber: track.trackNumber || track.trackOrder || 0
+              };
+            })
           : Array(album.trackCount || 0).fill(null).map((_, i) => ({
               id: `track-${i}-${album.id}`,
               title: `${album.title} - Track ${i + 1}`,
@@ -777,12 +800,43 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     );
   }
 
+  // Helper function to parse duration from string (MM:SS) or number (seconds)
+  const parseDurationToSeconds = (duration: string | number | null | undefined): number => {
+    if (!duration) return 0;
+    
+    // If it's already a number, return it
+    if (typeof duration === 'number') {
+      return Math.floor(duration);
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof duration === 'string') {
+      // Handle MM:SS or HH:MM:SS format
+      if (duration.includes(':')) {
+        const parts = duration.split(':').map(Number);
+        if (parts.length === 2) {
+          // MM:SS format
+          return (parts[0] || 0) * 60 + (parts[1] || 0);
+        } else if (parts.length === 3) {
+          // HH:MM:SS format
+          return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        }
+      }
+      // Try parsing as a number string
+      const num = parseFloat(duration);
+      if (!isNaN(num)) {
+        return Math.floor(num);
+      }
+    }
+    
+    return 0;
+  };
+
   // Calculate statistics
   const totalTracks = albums.reduce((sum, album) => sum + (album.tracks?.length || 0), 0);
   const totalDuration = albums.reduce((sum, album) => {
     return sum + (album.tracks || []).reduce((trackSum, track) => {
-      const [minutes, seconds] = track.duration.split(':').map(Number);
-      return trackSum + (minutes || 0) * 60 + (seconds || 0);
+      return trackSum + parseDurationToSeconds(track.duration);
     }, 0);
   }, 0);
   const avgYear = albums.length > 0 ? Math.floor(albums.reduce((sum, album) => sum + new Date(album.releaseDate).getFullYear(), 0) / albums.length) : 0;

@@ -358,6 +358,35 @@ async function loadPublisherData(publisherId: string) {
       console.log(`✅ Found ${relatedFeeds.length} albums via artist matching`);
     }
 
+    // Helper function to convert duration to MM:SS format
+    const formatDurationToString = (duration: number | null | string | undefined): string => {
+      if (!duration) return '0:00';
+      
+      // If already a string in MM:SS format, return it
+      if (typeof duration === 'string') {
+        if (duration.includes(':')) {
+          return duration;
+        }
+        // If it's a numeric string, parse it as seconds
+        const num = parseFloat(duration);
+        if (!isNaN(num)) {
+          const mins = Math.floor(num / 60);
+          const secs = Math.floor(num % 60);
+          return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        return duration || '0:00';
+      }
+      
+      // If it's a number (seconds), convert to MM:SS
+      if (typeof duration === 'number') {
+        const mins = Math.floor(duration / 60);
+        const secs = Math.floor(duration % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+      
+      return '0:00';
+    };
+
     // Transform related feeds to albums format with actual tracks
     const albums = relatedFeeds
       .filter(feed => feed.Track.length > 0) // Only include feeds with tracks
@@ -379,7 +408,7 @@ async function loadPublisherData(publisherId: string) {
         }) => ({
           id: track.id,
           title: track.title || 'Unknown Track',
-          duration: track.duration || '0:00',
+          duration: formatDurationToString(track.duration),
           url: track.audioUrl || '',
           trackNumber: track.trackOrder || 0
         })),
