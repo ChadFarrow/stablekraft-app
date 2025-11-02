@@ -352,7 +352,29 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         console.log(`🏢 Loading publisher: ${publisherId}`);
         
         // Try to find the feed URL for this publisher
-        const publisherInfo = getPublisherInfo(publisherId);
+        // First check known publishers, but if not found, try API lookup
+        let publisherInfo = getPublisherInfo(publisherId);
+        
+        // If not in known publishers, try fetching from API
+        if (!publisherInfo) {
+          console.log(`🔍 Publisher "${publisherId}" not in known list, trying API lookup...`);
+          try {
+            const response = await fetch(`/api/publishers/${encodeURIComponent(publisherId)}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.publisherInfo) {
+                publisherInfo = {
+                  feedGuid: data.publisherInfo.feedGuid || publisherId,
+                  feedUrl: data.publisherInfo.feedUrl || '',
+                  name: data.publisherInfo.name || data.publisherInfo.title || publisherId
+                };
+                console.log(`✅ Found publisher via API:`, publisherInfo);
+              }
+            }
+          } catch (apiError) {
+            console.error('❌ API lookup failed:', apiError);
+          }
+        }
         
         if (!publisherInfo) {
           console.error(`❌ Publisher not found: ${publisherId}`);
