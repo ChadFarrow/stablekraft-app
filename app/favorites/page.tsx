@@ -212,7 +212,7 @@ export default function FavoritesPage() {
                     releaseDate: album.favoritedAt,
                     tracks: (album.Track || []).map(track => ({
                       title: track.title,
-                      artist: track.artist,
+                      artist: track.artist || undefined,
                       duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
                       url: '',
                       id: track.id

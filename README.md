@@ -51,6 +51,10 @@ app/api/
 ├── music/                       # Consolidated music operations
 ├── playlist/                    # Consolidated playlist operations
 ├── cache/                       # Consolidated cache operations
+├── favorites/                   # Favorites API (tracks/albums CRUD)
+│   ├── tracks/                  # Track favorites
+│   ├── albums/                  # Album favorites
+│   └── check/                   # Check favorite status
 ├── admin/                       # Admin functionality
 └── [legacy routes]             # Maintained for compatibility
 ```
@@ -63,12 +67,15 @@ app/
 ├── music-tracks/               # Track browsing and details
 ├── playlist/                   # Various playlist views
 ├── album/[id]/                 # Album detail pages
+├── favorites/                   # Favorites page (albums/tracks tabs)
 └── publisher/[id]/             # Publisher pages
 
 components/
 ├── NowPlayingBar.tsx           # Audio player controls
 ├── MusicTrackList.tsx          # Track listing component
 ├── PlaylistAlbum.tsx           # Album playlist view
+├── favorites/                   # Favorites components
+│   └── FavoriteButton.tsx      # Heart icon favorite button
 └── [other components]
 ```
 
@@ -85,6 +92,17 @@ components/
 - Integrates with Podcast Index API
 - Supports streaming payments to artists
 - Handles boostagrams and value time splits
+
+### Favorites System
+- Anonymous session-based favorites (no account required)
+- Favorite tracks and albums with heart icon
+- Persistent favorites stored in database
+- Dedicated favorites page with albums/tracks tabs
+- Favorite buttons integrated throughout the app
+  - Album cards
+  - Individual track displays
+  - Playlist views
+  - Album detail pages
 
 ### Database Management
 - JSON-based music track database
@@ -145,6 +163,15 @@ npx prisma db push
 - `POST /api/music-tracks` - Add tracks or bulk operations
 - `GET /api/music-tracks/database` - Database operations for tracks
 
+### Favorites Operations
+- `GET /api/favorites/tracks` - Get favorite tracks for session
+- `POST /api/favorites/tracks` - Add track to favorites
+- `DELETE /api/favorites/tracks/[trackId]` - Remove track from favorites
+- `GET /api/favorites/albums` - Get favorite albums for session
+- `POST /api/favorites/albums` - Add album to favorites
+- `DELETE /api/favorites/albums/[feedId]` - Remove album from favorites
+- `POST /api/favorites/check` - Check if tracks/albums are favorited
+
 ### Playlist Operations
 - `GET /api/playlist` - Get playlist data
 - `POST /api/playlist` - Create/update playlists
@@ -163,6 +190,12 @@ Many specific endpoints are maintained for backward compatibility.
 - Episode and feed relationships
 - Value4Value payment information
 - Source attribution and timestamps
+
+### Favorites
+- **FavoriteTrack** - User's favorite tracks (session-based)
+- **FavoriteAlbum** - User's favorite albums (session-based)
+- Anonymous session IDs stored in localStorage
+- Indexed for efficient querying
 
 ### Enhanced Features
 - Track enhancement with additional metadata
@@ -202,6 +235,14 @@ The codebase follows these conventions:
 - Comprehensive error handling and logging
 
 ## Recent Updates
+
+**Favorites Feature (2025-01-31):**
+- Added anonymous session-based favorites system
+- Users can favorite tracks and albums with heart icon
+- Persistent favorites stored in database (FavoriteTrack, FavoriteAlbum models)
+- Favorites page with albums/tracks tabs
+- Favorite buttons integrated throughout the app
+- Red heart button in navigation bar for quick access
 
 **Latest Refactoring (2025-01-21):**
 - Modularized parser files (reduced from 3000+ to focused modules)
