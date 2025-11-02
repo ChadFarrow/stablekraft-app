@@ -266,16 +266,59 @@ export async function GET(request: Request) {
       // Determine pagination strategy for cached data
       shouldPaginate = filter === 'all';
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⚡ Using cached database results (${cachedData!.feeds.length} albums)`);
-      }
-      feeds = cachedData!.feeds;
-      publisherStats = cachedData!.publisherStats;
+      // Check if cached data has enough feeds for the requested offset
+      const cachedFeedsCount = cachedData!.feeds.length;
+      const neededFeedsCount = offset + limit + 50; // Need enough for offset + limit + buffer
       
-      // Apply pagination to cached data if needed
-      if (shouldPaginate) {
-        const feedsToLoad = Math.min(feeds.length, offset + limit + 50);
-        feeds = feeds.slice(Math.max(0, offset - 10), feedsToLoad);
+      if (shouldPaginate && cachedFeedsCount < neededFeedsCount) {
+        // Cache doesn't have enough feeds, need to load from database
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 Cache has ${cachedFeedsCount} feeds, but need ${neededFeedsCount} - loading from database`);
+        }
+        
+        // Load needed feeds from database
+        const feedsToLoad = Math.min(totalFeedCount, offset + limit + 50);
+        feeds = await prisma.feed.findMany({
+          where: { status: 'active' },
+          skip: shouldPaginate ? Math.max(0, offset - 10) : 0,
+          take: feedsToLoad,
+          include: {
+            Track: {
+              where: {
+                audioUrl: { not: '' }
+              },
+              orderBy: [
+                { trackOrder: 'asc' },
+                { publishedAt: 'asc' },
+                { createdAt: 'asc' }
+              ],
+              take: 50
+            },
+            _count: {
+              select: { Track: true }
+            }
+          },
+          orderBy: [
+            { priority: 'asc' },
+            { createdAt: 'desc' }
+          ]
+        });
+        
+        // Load publisher stats from file
+        publisherStats = cachedData!.publisherStats; // Reuse cached publisher stats
+      } else {
+        // Use cached data
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`⚡ Using cached database results (${cachedData!.feeds.length} albums)`);
+        }
+        feeds = cachedData!.feeds;
+        publisherStats = cachedData!.publisherStats;
+        
+        // Apply pagination to cached data if needed
+        if (shouldPaginate) {
+          const feedsToLoad = Math.min(feeds.length, offset + limit + 50);
+          feeds = feeds.slice(Math.max(0, offset - 10), feedsToLoad);
+        }
       }
     }
     
