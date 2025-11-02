@@ -170,4 +170,51 @@ public/sw.js
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Android build files
+android-twa/build/
+android-twa/app/build/
+android-twa/.gradle/
+android-twa/local.properties
+android-twa/debug.keystore
+
+# Data files (generated/cached data)
+data/archived-json-database/
+data/backups/
+data/cache/
+*.json.backup
+*-backup*.json
+feeds-*.json
+*-final.json
+*-corrected.json
+*-enhanced.json
+*-resolved.json
+*-fully-*.json
+*-parallel-*.json
+
+# Root level temporary/test files
+test-*.js
+test-*.mjs
+test-*.xml
+test-*.html
+failed-uploads.txt
+relay-events.json
+batch-*.txt
+# Keep .taskmaster files (task management)
+!.taskmaster/
+
+# Documentation (keep only essential)
+# Commented out to keep docs, but add specific ones if needed
+# *.md
+# !README.md
+
+# Log files
+*.log
+build-*.log
+dev-server.log
+build-output.log
+
+# Python files (if not needed)
+*.pyc
+__pycache__/ 
