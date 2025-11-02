@@ -778,6 +778,32 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                 )}
               </button>
             </div>
+
+            {/* Album Favorite Button - Heart icon in bottom-right corner */}
+            {album.feedId && (
+              <div
+                className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 z-20"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
+                  <FavoriteButton
+                    feedId={album.feedId}
+                    size={18}
+                    className="text-white"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           
             {/* Album Info */}
