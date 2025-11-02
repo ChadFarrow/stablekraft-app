@@ -70,7 +70,13 @@ export async function GET(
     });
     
     // If publisher feed found, find albums by matching artist
+    // Only match album/music feeds, not publisher feeds
     const matchingFeeds = feeds.filter(feed => {
+      // Skip publisher feeds - we only want albums/music feeds
+      if (feed.type === 'publisher') {
+        return false;
+      }
+      
       // If we found a publisher feed, match by artist
       if (publisherFeed) {
         const publisherArtist = (publisherFeed.artist || publisherFeed.title)?.toLowerCase();
@@ -119,10 +125,40 @@ export async function GET(
       });
     }
     
-    console.log(`✅ Found ${matchingFeeds.length} feeds for publisher: ${publisherId}`);
+    console.log(`✅ Found ${matchingFeeds.length} album feeds for publisher: ${publisherId}`);
+    
+    if (matchingFeeds.length === 0 && !publisherFeed) {
+      console.log(`❌ No albums found and no publisher feed found for: ${publisherId}`);
+      return NextResponse.json({ 
+        error: 'Publisher not found',
+        publisherId,
+        timestamp: new Date().toISOString()
+      }, { 
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
     
     // Create publisher info from the publisher feed (if found) or primary album feed
     const primaryFeed = publisherFeed || matchingFeeds[0];
+    
+    // If we only found album feeds but no publisher feed, create publisher info from the albums
+    if (!publisherFeed && matchingFeeds.length > 0) {
+      const firstAlbum = matchingFeeds[0];
+      publisherFeed = {
+        id: publisherId,
+        title: firstAlbum.artist || firstAlbum.title || publisherId,
+        artist: firstAlbum.artist || publisherId,
+        description: `${matchingFeeds.length} releases`,
+        image: firstAlbum.image || null,
+        originalUrl: ''
+      };
+      console.log(`📝 Created publisher info from album feeds: ${publisherFeed.title}`);
+    }
     const totalTracks = matchingFeeds.reduce((sum, feed) => sum + feed.Track.length, 0);
     
     // Create album items from the feeds
