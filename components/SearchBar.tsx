@@ -49,6 +49,7 @@ export default function SearchBar({
   const [results, setResults] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -133,6 +134,7 @@ export default function SearchBar({
         break;
       case 'Escape':
         setIsOpen(false);
+        setIsExpanded(false);
         inputRef.current?.blur();
         break;
     }
@@ -171,11 +173,12 @@ export default function SearchBar({
     }
   };
 
-  // Click outside to close
+  // Click outside to close and collapse
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setIsExpanded(false);
       }
     };
 
@@ -200,48 +203,64 @@ export default function SearchBar({
 
   return (
     <div ref={searchRef} className={`relative z-50 ${className}`}>
-      {/* Search Input */}
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => hasResults && setIsOpen(true)}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          className="w-full px-4 py-2 pl-10 pr-10 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-transparent transition-all"
-        />
-
-        {/* Search Icon */}
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+      {!isExpanded ? (
+        // Collapsed - Search Button
+        <button
+          onClick={() => {
+            setIsExpanded(true);
+            setTimeout(() => inputRef.current?.focus(), 100);
+          }}
+          className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-gray-300 hover:text-white"
+          aria-label="Open search"
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-        </div>
+        </button>
+      ) : (
+        // Expanded - Search Input
+        <div className="relative animate-in fade-in slide-in-from-right-2 duration-200">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => hasResults && setIsOpen(true)}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            className="w-full px-4 py-2 pl-10 pr-10 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-transparent transition-all"
+          />
 
-        {/* Loading Spinner or Clear Button */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          {isLoading ? (
-            <div className="w-5 h-5 border-2 border-gray-600 border-t-stablekraft-teal rounded-full animate-spin"></div>
-          ) : query.length > 0 ? (
-            <button
-              onClick={() => {
-                setQuery('');
-                setResults(null);
-                setIsOpen(false);
-                inputRef.current?.focus();
-              }}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          ) : null}
+          {/* Search Icon */}
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Loading Spinner or Clear Button */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-gray-600 border-t-stablekraft-teal rounded-full animate-spin"></div>
+            ) : query.length > 0 ? (
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setResults(null);
+                  setIsOpen(false);
+                  inputRef.current?.focus();
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Search Results Dropdown */}
       {isOpen && hasResults && (
