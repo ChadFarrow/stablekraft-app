@@ -1094,11 +1094,11 @@ export default function HomePage() {
             borderColor: 'rgba(255, 255, 255, 0.1)'
           }}
         >
-          <div className="container mx-auto px-6 py-2">
+          <div className="container mx-auto px-6 py-1">
             {/* Mobile Header - Stacked Layout */}
-            <div className="block sm:hidden mb-3">
+            <div className="block sm:hidden mb-1">
               {/* Top row - Menu, Logo, Actions */}
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-4">
                   {/* Menu Button */}
                   <button
@@ -1132,10 +1132,9 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Bottom row - Title and Beta badge */}
+              {/* Bottom row - Title only (quote hidden on mobile) */}
               <div className="text-center">
-                <h1 className="text-xl font-bold mb-1 text-white">Project StableKraft</h1>
-                <p className="text-xs text-gray-300 mb-2">- &quot;its was all this reimagined, its a different kind of speech, it was repition, it was what you wanted it to be&quot; - The Contortionist - Reimagined</p>
+                <h1 className="text-lg font-bold mb-0.5 text-white">Project StableKraft</h1>
               </div>
             </div>
 
@@ -1199,10 +1198,10 @@ export default function HomePage() {
         </header>
         
         {/* Filter Menu - Below Header */}
-        <div className="relative z-30 bg-black/70 backdrop-blur-sm border-b border-gray-700 py-3">
+        <div className="relative z-30 bg-black/70 backdrop-blur-sm border-b border-gray-700 py-2 sm:py-3">
           <div className="container mx-auto px-6">
             {/* Search Bar - Full Width on Mobile, Inline on Desktop */}
-            <div className="mb-3">
+            <div className="mb-2 sm:mb-3">
               <SearchBar className="w-full md:max-w-md" />
             </div>
 
