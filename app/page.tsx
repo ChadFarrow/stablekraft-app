@@ -1320,49 +1320,6 @@ export default function HomePage() {
               
             </div>
 
-
-
-            {/* Artists with Publisher Feeds */}
-            {(() => {
-              // Use pre-computed publisher stats from API
-              console.log(`📊 Publisher Stats: Using ${publisherStats.length} pre-computed publisher stats`);
-
-              // Always show the section, even if empty, to indicate it exists
-              return (
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold mb-2 text-white">
-                    Publisher Feeds
-                    {showProgressiveLoading && (
-                      <span className="ml-2 text-xs text-stablekraft-teal">(Loading more...)</span>
-                    )}
-                  </h3>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {publisherStats.length > 0 ? (
-                      publisherStats.map((artist, index) => (
-                        <Link
-                          key={`publisher-${artist.feedGuid || artist.name || index}`}
-                          href={`/publisher/${generatePublisherSlug({ title: artist.name, feedGuid: artist.feedGuid })}`}
-                          className="flex items-center justify-between bg-gray-800/30 hover:bg-gray-800/50 rounded p-1.5 transition-colors group"
-                          onClick={() => setIsSidebarOpen(false)}
-                        >
-                          <span className="text-xs text-gray-300 group-hover:text-white truncate flex-1">
-                            {artist.name}
-                          </span>
-                          <span className="text-xs text-gray-500 group-hover:text-gray-400 ml-1">
-                            {artist.albumCount}
-                          </span>
-                        </Link>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-500 italic">
-                        {isLoading ? 'Loading publisher feeds...' : 'No publisher feeds available'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-            
             {/* Test Feeds Section */}
             <div className="mb-4">
               <h3 className="text-sm font-semibold mb-2 text-white">
