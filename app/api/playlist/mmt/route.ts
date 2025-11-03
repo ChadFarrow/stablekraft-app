@@ -24,7 +24,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-MMT-Resolver/1.0'
+    'User-Agent': 'StableKraft-MMT-Resolver/1.0'
   };
 }
 

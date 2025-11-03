@@ -183,7 +183,7 @@ node scripts/taskmaster-automation.js
 ### Option 1: Simple Cron Job
 ```bash
 # Add to crontab for hourly processing
-0 * * * * cd /home/laptop/FUCKIT && node scripts/auto-process-feeds.js
+0 * * * * cd /home/laptop/StableKraft && node scripts/auto-process-feeds.js
 ```
 
 ### Option 2: Webhook Integration
@@ -250,7 +250,7 @@ task-master list --status=in-progress
 # Create daily processing script
 cat > daily-processing.sh << 'EOF'
 #!/bin/bash
-cd /home/laptop/FUCKIT
+cd /home/laptop/StableKraft
 node scripts/auto-process-feeds.js
 echo "Daily processing completed at $(date)"
 EOF
@@ -258,7 +258,7 @@ EOF
 chmod +x daily-processing.sh
 
 # Add to crontab (runs daily at 2 AM)
-echo "0 2 * * * /home/laptop/FUCKIT/daily-processing.sh" | crontab -
+echo "0 2 * * * /home/laptop/StableKraft/daily-processing.sh" | crontab -
 ```
 
 ### Example 2: Real-time Webhook Processing

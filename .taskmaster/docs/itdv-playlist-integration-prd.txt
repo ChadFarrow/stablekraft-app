@@ -1,7 +1,7 @@
-# FUCKIT Music App - ITDV Playlist Integration PRD
+# StableKraft Music App - ITDV Playlist Integration PRD
 
 ## Project Overview
-The FUCKIT music app needs to integrate the Into The Doerfel-Verse (ITDV) playlist with real audio URLs and artwork, and create a reusable system for adding multiple playlists to the site's centralized music database.
+The StableKraft music app needs to integrate the Into The Doerfel-Verse (ITDV) playlist with real audio URLs and artwork, and create a reusable system for adding multiple playlists to the site's centralized music database.
 
 ## Current Features
 The ITDV playlist currently displays 114 resolved song titles and artists with generated durations, but cannot play audio due to missing audio URLs.

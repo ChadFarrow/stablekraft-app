@@ -16,7 +16,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-Auto-Feed-Populator/1.0'
+    'User-Agent': 'StableKraft-Auto-Feed-Populator/1.0'
   };
 }
 

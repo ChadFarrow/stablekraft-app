@@ -16,7 +16,7 @@ function generateAuthHeaders() {
   const hash4Header = sha1Algorithm.update(data4Hash).digest('hex');
 
   return {
-    'User-Agent': 'FUCKIT-Feed-Investigator/1.0',
+    'User-Agent': 'StableKraft-Feed-Investigator/1.0',
     'X-Auth-Date': apiHeaderTime.toString(),
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'Authorization': hash4Header,
@@ -98,7 +98,7 @@ async function testFeedUrl(url: string) {
     const response = await fetch(url, {
       method: 'HEAD',
       headers: {
-        'User-Agent': 'FUCKIT-Feed-Tester/1.0'
+        'User-Agent': 'StableKraft-Feed-Tester/1.0'
       }
     });
     

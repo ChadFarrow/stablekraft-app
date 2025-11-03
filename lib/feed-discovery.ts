@@ -77,7 +77,7 @@ async function generateHeaders(apiKey: string, apiSecret: string): Promise<Recor
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-Feed-Discovery/1.0'
+    'User-Agent': 'StableKraft-Feed-Discovery/1.0'
   };
 }
 

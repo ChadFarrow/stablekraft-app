@@ -59,7 +59,7 @@ async function verifyFeedExists(name, rawUrl) {
   try {
     const response = await fetch(rawUrl, {
       headers: {
-        'User-Agent': 'FUCKIT-Playlist-Refresher/1.0'
+        'User-Agent': 'StableKraft-Playlist-Refresher/1.0'
       }
     });
     
@@ -101,7 +101,7 @@ async function refreshPlaylistFeed(name, endpoint, rawUrl) {
     
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'FUCKIT-Playlist-Refresher/1.0'
+        'User-Agent': 'StableKraft-Playlist-Refresher/1.0'
       }
     });
 

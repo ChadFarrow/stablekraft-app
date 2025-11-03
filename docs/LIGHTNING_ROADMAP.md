@@ -198,7 +198,7 @@ NEXT_PUBLIC_PLATFORM_NODE_PUBKEY=your_node_pubkey
 ## 🚀 Deployment Status
 
 **LIVE IN PRODUCTION** ✅
-- Railway deployment: `fuckit-lightning-production.up.railway.app`
+- Railway deployment: `stablekraft-lightning-production.up.railway.app`
 - All Lightning features fully functional
 - Real value splits data integrated
 - Boost buttons working on all tracks and albums

@@ -44,7 +44,7 @@ function generateAuthHeaders() {
   const hash4Header = sha1Algorithm.update(data4Hash).digest('hex');
 
   return {
-    'User-Agent': 'FUCKIT-Specific-Feed-Importer/1.0',
+    'User-Agent': 'StableKraft-Specific-Feed-Importer/1.0',
     'X-Auth-Date': apiHeaderTime.toString(),
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'Authorization': hash4Header,
@@ -86,7 +86,7 @@ async function parseFeedXML(feedUrl: string) {
     
     const response = await fetch(feedUrl, {
       headers: {
-        'User-Agent': 'FUCKIT-Specific-Feed-Parser/1.0'
+        'User-Agent': 'StableKraft-Specific-Feed-Parser/1.0'
       }
     });
     

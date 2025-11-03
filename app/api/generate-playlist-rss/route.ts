@@ -213,7 +213,7 @@ function generatePlaylistRSS(tracksByEpisode: Record<string, any[]>, sourceFeedU
     <copyright>Music rights belong to respective artists</copyright>
     <lastBuildDate>${now}</lastBuildDate>
     <pubDate>${now}</pubDate>
-    <generator>FUCKIT Music Extractor</generator>
+    <generator>StableKraft Music Extractor</generator>
     <atom:link href="${baseUrl}/api/generate-playlist-rss?feedUrl=${encodeURIComponent(sourceFeedUrl)}" rel="self" type="application/rss+xml"/>
     
     <itunes:author>The Doerfels</itunes:author>

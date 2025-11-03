@@ -30,7 +30,7 @@ async function generateHeaders(apiKey, apiSecret) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-Database-Populator/1.0'
+    'User-Agent': 'StableKraft-Database-Populator/1.0'
   };
 }
 

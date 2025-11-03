@@ -38,7 +38,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'FUCKIT-HGH-ValueSplit-Resolver/1.0'
+        'User-Agent': 'StableKraft-HGH-ValueSplit-Resolver/1.0'
     };
 }
 

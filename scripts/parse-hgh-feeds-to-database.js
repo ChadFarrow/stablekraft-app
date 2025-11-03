@@ -85,7 +85,7 @@ async function parseHghFeedsToDatabase() {
 
                 // Fetch the RSS feed
                 const response = await fetch(feedData.originalUrl, {
-                    headers: { 'User-Agent': 'FUCKIT-HGH-Parser/1.0' },
+                    headers: { 'User-Agent': 'StableKraft-HGH-Parser/1.0' },
                     timeout: 15000
                 });
 

@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'fuckit-app',
+      name: 'stablekraft-app',
       script: 'npm',
       args: 'start',
       cwd: '/var/www/re.podtards.com',
@@ -15,9 +15,9 @@ module.exports = {
         BUNNY_CDN_HOSTNAME: 're-podtards-cdn.b-cdn.net',
         BUNNY_CDN_ZONE: 're-podtards-cdn'
       },
-      error_file: '/var/log/fuckit-app-error.log',
-      out_file: '/var/log/fuckit-app-out.log',
-      log_file: '/var/log/fuckit-app-combined.log',
+      error_file: '/var/log/stablekraft-app-error.log',
+      out_file: '/var/log/stablekraft-app-out.log',
+      log_file: '/var/log/stablekraft-app-combined.log',
       time: true
     }
   ]

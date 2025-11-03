@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           const response = await fetch(song.feedUrl, {
             signal: controller.signal,
             headers: {
-              'User-Agent': 'FUCKIT-Music-Resolver/1.0',
+              'User-Agent': 'StableKraft-Music-Resolver/1.0',
               'Accept': 'application/rss+xml, application/xml, text/xml',
             },
           });

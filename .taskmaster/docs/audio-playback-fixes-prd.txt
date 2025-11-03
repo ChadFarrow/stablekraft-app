@@ -1,7 +1,7 @@
 # Audio Playback and Resource Preloading Fixes PRD
 
 ## Overview
-Fix critical audio playback issues and resource preloading problems in the FUCKIT music application. The application is experiencing track ending errors, missing album/track data issues, and inefficient resource preloading that's causing console warnings.
+Fix critical audio playback issues and resource preloading problems in the StableKraft music application. The application is experiencing track ending errors, missing album/track data issues, and inefficient resource preloading that's causing console warnings.
 
 ## Current Issues Identified
 

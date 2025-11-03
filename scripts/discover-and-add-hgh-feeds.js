@@ -44,7 +44,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'FUCKIT-HGH-Feed-Discovery/1.0'
+        'User-Agent': 'StableKraft-HGH-Feed-Discovery/1.0'
     };
 }
 

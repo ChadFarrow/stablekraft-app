@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Deployment script for FUCKIT app to re.podtards.com
+# Deployment script for StableKraft app to re.podtards.com
 # This script helps deploy the Next.js app to your server
 
 set -e
 
-echo "🚀 Deploying FUCKIT app to re.podtards.com"
+echo "🚀 Deploying StableKraft app to re.podtards.com"
 echo "=========================================="
 
 # Check if we're in the right directory
@@ -55,7 +55,7 @@ EOF
 cat > "$DEPLOY_DIR/ecosystem.config.js" << EOF
 module.exports = {
   apps: [{
-    name: 'fuckit-app',
+    name: 'stablekraft-app',
     script: 'npm',
     args: 'start',
     cwd: '/var/www/re.podtards.com',
@@ -199,12 +199,12 @@ TTL: 300
 ## Verification
 - Visit https://re.podtards.com
 - Check that images are being served through your CDN
-- Monitor logs: \`pm2 logs fuckit-app\`
+- Monitor logs: \`pm2 logs stablekraft-app\`
 
 ## Troubleshooting
 - Check PM2 status: \`pm2 status\`
 - Check nginx logs: \`sudo tail -f /var/log/nginx/error.log\`
-- Check application logs: \`pm2 logs fuckit-app\`
+- Check application logs: \`pm2 logs stablekraft-app\`
 EOF
 
 echo "✅ Deployment package created: $DEPLOY_DIR"

@@ -27,7 +27,7 @@ function generateAuthHeaders() {
     'X-Auth-Date': unixTime.toString(),
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT/1.0'
+    'User-Agent': 'StableKraft/1.0'
   };
 }
 

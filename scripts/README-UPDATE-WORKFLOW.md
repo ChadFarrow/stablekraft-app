@@ -1,4 +1,4 @@
-# FUCKIT Music Update Workflow
+# StableKraft Music Update Workflow
 
 ## Quick Commands
 
@@ -74,7 +74,7 @@ The `update-music` workflow automatically runs these steps in order:
 After running `npm run update-music`, you should see:
 
 ```
-🏁 FUCKIT MUSIC UPDATE WORKFLOW COMPLETE
+🏁 StableKraft MUSIC UPDATE WORKFLOW COMPLETE
 📊 Steps completed: 6/6
 🎉 All steps completed successfully!
 ✅ Your music database is now fully updated with:

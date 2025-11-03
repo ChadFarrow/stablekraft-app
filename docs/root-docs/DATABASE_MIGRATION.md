@@ -1,6 +1,6 @@
 # Database Migration Guide
 
-This guide covers the complete transformation of FUCKIT music app from hardcoded RSS feeds to a PostgreSQL database-driven system.
+This guide covers the complete transformation of StableKraft music app from hardcoded RSS feeds to a PostgreSQL database-driven system.
 
 ## Overview
 

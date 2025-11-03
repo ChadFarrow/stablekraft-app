@@ -23,7 +23,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-B4TS-Resolver/1.0'
+    'User-Agent': 'StableKraft-B4TS-Resolver/1.0'
   };
 }
 
@@ -116,7 +116,7 @@ async function resolveItemGuid(feedGuid: string, itemGuid: string) {
 async function fetchPlaylistXML(url: string) {
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+      'User-Agent': 'StableKraft-Playlist-Parser/1.0'
     },
     signal: AbortSignal.timeout(30000) // 30 second timeout
   });

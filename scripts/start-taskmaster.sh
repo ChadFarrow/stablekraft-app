@@ -22,7 +22,7 @@ fi
 
 # Function to start Task Master when entering the project directory
 start_taskmaster_if_needed() {
-    if [[ "$PWD" == *"FUCKIT"* ]] && ! pgrep -f "task-master-mcp" > /dev/null; then
+    if [[ "$PWD" == *"StableKraft"* ]] && ! pgrep -f "task-master-mcp" > /dev/null; then
         echo "🚀 Auto-starting Task Master MCP server..."
         npx task-master-mcp > /dev/null 2>&1 &
     fi

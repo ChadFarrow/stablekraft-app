@@ -13,7 +13,7 @@ export async function GET() {
     const response = await fetch(GITHUB_FEED_URL, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'FUCKIT-Music-Site/1.0',
+        'User-Agent': 'StableKraft-Music-Site/1.0',
       },
     });
     

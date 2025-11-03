@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     // Fetch the playlist XML
     const response = await fetch(UPBEATS_PLAYLIST_URL, {
       headers: {
-        'User-Agent': 'FUCKIT-Playlist-Parser/1.0'
+        'User-Agent': 'StableKraft-Playlist-Parser/1.0'
       }
     });
 

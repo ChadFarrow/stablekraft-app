@@ -1,7 +1,7 @@
-# FUCKIT - Podcast/Music Streaming Application PRD
+# StableKraft - Podcast/Music Streaming Application PRD
 
 ## Project Overview
-FUCKIT is a podcast and music streaming application that aggregates RSS feeds from various publishers, provides album browsing and playback functionality, and integrates with CDN services for content delivery.
+StableKraft is a podcast and music streaming application that aggregates RSS feeds from various publishers, provides album browsing and playback functionality, and integrates with CDN services for content delivery.
 
 ## Current Features
 

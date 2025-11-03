@@ -1,5 +1,5 @@
 [dotenv@17.2.0] injecting env (2) from .env.local (tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`)
-✅ Created backup: /Users/chad-mini/Vibe/apps/FUCKIT/data/music-tracks.json.backup-hgh-new-1757104239158
+✅ Created backup: /Users/chad-mini/Vibe/apps/StableKraft/data/music-tracks.json.backup-hgh-new-1757104239158
 
 📋 Playlist: Homegrown Hits Music Playlist
 🆔 Playlist GUID: 8aad8bd9-0eac-4bfe-b290-6c73f7148155
@@ -2008,4 +2008,4 @@
 Total tracks processed: 1178
 ✅ Successfully resolved: 0
 ❌ Failed to resolve: 408
-📁 Data saved to: /Users/chad-mini/Vibe/apps/FUCKIT/data/music-tracks.json
+📁 Data saved to: /Users/chad-mini/Vibe/apps/StableKraft/data/music-tracks.json

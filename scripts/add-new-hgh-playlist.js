@@ -43,7 +43,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'FUCKIT-HGH-Playlist-Import/1.0'
+        'User-Agent': 'StableKraft-HGH-Playlist-Import/1.0'
     };
 }
 

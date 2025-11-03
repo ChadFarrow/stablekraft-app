@@ -222,7 +222,7 @@ class UnifiedTool {
       'X-Auth-Key': API_KEY,
       'X-Auth-Date': apiHeaderTime.toString(),
       'Authorization': hash4Header,
-      'User-Agent': 'FUCKIT-Universal-Tool/1.0'
+      'User-Agent': 'StableKraft-Universal-Tool/1.0'
     };
   }
 
@@ -453,7 +453,7 @@ async function main() {
   }
 
   // Create new README for scripts directory
-  const readmeContent = `# FUCKIT Scripts Directory
+  const readmeContent = `# StableKraft Scripts Directory
 
 ## Structure
 

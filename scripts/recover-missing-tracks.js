@@ -27,7 +27,7 @@ async function generateHeaders(apiKey, apiSecret) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT-Track-Recovery/1.0'
+    'User-Agent': 'StableKraft-Track-Recovery/1.0'
   };
 }
 

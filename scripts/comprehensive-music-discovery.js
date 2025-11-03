@@ -38,7 +38,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'FUCKIT-Comprehensive-Music-Discovery/1.0'
+        'User-Agent': 'StableKraft-Comprehensive-Music-Discovery/1.0'
     };
 }
 

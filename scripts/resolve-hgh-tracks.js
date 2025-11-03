@@ -27,7 +27,7 @@ function createPodcastIndexAuthHeaders() {
     const authHeader = crypto.createHash('sha1').update(authString).digest('hex');
     
     return {
-        'User-Agent': 'FUCKIT-MusicPlaylist/1.0',
+        'User-Agent': 'StableKraft-MusicPlaylist/1.0',
         'X-Auth-Date': apiTime.toString(),
         'X-Auth-Key': PODCAST_INDEX_API_KEY,
         'Authorization': authHeader

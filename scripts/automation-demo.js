@@ -30,7 +30,7 @@ console.log(`
 node scripts/auto-process-feeds.js
 
 # Set up cron job (runs every 6 hours)
-echo "0 */6 * * * cd /home/laptop/FUCKIT && node scripts/auto-process-feeds.js" | crontab -
+echo "0 */6 * * * cd /home/laptop/StableKraft && node scripts/auto-process-feeds.js" | crontab -
 
 # Features:
 - Processes multiple feeds in batches
@@ -85,7 +85,7 @@ console.log(`
 # Example 1: Daily Feed Processing
 cat > daily-processing.sh << 'EOF'
 #!/bin/bash
-cd /home/laptop/FUCKIT
+cd /home/laptop/StableKraft
 node scripts/auto-process-feeds.js
 echo "Daily processing completed at \$(date)"
 EOF
@@ -93,7 +93,7 @@ EOF
 chmod +x daily-processing.sh
 
 # Add to crontab (runs daily at 2 AM)
-echo "0 2 * * * /home/laptop/FUCKIT/daily-processing.sh" | crontab -
+echo "0 2 * * * /home/laptop/StableKraft/daily-processing.sh" | crontab -
 
 # Example 2: Real-time Webhook Processing
 npm install -g pm2

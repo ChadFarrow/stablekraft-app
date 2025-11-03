@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     // Fetch the playlist XML
     const response = await fetch(playlistUrl, {
       headers: {
-        'User-Agent': 'FUCKIT-Missing-Feed-Finder/1.0'
+        'User-Agent': 'StableKraft-Missing-Feed-Finder/1.0'
       }
     });
     

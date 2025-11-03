@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Auto-deploy script for FUCKIT app
+# Auto-deploy script for StableKraft app
 # This script automatically builds and deploys your app to the server
 
 set -e
 
-echo "🚀 Auto-deploying FUCKIT app to re.podtards.com"
+echo "🚀 Auto-deploying StableKraft app to re.podtards.com"
 echo "=============================================="
 
 # Configuration
@@ -99,7 +99,7 @@ sudo mkdir -p "$DEPLOY_DIR"
 sudo chown $USER:$USER "$DEPLOY_DIR"
 
 # Stop the current application
-cd "$DEPLOY_DIR" && pm2 stop fuckit-app || true
+cd "$DEPLOY_DIR" && pm2 stop stablekraft-app || true
 
 # Clean up old files
 sudo rm -rf "$DEPLOY_DIR"/*

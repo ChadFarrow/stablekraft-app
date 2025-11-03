@@ -10,7 +10,7 @@ async function syncProductionData() {
     console.log('🚀 Starting production data sync...');
     
     // First, let's get all albums from production
-    const prodResponse = await fetch('https://fuckit-production.up.railway.app/api/albums?limit=200');
+    const prodResponse = await fetch('https://stablekraft-production.up.railway.app/api/albums?limit=200');
     const prodData = await prodResponse.json();
     
     console.log(`📊 Found ${prodData.albums.length} albums in production`);
