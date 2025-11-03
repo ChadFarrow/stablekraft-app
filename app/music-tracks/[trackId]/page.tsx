@@ -33,8 +33,7 @@ export default function TrackDetailPage() {
       // In a production app, you'd want a dedicated /api/music-tracks/[id] endpoint
       
       const feedUrls = [
-        'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml',
-        'http://localhost:3000/001-to-060-lightning-thrashes-playlist.xml'
+        'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml'
       ];
 
       let foundTrack: MusicTrack | null = null;

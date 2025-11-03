@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
 export interface PlaylistRequestParams {
-  type?: 'itdv' | 'hgh' | 'lightning-thrashes' | 'top100';
+  type?: 'itdv' | 'hgh' | 'top100';
   format?: 'json' | 'rss';
   limit?: number;
   offset?: number;
@@ -28,8 +28,6 @@ export class PlaylistAPIHandler {
           return this.handleITDVPlaylist(params);
         case 'hgh':
           return this.handleHGHPlaylist(params);
-        case 'lightning-thrashes':
-          return this.handleLightningThrashesPlaylist(params);
         case 'top100':
           return this.handleTop100Playlist(params);
         default:
@@ -83,8 +81,6 @@ export class PlaylistAPIHandler {
       type = 'itdv';
     } else if (pathname.includes('/hgh')) {
       type = 'hgh';
-    } else if (pathname.includes('/lightning-thrashes')) {
-      type = 'lightning-thrashes';
     } else if (pathname.includes('/top100')) {
       type = 'top100';
     } else {
@@ -179,33 +175,6 @@ export class PlaylistAPIHandler {
     }
   }
 
-  private static async handleLightningThrashesPlaylist(params: PlaylistRequestParams): Promise<NextResponse> {
-    try {
-      if (params.format === 'rss') {
-        return this.generateLightningThrashesRSS();
-      }
-
-      // For now, return a placeholder
-      return NextResponse.json({
-        success: true,
-        playlist: {
-          id: 'lightning-thrashes',
-          title: 'Lightning Thrashes',
-          description: 'Lightning Thrashes playlist',
-          type: 'podcast-music',
-          tracks: [],
-          metadata: {
-            totalTracks: 0,
-            lastUpdated: new Date().toISOString()
-          }
-        }
-      });
-    } catch (error) {
-      logger.error('Lightning Thrashes playlist request failed', error);
-      throw error;
-    }
-  }
-
   private static async handleTop100Playlist(params: PlaylistRequestParams): Promise<NextResponse> {
     try {
       // Load top 100 tracks
@@ -253,16 +222,6 @@ export class PlaylistAPIHandler {
           endpoints: {
             json: '/api/playlist?type=hgh',
             rss: '/api/playlist?type=hgh&format=rss'
-          }
-        },
-        {
-          id: 'lightning-thrashes',
-          title: 'Lightning Thrashes',
-          description: 'Lightning Thrashes playlist',
-          trackCount: null,
-          endpoints: {
-            json: '/api/playlist?type=lightning-thrashes',
-            rss: '/api/playlist?type=lightning-thrashes&format=rss'
           }
         },
         {
@@ -337,18 +296,6 @@ export class PlaylistAPIHandler {
 
   private static async generateHGHRSS(): Promise<NextResponse> {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/hgh-rss`);
-    const rssContent = await response.text();
-
-    return new NextResponse(rssContent, {
-      headers: {
-        'Content-Type': 'application/rss+xml',
-        'Cache-Control': 'public, max-age=3600'
-      }
-    });
-  }
-
-  private static async generateLightningThrashesRSS(): Promise<NextResponse> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/playlist/lightning-thrashes-rss`);
     const rssContent = await response.text();
 
     return new NextResponse(rssContent, {

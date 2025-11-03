@@ -166,7 +166,6 @@ function PlaylistContent() {
     const colors = {
       'itdv': 'bg-blue-600',
       'hgh': 'bg-purple-600',
-      'lightning-thrashes': 'bg-red-600',
       'top100-music': 'bg-yellow-600',
       'upbeats': 'bg-green-600',
       'flowgnar': 'bg-teal-600',
