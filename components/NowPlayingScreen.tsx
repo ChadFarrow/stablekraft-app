@@ -266,11 +266,12 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           </button>
 
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
               router.push(albumUrl);
             }}
-            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto cursor-pointer hover:bg-black/50 active:scale-95 transition-all duration-200"
+            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto cursor-pointer hover:bg-black/50 active:scale-95 transition-all duration-200 relative z-10"
             style={{
               backgroundColor: 'rgba(0,0,0,0.4)',
               backdropFilter: 'blur(8px)',
@@ -278,7 +279,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             }}
           >
             <p
-              className="text-sm font-medium"
+              className="text-sm font-medium pointer-events-none"
               style={{
                 color: contrastColors.textColor,
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
@@ -288,7 +289,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               Playing from
             </p>
             <p
-              className="text-sm font-semibold truncate"
+              className="text-sm font-semibold truncate pointer-events-none"
               style={{
                 color: contrastColors.textColor,
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
