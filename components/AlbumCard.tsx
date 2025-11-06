@@ -316,7 +316,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
 
         {/* Release date or episode date */}
         {(album.releaseDate || (album as any).isMusicTrackAlbum) && (
-          <p className="text-gray-400 text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium">
+          <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium">
             {(album as any).isMusicTrackAlbum
               ? new Date(album.releaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               : new Date(album.releaseDate).getFullYear()

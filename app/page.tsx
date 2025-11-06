@@ -1484,7 +1484,7 @@ export default function HomePage() {
                               <Link
                                 key={`album-${index}`}
                                 href={generateAlbumUrl(album.title)}
-                                className="group flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
+                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-200 border border-gray-700/50 hover:border-cyan-400/30"
                               >
                                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                                   <Image 
@@ -1548,7 +1548,7 @@ export default function HomePage() {
                               <Link
                                 key={`ep-single-${index}`}
                                 href={generateAlbumUrl(album.title)}
-                                className="group flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
+                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-200 border border-gray-700/50 hover:border-cyan-400/30"
                               >
                                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                                   <Image 
