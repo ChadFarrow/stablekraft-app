@@ -253,6 +253,28 @@ export async function GET() {
           source: 'flowgnar-playlist',
           originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml'
         }
+      },
+      {
+        id: 'lnurl-testing-podcast',
+        title: 'LNURL Testing Podcast',
+        artist: 'Testing',
+        album: 'LNURL Testing Podcast',
+        description: 'Testing podcast for LNURL and Lightning Network features',
+        image: '/placeholder-podcast.jpg',
+        coverArt: '/placeholder-podcast.jpg',
+        url: '', // Will be set from database feed
+        feedId: 'lnurl-testing-podcast',
+        type: 'playlist',
+        totalTracks: 0,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/album/lnurl-testing-podcast',
+        albumUrl: '/album/lnurl-testing-podcast',
+        playlistContext: {
+          source: 'lnurl-testing',
+          originalUrl: ''
+        }
       }
     ];
 

@@ -179,8 +179,12 @@ export async function GET(request: Request) {
       // Load all feeds to maintain global sort order
       // Even for 'all' filter, we need all feeds to ensure correct sorting
       // (Albums → EPs → Singles, then alphabetically within each format)
+      // Exclude sidebar-only items from main site display
       totalFeedCount = await prisma.feed.count({
-        where: { status: 'active' }
+        where: {
+          status: 'active'
+          // Note: 'sidebar-only' status feeds are excluded from main site
+        }
       });
       
       // Always load all feeds to maintain global sort order
@@ -189,6 +193,7 @@ export async function GET(request: Request) {
       const feedsToLoad = totalFeedCount; // Load all feeds
       
       // Get active feeds with their tracks directly from database
+      // Exclude sidebar-only items from main site display
       feeds = await prisma.feed.findMany({
         where: { status: 'active' },
           skip: 0, // Load all feeds to maintain global sort order
@@ -258,6 +263,7 @@ export async function GET(request: Request) {
       }
     } else {
       // Use cached data, but still need total count for pagination
+      // Exclude sidebar-only items from main site display
       totalFeedCount = await prisma.feed.count({
         where: { status: 'active' }
       });

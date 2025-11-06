@@ -165,97 +165,6 @@
       "lastUpdated": "2025-08-29T21:09:42.539Z"
     },
     {
-      "id": "ben-doerfel-ben-doerfel",
-      "title": "Ben Doerfel",
-      "artist": "Ben Doerfel",
-      "description": "<p>Emma Rose by Ben Doerfel</p>",
-      "coverArt": "https://www.doerfelverse.com/art/ben-doerfel-red.png",
-      "releaseDate": "2025-02-23T00:37:36.000Z",
-      "trackCount": 11,
-      "tracks": [
-        {
-          "title": "Emma Rose",
-          "duration": "3:23",
-          "url": "https://www.doerfelverse.com/tracks/emma-rose.mp3",
-          "trackNumber": 1,
-          "explicit": false
-        },
-        {
-          "title": "What A Friend",
-          "duration": "5:02",
-          "url": "https://www.doerfelverse.com/tracks/what-a-friend.mp3",
-          "trackNumber": 2,
-          "explicit": false
-        },
-        {
-          "title": "Pulls Me Up",
-          "duration": "2:54",
-          "url": "https://www.doerfelverse.com/tracks/pulls-me-up.mp3",
-          "trackNumber": 3,
-          "explicit": false
-        },
-        {
-          "title": "Hey Yo!",
-          "duration": "2:35",
-          "url": "https://www.doerfelverse.com/tracks/hey-yo.mp3",
-          "trackNumber": 4,
-          "explicit": false
-        },
-        {
-          "title": "Night Shift",
-          "duration": "2:56",
-          "url": "https://www.doerfelverse.com/tracks/night-shift.mp3",
-          "trackNumber": 5,
-          "explicit": false
-        },
-        {
-          "title": "Here With Me",
-          "duration": "2:53",
-          "url": "https://www.doerfelverse.com/tracks/here-with-me.mp3",
-          "trackNumber": 6,
-          "explicit": false
-        },
-        {
-          "title": "Honor You",
-          "duration": "2:47",
-          "url": "https://www.doerfelverse.com/tracks/honor-you.mp3",
-          "trackNumber": 7,
-          "explicit": false
-        },
-        {
-          "title": "Wub Wub Jesus",
-          "duration": "2:54",
-          "url": "https://www.doerfelverse.com/tracks/wub-wub-jesus.mp3",
-          "trackNumber": 8,
-          "explicit": false
-        },
-        {
-          "title": "Tell Him",
-          "duration": "3:55",
-          "url": "https://www.doerfelverse.com/tracks/tell-him.mp3",
-          "trackNumber": 9,
-          "explicit": false
-        },
-        {
-          "title": "Sing For You",
-          "duration": "3:19",
-          "url": "https://www.doerfelverse.com/tracks/sing-for-you.mp3",
-          "trackNumber": 10,
-          "explicit": false
-        },
-        {
-          "title": "Ben Doerfel",
-          "duration": "3:23",
-          "url": "",
-          "trackNumber": 11,
-          "explicit": false
-        }
-      ],
-      "feedId": "08604071-83cc-5810-bec2-bea0f0cd0033",
-      "feedUrl": "https://www.doerfelverse.com/feeds/ben-doerfel.xml",
-      "lastUpdated": "2025-08-29T21:09:42.536Z"
-    },
-    {
       "id": "deathdreams-deathdreams",
       "title": "deathdreams",
       "artist": "deathdreams",
@@ -1423,314 +1332,6 @@
       "feedId": "95e5f7a9-d88e-5e51-b2ae-f4b1865d19c4",
       "feedUrl": "https://wavlake.com/feed/music/8aaf0d1e-7ac3-4f7d-993b-6f59f936d780",
       "lastUpdated": "2025-08-29T21:09:42.538Z"
-    },
-    {
-      "id": "various-artists-music-from-the-doerfel-verse",
-      "title": "Music From The Doerfel-Verse",
-      "artist": "Various Artists",
-      "description": "<p>Long As You're Loving Me by The Doerfels</p>",
-      "coverArt": "https://www.doerfelverse.com/art/carol-of-the-bells.png",
-      "releaseDate": "2025-03-09T03:58:26.000Z",
-      "trackCount": 42,
-      "tracks": [
-        {
-          "title": "Long As You're Loving Me",
-          "duration": "3:39",
-          "url": "https://www.doerfelverse.com/tracks/long-as-youre-loving-me.mp3",
-          "trackNumber": 1,
-          "explicit": false
-        },
-        {
-          "title": "Love Like Yours",
-          "duration": "3:47",
-          "url": "https://www.doerfelverse.com/tracks/love-like-yours.mp3",
-          "trackNumber": 2,
-          "explicit": false
-        },
-        {
-          "title": "Still A Man",
-          "duration": "3:09",
-          "url": "https://www.doerfelverse.com/tracks/still-a-man.mp3",
-          "trackNumber": 3,
-          "explicit": false
-        },
-        {
-          "title": "HEARTBREAK",
-          "duration": "3:29",
-          "url": "https://www.doerfelverse.com/tracks/heartbreak.mp3",
-          "trackNumber": 4,
-          "explicit": false
-        },
-        {
-          "title": "What Love Is",
-          "duration": "2:39",
-          "url": "https://www.doerfelverse.com/tracks/what-love-is.mp3",
-          "trackNumber": 5,
-          "explicit": false
-        },
-        {
-          "title": "Now I Know",
-          "duration": "2:44",
-          "url": "https://www.doerfelverse.com/tracks/now-i-know.mp3",
-          "trackNumber": 6,
-          "explicit": false
-        },
-        {
-          "title": "Carol Of The Bells",
-          "duration": "8:02",
-          "url": "https://www.doerfelverse.com/tracks/carol-of-the-bells.mp3",
-          "trackNumber": 7,
-          "explicit": false
-        },
-        {
-          "title": "Make It",
-          "duration": "3:08",
-          "url": "https://www.doerfelverse.com/tracks/make-it.mp3",
-          "trackNumber": 8,
-          "explicit": false
-        },
-        {
-          "title": "Disco Swag",
-          "duration": "2:47",
-          "url": "https://www.doerfelverse.com/tracks/disco-swag.mp3",
-          "trackNumber": 9,
-          "explicit": false
-        },
-        {
-          "title": "Underwater",
-          "duration": "3:09",
-          "url": "https://www.doerfelverse.com/tracks/underwater.mp3",
-          "trackNumber": 10,
-          "explicit": false
-        },
-        {
-          "title": "Possible",
-          "duration": "3:08",
-          "url": "https://www.doerfelverse.com/tracks/possible.mp3",
-          "trackNumber": 11,
-          "explicit": false
-        },
-        {
-          "title": "Diamonds",
-          "duration": "3:33",
-          "url": "https://www.doerfelverse.com/tracks/diamonds.mp3",
-          "trackNumber": 12,
-          "explicit": false
-        },
-        {
-          "title": "Days Gone By",
-          "duration": "4:14",
-          "url": "https://www.doerfelverse.com/tracks/days-gone-by.mp3",
-          "trackNumber": 13,
-          "explicit": false
-        },
-        {
-          "title": "Love Is A War",
-          "duration": "3:12",
-          "url": "https://www.doerfelverse.com/tracks/love-is-a-war.mp3",
-          "trackNumber": 14,
-          "explicit": false
-        },
-        {
-          "title": "Breakaway (demo)",
-          "duration": "2:47",
-          "url": "https://www.doerfelverse.com/tracks/breakaway-demo.mp3",
-          "trackNumber": 15,
-          "explicit": false
-        },
-        {
-          "title": "Autumn - CityBeach",
-          "duration": "5:22",
-          "url": "https://www.doerfelverse.com/tracks/autumn.mp3",
-          "trackNumber": 16,
-          "explicit": false
-        },
-        {
-          "title": "Big Pine Song",
-          "duration": "4:12",
-          "url": "https://www.doerfelverse.com/tracks/big-pine-song.mp3",
-          "trackNumber": 17,
-          "explicit": false
-        },
-        {
-          "title": "Pour Over - CityBeach",
-          "duration": "3:21",
-          "url": "https://www.doerfelverse.com/tracks/pour-over.mp3",
-          "trackNumber": 18,
-          "explicit": false
-        },
-        {
-          "title": "Happy New Year(demo)",
-          "duration": "3:12",
-          "url": "https://www.doerfelverse.com/tracks/happy-new-year-demo.mp3",
-          "trackNumber": 19,
-          "explicit": false
-        },
-        {
-          "title": "The Movie I'll Never See",
-          "duration": "3:29",
-          "url": "https://www.doerfelverse.com/tracks/movie.mp3",
-          "trackNumber": 20,
-          "explicit": false
-        },
-        {
-          "title": "Morning Love",
-          "duration": "3:18",
-          "url": "https://www.doerfelverse.com/tracks/morning-love.mp3",
-          "trackNumber": 21,
-          "explicit": false
-        },
-        {
-          "title": "Bloodshot Lies(Acoustic)",
-          "duration": "3:52",
-          "url": "https://www.doerfelverse.com/tracks/bloodshot-lies-acoustic.mp3",
-          "trackNumber": 22,
-          "explicit": false
-        },
-        {
-          "title": "You Feel Like Home(CityBeach)",
-          "duration": "4:02",
-          "url": "https://www.doerfelverse.com/tracks/you-feel-like-home.mp3",
-          "trackNumber": 23,
-          "explicit": false
-        },
-        {
-          "title": "Sing For You",
-          "duration": "3:18",
-          "url": "https://www.doerfelverse.com/tracks/sing-for-you.mp3",
-          "trackNumber": 24,
-          "explicit": false
-        },
-        {
-          "title": "Maybe It's You",
-          "duration": "3:03",
-          "url": "https://www.doerfelverse.com/tracks/maybe-its-you.mp3",
-          "trackNumber": 25,
-          "explicit": false
-        },
-        {
-          "title": "Call Me Medley - Kurtisdrums",
-          "duration": "2:25",
-          "url": "https://www.doerfelverse.com/tracks/call-me-medley.mp3",
-          "trackNumber": 26,
-          "explicit": false
-        },
-        {
-          "title": "Way In My Life",
-          "duration": "3:12",
-          "url": "https://www.doerfelverse.com/tracks/way-in-my-life.mp3",
-          "trackNumber": 27,
-          "explicit": false
-        },
-        {
-          "title": "Angel Beast",
-          "duration": "4:38",
-          "url": "https://www.doerfelverse.com/tracks/angel-beast.mp3",
-          "trackNumber": 28,
-          "explicit": false
-        },
-        {
-          "title": "If I Promise(Demo)",
-          "duration": "2:41",
-          "url": "https://www.doerfelverse.com/tracks/if-i-promise-demo-version.mp3",
-          "trackNumber": 29,
-          "explicit": false
-        },
-        {
-          "title": "Pulls Me Up - Ben Doerfel",
-          "duration": "2:54",
-          "url": "https://www.doerfelverse.com/tracks/pulls-me-up.mp3",
-          "trackNumber": 30,
-          "explicit": false
-        },
-        {
-          "title": "Come Back To Me",
-          "duration": "4:23",
-          "url": "https://www.doerfelverse.com/tracks/come-back-to-me.mp3",
-          "trackNumber": 31,
-          "explicit": false
-        },
-        {
-          "title": "Thought It Was Real",
-          "duration": "3:12",
-          "url": "https://www.doerfelverse.com/tracks/thought-it-was-real.mp3",
-          "trackNumber": 32,
-          "explicit": false
-        },
-        {
-          "title": "Tired of Dreaming",
-          "duration": "2:14",
-          "url": "https://www.doerfelverse.com/tracks/tired-of-dreaming.mp3",
-          "trackNumber": 33,
-          "explicit": false
-        },
-        {
-          "title": "NOSTALGIC - CityBeach",
-          "duration": "4:19",
-          "url": "https://www.doerfelverse.com/tracks/nostalgic.mp3",
-          "trackNumber": 34,
-          "explicit": false
-        },
-        {
-          "title": "3 Years",
-          "duration": "3:32",
-          "url": "https://www.doerfelverse.com/tracks/3-years.mp3",
-          "trackNumber": 35,
-          "explicit": false
-        },
-        {
-          "title": "Figured You Out",
-          "duration": "3:04",
-          "url": "https://www.doerfelverse.com/tracks/figured-you-out.mp3",
-          "trackNumber": 36,
-          "explicit": false
-        },
-        {
-          "title": "Music From The Doerfel-Verse",
-          "duration": "3:39",
-          "url": "",
-          "trackNumber": 37,
-          "explicit": false
-        },
-        {
-          "title": "Worth Fighting For",
-          "duration": "3:46",
-          "url": "https://www.doerfelverse.com/tracks/worth-fighting-for.mp3",
-          "trackNumber": 38,
-          "explicit": false
-        },
-        {
-          "title": "They Don't Know",
-          "duration": "4:42",
-          "url": "https://www.doerfelverse.com/tracks/theydontknow.mp3",
-          "trackNumber": 39,
-          "explicit": false
-        },
-        {
-          "title": "So Far Away",
-          "duration": "3:21",
-          "url": "https://www.doerfelverse.com/tracks/so-far-away.mp3",
-          "trackNumber": 40,
-          "explicit": false
-        },
-        {
-          "title": "Don't Forget Me",
-          "duration": "4:17",
-          "url": "https://www.doerfelverse.com/tracks/dont-forget-me.mp3",
-          "trackNumber": 41,
-          "explicit": false
-        },
-        {
-          "title": "Bloodshot Lies",
-          "duration": "3:36",
-          "url": "https://www.doerfelverse.com/tracks/bloodshot-lies.mp3",
-          "trackNumber": 42,
-          "explicit": false
-        }
-      ],
-      "feedId": "2b62ef49-fcff-523c-b81a-0a7dde2b0609",
-      "feedUrl": "https://www.doerfelverse.com/feeds/music-from-the-doerfelverse.xml",
-      "lastUpdated": "2025-08-29T21:09:42.536Z"
     },
     {
       "id": "drawing-monsters-nate-and-cole-find-a-radio",
@@ -3688,7 +3289,7 @@
           "explicit": false
         },
         {
-          "title": "Don’t Count Me Out",
+          "title": "Don\u2019t Count Me Out",
           "duration": "3:22",
           "url": "https://jimmiebratcher.s3.us-west-1.amazonaws.com/Far+Enough+Album/Don't+Count+Me+Out.mp3",
           "trackNumber": 2,
@@ -3891,7 +3492,7 @@
       "trackCount": 6,
       "tracks": [
         {
-          "title": "Montréal",
+          "title": "Montr\u00e9al",
           "duration": "4:45",
           "url": "https://files.heycitizen.xyz/Songs/Albums/Lofi-Experience/lofi-montreal.mp3",
           "trackNumber": 1,
@@ -4045,7 +3646,7 @@
       "trackCount": 6,
       "tracks": [
         {
-          "title": "Calibrating Broadcast​.​.​.",
+          "title": "Calibrating Broadcast\u200b.\u200b.\u200b.",
           "duration": "0:30",
           "url": "https://music.behindthesch3m3s.com/wp-content/uploads/Mellow%20Cassette/Radio_Brigade/01Mellow_Cassette_Calibrating%20Broadcast.mp3",
           "trackNumber": 1,
@@ -6054,7 +5655,7 @@
       "trackCount": 1,
       "tracks": [
         {
-          "title": "Dreamin’",
+          "title": "Dreamin\u2019",
           "duration": "2:37",
           "url": "https://op3.dev/e,pg=57de72ad-fb6d-5c59-8dab-ee3036ac2eca/https://d12wklypp119aj.cloudfront.net/track/51a182e2-6503-4220-b0ff-05df252bf0ef.mp3",
           "trackNumber": 1,
@@ -6825,7 +6426,7 @@
       "id": "zhaklina-gossip-queen",
       "title": "Gossip Queen",
       "artist": "Zhaklina",
-      "description": "<p>Zhaklina, originally from New York and of Albanian, Irish and Greek descent, is an Independent, Alternative Pop artist based in Nashville.  In 2019, Zhaklina began releasing a series of EP’s called “17 Reasons Why” dedicated to mental health awareness. With “Gossip Queen” being her most popular song yet and “Tattooed Roses” not too far behind, she is developing a space for her audience to feel seen.</p>",
+      "description": "<p>Zhaklina, originally from New York and of Albanian, Irish and Greek descent, is an Independent, Alternative Pop artist based in Nashville.  In 2019, Zhaklina began releasing a series of EP\u2019s called \u201c17 Reasons Why\u201d dedicated to mental health awareness. With \u201cGossip Queen\u201d being her most popular song yet and \u201cTattooed Roses\u201d not too far behind, she is developing a space for her audience to feel seen.</p>",
       "coverArt": "https://media.rssblue.com/podcasts/gossip-queen/cover-art.thumbnail-zhaklina-spencer-22.jpg",
       "releaseDate": "2024-05-10T21:29:48.000Z",
       "trackCount": 1,
@@ -6886,15 +6487,15 @@
     },
     {
       "id": "marna-sk-haflna",
-      "title": "Haflína",
-      "artist": "Marína Ósk",
+      "title": "Hafl\u00edna",
+      "artist": "Mar\u00edna \u00d3sk",
       "description": "<p>Written & Performed by Marina Osk.  Produced by Kjartan Baldursson.</p>",
       "coverArt": "https://media.rssblue.com/podcasts/haflina/cover-art.haflina-cover.jpg",
       "releaseDate": "2025-04-13T16:29:05.000Z",
       "trackCount": 1,
       "tracks": [
         {
-          "title": "Haflína",
+          "title": "Hafl\u00edna",
           "duration": "3:16",
           "url": "https://op3.dev/e,pg=91704dad-11e8-5d84-aeec-cd44fc287c23/media.rssblue.com/podcasts/haflina/haflina/audio.haflina.mp3",
           "trackNumber": 1,
@@ -7559,8 +7160,8 @@
     {
       "id": "marna-sk-its-autumn",
       "title": "It's Autumn",
-      "artist": "Marína Ósk",
-      "description": "<p>From the album, \"One Evening in July.\" Written & Performed by Marína Ósk Þórólfsdóttir.</p>\n<p>https://www.marinaoskmusic.com/</p>",
+      "artist": "Mar\u00edna \u00d3sk",
+      "description": "<p>From the album, \"One Evening in July.\" Written & Performed by Mar\u00edna \u00d3sk \u00de\u00f3r\u00f3lfsd\u00f3ttir.</p>\n<p>https://www.marinaoskmusic.com/</p>",
       "coverArt": "https://media.rssblue.com/podcasts/its-autumn/cover-art.itsautumn.jpg",
       "releaseDate": "2024-02-16T05:01:53.000Z",
       "trackCount": 1,
@@ -7894,15 +7495,15 @@
     },
     {
       "id": "marna-sk-ltil-ntt",
-      "title": "Lítil nótt",
-      "artist": "Marína Ósk",
-      "description": "<p>From the 2019 release, Athvarf. Written & Performed by Marína Ósk.</p>",
+      "title": "L\u00edtil n\u00f3tt",
+      "artist": "Mar\u00edna \u00d3sk",
+      "description": "<p>From the 2019 release, Athvarf. Written & Performed by Mar\u00edna \u00d3sk.</p>",
       "coverArt": "https://media.rssblue.com/podcasts/ltil-ntt/cover-art.2019-release.jpg",
       "releaseDate": "2024-04-14T15:35:28.000Z",
       "trackCount": 1,
       "tracks": [
         {
-          "title": "Lítil nótt",
+          "title": "L\u00edtil n\u00f3tt",
           "duration": "3:36",
           "url": "https://op3.dev/e,pg=7b1e83e1-6dde-5d3b-a360-f937f6a559ca/media.rssblue.com/podcasts/ltil-ntt/ltil-ntt/audio.litil-nott-marina-osk-athvarf.mp3",
           "trackNumber": 1,
@@ -8251,15 +7852,15 @@
     },
     {
       "id": "middle-season-mejor-versin-single",
-      "title": "Mejor Versión - Single",
+      "title": "Mejor Versi\u00f3n - Single",
       "artist": "Middle Season",
-      "description": "<p>\"Mejor versión\" in Spanish translates to \"best version\" or \"better version\" in English, depending on the context. It can refer to striving to be the best version of oneself, or it can be used to describe a superior edition of something, like a book or software. </p>",
+      "description": "<p>\"Mejor versi\u00f3n\" in Spanish translates to \"best version\" or \"better version\" in English, depending on the context.\u00a0It can refer to striving to be the best version of oneself, or it can be used to describe a superior edition of something, like a book or software.\u00a0</p>",
       "coverArt": "https://www.doerfelverse.com/artists/middleseason/mejor-version.png",
       "releaseDate": "2025-06-19T23:29:17.000Z",
       "trackCount": 1,
       "tracks": [
         {
-          "title": "Mejor Versión",
+          "title": "Mejor Versi\u00f3n",
           "duration": "3:08",
           "url": "https://www.doerfelverse.com/artists/middleseason/mejor-version.mp3",
           "trackNumber": 1,
@@ -8610,7 +8211,7 @@
       "id": "allen-c-paul-w-unclazzified-not-far-away",
       "title": "Not Far Away",
       "artist": "Allen C. Paul w/ Unclazzified",
-      "description": "<p>\"Not Far Away\" is a floating, melodic and groovy acoustic instrumental by pianist Allen C. Paul, performed with his ensemble Unclazzified from their self-titled EP. Gerald Kebreau on bass and Jason Kent on drums. <br>\n<br>\nWant updates on new music from Allen? Sign up to become an MUSIC INSIDER at https://allenpaulmusic.com/insider</p>\n<p>Social:</p>\n<p>YT https://youtube.com/allencpaul</p>\n<p>FB: https://facebook.com/allenpaulmusic</p>\n<h2>ABOUT ALLEN C. PAUL</h2>\n<p>Allen C. Paul is a musician, author, podcaster, and coach.  He is the author of two books, “God and Gig...",
+      "description": "<p>\"Not Far Away\" is a floating, melodic and groovy acoustic instrumental by pianist Allen C. Paul, performed with his ensemble Unclazzified from their self-titled EP. Gerald Kebreau on bass and Jason Kent on drums. <br>\n<br>\nWant updates on new music from Allen? Sign up to become an MUSIC INSIDER at https://allenpaulmusic.com/insider</p>\n<p>Social:</p>\n<p>YT https://youtube.com/allencpaul</p>\n<p>FB: https://facebook.com/allenpaulmusic</p>\n<h2>ABOUT ALLEN C. PAUL</h2>\n<p>Allen C. Paul is a musician, author, podcaster, and coach.\u00a0 He is the author of two books, \u201cGod and Gig...",
       "coverArt": "https://media.rssblue.com/podcasts/not-far-away/cover-art.not-far-away.jpg",
       "releaseDate": "2023-12-29T04:09:24.000Z",
       "trackCount": 1,
@@ -9301,7 +8902,7 @@
     },
     {
       "id": "over-isen-rven-ver-isen",
-      "title": "Räven · Över Isen",
+      "title": "R\u00e4ven \u00b7 \u00d6ver Isen",
       "artist": "Over isen",
       "description": "",
       "coverArt": "https://d12wklypp119aj.cloudfront.net/image/62dfb816-07fc-48c7-8528-a62b0c239148.jpg",
@@ -9309,7 +8910,7 @@
       "trackCount": 1,
       "tracks": [
         {
-          "title": "Räven",
+          "title": "R\u00e4ven",
           "duration": "5:05",
           "url": "https://d12wklypp119aj.cloudfront.net/track/b1452847-9d2e-4476-b9c6-7f8b5a72a0de.mp3",
           "trackNumber": 1,
@@ -9345,7 +8946,7 @@
       "id": "jimmie-bratcher-red",
       "title": "Red",
       "artist": "Jimmie Bratcher",
-      "description": "Jimmie says, “Bad Religion is dedicated to every mean person of faith I’ve ever met and every mean preacher I’ve ever heard.” It’s a rocking Blues number with a driving rhythm section, stinging slide guitar, and gritty vocals.",
+      "description": "Jimmie says, \u201cBad Religion is dedicated to every mean person of faith I\u2019ve ever met and every mean preacher I\u2019ve ever heard.\u201d It\u2019s a rocking Blues number with a driving rhythm section, stinging slide guitar, and gritty vocals.",
       "coverArt": "https://jimmiebratcher.s3.us-west-1.amazonaws.com/Red+Album/Red+COVER.jpg",
       "releaseDate": "2023-11-14T06:40:13.000Z",
       "trackCount": 1,
@@ -9372,7 +8973,7 @@
       "trackCount": 1,
       "tracks": [
         {
-          "title": "RELAY RIDER | BILLIV x MAN LIKE KWEKS x RENÉ x JOE MARTIN",
+          "title": "RELAY RIDER | BILLIV x MAN LIKE KWEKS x REN\u00c9 x JOE MARTIN",
           "duration": "4:10",
           "url": "https://op3.dev/e,pg=0c6afa48-18cd-50f3-b89f-27e73086d594/https://d12wklypp119aj.cloudfront.net/track/bbee37a4-2d36-4a30-ae90-778c68540564.mp3",
           "trackNumber": 1,
@@ -9807,7 +9408,7 @@
       "id": "miles-fonda-sensitive-guy",
       "title": "Sensitive Guy",
       "artist": "Miles Fonda",
-      "description": "Written and performed by Miles Fonda\nSensitive Guy\nIts not easy\nBeing a sensitive guy\nBecause when you feel your feelings\nYou can laugh and or maybe cry\nI told my coworker that Im afraid to die\nI gave my dad a big long hug\nAnd he just rolled his eyes\n[spoken] And I’ve never played fantasy football\nI’m just a sensitive guy\nTrying to make it by\nWithout getting too depressed\nI’m just a sensitive guy\nCan sew, bake and make pie\nAnd chick flicks are the best\nLifes to short to hold it in, I might...",
+      "description": "Written and performed by Miles Fonda\nSensitive Guy\nIts not easy\nBeing a sensitive guy\nBecause when you feel your feelings\nYou can laugh and or maybe cry\nI told my coworker that Im afraid to die\nI gave my dad a big long hug\nAnd he just rolled his eyes\n[spoken] And I\u2019ve never played fantasy football\nI\u2019m just a sensitive guy\nTrying to make it by\nWithout getting too depressed\nI\u2019m just a sensitive guy\nCan sew, bake and make pie\nAnd chick flicks are the best\nLifes to short to hold it in, I might...",
       "coverArt": "https://www.doerfelverse.com/art/sensitive-guy.png",
       "releaseDate": "2025-08-29T21:09:42.538Z",
       "trackCount": 1,
@@ -10206,7 +9807,7 @@
       "id": "studio-v-studio-v-featuring-tamala",
       "title": "Studio V Featuring Tamala",
       "artist": "Studio V",
-      "description": "<p>Studio V feat. Tamala</p>\n<p><br />Written , produced , engineered by Jimmy V </p>\n<p>Jimmyv4v.com</p>",
+      "description": "<p>Studio V feat. Tamala</p>\n<p><br />Written , produced , engineered by Jimmy V\u00a0</p>\n<p>Jimmyv4v.com</p>",
       "coverArt": "https://music.jimmyv4v.com/images/Stone-V-3-500.jpg",
       "releaseDate": "2024-02-01T18:50:26.000Z",
       "trackCount": 1,
@@ -10646,8 +10247,8 @@
     {
       "id": "marna-sk-the-moon-and-the-sky",
       "title": "The Moon and the Sky",
-      "artist": "Marína Ósk",
-      "description": "<p>From the album, \"One Evening in July.\"  Written by Marína Ósk Þórólfsdóttir.  Produced by Marcus Sjöberg.</p>\n<p>https://www.marinaoskmusic.com/</p>",
+      "artist": "Mar\u00edna \u00d3sk",
+      "description": "<p>From the album, \"One Evening in July.\"  Written by Mar\u00edna \u00d3sk \u00de\u00f3r\u00f3lfsd\u00f3ttir.  Produced by Marcus Sj\u00f6berg.</p>\n<p>https://www.marinaoskmusic.com/</p>",
       "coverArt": "https://media.rssblue.com/podcasts/the-moon-and-the-sky/cover-art.one-evening-in-july.jpg",
       "releaseDate": "2024-01-21T19:58:03.000Z",
       "trackCount": 1,
@@ -10920,7 +10521,7 @@
       "id": "elijah-lied-through-the-mic-single",
       "title": "Through The Mic - Single",
       "artist": "Elijah Lied",
-      "description": "<p>Through The Mic - single By Elijah Lied </p>",
+      "description": "<p>Through The Mic - single By Elijah Lied\u00a0</p>",
       "coverArt": "https://www.doerfelverse.com/artists/elijahlied/throughthemic/through-the-mic.png",
       "releaseDate": "2025-06-06T21:06:54.000Z",
       "trackCount": 1,
@@ -11067,7 +10668,7 @@
       "id": "fable-trickster",
       "title": "Trickster",
       "artist": "Fable",
-      "description": "The fifth track released into the valueverse by fable \nHocus Pocus · Fable · Phillip Ratcliffe · James Key · James Key · Alan Keary · Vincent Taylor · Keith Devlin · Angelous Gavriilidis\nfrom the album Trickster\nReleased on: 2025-03-07\ndemu",
+      "description": "The fifth track released into the valueverse by fable \nHocus Pocus \u00b7 Fable \u00b7 Phillip Ratcliffe \u00b7 James Key \u00b7 James Key \u00b7 Alan Keary \u00b7 Vincent Taylor \u00b7 Keith Devlin \u00b7 Angelous Gavriilidis\nfrom the album Trickster\nReleased on: 2025-03-07\ndemu",
       "coverArt": "https://headstarts.uk/msp/fable%20music/trickster/cover%20digital.jpg",
       "releaseDate": "2025-03-29T10:55:41.000Z",
       "trackCount": 1,
@@ -11715,7 +11316,7 @@
       "lastUpdated": "2025-08-29T21:09:42.537Z"
     }
   ],
-  "totalAlbums": 399,
+  "totalAlbums": 397,
   "albumsByType": {
     "albums": 30,
     "eps": 34,

@@ -5,9 +5,6 @@
 export function generateAlbumSlug(title: string): string {
   // Special case handling for known problematic titles
   const specialCases: { [key: string]: string } = {
-    'bitpunk.fm': 'bitpunkfm',
-    'into the doerfel-verse': 'into-the-doerfel-verse',
-    'into the doerfel verse': 'into-the-doerfel-verse',
     'music from the doerfel-verse': 'music-from-the-doerfel-verse',
     'bloodshot lies - the album': 'bloodshot-lies',
     'dead time(live 2016)': 'dead-timelive-2016',
@@ -176,18 +173,6 @@ export const KNOWN_PUBLISHERS: { [slug: string]: { feedGuid: string; feedUrl: st
     name: 'Ollie'
   },
   
-  // BitPunk.fm - Low-fi audiozine
-  'bitpunkfm': {
-    feedGuid: '5883e6be-4e0c-11f0-9524-00155dc57d8e',
-    feedUrl: 'https://zine.bitpunk.fm/feeds/publisher.xml',
-    name: 'BitPunk.fm'
-  },
-  'bitpunk-fm': {
-    feedGuid: '5883e6be-4e0c-11f0-9524-00155dc57d8e',
-    feedUrl: 'https://zine.bitpunk.fm/feeds/publisher.xml',
-    name: 'BitPunk.fm'
-  },
-  
   // Red Arrow Highway
   'red-arrow-highway': {
     feedGuid: '09465303-930a-4ee6-a18d-063cdc7fe3c9',
@@ -239,11 +224,6 @@ export const KNOWN_PUBLISHERS: { [slug: string]: { feedGuid: string; feedUrl: st
     feedGuid: 'd2f43e9f-adfc-4811-b9c1-58d5ea383275',
     feedUrl: 'https://wavlake.com/feed/artist/d2f43e9f-adfc-4811-b9c1-58d5ea383275',
     name: 'Ollie'
-  },
-  '5883e6be': {
-    feedGuid: '5883e6be-4e0c-11f0-9524-00155dc57d8e',
-    feedUrl: 'https://zine.bitpunk.fm/feeds/publisher.xml',
-    name: 'BitPunk.fm'
   },
   '09465303': {
     feedGuid: '09465303-930a-4ee6-a18d-063cdc7fe3c9',

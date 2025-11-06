@@ -35,8 +35,7 @@ export default function MusicTrackList({ initialFeedUrls = [], onPlayTrack, sele
 
   // Default feed URLs if none provided
   const defaultFeedUrls = [
-    'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml',
-    'http://localhost:3000/001-to-060-lightning-thrashes-playlist.xml'
+    'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml'
   ];
 
   const feedUrls = initialFeedUrls.length > 0 ? initialFeedUrls : defaultFeedUrls;
