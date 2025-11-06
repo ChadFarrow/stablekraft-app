@@ -24,16 +24,15 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Only allow HTTPS URLs for security
-    if (url.protocol !== 'https:') {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Only HTTPS URLs are allowed' 
-      }, { status: 400 });
+    // Try to upgrade HTTP to HTTPS for security
+    let fetchUrl = imageUrl;
+    if (url.protocol === 'http:') {
+      console.log(`⚠️ HTTP URL detected, attempting HTTPS upgrade: ${imageUrl}`);
+      fetchUrl = imageUrl.replace(/^http:/, 'https:');
     }
 
     // Fetch the image with better error handling
-    const response = await fetch(imageUrl, {
+    const response = await fetch(fetchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; PodtardsImageProxy/1.0)',
         'Accept': 'image/*',
@@ -41,6 +40,7 @@ export async function GET(request: NextRequest) {
       },
       // Reduce timeout to prevent long-hanging requests
       signal: AbortSignal.timeout(8000), // 8 second timeout
+      redirect: 'follow', // Follow redirects (including HTTP -> HTTPS)
     });
 
     if (!response.ok) {

@@ -268,6 +268,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <button
             onClick={(e) => {
               e.stopPropagation();
+              // Close fullscreen mode first
+              if (onClose) {
+                onClose();
+              } else {
+                setFullscreenMode(false);
+              }
+              // Then navigate to album page
               const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
               router.push(albumUrl);
             }}
