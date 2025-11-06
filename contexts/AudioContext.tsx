@@ -932,17 +932,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     if (success) {
       setCurrentPlayingAlbum(album);
       setCurrentTrackIndex(trackIndex);
-      
+
       // Update media session for lockscreen display
       updateMediaSession(album, track);
-      
-      // If this is a manual play (not from shuffle), exit shuffle mode
-      if (!isShuffleMode) {
-        setIsShuffleMode(false);
-        setShuffledPlaylist([]);
-        setCurrentShuffleIndex(0);
-      }
-      
+
+      // When manually playing an album/track, always exit shuffle mode
+      // This ensures shuffle is turned off when you play something specific
+      setIsShuffleMode(false);
+      setShuffledPlaylist([]);
+      setCurrentShuffleIndex(0);
+
       console.log('✅ Playback started successfully');
       return true;
     } else {

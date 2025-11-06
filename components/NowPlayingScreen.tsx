@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAudio } from '@/contexts/AudioContext';
 import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap } from 'lucide-react';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
@@ -8,6 +9,7 @@ import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import { generateAlbumUrl } from '@/lib/url-utils';
 
 interface NowPlayingScreenProps {
   isOpen?: boolean;
@@ -15,6 +17,7 @@ interface NowPlayingScreenProps {
 }
 
 export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenProps = {}) {
+  const router = useRouter();
   const {
     currentPlayingAlbum,
     isPlaying,
@@ -261,16 +264,20 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           >
             <ChevronDown className="w-6 h-6" />
           </button>
-          
-          <div 
-            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto"
+
+          <button
+            onClick={() => {
+              const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
+              router.push(albumUrl);
+            }}
+            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto cursor-pointer hover:bg-black/50 active:scale-95 transition-all duration-200"
             style={{
               backgroundColor: 'rgba(0,0,0,0.4)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)'
             }}
           >
-            <p 
+            <p
               className="text-sm font-medium"
               style={{
                 color: contrastColors.textColor,
@@ -280,7 +287,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               Playing from
             </p>
-            <p 
+            <p
               className="text-sm font-semibold truncate"
               style={{
                 color: contrastColors.textColor,
@@ -290,8 +297,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               {currentPlayingAlbum.title}
             </p>
-          </div>
-          
+          </button>
+
           <div className="w-10" /> {/* Spacer for center alignment */}
         </div>
 
