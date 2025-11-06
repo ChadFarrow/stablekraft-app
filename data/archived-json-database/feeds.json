@@ -6595,7 +6595,7 @@
       "title": "Endless (Journeyland Edition)",
       "artist": "Strange Textures",
       "description": "In some respects everything ends, in others nothing does. It depends on your perspective. I wonder what is yours? Do you identify with this particular short span of life, or the seeming eternity of all the universes?\nYou don’t have to know where you’re going. There doesn’t have to be a purpose other than enjoying the ride and helping other people enjoy their ride.  The idea is to hold a mood or a thought or a colour for an amount of time and to be present.\nEdited guitar improvisations over atmospheric drum beats become mind altering musical journe...",
-      "image": "https://f.strangetextures.com/media/podcasts/endless/cover_feed.jpg",
+      "image": "/placeholder-podcast.jpg",
       "originalUrl": "https://f.strangetextures.com/@endless/feed.xml",
       "feedGuid": "7a4afbd5-72ab-518c-9da3-bc6280f601ba",
       "guid": "7a4afbd5-72ab-518c-9da3-bc6280f601ba",
@@ -6635,7 +6635,8 @@
           }
         ]
       },
-      "episodeCount": 11
+      "episodeCount": 11,
+      "lastUpdated": "2025-11-06T00:30:40.152Z"
     },
     {
       "id": "fshr-no-one-left",
