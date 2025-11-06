@@ -217,7 +217,8 @@ const nextConfig = {
       'www.haciendoelsueco.com',
       'f.strangetextures.com',
       'deow9bq0xqvbj.cloudfront.net',
-      'binauralsubliminal.com'
+      'binauralsubliminal.com',
+      'shop.basspistol.com'
     ],
     remotePatterns: [
       {
@@ -528,6 +529,13 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Bass Pistol shop images
+      {
+        protocol: 'https',
+        hostname: 'shop.basspistol.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 
@@ -535,7 +543,14 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
-  
+
+  // Remove console logs in production
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // Keep console.error and console.warn
+    } : false,
+  },
+
   // Webpack optimizations for performance
   webpack: (config, { dev, isServer }) => {
     // Performance optimizations
