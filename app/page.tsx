@@ -1452,6 +1452,118 @@ export default function HomePage() {
                 </div>
               )}
 
+              {/* Satellite Spotlight Section */}
+              {(() => {
+                const spotlightAlbum = filteredAlbums.find(
+                  album => album.title?.toLowerCase().includes('satellite spotlight') ||
+                           album.id === 'the-satellite-skirmish-the-satellite-spotlight' ||
+                           album.feedUrl?.includes('satspotlightsymphony.xml')
+                );
+                
+                if (spotlightAlbum && activeFilter === 'all') {
+                  return (
+                    <div className="mb-12">
+                      <div className="bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-cyan-400/30 shadow-2xl">
+                        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+                          {/* Album Art */}
+                          <div className="flex-shrink-0">
+                            <Link
+                              href={generateAlbumUrl(spotlightAlbum.title)}
+                              className="block group"
+                              onClick={(e) => {
+                                if (shouldPreventClick()) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                              }}
+                            >
+                              <div className="relative w-48 h-48 sm:w-64 sm:h-64 rounded-xl overflow-hidden shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                                <Image
+                                  src={getAlbumArtworkUrl(spotlightAlbum.coverArt || '', 'large')}
+                                  alt={spotlightAlbum.title}
+                                  width={256}
+                                  height={256}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = getPlaceholderImageUrl('large');
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </Link>
+                          </div>
+                          
+                          {/* Album Info */}
+                          <div className="flex-1 text-center md:text-left">
+                            <div className="inline-block px-3 py-1 bg-cyan-500/30 rounded-full mb-3">
+                              <span className="text-cyan-300 text-xs font-semibold uppercase tracking-wider">⭐ Featured Spotlight</span>
+                            </div>
+                            <h2 className="text-3xl sm:text-4xl font-bold mb-3 text-white group-hover:text-cyan-400 transition-colors">
+                              <Link
+                                href={generateAlbumUrl(spotlightAlbum.title)}
+                                onClick={(e) => {
+                                  if (shouldPreventClick()) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                }}
+                              >
+                                {spotlightAlbum.title}
+                              </Link>
+                            </h2>
+                            <p className="text-xl text-gray-300 mb-4">{spotlightAlbum.artist}</p>
+                            
+                            {/* Description */}
+                            {spotlightAlbum.description && (
+                              <div 
+                                className="text-gray-400 mb-6 line-clamp-3"
+                                dangerouslySetInnerHTML={{ 
+                                  __html: spotlightAlbum.description.replace(/<p>/g, '').replace(/<\/p>/g, '') 
+                                }}
+                              />
+                            )}
+                            
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                onClick={() => {
+                                  if (!shouldPreventClick()) {
+                                    playAlbum(spotlightAlbum);
+                                  }
+                                }}
+                                className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z"/>
+                                </svg>
+                                Play Now
+                              </button>
+                              <Link
+                                href={generateAlbumUrl(spotlightAlbum.title)}
+                                onClick={(e) => {
+                                  if (shouldPreventClick()) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                }}
+                                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-all border border-white/20 hover:border-white/40 flex items-center justify-center gap-2"
+                              >
+                                View Album
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Albums Display */}
               {!isEnhancedLoaded && isCriticalLoaded ? (
                 // Show critical albums with loading indicator for enhanced data
