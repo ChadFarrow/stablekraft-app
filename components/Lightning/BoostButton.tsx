@@ -244,7 +244,8 @@ export function BoostButton({
         });
 
         // Post to Nostr if user is authenticated and Nostr integration is enabled
-        if (LIGHTNING_CONFIG.features.nostrIntegration && trackId && isNostrAuthenticated && nostrUser) {
+        // Support both track boosts (trackId) and album boosts (feedId)
+        if (LIGHTNING_CONFIG.features.nostrIntegration && (trackId || feedId) && isNostrAuthenticated && nostrUser) {
           try {
             // Check if NIP-07 extension is available for signing
             const hasNip07 = typeof window !== 'undefined' && (window as any).nostr;
@@ -259,31 +260,58 @@ export function BoostButton({
             // Extension-based login: sign event on client side using NIP-07
             console.log('🔗 Signing boost event with NIP-07 extension...');
             
-            // Fetch track data to get image and other details
-            const trackResponse = await fetch(`/api/music-tracks/${trackId}`);
             let trackData: any = null;
-            if (trackResponse.ok) {
-              const trackResult = await trackResponse.json();
-              if (trackResult.success && trackResult.data) {
-                trackData = trackResult.data;
+            let finalTrackTitle = trackTitle || albumName || 'track';
+            let finalArtistName = artistName || '';
+            let finalFeedId = feedId || '';
+            let trackImage: string | null = null;
+            
+            // Fetch track data if trackId is available
+            if (trackId) {
+              const trackResponse = await fetch(`/api/music-tracks/${trackId}`);
+              if (trackResponse.ok) {
+                const trackResult = await trackResponse.json();
+                if (trackResult.success && trackResult.data) {
+                  trackData = trackResult.data;
+                  finalTrackTitle = trackData.title || finalTrackTitle;
+                  finalArtistName = trackData.artist || finalArtistName;
+                  finalFeedId = trackData.feedId || finalFeedId;
+                  trackImage = trackData.image || trackData.itunesImage || trackData.Feed?.image || null;
+                }
+              }
+            } else if (feedId) {
+              // For album boosts, fetch feed data to get image
+              try {
+                const feedResponse = await fetch(`/api/feeds/${feedId}`);
+                if (feedResponse.ok) {
+                  const feedResult = await feedResponse.json();
+                  if (feedResult.success && feedResult.data) {
+                    trackImage = feedResult.data.image || null;
+                  }
+                }
+              } catch (feedError) {
+                // Ignore feed fetch errors
+                console.warn('Failed to fetch feed data for image:', feedError);
               }
             }
             
-            // Use track data or fallback to props
-            const finalTrackTitle = trackData?.title || trackTitle || 'track';
-            const finalArtistName = trackData?.artist || artistName || '';
-            const finalFeedId = trackData?.feedId || feedId || '';
+            // Build URL - use track URL if trackId exists, otherwise use album URL
+            // Use production URL by default, fallback to window.location.origin for local development
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                           process.env.NEXT_PUBLIC_SITE_URL || 
+                           (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                             ? window.location.origin 
+                             : 'https://stablekraft.app');
+            let url: string;
+            if (trackId) {
+              url = `${baseUrl}/music-tracks/${trackId}`;
+            } else if (feedId) {
+              url = `${baseUrl}/album/${feedId}`;
+            } else {
+              url = baseUrl;
+            }
             
-            // Get image (priority: track.image, track.itunesImage, Feed.image)
-            const trackImage = trackData?.image || null;
-            
-            // Build URL
-            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-            const trackUrl = `${baseUrl}/music-tracks/${trackId}`;
-            const albumUrl = finalFeedId ? `${baseUrl}/album/${finalFeedId}` : null;
-            const url = trackUrl;
-            
-            // Sanitize track title for URL anchor
+            // Sanitize title for URL anchor
             const sanitizedTitle = finalTrackTitle
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
@@ -331,7 +359,8 @@ export function BoostButton({
                 'x-nostr-user-id': nostrUser.id,
               },
               body: JSON.stringify({
-                trackId,
+                trackId: trackId || null,
+                feedId: feedId || null,
                 amount,
                 message,
                 paymentHash: result.preimage,
@@ -342,7 +371,12 @@ export function BoostButton({
             if (zapResponse.ok) {
               const zapData = await zapResponse.json();
               if (zapData.success && zapData.eventId) {
-                console.log('✅ Boost posted to Nostr:', zapData.eventId);
+                const published = zapData.data?.published ?? false;
+                if (published) {
+                  console.log('✅ Boost posted to Nostr:', zapData.eventId, '(published to relays)');
+                } else {
+                  console.warn('⚠️ Boost stored but may not have been published to relays:', zapData.eventId);
+                }
               }
             } else {
               const errorData = await zapResponse.json().catch(() => ({}));

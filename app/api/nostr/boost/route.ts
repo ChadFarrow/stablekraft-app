@@ -7,7 +7,7 @@ import type { Event } from 'nostr-tools';
 /**
  * POST /api/nostr/boost
  * Post a boost to Nostr as a kind 1 note
- * Body: { trackId: string, amount: number, message?: string, paymentHash?: string, signedEvent: Event }
+ * Body: { trackId?: string, feedId?: string, amount: number, message?: string, paymentHash?: string, signedEvent: Event }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,13 +24,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { trackId, amount, message, paymentHash, signedEvent } = body;
+    const { trackId, feedId, amount, message, paymentHash, signedEvent } = body;
 
-    if (!trackId || !amount || typeof amount !== 'number' || amount <= 0) {
+    // Require either trackId or feedId, and amount
+    if ((!trackId && !feedId) || !amount || typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
         {
           success: false,
-          error: 'trackId and amount are required',
+          error: 'Either trackId or feedId, and amount are required',
         },
         { status: 400 }
       );
@@ -51,20 +52,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get track
-    const track = await prisma.track.findUnique({
-      where: { id: trackId },
-      include: { Feed: true },
-    });
+    // Get track or feed
+    let track: any = null;
+    let feed: any = null;
+    let finalFeedId: string | null = null;
 
-    if (!track) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Track not found',
-        },
-        { status: 404 }
-      );
+    if (trackId) {
+      track = await prisma.track.findUnique({
+        where: { id: trackId },
+        include: { Feed: true },
+      });
+
+      if (!track) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Track not found',
+          },
+          { status: 404 }
+        );
+      }
+      finalFeedId = track.feedId;
+    } else if (feedId) {
+      feed = await prisma.feed.findUnique({
+        where: { id: feedId },
+      });
+
+      if (!feed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Feed not found',
+          },
+          { status: 404 }
+        );
+      }
+      finalFeedId = feedId;
     }
 
     // Use user's relays or default relays
@@ -134,27 +157,31 @@ export async function POST(request: NextRequest) {
         kind: 1,
         content: noteEvent.content,
         trackId: trackId || null,
-        feedId: track.feedId || null,
+        feedId: finalFeedId || null,
       },
     });
 
     // Also store in BoostEvent for backwards compatibility and tracking
-    const boostEvent = await prisma.boostEvent.create({
-      data: {
-        userId,
-        trackId,
-        eventId: noteEvent.id,
-        amount,
-        message: message || null,
-        paymentHash: paymentHash || null,
-        relayUrls: relays,
-      },
-    });
+    // Note: BoostEvent requires trackId, so we'll use a placeholder or skip if it's an album boost
+    let boostEvent = null;
+    if (trackId) {
+      boostEvent = await prisma.boostEvent.create({
+        data: {
+          userId,
+          trackId,
+          eventId: noteEvent.id,
+          amount,
+          message: message || null,
+          paymentHash: paymentHash || null,
+          relayUrls: relays,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        boostEvent,
+        boostEvent: boostEvent || null,
         nostrPost,
         event: {
           id: noteEvent.id,
