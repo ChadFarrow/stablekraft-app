@@ -29,12 +29,42 @@ async function loadPublisherData(publisherId: string) {
     // Build a more targeted query instead of loading all publisher feeds
     let publisherFeed = null;
     
-    // First try to find by feedGuid if we have it
-    if (publisherInfo?.feedGuid) {
+    // First, try direct ID match (the publisherId might be the actual feed ID)
+    // Try with status first, then without status requirement
+    publisherFeed = await prisma.feed.findFirst({
+      where: {
+        type: 'publisher',
+        status: 'active',
+        id: publisherId
+      }
+    });
+    
+    // If not found, try without status requirement
+    if (!publisherFeed) {
+      publisherFeed = await prisma.feed.findFirst({
+        where: {
+          type: 'publisher',
+          id: publisherId
+        }
+      });
+    }
+    
+    // If not found, try matching by originalUrl from publisherInfo
+    if (!publisherFeed && publisherInfo?.feedUrl) {
+      publisherFeed = await prisma.feed.findFirst({
+        where: {
+          type: 'publisher',
+          originalUrl: publisherInfo.feedUrl
+        }
+      });
+    }
+    
+    // If not found, try to find by feedGuid if we have it
+    if (!publisherFeed && publisherInfo?.feedGuid) {
       const feedGuidParts = publisherInfo.feedGuid.split('-');
       const feedGuidPrefix = feedGuidParts[0];
       
-      // Try direct match first
+      // Try direct match first (with status)
       publisherFeed = await prisma.feed.findFirst({
         where: {
           type: 'publisher',
@@ -42,6 +72,16 @@ async function loadPublisherData(publisherId: string) {
           id: publisherInfo.feedGuid
         }
       });
+      
+      // If not found, try without status
+      if (!publisherFeed) {
+        publisherFeed = await prisma.feed.findFirst({
+          where: {
+            type: 'publisher',
+            id: publisherInfo.feedGuid
+          }
+        });
+      }
       
       // If not found, try prefix match (for IDs like wavlake-publisher-93fbacab)
       if (!publisherFeed && feedGuidPrefix) {
@@ -52,15 +92,29 @@ async function loadPublisherData(publisherId: string) {
             id: { contains: feedGuidPrefix }
           }
         });
+        
+        // If still not found, try without status
+        if (!publisherFeed) {
+          publisherFeed = await prisma.feed.findFirst({
+            where: {
+              type: 'publisher',
+              id: { contains: feedGuidPrefix }
+            }
+          });
+        }
       }
     }
     
     // If still not found, try by title or artist match (handle URL slugs)
     if (!publisherFeed) {
-      const searchId = publisherId.toLowerCase();
+      let searchId = publisherId.toLowerCase();
+      // Strip common suffixes like "-publisher" for matching
+      const normalizedSearchId = searchId.replace(/-publisher$/, '');
       const possibleTitles = [
-        searchId, // Direct match
-        searchId.replace(/-/g, ' '), // Convert hyphens to spaces
+        searchId, // Direct match (e.g., "ollie-publisher")
+        normalizedSearchId, // Without suffix (e.g., "ollie")
+        searchId.replace(/-/g, ' '), // Convert hyphens to spaces (e.g., "ollie publisher")
+        normalizedSearchId.replace(/-/g, ' '), // Normalized with spaces (e.g., "ollie")
       ];
       
       publisherFeed = await prisma.feed.findFirst({
@@ -70,8 +124,12 @@ async function loadPublisherData(publisherId: string) {
           OR: [
             { title: { equals: possibleTitles[0], mode: 'insensitive' } },
             { title: { equals: possibleTitles[1], mode: 'insensitive' } },
+            { title: { equals: possibleTitles[2], mode: 'insensitive' } },
+            { title: { equals: possibleTitles[3], mode: 'insensitive' } },
             { artist: { equals: possibleTitles[0], mode: 'insensitive' } },
             { artist: { equals: possibleTitles[1], mode: 'insensitive' } },
+            { artist: { equals: possibleTitles[2], mode: 'insensitive' } },
+            { artist: { equals: possibleTitles[3], mode: 'insensitive' } },
           ]
         }
       });
@@ -79,9 +137,13 @@ async function loadPublisherData(publisherId: string) {
     
     // Also try matching by slug if title doesn't match
     if (!publisherFeed) {
-      const searchId = publisherId.toLowerCase();
+      let searchId = publisherId.toLowerCase();
+      // Strip common suffixes like "-publisher" for matching
+      const normalizedSearchId = searchId.replace(/-publisher$/, '');
+      
       // Convert any publisher feed title or artist to slug format and compare
-      const allPublishers = await prisma.feed.findMany({
+      // Try with status first, then without status requirement
+      let allPublishers = await prisma.feed.findMany({
         where: {
           type: 'publisher',
           status: 'active'
@@ -96,8 +158,25 @@ async function loadPublisherData(publisherId: string) {
         }
       });
       
+      // If no active publishers found, try without status requirement
+      if (allPublishers.length === 0) {
+        allPublishers = await prisma.feed.findMany({
+          where: {
+            type: 'publisher'
+          },
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            description: true,
+            image: true,
+            originalUrl: true
+          }
+        });
+      }
+      
       console.log(`🔍 Found ${allPublishers.length} publisher feeds in database`);
-      console.log(`🔍 Searching for publisher with slug: "${searchId}"`);
+      console.log(`🔍 Searching for publisher with slug: "${searchId}" (normalized: "${normalizedSearchId}")`);
       
       // Log first few publishers for debugging
       if (allPublishers.length > 0) {
@@ -111,22 +190,30 @@ async function loadPublisherData(publisherId: string) {
       }
       
       publisherFeed = allPublishers.find((feed) => {
-        // Try matching by title slug
+        // Try matching by ID first (in case the searchId is the actual feed ID)
+        if (feed.id === searchId || feed.id === publisherId) {
+          console.log(`✅ Matched publisher by ID: "${feed.id}"`);
+          return true;
+        }
+        
+        // Try matching by title slug (with and without -publisher suffix)
         if (feed.title) {
           const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
-          if (titleToSlug === searchId) {
+          if (titleToSlug === searchId || titleToSlug === normalizedSearchId) {
             console.log(`✅ Matched publisher by title slug: "${feed.title}" -> "${titleToSlug}"`);
             return true;
           }
         }
-        // Try matching by artist slug
+        
+        // Try matching by artist slug (with and without -publisher suffix)
         if (feed.artist) {
           const artistToSlug = feed.artist.toLowerCase().replace(/\s+/g, '-');
-          if (artistToSlug === searchId) {
+          if (artistToSlug === searchId || artistToSlug === normalizedSearchId) {
             console.log(`✅ Matched publisher by artist slug: "${feed.artist}" -> "${artistToSlug}"`);
             return true;
           }
         }
+        
         return false;
       });
       
@@ -230,14 +317,18 @@ async function loadPublisherData(publisherId: string) {
               const guid = feedGuidMatch[1];
               
               // Check if URL indicates this is a music/album feed (not a publisher feed)
+              // For wavlake, remote items from artist feeds can point to music feeds
               const isAlbumFeed = feedUrlMatch && (
                 feedUrlMatch[1].includes('/feed/music/') || 
-                feedUrlMatch[1].includes('/feed/') && !feedUrlMatch[1].includes('/feed/artist/') ||
+                (feedUrlMatch[1].includes('/feed/') && !feedUrlMatch[1].includes('/feed/artist/')) ||
                 medium === 'music' ||
                 !mediumMatch // Default to music if no medium
               );
               
-              if (isAlbumFeed && !remoteItemGuids.includes(guid)) {
+              // Also include if the medium is explicitly 'music' or 'album'
+              const isExplicitAlbum = medium === 'music' || medium === 'album';
+              
+              if ((isAlbumFeed || isExplicitAlbum) && !remoteItemGuids.includes(guid)) {
                 remoteItemGuids.push(guid);
                 console.log(`📋 Added remote item GUID: ${guid} (medium: ${medium}, url: ${feedUrlMatch?.[1]})`);
               }
@@ -315,9 +406,26 @@ async function loadPublisherData(publisherId: string) {
     // Fallback: If no albums found via remote items, try artist matching
     if (relatedFeeds.length === 0) {
       console.log(`🔍 No albums found via remote items, trying artist matching: "${artistName}"`);
+      
+      // Try multiple variations of the artist name
+      const artistNameVariations = [
+        artistName,
+        artistName.toLowerCase(),
+        artistName.replace(/\s+/g, '-'),
+        artistName.replace(/\s+/g, ''),
+        // Also try the normalized publisher name (without -publisher suffix)
+        publisherId.toLowerCase().replace(/-publisher$/, ''),
+        publisherId.toLowerCase().replace(/-publisher$/, '').replace(/-/g, ' '),
+      ];
+      
+      // Remove duplicates
+      const uniqueVariations = [...new Set(artistNameVariations.filter(Boolean))];
+      
       relatedFeeds = await prisma.feed.findMany({
         where: {
-          artist: { equals: artistName, mode: 'insensitive' },
+          OR: uniqueVariations.map(variation => ({
+            artist: { contains: variation, mode: 'insensitive' }
+          })),
           type: { in: ['album', 'music'] },
           status: 'active'
         },
