@@ -154,7 +154,9 @@ export async function POST(request: NextRequest) {
       
       // Update trackOrder for ALL existing tracks based on current RSS feed order
       // Match tracks by GUID first, then by title+audioUrl for tracks without GUIDs
-      const updatePromises = existingTracks.map(track => {
+      const updatePromises: Promise<any>[] = [];
+      
+      for (const track of existingTracks) {
         let order: number | null = null;
         
         // First try to match by GUID
@@ -177,13 +179,14 @@ export async function POST(request: NextRequest) {
         }
         
         if (order !== null) {
-          return prisma.track.update({
-            where: { id: track.id },
-            data: { trackOrder: order }
-          });
+          updatePromises.push(
+            prisma.track.update({
+              where: { id: track.id },
+              data: { trackOrder: order }
+            })
+          );
         }
-        return null;
-      }).filter((promise): promise is Promise<any> => promise !== null);
+      }
       
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
