@@ -25,7 +25,7 @@ export interface Track {
   };
 }
 
-export type SortOption = 'episode-desc' | 'episode-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc' | 'time-asc';
+export type SortOption = 'original' | 'episode-desc' | 'episode-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc' | 'time-asc';
 export type FilterSource = 'all' | 'chapter' | 'value-split' | 'description' | 'external-feed';
 export type ViewMode = 'main' | 'complete';
 export type CacheStatus = 'fresh' | 'cached' | 'stale' | null;

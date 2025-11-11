@@ -29,7 +29,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('episode-desc');
+  // Default to 'original' for HGH playlist to preserve XML order, otherwise 'episode-desc'
+  const [sortBy, setSortBy] = useState<SortOption>(config.apiEndpoint.includes('/hgh') ? 'original' : 'episode-desc');
   
   // Client-side check
   useEffect(() => {
@@ -296,27 +297,29 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     //   console.log(`🚨 All tracks filtered out! Available sources were:`, [...new Set(tracks.map(t => t.source))]);
     // }
 
-    // Sort tracks
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'episode-desc':
-          return (b.episodeTitle || '').localeCompare(a.episodeTitle || '');
-        case 'episode-asc':
-          return (a.episodeTitle || '').localeCompare(b.episodeTitle || '');
-        case 'title-asc':
-          return a.title.localeCompare(b.title);
-        case 'title-desc':
-          return b.title.localeCompare(a.title);
-        case 'artist-asc':
-          return a.artist.localeCompare(b.artist);
-        case 'artist-desc':
-          return b.artist.localeCompare(a.artist);
-        case 'time-asc':
-          return a.startTime - b.startTime;
-        default:
-          return 0;
-      }
-    });
+    // Sort tracks (skip sorting if 'original' to preserve API order)
+    if (sortBy !== 'original') {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case 'episode-desc':
+            return (b.episodeTitle || '').localeCompare(a.episodeTitle || '');
+          case 'episode-asc':
+            return (a.episodeTitle || '').localeCompare(b.episodeTitle || '');
+          case 'title-asc':
+            return a.title.localeCompare(b.title);
+          case 'title-desc':
+            return b.title.localeCompare(a.title);
+          case 'artist-asc':
+            return a.artist.localeCompare(b.artist);
+          case 'artist-desc':
+            return b.artist.localeCompare(a.artist);
+          case 'time-asc':
+            return a.startTime - b.startTime;
+          default:
+            return 0;
+        }
+      });
+    }
 
     return filtered;
   }, [tracks, searchQuery, sortBy]);
