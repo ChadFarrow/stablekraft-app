@@ -43,7 +43,9 @@ secrets/
 keys/
 passwords/
 credentials/
-auth/
+# Only ignore auth config files, not API routes
+config/auth/
+auth.json
 token/
 .env.production
 .env.staging
