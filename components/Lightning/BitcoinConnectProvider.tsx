@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { WebLNProvider } from '@webbtc/webln-types';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
+import { useNostr } from '@/contexts/NostrContext';
 
 interface BitcoinConnectContextType {
   isConnected: boolean;
@@ -45,9 +46,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isConnected, setIsConnected] = useState(false);
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated: isNostrAuthenticated } = useNostr();
 
   // Debug logging
-  console.log('BitcoinConnectProvider render:', { isConnected, isLoading });
+  console.log('BitcoinConnectProvider render:', { isConnected, isLoading, isNostrAuthenticated });
 
   useEffect(() => {
     console.log('BitcoinConnectProvider useEffect - initializing Bitcoin Connect...');
@@ -89,8 +91,22 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
                 if ((window as any).webln) {
                   console.log('Found existing WebLN provider');
                   const existingProvider = (window as any).webln;
-                  setProvider(existingProvider);
-                  setIsConnected(true);
+                  // Try to enable it if needed
+                  if (existingProvider.enable && typeof existingProvider.enable === 'function') {
+                    existingProvider.enable().then(() => {
+                      console.log('✅ WebLN provider enabled');
+                      setProvider(existingProvider);
+                      setIsConnected(true);
+                    }).catch((error: any) => {
+                      console.warn('⚠️ Failed to enable WebLN provider:', error);
+                      // Still set provider, enable will be called when needed
+                      setProvider(existingProvider);
+                      setIsConnected(true);
+                    });
+                  } else {
+                    setProvider(existingProvider);
+                    setIsConnected(true);
+                  }
                 }
               } catch (err) {
                 console.log('No WebLN provider available');
@@ -144,10 +160,72 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     };
   }, []);
 
+  // Auto-connect WebLN when Nostr user is authenticated (Alby extension)
+  // This will override any existing wallet connection to use the same Alby wallet for Lightning
+  useEffect(() => {
+    // If Nostr user is authenticated, switch to Alby's WebLN (same wallet as Nostr)
+    if (isNostrAuthenticated && typeof window !== 'undefined') {
+      // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
+      if ((window as any).webln) {
+        const weblnProvider = (window as any).webln;
+        
+        // Only switch if we're not already using this provider
+        if (provider !== weblnProvider) {
+          console.log('🔗 Nostr user authenticated - switching to WebLN from Alby extension');
+          try {
+            // Enable WebLN if needed
+            if (weblnProvider.enable) {
+              weblnProvider.enable().then(() => {
+                console.log('✅ WebLN enabled for Nostr user - switched to Alby wallet');
+                setProvider(weblnProvider);
+                setIsConnected(true);
+                setIsLoading(false);
+              }).catch((error: any) => {
+                console.warn('⚠️ Failed to enable WebLN for Nostr user:', error);
+                // Continue without switching - keep existing wallet
+              });
+            } else {
+              // WebLN is already available, use it directly
+              console.log('✅ WebLN already available for Nostr user - switched to Alby wallet');
+              setProvider(weblnProvider);
+              setIsConnected(true);
+              setIsLoading(false);
+            }
+          } catch (error) {
+            console.warn('⚠️ Error switching to Alby WebLN for Nostr user:', error);
+            // Continue without switching - keep existing wallet
+          }
+        }
+      }
+    }
+  }, [isNostrAuthenticated, provider]);
+
   const connect = async () => {
     try {
       console.log('Attempting to connect wallet...');
       setIsLoading(true);
+
+      // If Nostr user is authenticated, check for WebLN first (Alby extension)
+      if (isNostrAuthenticated && typeof window !== 'undefined' && (window as any).webln) {
+        console.log('🔗 Nostr user authenticated - using WebLN from Alby extension');
+        try {
+          const weblnProvider = (window as any).webln;
+          
+          // Enable WebLN if needed
+          if (weblnProvider.enable) {
+            await weblnProvider.enable();
+          }
+          
+          console.log('✅ WebLN connected for Nostr user');
+          setProvider(weblnProvider);
+          setIsConnected(true);
+          setIsLoading(false);
+          return;
+        } catch (weblnError) {
+          console.warn('⚠️ Failed to connect WebLN for Nostr user:', weblnError);
+          // Fall through to standard Bitcoin Connect flow
+        }
+      }
 
       // Use requestProvider() which automatically shows modal if no provider exists
       // This is the recommended approach per Bitcoin Connect docs
@@ -204,6 +282,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         if (!currentProvider) {
           console.error('❌ Failed to connect wallet for payment');
           return { error: 'No wallet connected' };
+        }
+      }
+
+      // Ensure provider is enabled before using it
+      if (currentProvider.enable && typeof currentProvider.enable === 'function') {
+        try {
+          await currentProvider.enable();
+          console.log('✅ Provider enabled for payment');
+        } catch (enableError) {
+          console.warn('⚠️ Failed to enable provider:', enableError);
+          return { error: 'Provider must be enabled before calling sendPayment' };
         }
       }
 
@@ -290,6 +379,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         } catch (jsonError) {
           console.error('Failed to stringify Helipad metadata:', jsonError, helipadMetadata);
           // Continue without Helipad metadata if JSON fails
+        }
+      }
+
+      // Ensure provider is enabled before using it
+      if (currentProvider.enable && typeof currentProvider.enable === 'function') {
+        try {
+          await currentProvider.enable();
+          console.log('✅ Provider enabled for keysend');
+        } catch (enableError) {
+          console.warn('⚠️ Failed to enable provider:', enableError);
+          return { error: 'Provider must be enabled before calling keysend' };
         }
       }
 

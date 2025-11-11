@@ -117,10 +117,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <ClientErrorBoundary>
           <ErrorBoundary>
-            <LightningWrapper>
-              <ScrollDetectionProvider>
-                <SessionProvider>
-                  <NostrProvider>
+            <NostrProvider>
+              <LightningWrapper>
+                <ScrollDetectionProvider>
+                  <SessionProvider>
                     <AudioProvider>
                     <div className="min-h-screen relative">
                     {/* Background Image - Lazy loaded for better performance */}
@@ -152,10 +152,10 @@ export default function RootLayout({
                   <ToastContainer />
                   <ServiceWorkerRegistration />
                     </AudioProvider>
-                  </NostrProvider>
-                </SessionProvider>
-              </ScrollDetectionProvider>
-            </LightningWrapper>
+                  </SessionProvider>
+                </ScrollDetectionProvider>
+              </LightningWrapper>
+            </NostrProvider>
           </ErrorBoundary>
           <PerformanceMonitor />
         </ClientErrorBoundary>
