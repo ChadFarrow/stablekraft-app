@@ -43,6 +43,24 @@ export function createEvent(template: EventTemplate, privateKey: string): Event 
 }
 
 /**
+ * Create a kind 1 note template (unsigned)
+ * @param content - Note content
+ * @param tags - Optional tags
+ * @returns Unsigned event template
+ */
+export function createNoteTemplate(
+  content: string,
+  tags: string[][] = []
+): EventTemplate {
+  return {
+    kind: ShortTextNote,
+    tags,
+    content,
+    created_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+/**
  * Create a kind 1 note (text note)
  * @param content - Note content
  * @param privateKey - Private key in hex format
@@ -54,15 +72,49 @@ export function createNote(
   privateKey: string,
   tags: string[][] = []
 ): Event {
-  return createEvent(
-    {
-      kind: ShortTextNote,
-      tags,
-      content,
-      created_at: Math.floor(Date.now() / 1000),
-    },
-    privateKey
-  );
+  const template = createNoteTemplate(content, tags);
+  return createEvent(template, privateKey);
+}
+
+/**
+ * Create a zap request event template (unsigned)
+ * @param recipientPubkey - Recipient's public key (hex)
+ * @param amount - Amount in millisats
+ * @param invoice - Lightning invoice
+ * @param relays - Optional relay URLs
+ * @param content - Optional zap message
+ * @returns Unsigned event template
+ */
+export function createZapRequestTemplate(
+  recipientPubkey: string,
+  amount: number,
+  invoice: string,
+  relays?: string[],
+  content: string = ''
+): EventTemplate {
+  const tags: string[][] = [
+    ['p', recipientPubkey],
+    ['amount', amount.toString()],
+  ];
+
+  // Add invoice if provided (bolt11 format per NIP-57)
+  if (invoice) {
+    tags.push(['bolt11', invoice]);
+  }
+
+  // Add relays if provided
+  if (relays && relays.length > 0) {
+    relays.forEach(relay => {
+      tags.push(['relays', relay]);
+    });
+  }
+
+  return {
+    kind: 9735, // Zap request
+    tags,
+    content,
+    created_at: Math.floor(Date.now() / 1000),
+  };
 }
 
 /**
@@ -83,32 +135,8 @@ export function createZapRequest(
   relays?: string[],
   content: string = ''
 ): Event {
-  const tags: string[][] = [
-    ['p', recipientPubkey],
-    ['amount', amount.toString()],
-  ];
-
-  // Add invoice if provided (bolt11 format per NIP-57)
-  if (invoice) {
-    tags.push(['bolt11', invoice]);
-  }
-
-  // Add relays if provided
-  if (relays && relays.length > 0) {
-    relays.forEach(relay => {
-      tags.push(['relays', relay]);
-    });
-  }
-
-  return createEvent(
-    {
-      kind: 9735, // Zap request
-      tags,
-      content,
-      created_at: Math.floor(Date.now() / 1000),
-    },
-    privateKey
-  );
+  const template = createZapRequestTemplate(recipientPubkey, amount, invoice, relays, content);
+  return createEvent(template, privateKey);
 }
 
 /**
@@ -147,17 +175,15 @@ export function createZapReceipt(
 }
 
 /**
- * Create a kind 3 contact list (follow list)
+ * Create a kind 3 contact list template (unsigned)
  * @param pubkeys - Array of public keys to follow
- * @param privateKey - Private key in hex format
  * @param relays - Optional relay URLs per pubkey
- * @returns Signed contact list event
+ * @returns Unsigned event template
  */
-export function createContactList(
+export function createContactListTemplate(
   pubkeys: string[],
-  privateKey: string,
   relays?: Map<string, string[]>
-): Event {
+): EventTemplate {
   const tags: string[][] = pubkeys.map(pubkey => {
     const tag: string[] = ['p', pubkey];
     if (relays && relays.has(pubkey)) {
@@ -169,15 +195,28 @@ export function createContactList(
     return tag;
   });
 
-  return createEvent(
-    {
-      kind: Contacts,
-      tags,
-      content: '',
-      created_at: Math.floor(Date.now() / 1000),
-    },
-    privateKey
-  );
+  return {
+    kind: Contacts,
+    tags,
+    content: '',
+    created_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+/**
+ * Create a kind 3 contact list (follow list)
+ * @param pubkeys - Array of public keys to follow
+ * @param privateKey - Private key in hex format
+ * @param relays - Optional relay URLs per pubkey
+ * @returns Signed contact list event
+ */
+export function createContactList(
+  pubkeys: string[],
+  privateKey: string,
+  relays?: Map<string, string[]>
+): Event {
+  const template = createContactListTemplate(pubkeys, relays);
+  return createEvent(template, privateKey);
 }
 
 /**

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createContactList } from '@/lib/nostr/events';
+import { verifyEvent } from 'nostr-tools';
+import { Contacts } from 'nostr-tools/kinds';
 import { NostrClient } from '@/lib/nostr/client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 
 /**
  * POST /api/nostr/follow
  * Follow or unfollow a user - publishes to Nostr relays (kind 3) and caches in database
- * Body: { followingId: string, action: 'follow' | 'unfollow' }
+ * Body: { followingId: string, action: 'follow' | 'unfollow', signedEvent: Event }
  */
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-nostr-user-id');
-    const privateKey = request.headers.get('x-nostr-private-key');
 
     if (!userId) {
       return NextResponse.json(
@@ -24,18 +24,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!privateKey) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Private key required for Nostr publishing',
-        },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
-    const { followingId, action } = body;
+    const { followingId, action, signedEvent } = body;
 
     if (!followingId || typeof followingId !== 'string') {
       return NextResponse.json(
@@ -70,6 +60,41 @@ export async function POST(request: NextRequest) {
         },
         { status: 404 }
       );
+    }
+
+    // Validate signedEvent if provided (for NIP-07 signing)
+    if (signedEvent) {
+      // Verify the signed event
+      if (!verifyEvent(signedEvent)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid signed event signature',
+          },
+          { status: 401 }
+        );
+      }
+
+      // Verify event kind is 3 (contact list)
+      if (signedEvent.kind !== Contacts) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Signed event must be kind 3 (contact list)',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (signedEvent.pubkey !== currentUser.nostrPubkey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Signed event pubkey does not match user',
+          },
+          { status: 401 }
+        );
+      }
     }
 
     // Verify following user exists
@@ -114,46 +139,38 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Get all users this user is following (including the new one) to build contact list
-      const allFollows = await prisma.follow.findMany({
-        where: { followerId: userId },
-        include: {
-          following: {
-            select: {
-              nostrPubkey: true,
-            },
-          },
-        },
-      });
+      // If signedEvent is provided, use it directly (NIP-07 signing)
+      if (signedEvent) {
+        // Use user's relays or default relays
+        const relayUrls = currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
+        const client = new NostrClient(relayUrls);
+        await client.connect();
+        const publishResults = await client.publish(signedEvent, {
+          relays: relayUrls,
+          waitForRelay: true,
+        });
+        await client.disconnect();
 
-      // Build contact list with all pubkeys
-      const pubkeys = allFollows.map(f => f.following.nostrPubkey);
+        const published = publishResults.some(r => r.status === 'fulfilled');
+        if (!published) {
+          console.warn('⚠️ Failed to publish contact list to any Nostr relay');
+        }
 
-      // Create and publish kind 3 contact list event to Nostr
-      const contactListEvent = createContactList(pubkeys, privateKey);
-
-      // Use user's relays or default relays
-      const relayUrls = currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
-      const client = new NostrClient(relayUrls);
-      await client.connect();
-      const publishResults = await client.publish(contactListEvent, {
-        relays: relayUrls,
-        waitForRelay: true,
-      });
-      await client.disconnect();
-
-      const published = publishResults.some(r => r.status === 'fulfilled');
-      if (!published) {
-        console.warn('⚠️ Failed to publish contact list to any Nostr relay');
+        return NextResponse.json({
+          success: true,
+          data: follow,
+          eventId: signedEvent.id,
+          published,
+          message: 'Followed and published to Nostr successfully',
+        });
+      } else {
+        // No signed event provided - just update database (client should sign on their end)
+        return NextResponse.json({
+          success: true,
+          data: follow,
+          message: 'Followed successfully (Nostr publishing requires signed event)',
+        });
       }
-
-      return NextResponse.json({
-        success: true,
-        data: follow,
-        eventId: contactListEvent.id,
-        published,
-        message: 'Followed and published to Nostr successfully',
-      });
     } else if (action === 'unfollow') {
       // Remove follow relationship from database first
       const deleted = await prisma.follow.deleteMany({
@@ -173,45 +190,36 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Get remaining users this user is following to rebuild contact list
-      const remainingFollows = await prisma.follow.findMany({
-        where: { followerId: userId },
-        include: {
-          following: {
-            select: {
-              nostrPubkey: true,
-            },
-          },
-        },
-      });
+      // If signedEvent is provided, use it directly (NIP-07 signing)
+      if (signedEvent) {
+        // Use user's relays or default relays
+        const relayUrls = currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
+        const client = new NostrClient(relayUrls);
+        await client.connect();
+        const publishResults = await client.publish(signedEvent, {
+          relays: relayUrls,
+          waitForRelay: true,
+        });
+        await client.disconnect();
 
-      // Build contact list with remaining pubkeys
-      const pubkeys = remainingFollows.map(f => f.following.nostrPubkey);
+        const published = publishResults.some(r => r.status === 'fulfilled');
+        if (!published) {
+          console.warn('⚠️ Failed to publish updated contact list to any Nostr relay');
+        }
 
-      // Create and publish updated kind 3 contact list event to Nostr
-      const contactListEvent = createContactList(pubkeys, privateKey);
-
-      // Use user's relays or default relays
-      const relayUrls = currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
-      const client = new NostrClient(relayUrls);
-      await client.connect();
-      const publishResults = await client.publish(contactListEvent, {
-        relays: relayUrls,
-        waitForRelay: true,
-      });
-      await client.disconnect();
-
-      const published = publishResults.some(r => r.status === 'fulfilled');
-      if (!published) {
-        console.warn('⚠️ Failed to publish updated contact list to any Nostr relay');
+        return NextResponse.json({
+          success: true,
+          eventId: signedEvent.id,
+          published,
+          message: 'Unfollowed and published to Nostr successfully',
+        });
+      } else {
+        // No signed event provided - just update database (client should sign on their end)
+        return NextResponse.json({
+          success: true,
+          message: 'Unfollowed successfully (Nostr publishing requires signed event)',
+        });
       }
-
-      return NextResponse.json({
-        success: true,
-        eventId: contactListEvent.id,
-        published,
-        message: 'Unfollowed and published to Nostr successfully',
-      });
     } else {
       return NextResponse.json(
         {

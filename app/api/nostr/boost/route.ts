@@ -1,31 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createZapRequest, createZapReceipt } from '@/lib/nostr/events';
 import { NostrClient } from '@/lib/nostr/client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
+import type { Event } from 'nostr-tools';
 
 /**
  * POST /api/nostr/boost
- * Post a boost to Nostr as a zap (kind 9735)
- * Body: { trackId: string, amount: number, message?: string, paymentHash?: string }
+ * Post a boost to Nostr as a kind 1 note
+ * Body: { trackId: string, amount: number, message?: string, paymentHash?: string, signedEvent: Event }
  */
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-nostr-user-id');
-    const privateKey = request.headers.get('x-nostr-private-key');
 
-    if (!userId || !privateKey) {
+    if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User ID and private key required',
+          error: 'User ID required',
         },
         { status: 401 }
       );
     }
 
     const body = await request.json();
-    const { trackId, amount, message, paymentHash } = body;
+    const { trackId, amount, message, paymentHash, signedEvent } = body;
 
     if (!trackId || !amount || typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
@@ -68,46 +67,83 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get recipient pubkey if available (from track artist or feed)
-    // For now, we'll create a zap request without a specific recipient
-    // In production, you might want to look up the artist's Nostr pubkey
-    // If the track has a v4vRecipient that's a Nostr pubkey, use it
-    let recipientPubkey = '';
-    if (track.v4vRecipient && track.v4vRecipient.length === 64) {
-      // Check if it's a hex pubkey
-      recipientPubkey = track.v4vRecipient;
-    }
-
     // Use user's relays or default relays
     const relays = user.relays.length > 0 ? user.relays : getDefaultRelays();
 
-    // Create zap request (kind 9735)
-    // Note: For a proper zap, we'd need the LN invoice, but we can create a zap request without it
-    // The zap receipt (kind 9736) would require the invoice
-    const zapRequest = createZapRequest(
-      recipientPubkey || user.nostrPubkey, // recipientPubkey - use track's pubkey if available, otherwise self
-      amount * 1000, // amount in millisats
-      '', // invoice - empty for now (would be included in zap receipt)
-      privateKey,
-      relays,
-      message || `⚡ Boosted ${amount} sats to ${track.title}${track.artist ? ` by ${track.artist}` : ''}`
-    );
+    // Use signed note from client (extension-based only)
+    if (!signedEvent) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Signed event is required (NIP-07 extension)',
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify the event is signed by the user
+    const { verifyEvent } = await import('nostr-tools');
+    if (!verifyEvent(signedEvent)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid signed event',
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify the event is signed by the user
+    if (signedEvent.pubkey !== user.nostrPubkey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Signed event does not match user public key',
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify it's a kind 1 note
+    if (signedEvent.kind !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Event must be a kind 1 note',
+        },
+        { status: 400 }
+      );
+    }
+    
+    const noteEvent = signedEvent;
 
     // Publish to Nostr
     const client = new NostrClient(relays);
     await client.connect();
-    const results = await client.publish(zapRequest, {
+    const results = await client.publish(noteEvent, {
       relays,
       waitForRelay: true,
     });
     await client.disconnect();
 
-    // Store in database
+    // Store in database as NostrPost (kind 1 note)
+    const nostrPost = await prisma.nostrPost.create({
+      data: {
+        userId,
+        eventId: noteEvent.id,
+        kind: 1,
+        content: noteEvent.content,
+        trackId: trackId || null,
+        feedId: track.feedId || null,
+      },
+    });
+
+    // Also store in BoostEvent for backwards compatibility and tracking
     const boostEvent = await prisma.boostEvent.create({
       data: {
         userId,
         trackId,
-        eventId: zapRequest.id,
+        eventId: noteEvent.id,
         amount,
         message: message || null,
         paymentHash: paymentHash || null,
@@ -119,13 +155,14 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         boostEvent,
+        nostrPost,
         event: {
-          id: zapRequest.id,
-          content: zapRequest.content,
+          id: noteEvent.id,
+          content: noteEvent.content,
         },
         published: results.some(r => r.status === 'fulfilled'),
       },
-      eventId: zapRequest.id,
+      eventId: noteEvent.id,
       message: 'Boost posted to Nostr successfully',
     });
   } catch (error) {

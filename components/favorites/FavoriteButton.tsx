@@ -24,7 +24,7 @@ export default function FavoriteButton({
   onToggle
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
-  const { user, isAuthenticated: isNostrAuthenticated, privateKey } = useNostr();
+  const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingState, setIsLoadingState] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
@@ -147,13 +147,13 @@ export default function FavoriteButton({
         // Publish to Nostr relays if user is logged in (also store in database above)
         if (isNostrAuthenticated && user) {
           try {
-            const nostrPrivateKey = privateKey || localStorage.getItem('nostr_private_key');
+            // Use extension-based signing (no private key needed)
             const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
             
             if (isTrack && trackId) {
               await publishFavoriteTrackToNostr(
                 trackId,
-                nostrPrivateKey,
+                null, // No private key - use extension
                 undefined, // Track title - could be fetched if needed
                 undefined, // Artist name - could be fetched if needed
                 userRelays
@@ -161,7 +161,7 @@ export default function FavoriteButton({
             } else if (feedId) {
               await publishFavoriteAlbumToNostr(
                 feedId,
-                nostrPrivateKey,
+                null, // No private key - use extension
                 undefined, // Album title - could be fetched if needed
                 undefined, // Artist name - could be fetched if needed
                 userRelays

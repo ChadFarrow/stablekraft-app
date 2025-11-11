@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
+import { useNostr } from '@/contexts/NostrContext';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
@@ -46,6 +47,7 @@ export function BoostButton({
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
+  const { user: nostrUser, isAuthenticated: isNostrAuthenticated } = useNostr();
   const [showModal, setShowModal] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
@@ -242,38 +244,109 @@ export function BoostButton({
         });
 
         // Post to Nostr if user is authenticated and Nostr integration is enabled
-        if (LIGHTNING_CONFIG.features.nostrIntegration && trackId) {
+        if (LIGHTNING_CONFIG.features.nostrIntegration && trackId && isNostrAuthenticated && nostrUser) {
           try {
-            // Get Nostr user from context (we'll need to pass it as a prop or use a global state)
-            // For now, check if user is authenticated via localStorage
-            const nostrUserStr = localStorage.getItem('nostr_user');
-            const nostrPrivateKey = localStorage.getItem('nostr_private_key');
+            // Check if NIP-07 extension is available for signing
+            const hasNip07 = typeof window !== 'undefined' && (window as any).nostr;
             
-            if (nostrUserStr && nostrPrivateKey) {
-              const nostrUser = JSON.parse(nostrUserStr);
-              
-              // Post boost to Nostr as a zap
-              const zapResponse = await fetch('/api/nostr/boost', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-nostr-user-id': nostrUser.id,
-                  'x-nostr-private-key': nostrPrivateKey,
-                },
-                body: JSON.stringify({
-                  trackId,
-                  amount,
-                  message,
-                  paymentHash: result.preimage,
-                }),
-              });
-
-              if (zapResponse.ok) {
-                const zapData = await zapResponse.json();
-                if (zapData.success && zapData.eventId) {
-                  console.log('✅ Boost posted to Nostr:', zapData.eventId);
-                }
+            if (!hasNip07) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('ℹ️ Boost not posted to Nostr: NIP-07 extension required');
               }
+              return;
+            }
+            
+            // Extension-based login: sign event on client side using NIP-07
+            console.log('🔗 Signing boost event with NIP-07 extension...');
+            
+            // Fetch track data to get image and other details
+            const trackResponse = await fetch(`/api/music-tracks/${trackId}`);
+            let trackData: any = null;
+            if (trackResponse.ok) {
+              const trackResult = await trackResponse.json();
+              if (trackResult.success && trackResult.data) {
+                trackData = trackResult.data;
+              }
+            }
+            
+            // Use track data or fallback to props
+            const finalTrackTitle = trackData?.title || trackTitle || 'track';
+            const finalArtistName = trackData?.artist || artistName || '';
+            const finalFeedId = trackData?.feedId || feedId || '';
+            
+            // Get image (priority: track.image, track.itunesImage, Feed.image)
+            const trackImage = trackData?.image || null;
+            
+            // Build URL
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+            const trackUrl = `${baseUrl}/music-tracks/${trackId}`;
+            const albumUrl = finalFeedId ? `${baseUrl}/album/${finalFeedId}` : null;
+            const url = trackUrl;
+            
+            // Sanitize track title for URL anchor
+            const sanitizedTitle = finalTrackTitle
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+            const urlWithAnchor = `${url}#${sanitizedTitle}`;
+            
+            // Build content
+            const boostMessage = message || `Auto boost for "${finalTrackTitle}"`;
+            const content = `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${boostMessage}\n\n🎧 ${urlWithAnchor}`;
+            
+            // Build tags
+            const tags: string[][] = [];
+            
+            // Add podcast GUID tags if available
+            if (episodeGuid) {
+              tags.push(['k', 'podcast:item:guid']);
+              tags.push(['i', `podcast:item:guid:${episodeGuid}`, urlWithAnchor]);
+            }
+            
+            if (remoteFeedGuid) {
+              tags.push(['k', 'podcast:guid']);
+              tags.push(['i', `podcast:guid:${remoteFeedGuid}`, urlWithAnchor]);
+            }
+            
+            // Add image tag if available
+            if (trackImage) {
+              tags.push(['image', trackImage]);
+            }
+            
+            // Create note template
+            const { createNoteTemplate } = await import('@/lib/nostr/events');
+            const noteTemplate = createNoteTemplate(content, tags);
+            
+            // Sign with NIP-07 extension
+            const nostr = (window as any).nostr;
+            const signedEvent = await nostr.signEvent(noteTemplate);
+            
+            console.log('✅ Boost event signed with NIP-07:', signedEvent.id.slice(0, 16) + '...');
+            
+            // Send signed event to API
+            const zapResponse = await fetch('/api/nostr/boost', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-nostr-user-id': nostrUser.id,
+              },
+              body: JSON.stringify({
+                trackId,
+                amount,
+                message,
+                paymentHash: result.preimage,
+                signedEvent, // Send the signed event (kind 1 note)
+              }),
+            });
+
+            if (zapResponse.ok) {
+              const zapData = await zapResponse.json();
+              if (zapData.success && zapData.eventId) {
+                console.log('✅ Boost posted to Nostr:', zapData.eventId);
+              }
+            } else {
+              const errorData = await zapResponse.json().catch(() => ({}));
+              console.warn('Failed to post boost to Nostr:', errorData.error || 'Unknown error');
             }
           } catch (nostrError) {
             console.warn('Failed to post boost to Nostr:', nostrError);

@@ -22,15 +22,21 @@ export default function ShareButton({
   variant = 'default',
   size = 'md',
 }: ShareButtonProps) {
-  const { user, isAuthenticated, privateKey } = useNostr();
+  const { user, isAuthenticated } = useNostr();
   const [isSharing, setIsSharing] = useState(false);
   const [message, setMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleShare = async () => {
-    if (!isAuthenticated || !user || !privateKey) {
+    if (!isAuthenticated || !user) {
       setShowModal(true);
+      return;
+    }
+
+    // Check if NIP-07 extension is available
+    if (typeof window === 'undefined' || !(window as any).nostr) {
+      setError('NIP-07 extension required. Please install Alby extension.');
       return;
     }
 
@@ -38,17 +44,42 @@ export default function ShareButton({
     setError(null);
 
     try {
+      const content = message.trim() || `Check out this ${trackId ? 'track' : 'album'}!`;
+      
+      // Create note template
+      const tags: string[][] = [];
+      if (trackId) {
+        tags.push(['t', 'track']);
+        tags.push(['trackId', trackId]);
+      }
+      if (feedId) {
+        tags.push(['t', 'album']);
+        tags.push(['feedId', feedId]);
+      }
+      
+      const noteTemplate = {
+        kind: 1,
+        tags,
+        content,
+        created_at: Math.floor(Date.now() / 1000),
+      };
+      
+      // Sign with NIP-07 extension
+      const nostr = (window as any).nostr;
+      const signedEvent = await nostr.signEvent(noteTemplate);
+      
+      // Send signed event to API
       const response = await fetch('/api/nostr/share', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-nostr-user-id': user.id,
-          'x-nostr-private-key': privateKey,
         },
         body: JSON.stringify({
           trackId,
           feedId,
           message: message.trim() || undefined,
+          signedEvent,
         }),
       });
 

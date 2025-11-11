@@ -9,8 +9,6 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ onClose }: LoginModalProps) {
-  const { login, isLoading } = useNostr();
-  const [privateKey, setPrivateKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExtension, setHasExtension] = useState(false);
@@ -162,25 +160,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   };
 
-  const handleManualLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setIsSubmitting(true);
-      setError(null);
-
-      if (!privateKey.trim()) {
-        throw new Error('Private key is required');
-      }
-
-      await login(privateKey.trim());
-      onClose();
-      window.location.reload(); // Refresh to update context
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const modalContent = (
     <div 
@@ -230,49 +209,20 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         ) : (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-800">
-              💡 <strong>Tip:</strong> Install the <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="underline">Alby extension</a> for easier login!
+              💡 <strong>Extension Required:</strong> Please install the <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="underline">Alby extension</a> to sign in with Nostr.
             </p>
           </div>
         )}
 
-        <div className="mb-4 text-center text-gray-500">or</div>
-
-        <form onSubmit={handleManualLogin}>
-          <div className="mb-4">
-            <label htmlFor="privateKey" className="block text-sm font-medium text-gray-700 mb-2">
-              Private Key (nsec or hex)
-            </label>
-            <input
-              type="password"
-              id="privateKey"
-              value={privateKey}
-              onChange={(e) => setPrivateKey(e.target.value)}
-              placeholder="nsec1..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Enter your private key (nsec format) or hex format
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
-        </form>
+        <div className="flex gap-2 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   );

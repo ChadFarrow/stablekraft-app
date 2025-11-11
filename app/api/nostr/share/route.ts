@@ -12,20 +12,19 @@ import { getDefaultRelays } from '@/lib/nostr/relay';
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-nostr-user-id');
-    const privateKey = request.headers.get('x-nostr-private-key');
 
-    if (!userId || !privateKey) {
+    if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User ID and private key required',
+          error: 'User ID required',
         },
         { status: 401 }
       );
     }
 
     const body = await request.json();
-    const { trackId, feedId, message } = body;
+    const { trackId, feedId, message, signedEvent } = body;
 
     if (!trackId && !feedId) {
       return NextResponse.json(
@@ -94,17 +93,41 @@ export async function POST(request: NextRequest) {
       content = `${content}\n\n💿 ${feed.title}${feed.artist ? ` by ${feed.artist}` : ''}\n${albumUrl}`;
     }
 
-    // Create Nostr note
-    const tags: string[][] = [];
-    if (trackId) {
-      tags.push(['t', 'music-track']);
-      tags.push(['r', `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/music-tracks/${trackId}`]);
-    } else if (feedId) {
-      tags.push(['t', 'album']);
-      tags.push(['r', `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/album/${feedId}`]);
+    // Use signed event from client (extension-based only)
+    if (!signedEvent) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Signed event is required (NIP-07 extension)',
+        },
+        { status: 400 }
+      );
     }
-
-    const event = createNote(content.trim(), privateKey, tags);
+    
+    // Verify the event is signed by the user
+    const { verifyEvent } = await import('nostr-tools');
+    if (!verifyEvent(signedEvent)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid signed event',
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify the event is signed by the user
+    if (signedEvent.pubkey !== user.nostrPubkey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Signed event does not match user public key',
+        },
+        { status: 400 }
+      );
+    }
+    
+    const event = signedEvent;
 
     // Publish to Nostr
     // Use user's relays or default relays
