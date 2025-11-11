@@ -9,17 +9,24 @@ import { getSessionIdFromRequest } from '@/lib/session-utils';
 export async function GET(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    // Build where clause - support both session and user
+    const where: any = {};
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    } else {
       return NextResponse.json({
         success: true,
         data: [],
-        message: 'No session ID provided'
+        message: 'No session ID or user ID provided'
       });
     }
 
     const favoriteAlbums = await prisma.favoriteAlbum.findMany({
-      where: { sessionId },
+      where,
       orderBy: { createdAt: 'desc' }
     });
 
@@ -85,12 +92,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    if (!sessionId && !userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Session ID required'
+          error: 'Session ID or user ID required'
         },
         { status: 400 }
       );
@@ -125,14 +133,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already favorited
-    const existing = await prisma.favoriteAlbum.findUnique({
-      where: {
-        sessionId_feedId: {
-          sessionId,
-          feedId
+    let existing;
+    if (userId) {
+      existing = await prisma.favoriteAlbum.findUnique({
+        where: {
+          userId_feedId: {
+            userId,
+            feedId
+          }
         }
-      }
-    });
+      });
+    } else if (sessionId) {
+      existing = await prisma.favoriteAlbum.findUnique({
+        where: {
+          sessionId_feedId: {
+            sessionId: sessionId!,
+            feedId
+          }
+        }
+      });
+    }
 
     if (existing) {
       return NextResponse.json({
@@ -145,7 +165,8 @@ export async function POST(request: NextRequest) {
     // Add to favorites
     const favorite = await prisma.favoriteAlbum.create({
       data: {
-        sessionId,
+        ...(userId ? { userId } : {}),
+        ...(sessionId ? { sessionId } : {}),
         feedId
       }
     });

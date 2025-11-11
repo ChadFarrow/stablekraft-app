@@ -13,23 +13,29 @@ export async function DELETE(
   try {
     const { feedId } = await params;
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    if (!sessionId && !userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Session ID required'
+          error: 'Session ID or user ID required'
         },
         { status: 400 }
       );
     }
 
+    // Build where clause - support both session and user
+    const where: any = { feedId };
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    }
+
     // Remove from favorites
     const deleted = await prisma.favoriteAlbum.deleteMany({
-      where: {
-        sessionId,
-        feedId
-      }
+      where
     });
 
     if (deleted.count === 0) {

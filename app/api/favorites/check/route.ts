@@ -10,8 +10,9 @@ import { getSessionIdFromRequest } from '@/lib/session-utils';
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    if (!sessionId && !userId) {
       return NextResponse.json({
         success: true,
         data: {
@@ -32,14 +33,23 @@ export async function POST(request: NextRequest) {
       albums: {}
     };
 
+    // Build where clause - support both session and user
+    const whereTracks: any = { trackId: { in: trackIds } };
+    const whereAlbums: any = { feedId: { in: feedIds } };
+    
+    if (userId) {
+      whereTracks.userId = userId;
+      whereAlbums.userId = userId;
+    } else if (sessionId) {
+      whereTracks.sessionId = sessionId;
+      whereAlbums.sessionId = sessionId;
+    }
+
     // Check tracks
     if (trackIds.length > 0) {
       try {
         const favoriteTracks = await prisma.favoriteTrack.findMany({
-          where: {
-            sessionId,
-            trackId: { in: trackIds }
-          },
+          where: whereTracks,
           select: {
             trackId: true
           }
@@ -63,10 +73,7 @@ export async function POST(request: NextRequest) {
     if (feedIds.length > 0) {
       try {
         const favoriteAlbums = await prisma.favoriteAlbum.findMany({
-          where: {
-            sessionId,
-            feedId: { in: feedIds }
-          },
+          where: whereAlbums,
           select: {
             feedId: true
           }

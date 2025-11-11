@@ -4,22 +4,29 @@ import { getSessionIdFromRequest } from '@/lib/session-utils';
 
 /**
  * GET /api/favorites/tracks
- * Get all favorite tracks for the current session
+ * Get all favorite tracks for the current session or user
  */
 export async function GET(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    // Build where clause - support both session and user
+    const where: any = {};
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    } else {
       return NextResponse.json({
         success: true,
         data: [],
-        message: 'No session ID provided'
+        message: 'No session ID or user ID provided'
       });
     }
 
     const favoriteTracks = await prisma.favoriteTrack.findMany({
-      where: { sessionId },
+      where,
       orderBy: { createdAt: 'desc' }
     });
 
@@ -82,12 +89,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
     
-    if (!sessionId) {
+    if (!sessionId && !userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Session ID required'
+          error: 'Session ID or user ID required'
         },
         { status: 400 }
       );
@@ -123,14 +131,26 @@ export async function POST(request: NextRequest) {
     // The trackId will be stored and can be matched later when the track is added to DB
 
     // Check if already favorited
-    const existing = await prisma.favoriteTrack.findUnique({
-      where: {
-        sessionId_trackId: {
-          sessionId,
-          trackId
+    let existing;
+    if (userId) {
+      existing = await prisma.favoriteTrack.findUnique({
+        where: {
+          userId_trackId: {
+            userId,
+            trackId
+          }
         }
-      }
-    });
+      });
+    } else if (sessionId) {
+      existing = await prisma.favoriteTrack.findUnique({
+        where: {
+          sessionId_trackId: {
+            sessionId: sessionId!,
+            trackId
+          }
+        }
+      });
+    }
 
     if (existing) {
       return NextResponse.json({
@@ -143,7 +163,8 @@ export async function POST(request: NextRequest) {
     // Add to favorites
     const favorite = await prisma.favoriteTrack.create({
       data: {
-        sessionId,
+        ...(userId ? { userId } : {}),
+        ...(sessionId ? { sessionId } : {}),
         trackId
       }
     });

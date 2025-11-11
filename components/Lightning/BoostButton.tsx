@@ -241,6 +241,46 @@ export function BoostButton({
                         lightningAddress ? 'lightning-address' : 'keysend',
         });
 
+        // Post to Nostr if user is authenticated and Nostr integration is enabled
+        if (LIGHTNING_CONFIG.features.nostrIntegration && trackId) {
+          try {
+            // Get Nostr user from context (we'll need to pass it as a prop or use a global state)
+            // For now, check if user is authenticated via localStorage
+            const nostrUserStr = localStorage.getItem('nostr_user');
+            const nostrPrivateKey = localStorage.getItem('nostr_private_key');
+            
+            if (nostrUserStr && nostrPrivateKey) {
+              const nostrUser = JSON.parse(nostrUserStr);
+              
+              // Post boost to Nostr as a zap
+              const zapResponse = await fetch('/api/nostr/boost', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-nostr-user-id': nostrUser.id,
+                  'x-nostr-private-key': nostrPrivateKey,
+                },
+                body: JSON.stringify({
+                  trackId,
+                  amount,
+                  message,
+                  paymentHash: result.preimage,
+                }),
+              });
+
+              if (zapResponse.ok) {
+                const zapData = await zapResponse.json();
+                if (zapData.success && zapData.eventId) {
+                  console.log('✅ Boost posted to Nostr:', zapData.eventId);
+                }
+              }
+            }
+          } catch (nostrError) {
+            console.warn('Failed to post boost to Nostr:', nostrError);
+            // Don't fail the boost if Nostr posting fails
+          }
+        }
+
         // Close modal after success
         setTimeout(() => {
           setShowModal(false);

@@ -41,7 +41,7 @@ export const LIGHTNING_CONFIG = {
     keysend: true,
     autoBoost: false, // Disabled by default, user must enable
     boostagrams: true,
-    nostrIntegration: false, // Disabled until configured
+    nostrIntegration: true, // Enabled for Nostr boost posting
     helipadIntegration: false, // Disabled until configured
   },
 };

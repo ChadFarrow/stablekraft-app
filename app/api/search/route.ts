@@ -95,8 +95,8 @@ export async function GET(request: NextRequest) {
         // For "X by Y" pattern, require both title AND artist to match
         whereConditions.push({
           AND: [
-            { title: { contains: fieldFilters.title[0], mode: 'insensitive' } },
-            { artist: { contains: fieldFilters.artist[0], mode: 'insensitive' } }
+            { title: { contains: parsedQuery.fieldFilters.title?.[0] || '', mode: 'insensitive' } },
+            { artist: { contains: parsedQuery.fieldFilters.artist?.[0] || '', mode: 'insensitive' } }
           ]
         });
 
@@ -113,26 +113,36 @@ export async function GET(request: NextRequest) {
           }
         });
       } else {
-        // Default behavior: OR conditions across all fields
-        const textSearchConditions: any[] = [
+        // Default behavior: For short queries (< 4 chars), only search title and artist
+        // For longer queries, include album, subtitle, description, etc.
+        const primarySearchConditions: any[] = [
           { title: { contains: query, mode: 'insensitive' } },
-          { artist: { contains: query, mode: 'insensitive' } },
-          { album: { contains: query, mode: 'insensitive' } },
-          { subtitle: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } }
+          { artist: { contains: query, mode: 'insensitive' } }
         ];
 
-        // Add keyword and category search
-        parsedQuery.terms.forEach(term => {
-          textSearchConditions.push({
-            itunesKeywords: { has: term }
-          });
-          textSearchConditions.push({
-            itunesCategories: { has: term }
-          });
-        });
+        // Only search in album, subtitle, description, keywords, and categories if query is 4+ chars
+        // This prevents short queries like "late" from matching "Years Later" in album names
+        if (query.length >= 4) {
+          primarySearchConditions.push(
+            { album: { contains: query, mode: 'insensitive' } },
+            { subtitle: { contains: query, mode: 'insensitive' } },
+            { description: { contains: query, mode: 'insensitive' } }
+          );
 
-        whereConditions.push({ OR: textSearchConditions });
+          // Add keyword and category search
+          parsedQuery.terms.forEach(term => {
+            if (term.length >= 4) {
+              primarySearchConditions.push({
+                itunesKeywords: { has: term }
+              });
+              primarySearchConditions.push({
+                itunesCategories: { has: term }
+              });
+            }
+          });
+        }
+
+        whereConditions.push({ OR: primarySearchConditions });
 
         // Add field filters if any
         if (Object.keys(fieldFilters).length > 0) {
@@ -172,8 +182,8 @@ export async function GET(request: NextRequest) {
         
         // If we have a title+artist pattern, prioritize exact matches
         if (hasTitleArtistPattern) {
-          const titlePart = fieldFilters.title[0].toLowerCase();
-          const artistPart = fieldFilters.artist[0].toLowerCase();
+          const titlePart = parsedQuery.fieldFilters.title?.[0]?.toLowerCase() || '';
+          const artistPart = parsedQuery.fieldFilters.artist?.[0]?.toLowerCase() || '';
           
           const aTitleMatch = a.title?.toLowerCase().includes(titlePart) || false;
           const aArtistMatch = a.artist?.toLowerCase().includes(artistPart) || false;

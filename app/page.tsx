@@ -1112,8 +1112,17 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                {/* Right side - Lightning Wallet Button */}
-                <div className="flex items-center">
+                {/* Right side - Lightning Wallet Button & Nostr Login */}
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    try {
+                      const LoginButton = require('@/components/Nostr/LoginButton').default;
+                      return <LoginButton size="sm" variant="outline" className="text-xs" />;
+                    } catch (error) {
+                      console.error('LoginButton error in mobile header:', error);
+                      return null;
+                    }
+                  })()}
                   {(() => {
                     try {
                       const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
@@ -1159,8 +1168,17 @@ export default function HomePage() {
                   <h1 className="text-3xl font-bold text-white">Project StableKraft</h1>
                 </div>
 
-                {/* Right side - Lightning Wallet Button */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                {/* Right side - Lightning Wallet Button & Nostr Login */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {(() => {
+                    try {
+                      const LoginButton = require('@/components/Nostr/LoginButton').default;
+                      return <LoginButton size="sm" variant="outline" />;
+                    } catch (error) {
+                      console.error('LoginButton error in desktop header:', error);
+                      return null;
+                    }
+                  })()}
                   {(() => {
                     try {
                       const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');

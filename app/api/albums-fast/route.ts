@@ -194,31 +194,51 @@ export async function GET(request: Request) {
       
       // Get active feeds with their tracks directly from database
       // Exclude sidebar-only items from main site display
-      feeds = await prisma.feed.findMany({
-        where: { status: 'active' },
-          skip: 0, // Load all feeds to maintain global sort order
-        take: feedsToLoad,
-        include: {
-          Track: {
-            where: {
-              audioUrl: { not: '' }
+      // Add timeout protection and limit to prevent hanging
+      const maxFeedsToLoad = Math.min(feedsToLoad, 500); // Limit to 500 feeds max to prevent timeout
+      
+      try {
+        feeds = await Promise.race([
+          prisma.feed.findMany({
+            where: { status: 'active' },
+            skip: 0,
+            take: maxFeedsToLoad,
+            include: {
+              Track: {
+                where: {
+                  audioUrl: { not: '' }
+                },
+                orderBy: [
+                  { trackOrder: 'asc' },
+                  { publishedAt: 'asc' },
+                  { createdAt: 'asc' }
+                ],
+                take: 50 // Limit tracks per feed for performance
+              },
+              _count: {
+                select: { Track: true }
+              }
             },
             orderBy: [
-              { trackOrder: 'asc' },
-              { publishedAt: 'asc' },
-              { createdAt: 'asc' }
-            ],
-            take: 50 // Limit tracks per feed for performance
-          },
-          _count: {
-            select: { Track: true }
-          }
-        },
-        orderBy: [
-          { priority: 'asc' },
-          { createdAt: 'desc' }
-        ]
-      });
+              { priority: 'asc' },
+              { createdAt: 'desc' }
+            ]
+          }),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Database query timeout after 30s')), 30000)
+          )
+        ]) as FeedWithTracks[];
+      } catch (queryError) {
+        console.error('❌ Database query error:', queryError);
+        // Return cached data if available, or empty result
+        if (cachedData && cachedData.feeds.length > 0) {
+          console.log('⚠️ Using cached data due to query error');
+          feeds = cachedData.feeds;
+          publisherStats = cachedData.publisherStats;
+        } else {
+          throw new Error(`Failed to load feeds: ${queryError instanceof Error ? queryError.message : 'Unknown error'}`);
+        }
+      }
       
       // Load publisher stats from the pre-built publisher data file
       // This contains actual publisher feeds (podcast:publisher references) not individual albums

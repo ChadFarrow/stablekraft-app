@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import { useSession } from '@/contexts/SessionContext';
+import { useNostr } from '@/contexts/NostrContext';
 import { getSessionId } from '@/lib/session-utils';
 import { toast } from '@/components/Toast';
+import { publishFavoriteTrackToNostr, publishFavoriteAlbumToNostr } from '@/lib/nostr/favorites';
 
 interface FavoriteButtonProps {
   trackId?: string;
@@ -22,6 +24,7 @@ export default function FavoriteButton({
   onToggle
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
+  const { user, isAuthenticated: isNostrAuthenticated, privateKey } = useNostr();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingState, setIsLoadingState] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
@@ -33,19 +36,30 @@ export default function FavoriteButton({
 
   // Check if item is favorited on mount
   useEffect(() => {
-    if (isLoading || !itemId || !sessionId) {
+    const currentSessionId = sessionId || getSessionId();
+    const currentUserId = isNostrAuthenticated && user ? user.id : null;
+    
+    if (isLoading || !itemId || (!currentSessionId && !currentUserId)) {
       setIsLoadingState(false);
       return;
     }
 
     const checkFavorite = async () => {
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        // Use Nostr user ID if authenticated, otherwise use session ID
+        if (currentUserId) {
+          headers['x-nostr-user-id'] = currentUserId;
+        } else if (currentSessionId) {
+          headers['x-session-id'] = currentSessionId;
+        }
+
         const response = await fetch('/api/favorites/check', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-id': sessionId
-          },
+          headers,
           body: JSON.stringify({
             trackIds: isTrack ? [trackId] : [],
             feedIds: !isTrack ? [feedId] : []
@@ -71,16 +85,18 @@ export default function FavoriteButton({
     };
 
     checkFavorite();
-  }, [sessionId, itemId, trackId, feedId, isTrack, isLoading]);
+  }, [sessionId, itemId, trackId, feedId, isTrack, isLoading, isNostrAuthenticated, user]);
 
   const toggleFavorite = async () => {
     if (isToggling || isLoadingState || !itemId) {
       return;
     }
 
-    // Get session ID if not available in context
+    // Get session ID or user ID
     const currentSessionId = sessionId || getSessionId();
-    if (!currentSessionId) {
+    const currentUserId = isNostrAuthenticated && user ? user.id : null;
+    
+    if (!currentSessionId && !currentUserId) {
       toast.error('Unable to save favorite. Please refresh the page.');
       return;
     }
@@ -99,12 +115,19 @@ export default function FavoriteButton({
     try {
       if (newFavoriteState) {
         // Add to favorites
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (currentUserId) {
+          headers['x-nostr-user-id'] = currentUserId;
+        } else if (currentSessionId) {
+          headers['x-session-id'] = currentSessionId;
+        }
+
         const response = await fetch(apiBase, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-id': currentSessionId
-          },
+          headers,
           body: JSON.stringify({
             [isTrack ? 'trackId' : 'feedId']: itemId
           })
@@ -120,13 +143,49 @@ export default function FavoriteButton({
           (error as any).status = response.status;
           throw error;
         }
+
+        // Publish to Nostr relays if user is logged in (also store in database above)
+        if (isNostrAuthenticated && user) {
+          try {
+            const nostrPrivateKey = privateKey || localStorage.getItem('nostr_private_key');
+            const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
+            
+            if (isTrack && trackId) {
+              await publishFavoriteTrackToNostr(
+                trackId,
+                nostrPrivateKey,
+                undefined, // Track title - could be fetched if needed
+                undefined, // Artist name - could be fetched if needed
+                userRelays
+              );
+            } else if (feedId) {
+              await publishFavoriteAlbumToNostr(
+                feedId,
+                nostrPrivateKey,
+                undefined, // Album title - could be fetched if needed
+                undefined, // Artist name - could be fetched if needed
+                userRelays
+              );
+            }
+          } catch (nostrError) {
+            // Don't fail the favorite action if Nostr publish fails
+            // Database storage already succeeded above
+            console.warn('Failed to publish favorite to Nostr:', nostrError);
+          }
+        }
       } else {
         // Remove from favorites
+        const headers: Record<string, string> = {};
+        
+        if (currentUserId) {
+          headers['x-nostr-user-id'] = currentUserId;
+        } else if (currentSessionId) {
+          headers['x-session-id'] = currentSessionId;
+        }
+
         const response = await fetch(`${apiBase}/${itemId}`, {
           method: 'DELETE',
-          headers: {
-            'x-session-id': currentSessionId
-          }
+          headers
         });
 
         responseStatus = response.status;

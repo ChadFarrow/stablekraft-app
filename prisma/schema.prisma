@@ -123,26 +123,111 @@ model UserPlaylist {
   @@index([isPublic])
 }
 
+model User {
+  id              String         @id @default(cuid())
+  nostrPubkey     String         @unique
+  nostrNpub       String         @unique
+  displayName     String?
+  avatar          String?
+  bio             String?
+  lightningAddress String?
+  relays          String[]       @default([])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  favoriteTracks  FavoriteTrack[]
+  favoriteAlbums FavoriteAlbum[]
+  follows         Follow[]       @relation("Follower")
+  followers       Follow[]       @relation("Following")
+  posts           NostrPost[]
+  boostEvents     BoostEvent[]
+
+  @@index([nostrPubkey])
+  @@index([nostrNpub])
+  @@index([createdAt])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@index([followerId, createdAt])
+}
+
+model NostrPost {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String   @unique
+  kind      Int
+  content   String
+  trackId   String?
+  feedId    String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([kind])
+  @@index([trackId])
+  @@index([feedId])
+  @@index([userId, createdAt])
+}
+
+model BoostEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  trackId     String
+  eventId     String   @unique
+  amount      Int
+  message     String?
+  paymentHash String?
+  relayUrls   String[] @default([])
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([trackId])
+  @@index([eventId])
+  @@index([userId, createdAt])
+  @@index([trackId, createdAt])
+}
+
 model FavoriteTrack {
   id        String   @id @default(cuid())
-  sessionId String
+  sessionId String?
+  userId    String?
   trackId   String
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, trackId])
+  @@unique([userId, trackId])
   @@index([sessionId])
+  @@index([userId])
   @@index([trackId])
   @@index([sessionId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model FavoriteAlbum {
   id        String   @id @default(cuid())
-  sessionId String
+  sessionId String?
+  userId    String?
   feedId    String
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, feedId])
+  @@unique([userId, feedId])
   @@index([sessionId])
+  @@index([userId])
   @@index([feedId])
   @@index([sessionId, createdAt])
+  @@index([userId, createdAt])
 }

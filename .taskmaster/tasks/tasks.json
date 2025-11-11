@@ -1,173 +1,175 @@
 {
-  "tasks": [
-    {
-      "id": 1,
-      "title": "RSS Parsing Skill",
-      "description": "Parse podcast RSS feeds and extract metadata including episodes, chapters, and music track information",
-      "status": "done",
-      "priority": "high",
-      "details": "The rss-parsing skill has been implemented according to Anthropic Skills specification. It provides parse podcast rss feeds and extract metadata including episodes, chapters, and music track information.",
-      "testStrategy": "Test rss-parsing skill with various inputs and validate outputs match expected schema.",
-      "subtasks": [
-        {
-          "id": "1.1",
-          "title": "Create rss-parsing skill implementation",
-          "description": "Implement the core functionality for rss-parsing",
-          "status": "done"
-        },
-        {
-          "id": "1.2",
-          "title": "Test rss-parsing skill",
-          "description": "Create comprehensive tests for rss-parsing",
-          "status": "done"
-        },
-        {
-          "id": "1.3",
-          "title": "Integrate rss-parsing with Task Master AI",
-          "description": "Add rss-parsing to Task Master AI workflow",
-          "status": "done"
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Music Extraction Skill",
-      "description": "Extract music tracks from podcast episodes using chapters, value splits, and content analysis",
-      "status": "done",
-      "priority": "high",
-      "details": "The music-extraction skill has been implemented according to Anthropic Skills specification. It provides extract music tracks from podcast episodes using chapters, value splits, and content analysis.",
-      "testStrategy": "Test music-extraction skill with various inputs and validate outputs match expected schema.",
-      "subtasks": [
-        {
-          "id": "2.1",
-          "title": "Create music-extraction skill implementation",
-          "description": "Implement the core functionality for music-extraction",
-          "status": "done"
-        },
-        {
-          "id": "2.2",
-          "title": "Test music-extraction skill",
-          "description": "Create comprehensive tests for music-extraction",
-          "status": "done"
-        },
-        {
-          "id": "2.3",
-          "title": "Integrate music-extraction with Task Master AI",
-          "description": "Add music-extraction to Task Master AI workflow",
-          "status": "done"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "V4V Resolution Skill",
-      "description": "Resolve Value4Value Lightning Network payment information for music tracks, artists, and podcast episodes",
-      "status": "done",
-      "priority": "high",
-      "details": "The v4v-resolution skill has been implemented according to Anthropic Skills specification. It provides resolve value4value lightning network payment information for music tracks, artists, and podcast episodes.",
-      "testStrategy": "Test v4v-resolution skill with various inputs and validate outputs match expected schema.",
-      "subtasks": [
-        {
-          "id": "3.1",
-          "title": "Create v4v-resolution skill implementation",
-          "description": "Implement the core functionality for v4v-resolution",
-          "status": "done"
-        },
-        {
-          "id": "3.2",
-          "title": "Test v4v-resolution skill",
-          "description": "Create comprehensive tests for v4v-resolution",
-          "status": "done"
-        },
-        {
-          "id": "3.3",
-          "title": "Integrate v4v-resolution with Task Master AI",
-          "description": "Add v4v-resolution to Task Master AI workflow",
-          "status": "done"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Database Operations Skill",
-      "description": "Execute database operations for music tracks, episodes, feeds, and playlists",
-      "status": "done",
-      "priority": "high",
-      "details": "The database-operations skill has been implemented according to Anthropic Skills specification. It provides execute database operations for music tracks, episodes, feeds, and playlists.",
-      "testStrategy": "Test database-operations skill with various inputs and validate outputs match expected schema.",
-      "subtasks": [
-        {
-          "id": "4.1",
-          "title": "Create database-operations skill implementation",
-          "description": "Implement the core functionality for database-operations",
-          "status": "done"
-        },
-        {
-          "id": "4.2",
-          "title": "Test database-operations skill",
-          "description": "Create comprehensive tests for database-operations",
-          "status": "done"
-        },
-        {
-          "id": "4.3",
-          "title": "Integrate database-operations with Task Master AI",
-          "description": "Add database-operations to Task Master AI workflow",
-          "status": "done"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Skills Integration Testing",
-      "description": "Test all skills working together in end-to-end scenarios",
-      "status": "done",
-      "priority": "high",
-      "details": "Comprehensive integration tests have been created to verify all skills work together correctly.",
-      "testStrategy": "Run integration tests to verify skills work together in realistic scenarios.",
-      "subtasks": [
-        {
-          "id": "5.1",
-          "title": "Create integration tests",
-          "description": "Create tests that verify skills work together",
-          "status": "completed"
-        },
-        {
-          "id": "5.2",
-          "title": "Test end-to-end workflows",
-          "description": "Test complete workflows from RSS parsing to database storage",
-          "status": "completed"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "Task Master AI Integration",
-      "description": "Integrate implemented skills with Task Master AI system",
-      "status": "done",
-      "priority": "high",
-      "details": "Skills have been integrated with Task Master AI through the skills registry and can be executed programmatically.",
-      "testStrategy": "Verify skills can be discovered and executed through Task Master AI.",
-      "subtasks": [
-        {
-          "id": "6.1",
-          "title": "Update skills registry",
-          "description": "Register all implemented skills in the skills registry",
-          "status": "completed"
-        },
-        {
-          "id": "6.2",
-          "title": "Create skill execution interface",
-          "description": "Create interface for Task Master AI to execute skills",
-          "status": "completed"
-        }
-      ]
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "RSS Parsing Skill",
+        "description": "Parse podcast RSS feeds and extract metadata including episodes, chapters, and music track information",
+        "status": "done",
+        "priority": "high",
+        "details": "The rss-parsing skill has been implemented according to Anthropic Skills specification. It provides parse podcast rss feeds and extract metadata including episodes, chapters, and music track information.",
+        "testStrategy": "Test rss-parsing skill with various inputs and validate outputs match expected schema.",
+        "subtasks": [
+          {
+            "id": "1.1",
+            "title": "Create rss-parsing skill implementation",
+            "description": "Implement the core functionality for rss-parsing",
+            "status": "done"
+          },
+          {
+            "id": "1.2",
+            "title": "Test rss-parsing skill",
+            "description": "Create comprehensive tests for rss-parsing",
+            "status": "done"
+          },
+          {
+            "id": "1.3",
+            "title": "Integrate rss-parsing with Task Master AI",
+            "description": "Add rss-parsing to Task Master AI workflow",
+            "status": "done"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Music Extraction Skill",
+        "description": "Extract music tracks from podcast episodes using chapters, value splits, and content analysis",
+        "status": "done",
+        "priority": "high",
+        "details": "The music-extraction skill has been implemented according to Anthropic Skills specification. It provides extract music tracks from podcast episodes using chapters, value splits, and content analysis.",
+        "testStrategy": "Test music-extraction skill with various inputs and validate outputs match expected schema.",
+        "subtasks": [
+          {
+            "id": "2.1",
+            "title": "Create music-extraction skill implementation",
+            "description": "Implement the core functionality for music-extraction",
+            "status": "done"
+          },
+          {
+            "id": "2.2",
+            "title": "Test music-extraction skill",
+            "description": "Create comprehensive tests for music-extraction",
+            "status": "done"
+          },
+          {
+            "id": "2.3",
+            "title": "Integrate music-extraction with Task Master AI",
+            "description": "Add music-extraction to Task Master AI workflow",
+            "status": "done"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "V4V Resolution Skill",
+        "description": "Resolve Value4Value Lightning Network payment information for music tracks, artists, and podcast episodes",
+        "status": "done",
+        "priority": "high",
+        "details": "The v4v-resolution skill has been implemented according to Anthropic Skills specification. It provides resolve value4value lightning network payment information for music tracks, artists, and podcast episodes.",
+        "testStrategy": "Test v4v-resolution skill with various inputs and validate outputs match expected schema.",
+        "subtasks": [
+          {
+            "id": "3.1",
+            "title": "Create v4v-resolution skill implementation",
+            "description": "Implement the core functionality for v4v-resolution",
+            "status": "done"
+          },
+          {
+            "id": "3.2",
+            "title": "Test v4v-resolution skill",
+            "description": "Create comprehensive tests for v4v-resolution",
+            "status": "done"
+          },
+          {
+            "id": "3.3",
+            "title": "Integrate v4v-resolution with Task Master AI",
+            "description": "Add v4v-resolution to Task Master AI workflow",
+            "status": "done"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Database Operations Skill",
+        "description": "Execute database operations for music tracks, episodes, feeds, and playlists",
+        "status": "done",
+        "priority": "high",
+        "details": "The database-operations skill has been implemented according to Anthropic Skills specification. It provides execute database operations for music tracks, episodes, feeds, and playlists.",
+        "testStrategy": "Test database-operations skill with various inputs and validate outputs match expected schema.",
+        "subtasks": [
+          {
+            "id": "4.1",
+            "title": "Create database-operations skill implementation",
+            "description": "Implement the core functionality for database-operations",
+            "status": "done"
+          },
+          {
+            "id": "4.2",
+            "title": "Test database-operations skill",
+            "description": "Create comprehensive tests for database-operations",
+            "status": "done"
+          },
+          {
+            "id": "4.3",
+            "title": "Integrate database-operations with Task Master AI",
+            "description": "Add database-operations to Task Master AI workflow",
+            "status": "done"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Skills Integration Testing",
+        "description": "Test all skills working together in end-to-end scenarios",
+        "status": "done",
+        "priority": "high",
+        "details": "Comprehensive integration tests have been created to verify all skills work together correctly.",
+        "testStrategy": "Run integration tests to verify skills work together in realistic scenarios.",
+        "subtasks": [
+          {
+            "id": "5.1",
+            "title": "Create integration tests",
+            "description": "Create tests that verify skills work together",
+            "status": "completed"
+          },
+          {
+            "id": "5.2",
+            "title": "Test end-to-end workflows",
+            "description": "Test complete workflows from RSS parsing to database storage",
+            "status": "completed"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Task Master AI Integration",
+        "description": "Integrate implemented skills with Task Master AI system",
+        "status": "done",
+        "priority": "high",
+        "details": "Skills have been integrated with Task Master AI through the skills registry and can be executed programmatically.",
+        "testStrategy": "Verify skills can be discovered and executed through Task Master AI.",
+        "subtasks": [
+          {
+            "id": "6.1",
+            "title": "Update skills registry",
+            "description": "Register all implemented skills in the skills registry",
+            "status": "completed"
+          },
+          {
+            "id": "6.2",
+            "title": "Create skill execution interface",
+            "description": "Create interface for Task Master AI to execute skills",
+            "status": "completed"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2025-10-18T20:22:42.970Z",
+      "source": "anthropic-skills-integration",
+      "version": "1.0.0",
+      "skillsImplemented": 4,
+      "integrationStatus": "completed"
     }
-  ],
-  "metadata": {
-    "generatedAt": "2025-10-18T20:22:42.970Z",
-    "source": "anthropic-skills-integration",
-    "version": "1.0.0",
-    "skillsImplemented": 4,
-    "integrationStatus": "completed"
   }
 }
