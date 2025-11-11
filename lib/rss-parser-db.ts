@@ -365,10 +365,15 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
     const items: ParsedItem[] = [];
     
     if (feed.items) {
-      console.log(`🔍 DEBUG: Processing ${feed.items.length} items...`);
+      console.log(`🔍 DEBUG: Processing ${feed.items.length} total items from RSS feed...`);
+      let skippedCount = 0;
+      let videoSkippedCount = 0;
       for (const item of feed.items) {
         // Skip items without enclosures
-        if (!item.enclosure?.url) continue;
+        if (!item.enclosure?.url) {
+          skippedCount++;
+          continue;
+        }
         
         // Skip video streams (HLS, MP4, etc.) - only include audio
         const enclosureType = item.enclosure.type?.toLowerCase() || '';
@@ -381,6 +386,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           enclosureUrl.includes('cloudflarestream.com')
         ) {
           console.log(`⏭️  Skipping video item: ${item.title || 'Untitled'}`);
+          videoSkippedCount++;
           continue;
         }
         
@@ -477,6 +483,8 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
         
         items.push(parsedItem);
       }
+      
+      console.log(`✅ DEBUG: Parsed ${items.length} audio items from feed (skipped ${skippedCount} without enclosures, ${videoSkippedCount} video items)`);
     }
     
     // Parse feed-level V4V data
