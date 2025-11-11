@@ -367,8 +367,22 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
     if (feed.items) {
       console.log(`🔍 DEBUG: Processing ${feed.items.length} items...`);
       for (const item of feed.items) {
-        // Skip items without audio enclosures
+        // Skip items without enclosures
         if (!item.enclosure?.url) continue;
+        
+        // Skip video streams (HLS, MP4, etc.) - only include audio
+        const enclosureType = item.enclosure.type?.toLowerCase() || '';
+        const enclosureUrl = item.enclosure.url.toLowerCase();
+        if (
+          enclosureType.includes('video') ||
+          enclosureType.includes('mpegurl') ||
+          enclosureType.includes('x-mpegurl') ||
+          enclosureUrl.includes('.m3u8') ||
+          enclosureUrl.includes('cloudflarestream.com')
+        ) {
+          console.log(`⏭️  Skipping video item: ${item.title || 'Untitled'}`);
+          continue;
+        }
         
         const parsedItem: ParsedItem = {
           guid: item.guid || undefined,
