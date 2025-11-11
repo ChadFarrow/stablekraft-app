@@ -246,9 +246,19 @@ export function getPublisherInfo(slug: string): { feedGuid: string; feedUrl: str
     return KNOWN_PUBLISHERS[slug];
   }
   
+  // Try without -publisher suffix (e.g., "ollie-publisher" -> "ollie")
+  const normalizedSlug = slug.replace(/-publisher$/, '');
+  if (normalizedSlug !== slug && KNOWN_PUBLISHERS[normalizedSlug]) {
+    return KNOWN_PUBLISHERS[normalizedSlug];
+  }
+  
   // Try to find by partial UUID match
   for (const [, publisher] of Object.entries(KNOWN_PUBLISHERS)) {
     if (publisher.feedGuid.startsWith(slug) || slug.startsWith(publisher.feedGuid.split('-')[0])) {
+      return publisher;
+    }
+    // Also try normalized slug
+    if (publisher.feedGuid.startsWith(normalizedSlug) || normalizedSlug.startsWith(publisher.feedGuid.split('-')[0])) {
       return publisher;
     }
   }

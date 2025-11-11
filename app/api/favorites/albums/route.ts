@@ -49,11 +49,31 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Map feeds with favorite metadata
-    const feedsWithFavorites = feeds.map(feed => ({
-      ...feed,
-      favoritedAt: favoriteAlbums.find(fa => fa.feedId === feed.id)?.createdAt
-    }));
+    // Create a map of feedId -> feed for quick lookup
+    const feedMap = new Map(feeds.map(feed => [feed.id, feed]));
+
+    // Map all favorites, including those without feeds (e.g., publishers not yet indexed)
+    const feedsWithFavorites = favoriteAlbums.map(favorite => {
+      const feed = feedMap.get(favorite.feedId);
+      if (feed) {
+        // Feed exists in database
+        return {
+          ...feed,
+          favoritedAt: favorite.createdAt
+        };
+      } else {
+        // Feed doesn't exist (e.g., publisher not yet indexed)
+        // Return a minimal feed object with just the favorite data
+        return {
+          id: favorite.feedId,
+          title: favorite.feedId, // Use feedId as fallback title
+          type: null, // Unknown type - will be filtered as non-publisher
+          favoritedAt: favorite.createdAt,
+          createdAt: favorite.createdAt,
+          updatedAt: favorite.createdAt
+        };
+      }
+    });
 
     return NextResponse.json({
       success: true,

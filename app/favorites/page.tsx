@@ -11,7 +11,7 @@ import { generateAlbumUrl } from '@/lib/url-utils';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
-import { Heart, Music, Disc } from 'lucide-react';
+import { Heart, Music, Disc, Users } from 'lucide-react';
 
 interface FavoriteTrack {
   id: string;
@@ -50,9 +50,10 @@ interface FavoriteAlbum {
 export default function FavoritesPage() {
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  const [activeTab, setActiveTab] = useState<'albums' | 'tracks'>('albums');
+  const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
+  const [favoritePublishers, setFavoritePublishers] = useState<FavoriteAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,7 +105,13 @@ export default function FavoritesPage() {
       const tracksData = await tracksResponse.json();
 
       if (albumsData.success) {
-        setFavoriteAlbums(albumsData.data || []);
+        const allAlbums = albumsData.data || [];
+        // Separate publishers from regular albums
+        // Publishers have type === 'publisher', everything else is an album
+        const albums = allAlbums.filter((album: any) => album.type !== 'publisher');
+        const publishers = allAlbums.filter((album: any) => album.type === 'publisher');
+        setFavoriteAlbums(albums);
+        setFavoritePublishers(publishers);
       }
 
       if (tracksData.success) {
@@ -168,7 +175,7 @@ export default function FavoritesPage() {
             <Heart className="w-10 h-10 text-red-500 fill-red-500" />
             My Favorites
           </h1>
-          <p className="text-gray-400">Your favorite tracks and albums</p>
+          <p className="text-gray-400">Your favorite tracks, albums, and publishers</p>
         </div>
 
         {/* Tabs */}
@@ -183,6 +190,17 @@ export default function FavoritesPage() {
           >
             <Disc className="w-5 h-5" />
             Albums ({favoriteAlbums.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('publishers')}
+            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'publishers'
+                ? 'text-white border-b-2 border-stablekraft-teal'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            Publishers ({favoritePublishers.length})
           </button>
           <button
             onClick={() => setActiveTab('tracks')}
@@ -243,6 +261,57 @@ export default function FavoritesPage() {
                     <AlbumCard
                       key={album.id}
                       album={albumForCard}
+                      onPlay={async () => {}}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Publishers Tab */}
+        {activeTab === 'publishers' && (
+          <div>
+            {favoritePublishers.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                <h2 className="text-2xl font-bold mb-2">No Favorite Publishers</h2>
+                <p className="text-gray-400 mb-4">Start favoriting publishers to see them here!</p>
+                <Link
+                  href="/"
+                  className="inline-block px-4 py-2 bg-stablekraft-teal text-white rounded-lg hover:bg-stablekraft-orange transition-colors"
+                >
+                  Browse Publishers
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {favoritePublishers.map((publisher) => {
+                  const publisherForCard = {
+                    id: publisher.id,
+                    title: publisher.title,
+                    artist: publisher.artist || publisher.title || 'Unknown Publisher',
+                    description: publisher.description || '',
+                    coverArt: publisher.image || '',
+                    releaseDate: publisher.favoritedAt,
+                    tracks: (publisher.Track || []).map(track => ({
+                      title: track.title,
+                      artist: track.artist || undefined,
+                      duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+                      url: '',
+                      id: track.id
+                    })),
+                    feedId: publisher.id,
+                    type: publisher.type,
+                    isPublisherCard: true,
+                    albumCount: (publisher as any).itemCount || (publisher.Track?.length || 0)
+                  };
+
+                  return (
+                    <AlbumCard
+                      key={publisher.id}
+                      album={publisherForCard}
                       onPlay={async () => {}}
                     />
                   );
