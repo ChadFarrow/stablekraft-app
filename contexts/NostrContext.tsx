@@ -14,6 +14,7 @@ export interface NostrUser {
   lightningAddress?: string;
   relays: string[];
   nip05Verified?: boolean;
+  loginType?: 'extension' | 'nip05'; // Track login method
 }
 
 interface NostrContextType {
@@ -51,17 +52,22 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Load user (extension-based login only)
+      // Load user (extension or NIP-05 login)
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
+          // Get login type from localStorage
+          const loginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | null;
+          if (loginType) {
+            userData.loginType = loginType;
+          }
           setUser(userData);
           
           if (process.env.NODE_ENV === 'development') {
             console.log('✅ NostrContext: User loaded from localStorage', {
               userId: userData.id,
               npub: userData.nostrNpub?.slice(0, 16) + '...',
-              loginType: 'extension',
+              loginType: userData.loginType || 'extension',
             });
           }
         } catch (parseError) {
@@ -96,6 +102,11 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
+          // Preserve loginType from localStorage if not in response
+          const storedLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | null;
+          if (storedLoginType && !data.user.loginType) {
+            data.user.loginType = storedLoginType;
+          }
           setUser(data.user);
           localStorage.setItem(NOSTR_USER_KEY, JSON.stringify(data.user));
         }
@@ -109,6 +120,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
   // Logout
   const logout = useCallback(() => {
     localStorage.removeItem(NOSTR_USER_KEY);
+    localStorage.removeItem('nostr_login_type'); // Remove login type
     setUser(null);
 
     // Call logout API
@@ -137,6 +149,11 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
+          // Preserve loginType when updating
+          const currentLoginType = user?.loginType || localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | null;
+          if (currentLoginType && !data.user.loginType) {
+            data.user.loginType = currentLoginType;
+          }
           setUser(data.user);
           localStorage.setItem(NOSTR_USER_KEY, JSON.stringify(data.user));
         }

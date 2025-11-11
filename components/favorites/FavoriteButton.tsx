@@ -109,6 +109,21 @@ export default function FavoriteButton({
       return;
     }
 
+    // Check if user is logged in via NIP-05 (read-only mode)
+    const isNip05Login = user?.loginType === 'nip05';
+    const isAddingFavorite = !isFavorite;
+
+    // Warn NIP-05 users when trying to add favorites
+    if (isNip05Login && isAddingFavorite) {
+      const hasExtension = typeof window !== 'undefined' && (window as any).nostr;
+      if (!hasExtension) {
+        toast.error('To add favorites, please use the extension login method. NIP-05 login is read-only for viewing favorites.');
+        return;
+      }
+      // If they have extension, allow it but warn that it will use extension
+      toast.info('Adding favorite will use your extension to sign the Nostr event.');
+    }
+
     setIsToggling(true);
     const newFavoriteState = !isFavorite;
 

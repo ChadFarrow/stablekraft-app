@@ -247,6 +247,7 @@ export async function POST(request: NextRequest) {
         bio: user.bio,
         lightningAddress: user.lightningAddress,
         relays: user.relays,
+        loginType: 'extension', // Mark as extension login
       },
       message: 'Login successful',
     });

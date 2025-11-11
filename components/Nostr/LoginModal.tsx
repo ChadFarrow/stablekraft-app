@@ -13,6 +13,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExtension, setHasExtension] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [nip05Identifier, setNip05Identifier] = useState('');
+  const [loginMethod, setLoginMethod] = useState<'extension' | 'nip05'>('extension');
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -57,6 +59,62 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return () => clearInterval(checkInterval);
     }
   }, []);
+
+  const handleNip05Login = async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      // Validate NIP-05 format
+      const nip05Regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!nip05Regex.test(nip05Identifier)) {
+        throw new Error('Invalid NIP-05 format. Expected: user@domain.com');
+      }
+
+      console.log('🔐 LoginModal: Starting NIP-05 login...', nip05Identifier);
+
+      // Login with NIP-05 identifier
+      const loginResponse = await fetch('/api/nostr/auth/nip05-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identifier: nip05Identifier.trim(),
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+      }
+
+      const loginData = await loginResponse.json();
+      console.log('📥 LoginModal: NIP-05 login response', { success: loginData.success, error: loginData.error });
+      
+      if (loginData.success && loginData.user) {
+        console.log('✅ LoginModal: NIP-05 login successful!', { userId: loginData.user?.id });
+        
+        // Save user data to localStorage
+        try {
+          localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
+          localStorage.setItem('nostr_login_type', 'nip05'); // Mark as NIP-05 login
+          console.log('💾 LoginModal: Saved user to localStorage (NIP-05 login)');
+        } catch (storageError) {
+          console.error('❌ LoginModal: Failed to save to localStorage:', storageError);
+        }
+        
+        onClose();
+        window.location.reload(); // Refresh to update context
+      } else {
+        throw new Error(loginData.error || 'Login failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'NIP-05 login failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleExtensionLogin = async () => {
     try {
@@ -166,7 +224,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         // For now, we'll save the user data and let the context handle the rest
         try {
           localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
-          console.log('💾 LoginModal: Saved user to localStorage');
+          localStorage.setItem('nostr_login_type', 'extension'); // Mark as extension login
+          console.log('💾 LoginModal: Saved user to localStorage (extension login)');
           
           // For extension login, we can't store the private key, but we can store a flag
           // The context will need to handle extension-based sessions differently
@@ -220,24 +279,90 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           </div>
         )}
 
-        {hasExtension ? (
+        {/* Login Method Tabs */}
+        <div className="mb-4 flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setLoginMethod('extension')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              loginMethod === 'extension'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Extension
+          </button>
+          <button
+            onClick={() => setLoginMethod('nip05')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              loginMethod === 'nip05'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            NIP-05
+          </button>
+        </div>
+
+        {/* Extension Login */}
+        {loginMethod === 'extension' && (
+          <>
+            {hasExtension ? (
+              <div className="mb-4">
+                <button
+                  onClick={handleExtensionLogin}
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {isSubmitting ? 'Connecting...' : '🔌 Connect with Alby Extension'}
+                </button>
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  Click to connect with your Alby extension
+                </p>
+              </div>
+            ) : (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-800">
+                  💡 <strong>Extension Required:</strong> Please install the <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="underline">Alby extension</a> to sign in with Nostr.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* NIP-05 Login */}
+        {loginMethod === 'nip05' && (
           <div className="mb-4">
+            <div className="mb-3">
+              <label htmlFor="nip05-input" className="block text-sm font-medium text-gray-700 mb-2">
+                NIP-05 Identifier
+              </label>
+              <input
+                id="nip05-input"
+                type="text"
+                value={nip05Identifier}
+                onChange={(e) => setNip05Identifier(e.target.value)}
+                placeholder="user@domain.com"
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !isSubmitting && nip05Identifier.trim()) {
+                    handleNip05Login();
+                  }
+                }}
+              />
+            </div>
             <button
-              onClick={handleExtensionLogin}
-              disabled={isSubmitting}
+              onClick={handleNip05Login}
+              disabled={isSubmitting || !nip05Identifier.trim()}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isSubmitting ? 'Connecting...' : '🔌 Connect with Alby Extension'}
+              {isSubmitting ? 'Verifying...' : '🔐 Sign in with NIP-05'}
             </button>
-            <p className="mt-2 text-xs text-gray-500 text-center">
-              Click to connect with your Alby extension
-            </p>
-          </div>
-        ) : (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-800">
-              💡 <strong>Extension Required:</strong> Please install the <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="underline">Alby extension</a> to sign in with Nostr.
-            </p>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-xs text-blue-800">
+                <strong>Read-only mode:</strong> NIP-05 login allows you to access your favorites. To add or remove favorites, you'll need to use the extension.
+              </p>
+            </div>
           </div>
         )}
 
