@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
+import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 
-// Simple cache to prevent multiple rapid calls
-let playlistCache: { data: any; timestamp: number } | null = null;
-const CACHE_DURATION = 60000; // 1 minute cache
-
-// Clear cache to ensure fresh artwork
-playlistCache = null;
+// Persistent cache duration - 90 days for static playlists (manual refresh when needed)
+const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
 
 interface RemoteItem {
   feedGuid: string;
@@ -69,11 +66,16 @@ export async function GET(request: Request) {
   try {
     console.log('🎵 Fetching ITDV playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
     
-    // Check cache first (disable for API resolution testing)
+    // Check for force refresh parameter
     const forceRefresh = new URL(request.url).searchParams.has('refresh');
-    if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION && !forceRefresh) {
-      console.log('⚡ Using cached playlist data');
-      return NextResponse.json(playlistCache.data);
+    
+    // Check persistent cache first
+    if (!forceRefresh && playlistCache.isCacheValid('itdv-playlist', CACHE_DURATION)) {
+      const cachedData = playlistCache.getCachedData('itdv-playlist');
+      if (cachedData) {
+        console.log('⚡ Using persistent cached playlist data');
+        return NextResponse.json(cachedData);
+      }
     }
     
     // Fetch the playlist XML
@@ -204,10 +206,7 @@ export async function GET(request: Request) {
     };
     
     // Cache the response
-    playlistCache = {
-      data: responseData,
-      timestamp: Date.now()
-    };
+    playlistCache.setCachedData('itdv-playlist', responseData);
     
     return NextResponse.json(responseData);
     

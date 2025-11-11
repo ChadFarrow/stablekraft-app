@@ -1,0 +1,67 @@
+name: Refresh Playlists Nightly
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (adjust timezone as needed)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  refresh-playlists:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Refresh All Playlists
+      run: |
+        echo "🔄 Refreshing all playlists..."
+        BASE_URL="${BASE_URL:-https://stablekraft.app}"
+        
+        # Step 1: Refresh playlist cache
+        echo "📋 Step 1: Refreshing playlist cache..."
+        REFRESH_RESPONSE=$(curl -s -w "\n%{http_code}" "${BASE_URL}/api/playlist-cache?refresh=all")
+        HTTP_CODE=$(echo "$REFRESH_RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$REFRESH_RESPONSE" | sed '$d')
+        
+        if [ "$HTTP_CODE" -eq 200 ]; then
+          echo "✅ Playlist cache refreshed successfully"
+          echo "$RESPONSE_BODY" | jq '.' || echo "$RESPONSE_BODY"
+        else
+          echo "❌ Failed to refresh playlist cache (HTTP $HTTP_CODE)"
+          echo "$RESPONSE_BODY"
+          exit 1
+        fi
+        
+        # Wait a bit for cache to settle
+        sleep 5
+        
+        # Step 2: Parse newly discovered feeds
+        echo ""
+        echo "📋 Step 2: Parsing newly discovered feeds..."
+        PARSE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/api/playlist/parse-feeds")
+        PARSE_HTTP_CODE=$(echo "$PARSE_RESPONSE" | tail -n1)
+        PARSE_BODY=$(echo "$PARSE_RESPONSE" | sed '$d')
+        
+        if [ "$PARSE_HTTP_CODE" -eq 200 ]; then
+          echo "✅ Feed parsing completed"
+          echo "$PARSE_BODY" | jq '.' || echo "$PARSE_BODY"
+          
+          # Extract summary
+          PARSED_COUNT=$(echo "$PARSE_BODY" | jq -r '.parsed // 0' 2>/dev/null || echo "0")
+          TOTAL_TRACKS=$(echo "$PARSE_BODY" | jq -r '.totalTracks // 0' 2>/dev/null || echo "0")
+          
+          if [ "$PARSED_COUNT" -gt 0 ]; then
+            echo "📊 Summary: Parsed $PARSED_COUNT feeds, imported $TOTAL_TRACKS tracks"
+          else
+            echo "ℹ️ No new feeds to parse"
+          fi
+        else
+          echo "⚠️ Feed parsing had issues (HTTP $PARSE_HTTP_CODE)"
+          echo "$PARSE_BODY"
+          # Don't fail the workflow if parsing has issues - it's not critical
+        fi
+        
+        echo ""
+        echo "✨ Playlist refresh workflow completed"
+      env:
+        BASE_URL: ${{ secrets.PLAYLIST_BASE_URL || 'https://stablekraft.app' }}
+
