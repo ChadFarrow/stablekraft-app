@@ -296,12 +296,9 @@ export function BoostButton({
             }
             
             // Build URL - use track URL if trackId exists, otherwise use album URL
-            // Use production URL by default, fallback to window.location.origin for local development
-            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                           process.env.NEXT_PUBLIC_SITE_URL || 
-                           (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                             ? window.location.origin 
-                             : 'https://stablekraft.app');
+            // Always use production URL for Nostr posts (stablekraft.app)
+            // Hardcode stablekraft.app for Nostr posts to ensure correct URLs in published events
+            const baseUrl = 'https://stablekraft.app';
             let url: string;
             if (trackId) {
               url = `${baseUrl}/music-tracks/${trackId}`;
