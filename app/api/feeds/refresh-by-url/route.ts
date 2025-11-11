@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // If feed doesn't exist, create it
     if (!feed) {
       try {
-        feed = await prisma.feed.create({
+        const newFeed = await prisma.feed.create({
           data: {
             id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             originalUrl,
@@ -55,11 +55,13 @@ export async function POST(request: NextRequest) {
           }
         });
         
+        feed = newFeed; // Assign to feed variable
+        
         // For new feeds, add all tracks from parsed feed
         if (parsedFeed.items.length > 0) {
           const tracksData = parsedFeed.items.map((item, index) => ({
-            id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
-            feedId: feed.id,
+            id: `${newFeed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
+            feedId: newFeed.id,
             guid: item.guid,
             title: item.title,
             subtitle: item.subtitle,
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
         
         // Return early for newly created feeds
         const newFeedWithCount = await prisma.feed.findUnique({
-          where: { id: feed.id },
+          where: { id: newFeed.id },
           include: {
             _count: {
               select: { Track: true }
