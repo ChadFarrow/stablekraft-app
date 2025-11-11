@@ -1527,9 +1527,9 @@ export default function HomePage() {
                             {/* Action Buttons */}
                             <div className="flex flex-col sm:flex-row gap-3">
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
                                   if (!shouldPreventClick()) {
-                                    playAlbum(spotlightAlbum);
+                                    playAlbum(spotlightAlbum, e);
                                   }
                                 }}
                                 className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
