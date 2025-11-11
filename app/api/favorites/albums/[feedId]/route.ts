@@ -33,12 +33,12 @@ export async function DELETE(
       where.sessionId = sessionId;
     }
 
-    // Remove from favorites
-    const deleted = await prisma.favoriteAlbum.deleteMany({
+    // Get the favorite first to retrieve nostrEventId before deleting
+    const favorite = await prisma.favoriteAlbum.findFirst({
       where
     });
 
-    if (deleted.count === 0) {
+    if (!favorite) {
       return NextResponse.json(
         {
           success: false,
@@ -48,9 +48,15 @@ export async function DELETE(
       );
     }
 
+    // Remove from favorites
+    await prisma.favoriteAlbum.deleteMany({
+      where
+    });
+
     return NextResponse.json({
       success: true,
-      message: 'Album removed from favorites'
+      message: 'Album removed from favorites',
+      nostrEventId: favorite.nostrEventId || null
     });
   } catch (error) {
     console.error('Error removing album from favorites:', error);

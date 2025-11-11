@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/favorites/albums
  * Add an album (feed) to favorites
- * Body: { feedId: string }
+ * Body: { feedId: string, nostrEventId?: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { feedId } = body;
+    const { feedId, nostrEventId } = body;
 
     if (!feedId || typeof feedId !== 'string') {
       return NextResponse.json(
@@ -155,6 +155,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing) {
+      // If it exists and we have a nostrEventId, update it
+      if (nostrEventId && !existing.nostrEventId) {
+        const updated = await prisma.favoriteAlbum.update({
+          where: { id: existing.id },
+          data: { nostrEventId }
+        });
+        return NextResponse.json({
+          success: true,
+          data: updated,
+          message: 'Album already in favorites, updated with Nostr event ID'
+        });
+      }
       return NextResponse.json({
         success: true,
         data: existing,
@@ -167,7 +179,8 @@ export async function POST(request: NextRequest) {
       data: {
         ...(userId ? { userId } : {}),
         ...(sessionId ? { sessionId } : {}),
-        feedId
+        feedId,
+        ...(nostrEventId ? { nostrEventId } : {})
       }
     });
 
@@ -202,3 +215,82 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/favorites/albums
+ * Update a favorite album (e.g., add nostrEventId)
+ * Body: { feedId: string, nostrEventId?: string }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
+    
+    if (!sessionId && !userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Session ID or user ID required'
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { feedId, nostrEventId } = body;
+
+    if (!feedId || typeof feedId !== 'string') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'feedId is required and must be a string'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Find the existing favorite
+    const where: any = { feedId };
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    }
+
+    const existing = await prisma.favoriteAlbum.findFirst({
+      where
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Favorite not found'
+        },
+        { status: 404 }
+      );
+    }
+
+    // Update with nostrEventId if provided
+    const updated = await prisma.favoriteAlbum.update({
+      where: { id: existing.id },
+      data: {
+        ...(nostrEventId ? { nostrEventId } : {})
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error updating favorite album:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to update favorite album',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}

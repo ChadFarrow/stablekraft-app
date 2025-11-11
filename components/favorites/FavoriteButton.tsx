@@ -150,8 +150,10 @@ export default function FavoriteButton({
             // Use extension-based signing (no private key needed)
             const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
             
+            let nostrEventId: string | null = null;
+            
             if (isTrack && trackId) {
-              await publishFavoriteTrackToNostr(
+              nostrEventId = await publishFavoriteTrackToNostr(
                 trackId,
                 null, // No private key - use extension
                 undefined, // Track title - could be fetched if needed
@@ -159,13 +161,34 @@ export default function FavoriteButton({
                 userRelays
               );
             } else if (feedId) {
-              await publishFavoriteAlbumToNostr(
+              nostrEventId = await publishFavoriteAlbumToNostr(
                 feedId,
                 null, // No private key - use extension
                 undefined, // Album title - could be fetched if needed
                 undefined, // Artist name - could be fetched if needed
                 userRelays
               );
+            }
+            
+            // Update the favorite in the database with the Nostr event ID
+            if (nostrEventId) {
+              try {
+                await fetch(apiBase, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(currentUserId ? { 'x-nostr-user-id': currentUserId } : {}),
+                    ...(currentSessionId ? { 'x-session-id': currentSessionId } : {}),
+                  },
+                  body: JSON.stringify({
+                    [isTrack ? 'trackId' : 'feedId']: itemId,
+                    nostrEventId
+                  })
+                });
+              } catch (updateError) {
+                // Non-critical - event was published to Nostr, just couldn't update DB
+                console.warn('Failed to update favorite with Nostr event ID:', updateError);
+              }
             }
           } catch (nostrError) {
             // Don't fail the favorite action if Nostr publish fails
@@ -197,6 +220,31 @@ export default function FavoriteButton({
           // Store status in error for better handling
           (error as any).status = response.status;
           throw error;
+        }
+
+        // If deletion succeeded and user is authenticated with Nostr, publish deletion event
+        if (isNostrAuthenticated && user) {
+          try {
+            const responseData = await response.json().catch(() => ({}));
+            const nostrEventId = responseData.nostrEventId;
+            
+            if (nostrEventId) {
+              const { deleteFavoriteFromNostr } = await import('@/lib/nostr/favorites');
+              const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
+              
+              await deleteFavoriteFromNostr(
+                nostrEventId,
+                null, // No private key - use extension
+                userRelays
+              );
+              
+              console.log('✅ Published favorite deletion to Nostr');
+            }
+          } catch (nostrError) {
+            // Don't fail the unfavorite action if Nostr deletion fails
+            // Database deletion already succeeded above
+            console.warn('Failed to publish favorite deletion to Nostr:', nostrError);
+          }
         }
       }
     } catch (error) {

@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/favorites/tracks
  * Add a track to favorites
- * Body: { trackId: string }
+ * Body: { trackId: string, nostrEventId?: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { trackId } = body;
+    const { trackId, nostrEventId } = body;
 
     if (!trackId || typeof trackId !== 'string') {
       return NextResponse.json(
@@ -153,6 +153,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing) {
+      // If it exists and we have a nostrEventId, update it
+      if (nostrEventId && !existing.nostrEventId) {
+        const updated = await prisma.favoriteTrack.update({
+          where: { id: existing.id },
+          data: { nostrEventId }
+        });
+        return NextResponse.json({
+          success: true,
+          data: updated,
+          message: 'Track already in favorites, updated with Nostr event ID'
+        });
+      }
       return NextResponse.json({
         success: true,
         data: existing,
@@ -165,7 +177,8 @@ export async function POST(request: NextRequest) {
       data: {
         ...(userId ? { userId } : {}),
         ...(sessionId ? { sessionId } : {}),
-        trackId
+        trackId,
+        ...(nostrEventId ? { nostrEventId } : {})
       }
     });
 
@@ -200,3 +213,82 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/favorites/tracks
+ * Update a favorite track (e.g., add nostrEventId)
+ * Body: { trackId: string, nostrEventId?: string }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
+    
+    if (!sessionId && !userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Session ID or user ID required'
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { trackId, nostrEventId } = body;
+
+    if (!trackId || typeof trackId !== 'string') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'trackId is required and must be a string'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Find the existing favorite
+    const where: any = { trackId };
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    }
+
+    const existing = await prisma.favoriteTrack.findFirst({
+      where
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Favorite not found'
+        },
+        { status: 404 }
+      );
+    }
+
+    // Update with nostrEventId if provided
+    const updated = await prisma.favoriteTrack.update({
+      where: { id: existing.id },
+      data: {
+        ...(nostrEventId ? { nostrEventId } : {})
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error updating favorite track:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to update favorite track',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}

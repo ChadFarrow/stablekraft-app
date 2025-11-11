@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession } from '@/contexts/SessionContext';
+import { useNostr } from '@/contexts/NostrContext';
 import { getSessionId } from '@/lib/session-utils';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl } from '@/lib/url-utils';
@@ -48,6 +49,7 @@ interface FavoriteAlbum {
 
 export default function FavoritesPage() {
   const { sessionId, isLoading: sessionLoading } = useSession();
+  const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
@@ -55,32 +57,42 @@ export default function FavoritesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (sessionLoading) return;
+    if (sessionLoading || nostrLoading) return;
 
-    const currentSessionId = sessionId || getSessionId();
-    if (!currentSessionId) {
-      setLoading(false);
-      return;
+    // If Nostr authenticated, use user ID; otherwise use session ID
+    if (isNostrAuthenticated && nostrUser) {
+      loadFavorites(null, nostrUser.id);
+    } else {
+      const currentSessionId = sessionId || getSessionId();
+      if (!currentSessionId) {
+        setLoading(false);
+        return;
+      }
+      loadFavorites(currentSessionId, null);
     }
+  }, [sessionId, sessionLoading, isNostrAuthenticated, nostrUser, nostrLoading]);
 
-    loadFavorites(currentSessionId);
-  }, [sessionId, sessionLoading]);
-
-  const loadFavorites = async (sessionId: string) => {
+  const loadFavorites = async (sessionId: string | null, userId: string | null) => {
     setLoading(true);
     setError(null);
 
     try {
+      const headers: HeadersInit = {};
+      if (userId) {
+        headers['x-nostr-user-id'] = userId;
+      } else if (sessionId) {
+        headers['x-session-id'] = sessionId;
+      } else {
+        setLoading(false);
+        return;
+      }
+
       const [albumsResponse, tracksResponse] = await Promise.all([
         fetch('/api/favorites/albums', {
-          headers: {
-            'x-session-id': sessionId
-          }
+          headers
         }),
         fetch('/api/favorites/tracks', {
-          headers: {
-            'x-session-id': sessionId
-          }
+          headers
         })
       ]);
 
@@ -108,13 +120,17 @@ export default function FavoritesPage() {
 
   const handleFavoriteToggle = () => {
     // Reload favorites when a favorite is toggled
-    const currentSessionId = sessionId || getSessionId();
-    if (currentSessionId) {
-      loadFavorites(currentSessionId);
+    if (isNostrAuthenticated && nostrUser) {
+      loadFavorites(null, nostrUser.id);
+    } else {
+      const currentSessionId = sessionId || getSessionId();
+      if (currentSessionId) {
+        loadFavorites(currentSessionId, null);
+      }
     }
   };
 
-  if (sessionLoading || loading) {
+  if (sessionLoading || nostrLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <LoadingSpinner size="large" text="Loading favorites..." />
@@ -122,15 +138,17 @@ export default function FavoritesPage() {
     );
   }
 
-  const currentSessionId = sessionId || getSessionId();
+  // Check if we have either a session or Nostr user
+  const hasSession = sessionId || getSessionId();
+  const hasUser = isNostrAuthenticated && nostrUser;
 
-  if (!currentSessionId) {
+  if (!hasSession && !hasUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
         <div className="text-center">
           <Heart className="w-16 h-16 mx-auto mb-4 text-gray-400" />
           <h1 className="text-2xl font-bold mb-2">No Session Found</h1>
-          <p className="text-gray-400 mb-4">Unable to load favorites. Please refresh the page.</p>
+          <p className="text-gray-400 mb-4">Unable to load favorites. Please sign in or refresh the page.</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-stablekraft-teal text-white rounded-lg hover:bg-stablekraft-orange transition-colors"

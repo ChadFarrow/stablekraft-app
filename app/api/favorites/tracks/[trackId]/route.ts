@@ -33,12 +33,12 @@ export async function DELETE(
       where.sessionId = sessionId;
     }
 
-    // Remove from favorites
-    const deleted = await prisma.favoriteTrack.deleteMany({
+    // Get the favorite first to retrieve nostrEventId before deleting
+    const favorite = await prisma.favoriteTrack.findFirst({
       where
     });
 
-    if (deleted.count === 0) {
+    if (!favorite) {
       return NextResponse.json(
         {
           success: false,
@@ -48,9 +48,15 @@ export async function DELETE(
       );
     }
 
+    // Remove from favorites
+    await prisma.favoriteTrack.deleteMany({
+      where
+    });
+
     return NextResponse.json({
       success: true,
-      message: 'Track removed from favorites'
+      message: 'Track removed from favorites',
+      nostrEventId: favorite.nostrEventId || null
     });
   } catch (error) {
     console.error('Error removing track from favorites:', error);

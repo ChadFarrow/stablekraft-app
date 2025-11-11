@@ -199,35 +199,39 @@ model BoostEvent {
 }
 
 model FavoriteTrack {
-  id        String   @id @default(cuid())
-  sessionId String?
-  userId    String?
-  trackId   String
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionId    String?
+  userId       String?
+  trackId      String
+  nostrEventId String?  // ID of the Nostr event published to relays
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, trackId])
   @@unique([userId, trackId])
   @@index([sessionId])
   @@index([userId])
   @@index([trackId])
+  @@index([nostrEventId])
   @@index([sessionId, createdAt])
   @@index([userId, createdAt])
 }
 
 model FavoriteAlbum {
-  id        String   @id @default(cuid())
-  sessionId String?
-  userId    String?
-  feedId    String
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionId    String?
+  userId       String?
+  feedId       String
+  nostrEventId String?  // ID of the Nostr event published to relays
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, feedId])
   @@unique([userId, feedId])
   @@index([sessionId])
   @@index([userId])
   @@index([feedId])
+  @@index([nostrEventId])
   @@index([sessionId, createdAt])
   @@index([userId, createdAt])
 }
