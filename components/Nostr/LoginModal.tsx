@@ -77,15 +77,42 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       console.log('✅ LoginModal: Got public key', publicKey.slice(0, 16) + '...');
 
       // Request signature for challenge
-      const challengeResponse = await fetch('/api/nostr/auth/challenge', {
-        method: 'POST',
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error('Failed to get challenge');
+      let challengeResponse;
+      try {
+        challengeResponse = await fetch('/api/nostr/auth/challenge', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (fetchError) {
+        console.error('❌ LoginModal: Network error fetching challenge:', fetchError);
+        throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Failed to connect to server'}`);
       }
 
-      const challengeData = await challengeResponse.json();
+      if (!challengeResponse.ok) {
+        const errorText = await challengeResponse.text().catch(() => 'Unknown error');
+        console.error('❌ LoginModal: Challenge request failed:', {
+          status: challengeResponse.status,
+          statusText: challengeResponse.statusText,
+          body: errorText,
+        });
+        throw new Error(`Failed to get challenge: ${challengeResponse.status} ${challengeResponse.statusText}`);
+      }
+
+      let challengeData;
+      try {
+        challengeData = await challengeResponse.json();
+      } catch (parseError) {
+        console.error('❌ LoginModal: Failed to parse challenge response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+
+      if (!challengeData.challenge) {
+        console.error('❌ LoginModal: Challenge response missing challenge field:', challengeData);
+        throw new Error('Invalid challenge response from server');
+      }
+
       const challenge = challengeData.challenge;
 
       // Sign challenge with extension
