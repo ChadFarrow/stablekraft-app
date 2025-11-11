@@ -117,19 +117,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify feed exists
+    // Verify feed exists (but allow publisher feeds and be lenient)
     const feed = await prisma.feed.findUnique({
       where: { id: feedId }
     });
 
+    // If feed not found, check if it's a publisher feed (type === 'publisher')
+    // Allow favoriting even if feed doesn't exist - favorites are user preferences
+    // and don't necessarily require the feed to be in the database
     if (!feed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Album (feed) not found'
-        },
-        { status: 404 }
-      );
+      // Try to find by checking if it's a publisher feed
+      const publisherFeed = await prisma.feed.findFirst({
+        where: {
+          id: feedId,
+          type: 'publisher'
+        }
+      });
+
+      // If it's not a publisher feed either, still allow favoriting
+      // (user might be favoriting something that hasn't been indexed yet)
+      // We'll just skip the feed validation and proceed
     }
 
     // Check if already favorited
@@ -209,6 +216,85 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'Failed to add album to favorites',
         details: errorMessage
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/favorites/albums
+ * Remove an album from favorites (using body instead of path param for URL feedIds)
+ * Body: { feedId: string }
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const sessionId = getSessionIdFromRequest(request);
+    const userId = request.headers.get('x-nostr-user-id');
+    
+    if (!sessionId && !userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Session ID or user ID required'
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const feedId = body.feedId;
+
+    if (!feedId || typeof feedId !== 'string') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'feedId is required and must be a string'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Build where clause - support both session and user
+    const where: any = { feedId };
+    if (userId) {
+      where.userId = userId;
+    } else if (sessionId) {
+      where.sessionId = sessionId;
+    }
+
+    // Get the favorite first to retrieve nostrEventId before deleting
+    const favorite = await prisma.favoriteAlbum.findFirst({
+      where
+    });
+
+    if (!favorite) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Favorite not found'
+        },
+        { status: 404 }
+      );
+    }
+
+    // Remove from favorites
+    await prisma.favoriteAlbum.deleteMany({
+      where
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Album removed from favorites',
+      nostrEventId: favorite.nostrEventId || null
+    });
+  } catch (error) {
+    console.error('Error removing album from favorites:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to remove album from favorites',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );

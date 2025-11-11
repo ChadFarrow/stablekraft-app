@@ -13,6 +13,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { toast } from '@/components/Toast';
 import dataService from '@/lib/data-service';
 import BackButton from '@/components/BackButton';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 interface PublisherDetailClientProps {
   publisherId: string;
@@ -38,6 +39,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       // Use actual tracks if provided, otherwise create placeholders
       return initialData.albums.map((album: any) => ({
         id: album.id,
+        feedId: album.id, // Add feedId for favorite button
         title: album.title,
         artist: album.artist,
         description: album.description,
@@ -92,6 +94,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       );
       return validItems.map((item: any) => ({
         id: item.id || item.feedGuid || `album-${Math.random()}`,
+        feedId: item.id || item.feedGuid || `album-${Math.random()}`, // Add feedId for favorite button
         title: item.title,
         artist: item.artist,
         description: item.description,
@@ -312,6 +315,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
               console.log(`🏢 Processing ${validItems.length} valid items with tracks:`, validItems);
               const albumsFromItems = validItems.map((item: any) => ({
                 id: item.id || item.feedGuid || `album-${Math.random()}`,
+                feedId: item.id || item.feedGuid || `album-${Math.random()}`, // Add feedId for favorite button
                 title: item.title,
                 artist: item.artist,
                 description: item.description,
@@ -337,6 +341,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 console.log(`✅ Using ${initialData.albums.length} server-provided albums instead of fetching`);
                 const formattedAlbums = initialData.albums.map((album: any) => ({
                   id: album.id,
+                  feedId: album.id, // Add feedId for favorite button
                   title: album.title,
                   artist: album.artist,
                   description: album.description,
@@ -524,6 +529,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                   const albumData = feed.parsedData.album;
                   return {
                     id: feed.id,
+                    feedId: feed.id, // Add feedId for favorite button
                     title: albumData.title || feed.title || 'Unknown Album',
                     artist: albumData.artist || publisherInfo.name || 'Unknown Artist',
                     description: albumData.description || albumData.summary || 'Album from publisher',
@@ -543,6 +549,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 // For regular publisherItems, convert directly to album format
                 const albumsFromItems = items.map((item: any) => ({
                   id: item.id || `album-${Math.random()}`,
+                  feedId: item.id || `album-${Math.random()}`, // Add feedId for favorite button
                   title: item.title || item.feedUrl?.split('/').pop()?.replace('.xml', '') || 'Unknown Album',
                   artist: item.artist || publisherInfo.name || 'Unknown Artist',
                   description: item.description || 'Album from publisher',
@@ -1124,6 +1131,29 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                           <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
                             {album.tracks?.length || 0} tracks
                           </div>
+                          
+                          {/* Favorite Button */}
+                          {(album.id || album.feedId) && (
+                            <div
+                              className="absolute bottom-3 right-3 z-20"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onTouchStart={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
+                                <FavoriteButton
+                                  feedId={album.feedId || album.id}
+                                  size={18}
+                                  className="text-white"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="p-4">
@@ -1197,7 +1227,28 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                           )}
                         </div>
                         
-                        <Play className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                        <div className="flex items-center gap-2">
+                          {/* Favorite Button */}
+                          {(album.id || album.feedId) && (
+                            <div
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onTouchStart={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              <FavoriteButton
+                                feedId={album.feedId || album.id}
+                                size={18}
+                                className="text-white"
+                              />
+                            </div>
+                          )}
+                          <Play className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                        </div>
                       </Link>
                     ))}
                   </div>

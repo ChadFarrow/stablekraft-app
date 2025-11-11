@@ -11,7 +11,10 @@ export async function DELETE(
   { params }: { params: Promise<{ feedId: string }> }
 ) {
   try {
-    const { feedId } = await params;
+    let { feedId } = await params;
+    // Decode URL-encoded feedId (in case it contains special characters)
+    feedId = decodeURIComponent(feedId);
+    
     const sessionId = getSessionIdFromRequest(request);
     const userId = request.headers.get('x-nostr-user-id');
     

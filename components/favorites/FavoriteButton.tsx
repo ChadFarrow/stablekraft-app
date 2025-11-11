@@ -14,6 +14,7 @@ interface FavoriteButtonProps {
   className?: string;
   size?: number;
   onToggle?: (isFavorite: boolean) => void;
+  isFavorite?: boolean; // Optional prop to set initial favorite state (useful on favorites page)
 }
 
 export default function FavoriteButton({
@@ -21,12 +22,13 @@ export default function FavoriteButton({
   feedId,
   className = '',
   size = 24,
-  onToggle
+  onToggle,
+  isFavorite: initialIsFavorite
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
   const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isLoadingState, setIsLoadingState] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(initialIsFavorite ?? false);
+  const [isLoadingState, setIsLoadingState] = useState(initialIsFavorite === undefined);
   const [isToggling, setIsToggling] = useState(false);
 
   // Determine the API endpoint and ID
@@ -34,8 +36,14 @@ export default function FavoriteButton({
   const isTrack = !!trackId;
   const apiBase = isTrack ? '/api/favorites/tracks' : '/api/favorites/albums';
 
-  // Check if item is favorited on mount
+  // Check if item is favorited on mount (skip if isFavorite prop is provided)
   useEffect(() => {
+    // If isFavorite prop is provided, skip the API check
+    if (initialIsFavorite !== undefined) {
+      setIsLoadingState(false);
+      return;
+    }
+
     const currentSessionId = sessionId || getSessionId();
     const currentUserId = isNostrAuthenticated && user ? user.id : null;
     
@@ -125,32 +133,12 @@ export default function FavoriteButton({
           headers['x-session-id'] = currentSessionId;
         }
 
-        const response = await fetch(apiBase, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            [isTrack ? 'trackId' : 'feedId']: itemId
-          })
-        });
-
-        responseStatus = response.status;
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMsg = errorData.error || 'Failed to add to favorites';
-          const error = new Error(errorMsg);
-          // Store status in error for better handling
-          (error as any).status = response.status;
-          throw error;
-        }
-
-        // Publish to Nostr relays if user is logged in (also store in database above)
+        // Publish to Nostr first to get the event ID, then create favorite with it
+        let nostrEventId: string | null = null;
         if (isNostrAuthenticated && user) {
           try {
             // Use extension-based signing (no private key needed)
             const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
-            
-            let nostrEventId: string | null = null;
             
             if (isTrack && trackId) {
               nostrEventId = await publishFavoriteTrackToNostr(
@@ -169,31 +157,71 @@ export default function FavoriteButton({
                 userRelays
               );
             }
-            
-            // Update the favorite in the database with the Nostr event ID
-            if (nostrEventId) {
-              try {
-                await fetch(apiBase, {
-                  method: 'PATCH',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(currentUserId ? { 'x-nostr-user-id': currentUserId } : {}),
-                    ...(currentSessionId ? { 'x-session-id': currentSessionId } : {}),
-                  },
-                  body: JSON.stringify({
-                    [isTrack ? 'trackId' : 'feedId']: itemId,
-                    nostrEventId
-                  })
-                });
-              } catch (updateError) {
-                // Non-critical - event was published to Nostr, just couldn't update DB
-                console.warn('Failed to update favorite with Nostr event ID:', updateError);
-              }
-            }
           } catch (nostrError) {
             // Don't fail the favorite action if Nostr publish fails
-            // Database storage already succeeded above
+            // We'll still create the favorite in the database
             console.warn('Failed to publish favorite to Nostr:', nostrError);
+          }
+        }
+
+        const response = await fetch(apiBase, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            [isTrack ? 'trackId' : 'feedId']: itemId,
+            ...(nostrEventId ? { nostrEventId } : {})
+          })
+        });
+
+        responseStatus = response.status;
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error || 'Failed to add to favorites';
+          const errorDetails = errorData.details || errorData.debug || '';
+          const fullErrorMsg = errorDetails ? `${errorMsg}: ${errorDetails}` : errorMsg;
+          console.error('Favorite API error:', {
+            status: response.status,
+            error: errorMsg,
+            details: errorDetails,
+            debug: errorData.debug
+          });
+          const error = new Error(fullErrorMsg);
+          // Store status in error for better handling
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        // Parse response data
+        const responseData = await response.json().catch(() => ({}));
+
+        // If we published to Nostr but didn't have the event ID when creating,
+        // try to update it now (fallback for race conditions)
+        if (isNostrAuthenticated && user && nostrEventId) {
+          try {
+            // Only update if the favorite was created without nostrEventId
+            if (responseData.data && !responseData.data.nostrEventId) {
+              const updateResponse = await fetch(apiBase, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(currentUserId ? { 'x-nostr-user-id': currentUserId } : {}),
+                  ...(currentSessionId ? { 'x-session-id': currentSessionId } : {}),
+                },
+                body: JSON.stringify({
+                  [isTrack ? 'trackId' : 'feedId']: itemId,
+                  nostrEventId
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                const errorData = await updateResponse.json().catch(() => ({}));
+                console.warn('Failed to update favorite with Nostr event ID:', errorData);
+              }
+            }
+          } catch (updateError) {
+            // Non-critical - event was published to Nostr, just couldn't update DB
+            console.warn('Failed to update favorite with Nostr event ID:', updateError);
           }
         }
       } else {
@@ -206,9 +234,17 @@ export default function FavoriteButton({
           headers['x-session-id'] = currentSessionId;
         }
 
-        const response = await fetch(`${apiBase}/${itemId}`, {
+        // For DELETE, send trackId/feedId in the body instead of URL path
+        // This handles cases where the ID is a full URL (https://...)
+        const response = await fetch(apiBase, {
           method: 'DELETE',
-          headers
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            [isTrack ? 'trackId' : 'feedId']: itemId
+          })
         });
 
         responseStatus = response.status;

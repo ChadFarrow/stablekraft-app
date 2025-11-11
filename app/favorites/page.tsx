@@ -307,6 +307,7 @@ export default function FavoritesPage() {
                       <FavoriteButton
                         trackId={track.id}
                         onToggle={handleFavoriteToggle}
+                        isFavorite={true}
                       />
                     </div>
                   </div>

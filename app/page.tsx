@@ -492,6 +492,7 @@ export default function HomePage() {
           
           return {
             id: publisher.id,
+            feedId: publisher.id, // Add feedId for favorite button (use publisher ID)
             title: publisher.title,
             artist: publisher.title,
             description: publisher.description || `${publisher.itemCount} releases`,

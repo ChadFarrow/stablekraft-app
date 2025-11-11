@@ -11,7 +11,10 @@ export async function DELETE(
   { params }: { params: Promise<{ trackId: string }> }
 ) {
   try {
-    const { trackId } = await params;
+    let { trackId } = await params;
+    // Decode URL-encoded trackId (in case it's a URL)
+    trackId = decodeURIComponent(trackId);
+    
     const sessionId = getSessionIdFromRequest(request);
     const userId = request.headers.get('x-nostr-user-id');
     
