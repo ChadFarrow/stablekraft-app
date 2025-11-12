@@ -46,7 +46,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isConnected, setIsConnected] = useState(false);
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated: isNostrAuthenticated } = useNostr();
+  const { isAuthenticated: isNostrAuthenticated, user: nostrUser } = useNostr();
 
   // Debug logging
   console.log('BitcoinConnectProvider render:', { isConnected, isLoading, isNostrAuthenticated });
@@ -162,7 +162,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   // Auto-connect WebLN when Nostr user is authenticated (Alby extension)
   // This will override any existing wallet connection to use the same Alby wallet for Lightning
+  // Skip auto-connect for NIP-05 logins (read-only mode)
   useEffect(() => {
+    // Skip if user logged in with NIP-05 (read-only mode, no extension)
+    const isNip05Login = nostrUser?.loginType === 'nip05';
+    if (isNip05Login) {
+      console.log('ℹ️ NIP-05 login detected - skipping WebLN auto-connect (read-only mode)');
+      return;
+    }
+
     // If Nostr user is authenticated, switch to Alby's WebLN (same wallet as Nostr)
     if (isNostrAuthenticated && typeof window !== 'undefined') {
       // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
@@ -198,7 +206,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         }
       }
     }
-  }, [isNostrAuthenticated, provider]);
+  }, [isNostrAuthenticated, provider, nostrUser]);
 
   const connect = async () => {
     try {
@@ -206,7 +214,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       setIsLoading(true);
 
       // If Nostr user is authenticated, check for WebLN first (Alby extension)
-      if (isNostrAuthenticated && typeof window !== 'undefined' && (window as any).webln) {
+      // Skip if user logged in with NIP-05 (read-only mode)
+      const isNip05Login = nostrUser?.loginType === 'nip05';
+      if (isNostrAuthenticated && !isNip05Login && typeof window !== 'undefined' && (window as any).webln) {
         console.log('🔗 Nostr user authenticated - using WebLN from Alby extension');
         try {
           const weblnProvider = (window as any).webln;

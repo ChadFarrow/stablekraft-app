@@ -113,15 +113,10 @@ export default function FavoriteButton({
     const isNip05Login = user?.loginType === 'nip05';
     const isAddingFavorite = !isFavorite;
 
-    // Warn NIP-05 users when trying to add favorites
-    if (isNip05Login && isAddingFavorite) {
-      const hasExtension = typeof window !== 'undefined' && (window as any).nostr;
-      if (!hasExtension) {
-        toast.error('To add favorites, please use the extension login method. NIP-05 login is read-only for viewing favorites.');
-        return;
-      }
-      // If they have extension, allow it but warn that it will use extension
-      toast.info('Adding favorite will use your extension to sign the Nostr event.');
+    // NIP-05 users are read-only - they can view favorites but not add/remove them
+    if (isNip05Login) {
+      toast.error('NIP-05 login is read-only. To add or remove favorites, please use the extension login method.');
+      return;
     }
 
     setIsToggling(true);
@@ -149,8 +144,9 @@ export default function FavoriteButton({
         }
 
         // Publish to Nostr first to get the event ID, then create favorite with it
+        // Skip Nostr publishing for NIP-05 users (read-only mode, no signing)
         let nostrEventId: string | null = null;
-        if (isNostrAuthenticated && user) {
+        if (isNostrAuthenticated && user && !isNip05Login) {
           try {
             // Use extension-based signing (no private key needed)
             const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
@@ -274,7 +270,8 @@ export default function FavoriteButton({
         }
 
         // If deletion succeeded and user is authenticated with Nostr, publish deletion event
-        if (isNostrAuthenticated && user) {
+        // Skip Nostr publishing for NIP-05 users (read-only mode, no signing)
+        if (isNostrAuthenticated && user && !isNip05Login) {
           try {
             const responseData = await response.json().catch(() => ({}));
             const nostrEventId = responseData.nostrEventId;

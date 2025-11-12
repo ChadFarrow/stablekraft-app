@@ -360,7 +360,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             </button>
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-xs text-blue-800">
-                <strong>Read-only mode:</strong> NIP-05 login allows you to access your favorites. To add or remove favorites, you'll need to use the extension.
+                <strong>Read-only mode:</strong> NIP-05 login allows you to view your favorites. To add or remove favorites, you'll need to use the extension login method.
               </p>
             </div>
           </div>
