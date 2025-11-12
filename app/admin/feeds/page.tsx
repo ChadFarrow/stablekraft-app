@@ -1,10 +1,5 @@
-import FeedManager from '@/components/FeedManager';
+import { redirect } from 'next/navigation';
 
 export default function FeedsAdminPage() {
-  return <FeedManager />;
+  redirect('/admin');
 }
-
-export const metadata = {
-  title: 'Feed Manager - StableKraft',
-  description: 'Manage RSS feeds and music sources',
-};
