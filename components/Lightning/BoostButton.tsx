@@ -684,7 +684,7 @@ export function BoostButton({
 
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6">
+          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6 relative" style={{ transform: 'translate(0, 0)' }}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">
                 Send a Boost ⚡
