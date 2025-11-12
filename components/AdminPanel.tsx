@@ -3,28 +3,10 @@
 import { useState, useEffect } from 'react';
 import { toast } from '@/components/Toast';
 
-// ManagedFeed type definition (previously from feed-manager)
-interface ManagedFeed {
-  id: string;
-  originalUrl: string;
-  cdnUrl?: string;
-  type: 'album' | 'publisher';
-  status: 'active' | 'processing' | 'error' | 'pending';
-  source?: 'hardcoded' | 'managed';
-  title?: string;
-  artist?: string;
-  addedAt: string;
-  lastFetched?: string;
-  lastError?: string;
-  albumCount?: number;
-}
-
 export default function AdminPanel() {
-  const [feeds, setFeeds] = useState<ManagedFeed[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [addingFeed, setAddingFeed] = useState(false);
   const [newFeedUrl, setNewFeedUrl] = useState('');
-  const [newFeedType, setNewFeedType] = useState<'album' | 'publisher'>('album');
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -37,10 +19,8 @@ export default function AdminPanel() {
     const savedAuth = localStorage.getItem('admin-authenticated');
     if (savedAuth === 'true') {
       setIsAuthenticated(true);
-      loadFeeds();
-    } else {
-      setLoading(false);
     }
+    setLoading(false);
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -50,7 +30,6 @@ export default function AdminPanel() {
       setIsAuthenticated(true);
       setAuthError('');
       localStorage.setItem('admin-authenticated', 'true');
-      loadFeeds();
     } else {
       setAuthError('Incorrect passphrase. Please try again.');
       setPassphrase('');
@@ -64,23 +43,6 @@ export default function AdminPanel() {
     setAuthError('');
   };
 
-  const loadFeeds = async () => {
-    try {
-      const response = await fetch('/api/admin/all-feeds');
-      const data = await response.json();
-      
-      if (data.success) {
-        setFeeds(data.feeds);
-      } else {
-        toast.error('Failed to load feeds');
-      }
-    } catch (error) {
-      console.error('Error loading feeds:', error);
-      toast.error('Error loading feeds');
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   const addFeed = async (e: React.FormEvent) => {
@@ -136,8 +98,6 @@ export default function AdminPanel() {
             : data.warning || 'Feed added but parsing had issues. Check feed details.'
         );
         setNewFeedUrl('');
-        setNewFeedType('album');
-        await loadFeeds();
       } else if (response.status === 409) {
         toast.info('This feed already exists in the database');
       } else {
@@ -151,74 +111,6 @@ export default function AdminPanel() {
     }
   };
 
-  const removeFeed = async (id: string, source: string) => {
-    if (source === 'hardcoded') {
-      toast.error('Cannot remove hardcoded feeds through admin interface');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to remove this feed?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/admin/feeds/${id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Feed removed successfully');
-        await loadFeeds();
-      } else {
-        toast.error(data.error || 'Failed to remove feed');
-      }
-    } catch (error) {
-      console.error('Error removing feed:', error);
-      toast.error('Error removing feed');
-    }
-  };
-
-  const refreshFeed = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/feeds/${id}/refresh`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Feed refreshed successfully');
-        await loadFeeds();
-      } else {
-        toast.error(data.error || 'Failed to refresh feed');
-      }
-    } catch (error) {
-      console.error('Error refreshing feed:', error);
-      toast.error('Error refreshing feed');
-    }
-  };
-
-  const getStatusColor = (status: ManagedFeed['status']) => {
-    switch (status) {
-      case 'active': return 'text-green-400';
-      case 'processing': return 'text-yellow-400';
-      case 'error': return 'text-red-400';
-      case 'pending': return 'text-blue-400';
-      default: return 'text-gray-400';
-    }
-  };
-
-  const getStatusIcon = (status: ManagedFeed['status']) => {
-    switch (status) {
-      case 'active': return '✅';
-      case 'processing': return '⏳';
-      case 'error': return '❌';
-      case 'pending': return '⏸️';
-      default: return '❓';
-    }
-  };
 
   // Authentication screen
   if (!isAuthenticated && !loading) {
@@ -347,105 +239,6 @@ export default function AdminPanel() {
           </form>
         </div>
 
-        {/* Feeds List */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-          <div className="p-6 border-b border-white/10">
-            <h2 className="text-2xl font-semibold">Managed Feeds ({feeds.length})</h2>
-          </div>
-          
-          {feeds.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-gray-400 text-lg">No feeds managed yet</p>
-              <p className="text-gray-500 text-sm mt-2">Add your first RSS feed above to get started</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-white/10">
-              {feeds.map((feed) => (
-                <div key={feed.id} className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-lg">{getStatusIcon(feed.status)}</span>
-                        <span className={`text-sm font-medium ${getStatusColor(feed.status)}`}>
-                          {feed.status.toUpperCase()}
-                        </span>
-                        <span className="text-xs bg-white/10 px-2 py-1 rounded">
-                          {feed.type}
-                        </span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          feed.source === 'hardcoded' 
-                            ? 'bg-blue-600/80 text-blue-100' 
-                            : 'bg-green-600/80 text-green-100'
-                        }`}>
-                          {feed.source === 'hardcoded' ? 'Built-in' : 'Added'}
-                        </span>
-                      </div>
-                      
-                      {feed.title && (
-                        <h3 className="text-lg font-semibold mb-1">
-                          {feed.title} {feed.artist && `by ${feed.artist}`}
-                        </h3>
-                      )}
-                      
-                      <p className="text-gray-400 text-sm break-all mb-2">
-                        {feed.originalUrl}
-                      </p>
-                      
-                      {feed.cdnUrl && (
-                        <p className="text-blue-400 text-sm break-all mb-2">
-                          CDN: {feed.cdnUrl}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>Added: {new Date(feed.addedAt).toLocaleString()}</span>
-                        {feed.lastFetched && (
-                          <span>Last fetched: {new Date(feed.lastFetched).toLocaleString()}</span>
-                        )}
-                        {feed.albumCount && (
-                          <span>Albums: {feed.albumCount}</span>
-                        )}
-                      </div>
-                      
-                      {feed.lastError && (
-                        <p className="text-red-400 text-sm mt-2 bg-red-500/10 p-2 rounded">
-                          Error: {feed.lastError}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={() => refreshFeed(feed.id)}
-                        disabled={feed.source === 'hardcoded'}
-                        className={`px-3 py-1 rounded transition-colors text-sm ${
-                          feed.source === 'hardcoded'
-                            ? 'bg-gray-600/20 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
-                        }`}
-                        title={feed.source === 'hardcoded' ? 'Cannot refresh hardcoded feeds' : 'Refresh feed'}
-                      >
-                        🔄
-                      </button>
-                      <button
-                        onClick={() => removeFeed(feed.id, feed.source || 'managed')}
-                        disabled={feed.source === 'hardcoded'}
-                        className={`px-3 py-1 rounded transition-colors text-sm ${
-                          feed.source === 'hardcoded'
-                            ? 'bg-gray-600/20 text-gray-500 cursor-not-allowed'
-                            : 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
-                        }`}
-                        title={feed.source === 'hardcoded' ? 'Cannot remove hardcoded feeds' : 'Remove feed'}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
