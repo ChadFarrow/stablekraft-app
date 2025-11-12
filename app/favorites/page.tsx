@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession } from '@/contexts/SessionContext';
@@ -60,6 +60,7 @@ export default function FavoritesPage() {
   const [favoritePublishers, setFavoritePublishers] = useState<FavoriteAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [trackSortBy, setTrackSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc'>('date-desc');
 
   useEffect(() => {
     if (sessionLoading || nostrLoading) return;
@@ -339,6 +340,74 @@ export default function FavoritesPage() {
     }
   };
 
+  // Sort tracks based on selected sort option
+  const sortedTracks = useMemo(() => {
+    const tracks = [...favoriteTracks];
+    
+    switch (trackSortBy) {
+      case 'date-desc':
+        // Most recently favorited first (default from API)
+        return tracks.sort((a, b) => {
+          const dateA = new Date(a.favoritedAt).getTime();
+          const dateB = new Date(b.favoritedAt).getTime();
+          return dateB - dateA;
+        });
+      
+      case 'date-asc':
+        // Oldest favorites first
+        return tracks.sort((a, b) => {
+          const dateA = new Date(a.favoritedAt).getTime();
+          const dateB = new Date(b.favoritedAt).getTime();
+          return dateA - dateB;
+        });
+      
+      case 'title-asc':
+        // Title A-Z
+        return tracks.sort((a, b) => {
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        });
+      
+      case 'title-desc':
+        // Title Z-A
+        return tracks.sort((a, b) => {
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleB.localeCompare(titleA);
+        });
+      
+      case 'artist-asc':
+        // Artist A-Z, then by title
+        return tracks.sort((a, b) => {
+          const artistA = (a.artist || a.Feed?.artist || 'Unknown Artist').toLowerCase();
+          const artistB = (b.artist || b.Feed?.artist || 'Unknown Artist').toLowerCase();
+          if (artistA !== artistB) {
+            return artistA.localeCompare(artistB);
+          }
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        });
+      
+      case 'artist-desc':
+        // Artist Z-A, then by title
+        return tracks.sort((a, b) => {
+          const artistA = (a.artist || a.Feed?.artist || 'Unknown Artist').toLowerCase();
+          const artistB = (b.artist || b.Feed?.artist || 'Unknown Artist').toLowerCase();
+          if (artistA !== artistB) {
+            return artistB.localeCompare(artistA);
+          }
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        });
+      
+      default:
+        return tracks;
+    }
+  }, [favoriteTracks, trackSortBy]);
+
   const handlePlayTrack = async (track: FavoriteTrack) => {
     if (!track.audioUrl) {
       toast.error('No audio URL available for this track');
@@ -560,8 +629,29 @@ export default function FavoritesPage() {
                 </Link>
               </div>
             ) : (
-              <div className="space-y-2">
-                {favoriteTracks.map((track) => (
+              <>
+                {/* Sort Selector */}
+                <div className="mb-6 flex items-center gap-4">
+                  <label htmlFor="track-sort" className="text-sm text-gray-400">
+                    Sort by:
+                  </label>
+                  <select
+                    id="track-sort"
+                    value={trackSortBy}
+                    onChange={(e) => setTrackSortBy(e.target.value as typeof trackSortBy)}
+                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                  >
+                    <option value="date-desc">Date Favorited (Newest)</option>
+                    <option value="date-asc">Date Favorited (Oldest)</option>
+                    <option value="title-asc">Title (A-Z)</option>
+                    <option value="title-desc">Title (Z-A)</option>
+                    <option value="artist-asc">Artist (A-Z)</option>
+                    <option value="artist-desc">Artist (Z-A)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  {sortedTracks.map((track) => (
                   <div
                     key={track.id}
                     className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
@@ -617,7 +707,8 @@ export default function FavoritesPage() {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
