@@ -1054,6 +1054,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                             type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
                           })) : undefined}
                           lightningAddress={track.v4vRecipient}
+                          episodeGuid={track.v4vValue?.itemGuid || track.guid}
+                          remoteFeedGuid={track.v4vValue?.feedGuid}
                           className="text-xs px-2 py-1"
                         />
                       </div>

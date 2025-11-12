@@ -265,6 +265,8 @@ export function BoostButton({
             let finalArtistName = artistName || '';
             let finalFeedId = feedId || '';
             let trackImage: string | null = null;
+            let finalEpisodeGuid: string | null = episodeGuid || null;
+            let finalFeedGuid: string | null = remoteFeedGuid || null;
             
             // Fetch track data if trackId is available
             if (trackId) {
@@ -277,16 +279,43 @@ export function BoostButton({
                   finalArtistName = trackData.artist || finalArtistName;
                   finalFeedId = trackData.feedId || finalFeedId;
                   trackImage = trackData.image || trackData.itunesImage || trackData.Feed?.image || null;
+                  
+                  // Extract itemGuid from track (for podcast:item:guid tag)
+                  if (!finalEpisodeGuid) {
+                    // Try track.guid first (this is the itemGuid)
+                    finalEpisodeGuid = trackData.guid || null;
+                    
+                    // If not found, try v4vValue.itemGuid
+                    if (!finalEpisodeGuid && trackData.v4vValue?.itemGuid) {
+                      finalEpisodeGuid = trackData.v4vValue.itemGuid;
+                    }
+                  }
+                  
+                  // Extract feedGuid from track's v4vValue (for podcast:guid tag)
+                  if (!finalFeedGuid && trackData.v4vValue?.feedGuid) {
+                    finalFeedGuid = trackData.v4vValue.feedGuid;
+                  }
                 }
               }
             } else if (feedId) {
-              // For album boosts, fetch feed data to get image
+              // For album boosts, fetch feed data to get image and guid
               try {
                 const feedResponse = await fetch(`/api/feeds/${feedId}`);
                 if (feedResponse.ok) {
                   const feedResult = await feedResponse.json();
                   if (feedResult.success && feedResult.data) {
-                    trackImage = feedResult.data.image || null;
+                    const feedData = feedResult.data;
+                    trackImage = feedData.image || null;
+                    
+                    // Extract feed GUID from feed data
+                    // The feed.id might be the GUID, or we might need to extract it from the originalUrl
+                    if (!finalFeedGuid) {
+                      // Try to extract GUID from feed.id if it looks like a GUID
+                      // Or use feed.id if it's a full GUID format
+                      if (feedData.id && feedData.id.includes('-')) {
+                        finalFeedGuid = feedData.id;
+                      }
+                    }
                   }
                 }
               } catch (feedError) {
@@ -323,17 +352,19 @@ export function BoostButton({
             const tags: string[][] = [];
             
             // Add podcast GUID tags if available
-            if (episodeGuid) {
+            // Use finalEpisodeGuid (from track.guid or v4vValue.itemGuid) for podcast:item:guid
+            if (finalEpisodeGuid) {
               tags.push(['k', 'podcast:item:guid']);
-              tags.push(['i', `podcast:item:guid:${episodeGuid}`, urlWithAnchor]);
+              tags.push(['i', `podcast:item:guid:${finalEpisodeGuid}`, urlWithAnchor]);
             }
             
-            if (remoteFeedGuid) {
+            // Use finalFeedGuid (from remoteFeedGuid prop or v4vValue.feedGuid) for podcast:guid
+            if (finalFeedGuid) {
               tags.push(['k', 'podcast:guid']);
-              tags.push(['i', `podcast:guid:${remoteFeedGuid}`, urlWithAnchor]);
+              tags.push(['i', `podcast:guid:${finalFeedGuid}`, urlWithAnchor]);
             }
             
-            // Add image tag if available
+            // Add image tag if available (always include if we have it)
             if (trackImage) {
               tags.push(['image', trackImage]);
             }
