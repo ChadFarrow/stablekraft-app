@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -91,7 +91,7 @@ devLog('🚀 PERFORMANCE OPTIMIZATION ENABLED - Dynamic feed loading');
 devLog('🔧 Environment check:', { NODE_ENV: process.env.NODE_ENV });
 devLog('🚀 Feeds will be loaded dynamically from /api/feeds endpoint');
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { shouldPreventClick } = useScrollDetectionContext();
@@ -1876,5 +1876,17 @@ export default function HomePage() {
         onClose={() => setFullscreenMode(false)}
       />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <LoadingSpinner size="large" text="Loading..." />
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }
