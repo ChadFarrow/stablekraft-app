@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Trash2, Edit, AlertCircle, CheckCircle, Music, Podcast, List } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Edit, AlertCircle, CheckCircle, Music, Podcast, List, Search, X } from 'lucide-react';
 
 interface Feed {
   id: string;
@@ -25,6 +25,7 @@ export default function FeedManager() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [addingFeed, setAddingFeed] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newFeed, setNewFeed] = useState({
     originalUrl: '',
@@ -37,6 +38,7 @@ export default function FeedManager() {
     status: '',
     priority: ''
   });
+  const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Fetch feeds
@@ -67,39 +69,80 @@ export default function FeedManager() {
     fetchFeeds();
   }, [filter]);
 
-  // Add new feed
+  // Auto-dismiss messages after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  // Add new feed - simplified, auto-detects type
   const handleAddFeed = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newFeed.originalUrl) {
+    const feedUrl = newFeed.originalUrl.trim();
+    
+    if (!feedUrl) {
       setMessage({ type: 'error', text: 'Feed URL is required' });
       return;
     }
+
+    // Basic URL validation
+    try {
+      new URL(feedUrl);
+    } catch {
+      setMessage({ type: 'error', text: 'Please enter a valid URL' });
+      return;
+    }
+    
+    setAddingFeed(true);
+    setMessage({ type: 'info', text: 'Adding feed...' });
     
     try {
+      // Auto-detect type from URL patterns, default to 'album'
+      let detectedType = 'album';
+      if (feedUrl.includes('/artist/') || feedUrl.includes('/publisher/')) {
+        detectedType = 'publisher';
+      } else if (feedUrl.includes('/playlist/')) {
+        detectedType = 'playlist';
+      }
+      
       const response = await fetch('/api/feeds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFeed)
+        body: JSON.stringify({
+          originalUrl: feedUrl,
+          type: detectedType,
+          priority: 'normal',
+          cdnUrl: ''
+        })
       });
       
       const data = await response.json();
       
       if (response.ok || response.status === 206) {
+        const trackCount = data.feed?._count?.Track || 0;
         setMessage({ 
           type: response.ok ? 'success' : 'info', 
-          text: data.message || data.warning || 'Feed added successfully' 
+          text: response.ok 
+            ? `✅ Feed added successfully! ${trackCount} tracks imported.`
+            : `⚠️ ${data.warning || 'Feed added but parsing had issues. Check feed details.'}`
         });
         setShowAddForm(false);
         setNewFeed({ originalUrl: '', type: 'album', priority: 'normal', cdnUrl: '' });
-        fetchFeeds();
+        await fetchFeeds();
       } else if (response.status === 409) {
-        setMessage({ type: 'info', text: 'Feed already exists' });
+        setMessage({ type: 'info', text: 'ℹ️ This feed already exists in the database' });
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to add feed' });
+        setMessage({ type: 'error', text: `❌ ${data.error || 'Failed to add feed. Please check the URL and try again.'}` });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to add feed' });
+      setMessage({ type: 'error', text: '❌ Network error. Please check your connection and try again.' });
+    } finally {
+      setAddingFeed(false);
     }
   };
 
@@ -187,137 +230,164 @@ export default function FeedManager() {
 
       {/* Messages */}
       {message && (
-        <div className={`mb-4 p-4 rounded-lg flex items-center gap-2 ${
-          message.type === 'success' ? 'bg-green-500/20 text-green-400' :
-          message.type === 'error' ? 'bg-red-500/20 text-red-400' :
-          'bg-blue-500/20 text-blue-400'
+        <div className={`mb-4 p-4 rounded-lg flex items-center justify-between gap-2 ${
+          message.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+          message.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
         }`}>
-          {message.type === 'success' ? <CheckCircle className="w-5 h-5" /> :
-           message.type === 'error' ? <AlertCircle className="w-5 h-5" /> :
-           <AlertCircle className="w-5 h-5" />}
-          {message.text}
+          <div className="flex items-center gap-2">
+            {message.type === 'success' ? <CheckCircle className="w-5 h-5" /> :
+             message.type === 'error' ? <AlertCircle className="w-5 h-5" /> :
+             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400"></div>}
+            <span>{message.text}</span>
+          </div>
+          <button
+            onClick={() => setMessage(null)}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Dismiss message"
+          >
+            ×
+          </button>
         </div>
       )}
 
-      {/* Filters and Add Button */}
-      <div className="mb-6 flex flex-wrap gap-4">
-        <select
-          value={filter.type}
-          onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-          className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-        >
-          <option value="">All Types</option>
-          <option value="album">Albums</option>
-          <option value="playlist">Playlists</option>
-          <option value="podcast">Podcasts</option>
-        </select>
+      {/* Search, Filters and Add Button */}
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Search */}
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search feeds by title, artist, or URL..."
+              className="w-full pl-10 pr-10 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400 placeholder-gray-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-        <select
-          value={filter.status}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-          className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="error">Error</option>
-          <option value="inactive">Inactive</option>
-        </select>
+          {/* Filters */}
+          <select
+            value={filter.type}
+            onChange={(e) => setFilter({ ...filter, type: e.target.value })}
+            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
+          >
+            <option value="">All Types</option>
+            <option value="album">Albums</option>
+            <option value="playlist">Playlists</option>
+            <option value="podcast">Podcasts</option>
+          </select>
 
-        <select
-          value={filter.priority}
-          onChange={(e) => setFilter({ ...filter, priority: e.target.value })}
-          className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-        >
-          <option value="">All Priorities</option>
-          <option value="core">Core</option>
-          <option value="high">High</option>
-          <option value="normal">Normal</option>
-          <option value="low">Low</option>
-        </select>
+          <select
+            value={filter.status}
+            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="error">Error</option>
+            <option value="inactive">Inactive</option>
+          </select>
 
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="ml-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Feed
-        </button>
+          <select
+            value={filter.priority}
+            onChange={(e) => setFilter({ ...filter, priority: e.target.value })}
+            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
+          >
+            <option value="">All Priorities</option>
+            <option value="core">Core</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+            disabled={addingFeed}
+          >
+            <Plus className="w-5 h-5" />
+            Add Feed
+          </button>
+        </div>
+
+        {/* Stats */}
+        {!loading && feeds.length > 0 && (
+          <div className="text-sm text-gray-400">
+            Showing {feeds.length} feed{feeds.length !== 1 ? 's' : ''}
+            {searchQuery && ` matching "${searchQuery}"`}
+          </div>
+        )}
       </div>
 
-      {/* Add Feed Form */}
+      {/* Add Feed Form - Simple paste interface */}
       {showAddForm && (
-        <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-lg">
-          <h3 className="text-lg font-semibold mb-4">Add New Feed</h3>
+        <div className="mb-6 p-6 bg-white/5 border border-white/10 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Add RSS Feed</h3>
           <form onSubmit={handleAddFeed} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Feed URL *</label>
-              <input
-                type="url"
-                value={newFeed.originalUrl}
-                onChange={(e) => setNewFeed({ ...newFeed, originalUrl: e.target.value })}
-                placeholder="https://example.com/feed.xml"
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Type</label>
-                <select
-                  value={newFeed.type}
-                  onChange={(e) => setNewFeed({ ...newFeed, type: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-                >
-                  <option value="album">Album</option>
-                  <option value="playlist">Playlist</option>
-                  <option value="podcast">Podcast</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Priority</label>
-                <select
-                  value={newFeed.priority}
-                  onChange={(e) => setNewFeed({ ...newFeed, priority: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
-                >
-                  <option value="core">Core</option>
-                  <option value="high">High</option>
-                  <option value="normal">Normal</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">CDN URL (Optional)</label>
+              <label className="block text-sm font-medium mb-2 text-gray-300">
+                Paste RSS Feed URL
+              </label>
+              <div className="flex gap-2">
                 <input
                   type="url"
-                  value={newFeed.cdnUrl}
-                  onChange={(e) => setNewFeed({ ...newFeed, cdnUrl: e.target.value })}
-                  placeholder="CDN mirror URL"
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400"
+                  value={newFeed.originalUrl}
+                  onChange={(e) => setNewFeed({ ...newFeed, originalUrl: e.target.value })}
+                  onPaste={(e) => {
+                    const pastedText = e.clipboardData.getData('text');
+                    if (pastedText.trim()) {
+                      setNewFeed({ ...newFeed, originalUrl: pastedText.trim() });
+                    }
+                  }}
+                  placeholder="https://example.com/feed.xml"
+                  className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-green-400 focus:ring-2 focus:ring-green-400/20 text-white placeholder-gray-500"
+                  required
+                  autoFocus
+                  disabled={addingFeed}
                 />
+                <button
+                  type="submit"
+                  disabled={addingFeed || !newFeed.originalUrl.trim()}
+                  className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
+                >
+                  {addingFeed ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      Add
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewFeed({ originalUrl: '', type: 'album', priority: 'normal', cdnUrl: '' });
+                    setMessage(null);
+                  }}
+                  disabled={addingFeed}
+                  className="px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-              >
-                Add Feed
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddForm(false);
-                  setNewFeed({ originalUrl: '', type: 'album', priority: 'normal', cdnUrl: '' });
-                }}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
+              <p className="mt-2 text-xs text-gray-400">
+                Just paste the RSS feed URL and click Add. The system will automatically detect the feed type.
+              </p>
             </div>
           </form>
         </div>
@@ -335,7 +405,18 @@ export default function FeedManager() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {feeds.map(feed => (
+          {feeds
+            .filter(feed => {
+              if (!searchQuery) return true;
+              const query = searchQuery.toLowerCase();
+              return (
+                feed.title?.toLowerCase().includes(query) ||
+                feed.artist?.toLowerCase().includes(query) ||
+                feed.originalUrl?.toLowerCase().includes(query) ||
+                feed.description?.toLowerCase().includes(query)
+              );
+            })
+            .map(feed => (
             <div key={feed.id} className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors">
               <div className="flex items-start gap-4">
                 {feed.image && (

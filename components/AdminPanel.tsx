@@ -101,61 +101,66 @@ export default function AdminPanel() {
   const addFeed = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newFeedUrl.trim()) {
+    const feedUrl = newFeedUrl.trim();
+    
+    if (!feedUrl) {
       toast.error('Please enter a RSS feed URL');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      new URL(feedUrl);
+    } catch {
+      toast.error('Please enter a valid URL');
       return;
     }
 
     setAddingFeed(true);
     
     try {
-      const response = await fetch('/api/admin/feeds', {
+      // Auto-detect type from URL patterns, default to 'album'
+      let detectedType = 'album';
+      if (feedUrl.includes('/artist/') || feedUrl.includes('/publisher/')) {
+        detectedType = 'publisher';
+      } else if (feedUrl.includes('/playlist/')) {
+        detectedType = 'playlist';
+      }
+
+      // Use the main feeds API which parses tracks automatically
+      const response = await fetch('/api/feeds', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          url: newFeedUrl.trim(),
-          type: newFeedType
+          originalUrl: feedUrl,
+          type: detectedType,
+          priority: 'normal',
+          cdnUrl: ''
         }),
       });
 
       const data = await response.json();
       
-      if (data.success) {
-        // Also add to hardcoded list
-        try {
-          const hardcodedResponse = await fetch('/api/admin/add-to-hardcoded', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              originalUrl: newFeedUrl.trim(),
-              cdnUrl: data.feed.cdnUrl || newFeedUrl.trim(),
-              type: newFeedType
-            }),
-          });
-          
-          if (hardcodedResponse.ok) {
-            toast.success('Feed added to both managed system and hardcoded list');
-          } else {
-            toast.success('Feed added to managed system (hardcode update failed)');
-          }
-        } catch (error) {
-          console.warn('Failed to add to hardcoded list:', error);
-          toast.success('Feed added to managed system');
-        }
-        
+      if (response.ok || response.status === 206) {
+        const trackCount = data.feed?._count?.Track || 0;
+        toast.success(
+          response.ok 
+            ? `Feed added successfully! ${trackCount} tracks imported.`
+            : data.warning || 'Feed added but parsing had issues. Check feed details.'
+        );
         setNewFeedUrl('');
         setNewFeedType('album');
         await loadFeeds();
+      } else if (response.status === 409) {
+        toast.info('This feed already exists in the database');
       } else {
-        toast.error(data.error || 'Failed to add feed');
+        toast.error(data.error || 'Failed to add feed. Please check the URL and try again.');
       }
     } catch (error) {
       console.error('Error adding feed:', error);
-      toast.error('Error adding feed');
+      toast.error('Network error. Please check your connection and try again.');
     } finally {
       setAddingFeed(false);
     }
@@ -324,49 +329,51 @@ export default function AdminPanel() {
           )}
         </div>
 
-        {/* Add Feed Form */}
+        {/* Add Feed Form - Simple paste interface */}
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Add New RSS Feed</h2>
+          <h2 className="text-2xl font-semibold mb-4">Add RSS Feed</h2>
           <form onSubmit={addFeed} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label htmlFor="feedUrl" className="block text-sm font-medium text-gray-300 mb-2">
-                  RSS Feed URL
-                </label>
+            <div>
+              <label htmlFor="feedUrl" className="block text-sm font-medium text-gray-300 mb-2">
+                Paste RSS Feed URL
+              </label>
+              <div className="flex gap-2">
                 <input
                   type="url"
                   id="feedUrl"
                   value={newFeedUrl}
                   onChange={(e) => setNewFeedUrl(e.target.value)}
+                  onPaste={(e) => {
+                    const pastedText = e.clipboardData.getData('text');
+                    if (pastedText.trim()) {
+                      setNewFeedUrl(pastedText.trim());
+                    }
+                  }}
                   placeholder="https://example.com/feed.xml"
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={addingFeed}
                   required
+                  autoFocus
                 />
-              </div>
-              <div>
-                <label htmlFor="feedType" className="block text-sm font-medium text-gray-300 mb-2">
-                  Feed Type
-                </label>
-                <select
-                  id="feedType"
-                  value={newFeedType}
-                  onChange={(e) => setNewFeedType(e.target.value as 'album' | 'publisher')}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={addingFeed}
+                <button
+                  type="submit"
+                  disabled={addingFeed || !newFeedUrl.trim()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
                 >
-                  <option value="album">Album Feed</option>
-                  <option value="publisher">Publisher Feed</option>
-                </select>
+                  {addingFeed ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Feed'
+                  )}
+                </button>
               </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Just paste the RSS feed URL and click Add. The system will automatically detect the feed type and parse all tracks.
+              </p>
             </div>
-            <button
-              type="submit"
-              disabled={addingFeed || !newFeedUrl.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {addingFeed ? 'Adding Feed...' : 'Add Feed'}
-            </button>
           </form>
         </div>
 
