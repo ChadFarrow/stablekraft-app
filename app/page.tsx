@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
@@ -93,6 +93,7 @@ devLog('🚀 Feeds will be loaded dynamically from /api/feeds endpoint');
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { shouldPreventClick } = useScrollDetectionContext();
   const [isLoading, setIsLoading] = useState(true);
   const [albums, setAlbums] = useState<RSSAlbum[]>([]);
@@ -128,14 +129,50 @@ export default function HomePage() {
   // Global audio context
   const { playAlbum: globalPlayAlbum, shuffleAllTracks } = useAudio();
   const hasLoadedRef = useRef(false);
+  const isUpdatingFromUrlRef = useRef(false); // Track if we're updating from URL to avoid loops
   
 
   
   // Static background state - Bloodshot Lies album art
   const [backgroundImageLoaded, setBackgroundImageLoaded] = useState(false);
 
-  // Controls state
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  // Controls state - Initialize from URL params if available
+  const getInitialFilter = (): FilterType => {
+    if (typeof window === 'undefined') return 'all';
+    const urlFilter = searchParams?.get('filter');
+    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'artists', 'playlist'];
+    if (urlFilter && validFilters.includes(urlFilter as FilterType)) {
+      return urlFilter as FilterType;
+    }
+    return 'all';
+  };
+  const [activeFilter, setActiveFilter] = useState<FilterType>(getInitialFilter());
+
+  // Store handleFilterChange in a ref to avoid dependency issues
+  const handleFilterChangeRef = useRef<((newFilter: FilterType, skipUrlUpdate?: boolean) => Promise<void>) | null>(null);
+  
+  // Sync filter from URL params when URL changes (e.g., browser back button)
+  useEffect(() => {
+    const urlFilter = searchParams?.get('filter');
+    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'artists', 'playlist'];
+    const newFilter = (urlFilter && validFilters.includes(urlFilter as FilterType)) 
+      ? (urlFilter as FilterType) 
+      : 'all';
+    
+    // Only update if different and we're not already updating from URL
+    if (newFilter !== activeFilter && !isUpdatingFromUrlRef.current && handleFilterChangeRef.current) {
+      console.log(`🔄 URL filter changed: "${activeFilter}" -> "${newFilter}"`);
+      isUpdatingFromUrlRef.current = true;
+      // Trigger filter change with skipUrlUpdate to avoid loop
+      handleFilterChangeRef.current(newFilter, true).finally(() => {
+        // Reset the flag after filter change completes
+        setTimeout(() => {
+          isUpdatingFromUrlRef.current = false;
+        }, 100);
+      });
+    }
+  }, [searchParams, activeFilter]);
+  
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [sortType, setSortType] = useState<SortType>('name');
   const [isFilterLoading, setIsFilterLoading] = useState(false);
@@ -433,9 +470,21 @@ export default function HomePage() {
   }, [hasMoreAlbums, isLoading, isEnhancedLoaded, loadMoreAlbums]);
 
   // Handle filter changes - reload data and reset to page 1
-  const handleFilterChange = async (newFilter: FilterType) => {
+  const handleFilterChange = async (newFilter: FilterType, skipUrlUpdate = false) => {
     console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
     if (newFilter === activeFilter) return; // No change
+
+    // Update URL with new filter (unless we're updating from URL change)
+    if (!skipUrlUpdate && !isUpdatingFromUrlRef.current) {
+      const params = new URLSearchParams(searchParams?.toString() || '');
+      if (newFilter === 'all') {
+        params.delete('filter');
+      } else {
+        params.set('filter', newFilter);
+      }
+      const newUrl = params.toString() ? `/?${params.toString()}` : '/';
+      router.push(newUrl, { scroll: false });
+    }
 
     // Check cache first
     const cachedData = filterCache.get(newFilter);
@@ -571,6 +620,11 @@ export default function HomePage() {
       setIsLoading(false);
     }
   };
+
+  // Store handleFilterChange in ref for use in URL sync effect
+  useEffect(() => {
+    handleFilterChangeRef.current = handleFilterChange;
+  }, [handleFilterChange]);
 
   // Calculate pagination info
   const totalPages = Math.ceil(totalAlbums / ALBUMS_PER_PAGE);
