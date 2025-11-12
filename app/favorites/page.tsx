@@ -458,50 +458,53 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-x-hidden">
+      <div className="container mx-auto px-4 py-8 pb-24 sm:pb-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-            <Heart className="w-10 h-10 text-red-500 fill-red-500" />
+          <h1 className="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
+            <Heart className="w-6 h-6 sm:w-10 sm:h-10 text-red-500 fill-red-500" />
             My Favorites
           </h1>
-          <p className="text-gray-400">Your favorite tracks, albums, and publishers</p>
+          <p className="text-sm sm:text-base text-gray-400">Your favorite tracks, albums, and publishers</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-gray-700">
+        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-gray-700 overflow-x-auto scrollbar-hide -mx-4 px-4">
           <button
             onClick={() => setActiveTab('albums')}
-            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'albums'
                 ? 'text-white border-b-2 border-stablekraft-teal'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Disc className="w-5 h-5" />
-            Albums ({favoriteAlbums.length})
+            <Disc className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Albums</span>
+            <span className="text-xs sm:text-sm text-gray-500">({favoriteAlbums.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('publishers')}
-            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'publishers'
                 ? 'text-white border-b-2 border-stablekraft-teal'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Users className="w-5 h-5" />
-            Publishers ({favoritePublishers.length})
+            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Publishers</span>
+            <span className="text-xs sm:text-sm text-gray-500">({favoritePublishers.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('tracks')}
-            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'tracks'
                 ? 'text-white border-b-2 border-stablekraft-teal'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Music className="w-5 h-5" />
-            Tracks ({favoriteTracks.length})
+            <Music className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Tracks</span>
+            <span className="text-xs sm:text-sm text-gray-500">({favoriteTracks.length})</span>
           </button>
         </div>
 
@@ -631,15 +634,15 @@ export default function FavoritesPage() {
             ) : (
               <>
                 {/* Sort Selector */}
-                <div className="mb-6 flex items-center gap-4">
-                  <label htmlFor="track-sort" className="text-sm text-gray-400">
+                <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                  <label htmlFor="track-sort" className="text-xs sm:text-sm text-gray-400">
                     Sort by:
                   </label>
                   <select
                     id="track-sort"
                     value={trackSortBy}
                     onChange={(e) => setTrackSortBy(e.target.value as typeof trackSortBy)}
-                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                    className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
                   >
                     <option value="date-desc">Date Favorited (Newest)</option>
                     <option value="date-asc">Date Favorited (Oldest)</option>
@@ -654,56 +657,60 @@ export default function FavoritesPage() {
                   {sortedTracks.map((track) => (
                   <div
                     key={track.id}
-                    className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
+                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
                   >
-                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image
-                        src={getAlbumArtworkUrl(track.image || track.Feed?.image || '', 'thumbnail')}
-                        alt={track.title}
-                        width={64}
-                        height={64}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = getPlaceholderImageUrl('thumbnail');
-                        }}
-                      />
+                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto flex-shrink-0">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
+                          src={getAlbumArtworkUrl(track.image || track.Feed?.image || '', 'thumbnail')}
+                          alt={track.title}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = getPlaceholderImageUrl('thumbnail');
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0 sm:flex-none sm:flex-1">
+                        <h3 className="font-semibold text-base sm:text-lg truncate">{track.title}</h3>
+                        <p className="text-gray-400 text-xs sm:text-sm truncate">
+                          {track.artist || track.Feed?.artist || 'Unknown Artist'}
+                        </p>
+                        {track.album && (
+                          <p className="text-gray-500 text-xs truncate">from {track.album}</p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-lg truncate">{track.title}</h3>
-                      <p className="text-gray-400 text-sm truncate">
-                        {track.artist || track.Feed?.artist || 'Unknown Artist'}
-                      </p>
-                      {track.album && (
-                        <p className="text-gray-500 text-xs truncate">from {track.album}</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end flex-shrink-0">
                       {track.duration && (
-                        <span className="text-gray-400 text-sm">
+                        <span className="text-gray-400 text-xs sm:text-sm">
                           {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
                         </span>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handlePlayTrack(track);
-                        }}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!track.audioUrl}
-                        title={track.audioUrl ? 'Play track' : 'No audio available'}
-                      >
-                        <Play className="w-4 h-4" />
-                        Play
-                      </button>
-                      <FavoriteButton
-                        trackId={track.id}
-                        onToggle={handleFavoriteToggle}
-                        isFavorite={true}
-                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handlePlayTrack(track);
+                          }}
+                          className="px-2.5 sm:px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!track.audioUrl}
+                          title={track.audioUrl ? 'Play track' : 'No audio available'}
+                        >
+                          <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline">Play</span>
+                        </button>
+                        <FavoriteButton
+                          trackId={track.id}
+                          onToggle={handleFavoriteToggle}
+                          isFavorite={true}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
