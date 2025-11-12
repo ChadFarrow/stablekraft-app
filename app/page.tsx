@@ -13,6 +13,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
+import NowPlayingScreen from '@/components/NowPlayingScreen';
 import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 
@@ -1011,7 +1012,7 @@ function HomePageContent() {
   const playMusicTrack = async (track: any) => {
     // TODO: Implement music track playback
     console.log('Playing music track:', track);
-    toast.success(`Playing ${track.title} by ${track.artist}`);
+    // Playback started successfully
   };
 
   const playAlbum = async (album: RSSAlbum, e: React.MouseEvent | React.TouchEvent) => {
@@ -1035,7 +1036,8 @@ function HomePageContent() {
       const success = await globalPlayAlbum(album, 0);
       if (success) {
         console.log('✅ Successfully started playback');
-        // Fullscreen modal removed - playback starts without opening modal
+        // Open the fullscreen now playing screen
+        setFullscreenMode(true);
       } else {
         throw new Error('Failed to start album playback');
       }
@@ -1868,7 +1870,11 @@ function HomePageContent() {
         {/* Now Playing Bar is now handled by the global AudioContext */}
       </div>
       
-      {/* Fullscreen Now Playing Screen removed */}
+      {/* Fullscreen Now Playing Screen */}
+      <NowPlayingScreen
+        isOpen={isFullscreenMode}
+        onClose={() => setFullscreenMode(false)}
+      />
     </div>
   );
 }

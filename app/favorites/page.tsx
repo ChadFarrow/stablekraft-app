@@ -185,7 +185,6 @@ export default function FavoritesPage() {
           const success = await globalPlayAlbum(rssAlbum, 0);
           if (success) {
             console.log('✅ Successfully started playback');
-            toast.success(`Playing ${rssAlbum.title}`);
             return;
           }
         }
@@ -313,7 +312,6 @@ export default function FavoritesPage() {
       const success = await globalPlayAlbum(rssAlbum, 0);
       if (success) {
         console.log('✅ Successfully started playback');
-        toast.success(`Playing ${rssAlbum.title}`);
       } else {
         console.error('❌ Failed to start playback');
         toast.error('Unable to play audio - please try again');
@@ -333,7 +331,7 @@ export default function FavoritesPage() {
     try {
       const success = await playTrack(track.audioUrl);
       if (success) {
-        toast.success(`Playing ${track.title}`);
+        // Playback started successfully
       } else {
         toast.error('Unable to play audio - please try again');
       }
