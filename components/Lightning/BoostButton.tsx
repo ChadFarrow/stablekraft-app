@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
@@ -46,6 +47,7 @@ export function BoostButton({
   albumName,
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated } = useNostr();
   const [showModal, setShowModal] = useState(false);
@@ -58,12 +60,15 @@ export function BoostButton({
 
   useEffect(() => {
     setIsClient(true);
+    setMounted(true);
 
     // Load saved sender name from localStorage
     const savedName = localStorage.getItem('boostSenderName');
     if (savedName) {
       setSenderName(savedName);
     }
+    
+    return () => setMounted(false);
   }, []);
 
   // Handle autoOpen - check connection first
@@ -682,9 +687,10 @@ export function BoostButton({
         </button>
       )}
 
-      {showModal && (
+      {/* Render modal in portal to ensure it's centered over entire viewport */}
+      {showModal && mounted && typeof window !== 'undefined' && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6 relative" style={{ transform: 'translate(0, 0)' }}>
+          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">
                 Send a Boost ⚡
@@ -835,7 +841,8 @@ export function BoostButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
