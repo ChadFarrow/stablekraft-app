@@ -223,59 +223,59 @@ async function loadPublisherData(publisherId: string) {
     }
     
     // If no publisher feed found, try to find albums by artist name and create publisher info from them
+    // BUT only if we have a known publisher mapping to prevent false matches
     let artistName: string | null = null;
     
     if (!publisherFeed) {
-      console.log(`⚠️ No publisher feed found for "${publisherId}", trying to find albums by artist name...`);
+      const publisherInfo = getPublisherInfo(publisherId);
       
-      // Try to find albums/music feeds with matching artist name
-      const searchId = publisherId.toLowerCase();
-      const possibleArtistNames = [
-        searchId, // "bennyjeans"
-        searchId.replace(/-/g, ' '), // "benny jeans"
-      ];
-      
-      // Find the first album feed to get the artist name
-      const firstAlbumFeed = await prisma.feed.findFirst({
-        where: {
-          type: { in: ['album', 'music'] },
-          status: 'active',
-          OR: [
-            { artist: { equals: possibleArtistNames[0], mode: 'insensitive' } },
-            { artist: { equals: possibleArtistNames[1], mode: 'insensitive' } },
-          ]
-        },
-        select: {
-          id: true,
-          title: true,
-          artist: true,
-          description: true,
-          image: true,
-          originalUrl: true
+      // Only create synthetic publisher if we have a known mapping
+      // This prevents creating publishers from wrong artist matches
+      if (publisherInfo?.name) {
+        console.log(`⚠️ No publisher feed found for "${publisherId}", but we have a mapping to "${publisherInfo.name}"`);
+        
+        // Find the first album feed with exact artist match
+        const firstAlbumFeed = await prisma.feed.findFirst({
+          where: {
+            type: { in: ['album', 'music'] },
+            status: 'active',
+            artist: { equals: publisherInfo.name, mode: 'insensitive' } // Exact match only!
+          },
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            description: true,
+            image: true,
+            originalUrl: true
+          }
+        });
+        
+        if (firstAlbumFeed) {
+          artistName = publisherInfo.name; // Use the mapped name, not the feed's artist
+          console.log(`✅ Found albums by mapped artist: "${artistName}"`);
+          
+          // Create a synthetic publisher feed from the first album
+          publisherFeed = {
+            id: `publisher-${publisherId}`,
+            title: artistName || publisherId,
+            artist: artistName || null,
+            description: `Albums by ${artistName || publisherId}`,
+            image: firstAlbumFeed.image || null,
+            originalUrl: publisherInfo.feedUrl || '',
+            type: 'publisher' as any,
+            status: 'active' as any,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } as any;
+          
+          console.log(`📝 Created synthetic publisher feed for "${artistName}"`);
+        } else {
+          console.log(`❌ No albums found for mapped artist "${publisherInfo.name}"`);
+          return null;
         }
-      });
-      
-      if (firstAlbumFeed) {
-        artistName = firstAlbumFeed.artist || firstAlbumFeed.title;
-        console.log(`✅ Found albums by artist: "${artistName}"`);
-        
-        // Create a synthetic publisher feed from the first album
-        publisherFeed = {
-          id: `publisher-${publisherId}`,
-          title: artistName || publisherId,
-          artist: artistName || null,
-          description: `Albums by ${artistName || publisherId}`,
-          image: firstAlbumFeed.image || null,
-          originalUrl: '',
-          type: 'publisher' as any,
-          status: 'active' as any,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any;
-        
-        console.log(`📝 Created synthetic publisher feed for "${artistName}"`);
       } else {
-        console.log(`❌ No albums found for artist matching "${publisherId}"`);
+        console.log(`❌ No publisher feed found for "${publisherId}" and no known mapping - cannot create synthetic publisher`);
         return null;
       }
     } else {
@@ -283,8 +283,10 @@ async function loadPublisherData(publisherId: string) {
       artistName = publisherFeed.artist || publisherFeed.title;
     }
 
-    // Try to fetch and parse publisher feed to get remote items
+    // Try to fetch and parse publisher feed to get remote items and artwork
     let remoteItemGuids: string[] = [];
+    let feedImage: string | null = publisherFeed.image || null;
+    
     if (publisherFeed.originalUrl && publisherFeed.originalUrl.trim() !== '') {
       try {
         console.log(`📡 Fetching publisher feed XML to extract remote items: ${publisherFeed.originalUrl}`);
@@ -294,6 +296,23 @@ async function loadPublisherData(publisherId: string) {
         
         if (feedResponse.ok) {
           const xmlText = await feedResponse.text();
+          
+          // Extract artwork/image from feed if missing
+          if (!feedImage) {
+            // Try iTunes image first
+            const itunesImageMatch = xmlText.match(/<itunes:image[^>]*href=["']([^"']+)["']/i);
+            if (itunesImageMatch && itunesImageMatch[1]) {
+              feedImage = itunesImageMatch[1].trim();
+              console.log(`🎨 Found iTunes image in feed: ${feedImage}`);
+            } else {
+              // Try standard image tag
+              const imageMatch = xmlText.match(/<image>[\s\S]*?<url>([^<]+)<\/url>/i);
+              if (imageMatch && imageMatch[1]) {
+                feedImage = imageMatch[1].trim();
+                console.log(`🎨 Found image in feed: ${feedImage}`);
+              }
+            }
+          }
           
           // Extract podcast:remoteItem tags (for music/album feeds, not publisher references)
           const remoteItemRegex = /<podcast:remoteItem[^>]*>/g;
@@ -404,66 +423,61 @@ async function loadPublisherData(publisherId: string) {
     }
     
     // Fallback: If no albums found via remote items, try artist matching
+    // ONLY if we have a known publisher mapping to ensure accuracy
     if (relatedFeeds.length === 0) {
-      console.log(`🔍 No albums found via remote items, trying artist matching: "${artistName}"`);
+      const publisherInfo = getPublisherInfo(publisherId);
       
-      // Try multiple variations of the artist name
-      const artistNameVariations = [
-        artistName,
-        artistName.toLowerCase(),
-        artistName.replace(/\s+/g, '-'),
-        artistName.replace(/\s+/g, ''),
-        // Also try the normalized publisher name (without -publisher suffix)
-        publisherId.toLowerCase().replace(/-publisher$/, ''),
-        publisherId.toLowerCase().replace(/-publisher$/, '').replace(/-/g, ' '),
-      ];
-      
-      // Remove duplicates
-      const uniqueVariations = [...new Set(artistNameVariations.filter(Boolean))];
-      
-      relatedFeeds = await prisma.feed.findMany({
-        where: {
-          OR: uniqueVariations.map(variation => ({
-            artist: { contains: variation, mode: 'insensitive' }
-          })),
-          type: { in: ['album', 'music'] },
-          status: 'active'
-        },
-        select: {
-          id: true,
-          title: true,
-          artist: true,
-          description: true,
-          image: true,
-          lastFetched: true,
-          createdAt: true,
-          originalUrl: true,
-          Track: {
-            where: {
-              audioUrl: { not: '' }
-            },
-            orderBy: [
-              { trackOrder: 'asc' },
-              { publishedAt: 'asc' },
-              { createdAt: 'asc' }
-            ],
-            select: {
-              id: true,
-              title: true,
-              duration: true,
-              audioUrl: true,
-              trackOrder: true,
-              publishedAt: true
+      // Only do artist matching if we have a known publisher mapping
+      // This prevents incorrect matches (like matching all publishers to Nate Johnivan)
+      if (publisherInfo?.name) {
+        console.log(`🔍 No albums found via remote items, trying exact artist matching for: "${publisherInfo.name}"`);
+        
+        // Use ONLY exact matches with the known publisher name
+        // This is critical to prevent false matches - NO contains matching!
+        relatedFeeds = await prisma.feed.findMany({
+          where: {
+            artist: { equals: publisherInfo.name, mode: 'insensitive' },
+            type: { in: ['album', 'music'] },
+            status: 'active'
+          },
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            description: true,
+            image: true,
+            lastFetched: true,
+            createdAt: true,
+            originalUrl: true,
+            Track: {
+              where: {
+                audioUrl: { not: '' }
+              },
+              orderBy: [
+                { trackOrder: 'asc' },
+                { publishedAt: 'asc' },
+                { createdAt: 'asc' }
+              ],
+              select: {
+                id: true,
+                title: true,
+                duration: true,
+                audioUrl: true,
+                trackOrder: true,
+                publishedAt: true
+              }
             }
-          }
-        },
-        orderBy: [
-          { priority: 'asc' },
-          { createdAt: 'desc' }
-        ]
-      });
-      
-      console.log(`✅ Found ${relatedFeeds.length} albums via artist matching`);
+          },
+          orderBy: [
+            { priority: 'asc' },
+            { createdAt: 'desc' }
+          ]
+        });
+        
+        console.log(`✅ Found ${relatedFeeds.length} albums via exact artist matching for "${publisherInfo.name}"`);
+      } else {
+        console.log(`⚠️ No known publisher mapping for "${publisherId}" - skipping artist matching to prevent false matches`);
+      }
     }
 
     // Helper function to convert duration to MM:SS format
@@ -533,7 +547,7 @@ async function loadPublisherData(publisherId: string) {
       publisherInfo: {
         name: publisherInfo?.name || publisherFeed.title || publisherId,
         description: publisherFeed.description || `${albums.length} releases`,
-        image: publisherFeed.image,
+        image: feedImage || publisherFeed.image || null, // Use fetched image if available
         feedUrl: publisherFeed.originalUrl,
         feedGuid: publisherFeed.id
       },
