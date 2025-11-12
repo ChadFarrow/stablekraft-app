@@ -146,25 +146,136 @@ export default function FavoritesPage() {
     e.stopPropagation();
 
     try {
-      // Fetch full album data with track URLs
-      const slug = generateAlbumSlug(album.title);
-      const response = await fetch(`/api/albums/${encodeURIComponent(slug)}`);
+      console.log('🎵 Attempting to play album from favorites:', album.title, album.id, 'feedId:', album.feedId);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch album data');
+      // If we have original album data with tracks, try using that first
+      if (album.originalAlbum && album.originalAlbum.Track && album.originalAlbum.Track.length > 0) {
+        const tracks = album.originalAlbum.Track.filter((track: any) => track.audioUrl);
+        if (tracks.length > 0) {
+          console.log('✅ Using tracks from original album data');
+          const rssAlbum: RSSAlbum = {
+            id: album.originalAlbum.id,
+            title: album.originalAlbum.title,
+            artist: album.originalAlbum.artist || 'Unknown Artist',
+            description: album.originalAlbum.description || '',
+            coverArt: album.originalAlbum.image || '',
+            releaseDate: album.originalAlbum.favoritedAt,
+            tracks: tracks.map((track: any, index: number) => ({
+              title: track.title,
+              duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+              url: track.audioUrl || '',
+              trackNumber: index + 1,
+              subtitle: track.subtitle || '',
+              summary: track.description || track.summary || '',
+              image: track.image || album.originalAlbum.image || '',
+              explicit: track.explicit || false,
+              keywords: track.keywords || [],
+              v4vRecipient: track.v4vRecipient,
+              v4vValue: track.v4vValue,
+              guid: track.guid,
+              id: track.id,
+              startTime: track.startTime,
+              endTime: track.endTime
+            })),
+            link: '',
+            feedUrl: ''
+          };
+          
+          console.log('🎵 Attempting to play RSSAlbum from original data:', rssAlbum.title, 'with', rssAlbum.tracks.length, 'tracks');
+          const success = await globalPlayAlbum(rssAlbum, 0);
+          if (success) {
+            console.log('✅ Successfully started playback');
+            toast.success(`Playing ${rssAlbum.title}`);
+            return;
+          }
+        }
       }
-
-      const albumData = await response.json();
       
-      if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
-        toast.error('No playable tracks found in this album');
+      // Try multiple methods to fetch album data
+      let albumData: any = null;
+      let response: Response | null = null;
+      
+      // Method 1: Try by slug (most common)
+      const slug = generateAlbumSlug(album.title);
+      console.log('🔍 Trying to fetch by slug:', slug);
+      response = await fetch(`/api/albums/${encodeURIComponent(slug)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.album && data.album.tracks && data.album.tracks.length > 0) {
+          albumData = data.album;
+          console.log('✅ Found album by slug');
+        }
+      }
+      
+      // Method 2: If slug failed and we have an ID, try by ID
+      if (!albumData && album.id) {
+        console.log('🔍 Trying to fetch by ID:', album.id);
+        response = await fetch(`/api/albums/${encodeURIComponent(album.id)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.album && data.album.tracks && data.album.tracks.length > 0) {
+            albumData = data.album;
+            console.log('✅ Found album by ID');
+          }
+        }
+      }
+      
+      // Method 3: If we have feedId, try using that
+      if (!albumData && album.feedId) {
+        console.log('🔍 Trying to fetch by feedId:', album.feedId);
+        // Try to get album from feed
+        const feedResponse = await fetch(`/api/feeds/${album.feedId}`);
+        if (feedResponse.ok) {
+          const feedData = await feedResponse.json();
+          if (feedData.feed) {
+            // Construct album from feed data
+            const feed = feedData.feed;
+            if (feed.Track && feed.Track.length > 0) {
+              albumData = {
+                id: feed.id,
+                title: feed.title,
+                artist: feed.artist || 'Unknown Artist',
+                description: feed.description || '',
+                coverArt: feed.image || '',
+                releaseDate: feed.lastFetched || feed.createdAt,
+                tracks: feed.Track.map((track: any, index: number) => ({
+                  title: track.title,
+                  duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+                  url: track.audioUrl || track.url || '',
+                  trackNumber: index + 1,
+                  subtitle: track.subtitle || '',
+                  summary: track.description || track.summary || '',
+                  image: track.image || feed.image || '',
+                  explicit: track.explicit || false,
+                  keywords: track.keywords || [],
+                  v4vRecipient: track.v4vRecipient,
+                  v4vValue: track.v4vValue,
+                  guid: track.guid,
+                  id: track.id,
+                  startTime: track.startTime,
+                  endTime: track.endTime
+                })),
+                link: feed.originalUrl || '',
+                feedUrl: feed.originalUrl || ''
+              };
+              console.log('✅ Constructed album from feed data');
+            }
+          }
+        }
+      }
+      
+      if (!albumData) {
+        console.error('❌ Could not fetch album data by any method');
+        toast.error('Could not load album data. Please try again.');
         return;
       }
-
-      // Find the first playable track
-      const firstTrack = albumData.tracks.find((track: any) => track.url);
       
-      if (!firstTrack || !firstTrack.url) {
+      // Filter tracks to only those with valid URLs
+      const playableTracks = albumData.tracks.filter((track: any) => track.url && track.url.trim() !== '');
+      
+      if (playableTracks.length === 0) {
+        console.error('❌ No playable tracks found in album');
         toast.error('No playable tracks found in this album');
         return;
       }
@@ -177,7 +288,7 @@ export default function FavoritesPage() {
         description: albumData.description || album.description || '',
         coverArt: albumData.coverArt || albumData.image || album.image || '',
         releaseDate: albumData.releaseDate || album.favoritedAt,
-        tracks: albumData.tracks.map((track: any) => ({
+        tracks: playableTracks.map((track: any) => ({
           title: track.title,
           duration: track.duration || '0:00',
           url: track.url || track.audioUrl || '',
@@ -198,15 +309,18 @@ export default function FavoritesPage() {
         feedUrl: albumData.feedUrl || albumData.link || ''
       };
 
+      console.log('🎵 Attempting to play RSSAlbum:', rssAlbum.title, 'with', rssAlbum.tracks.length, 'tracks');
       const success = await globalPlayAlbum(rssAlbum, 0);
       if (success) {
+        console.log('✅ Successfully started playback');
         toast.success(`Playing ${rssAlbum.title}`);
       } else {
+        console.error('❌ Failed to start playback');
         toast.error('Unable to play audio - please try again');
       }
     } catch (err) {
-      console.error('Error playing album:', err);
-      toast.error('Failed to load album data');
+      console.error('❌ Error playing album:', err);
+      toast.error(`Failed to load album data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -345,8 +459,10 @@ export default function FavoritesPage() {
                       url: '',
                       id: track.id
                     })),
-                    feedId: album.id,
-                    type: album.type
+                    feedId: album.id, // Use album.id as feedId for lookup
+                    type: album.type,
+                    // Store original album data for better lookup
+                    originalAlbum: album
                   };
 
                   return (
