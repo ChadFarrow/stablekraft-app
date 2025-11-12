@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { generateAlbumSlug } from '@/lib/url-utils';
+import { generateAlbumSlug, getPublisherInfo } from '@/lib/url-utils';
 import { resolveItemGuid } from '@/lib/feed-discovery';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
@@ -683,10 +683,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const albumSlug = generateAlbumSlug(albumTitle);
       const albumId = albumSlug + '-' + feed.id.split('-')[0];
       
+      // Check if this is a publisher feed ID and resolve artist name
+      let artistName = feed.artist;
+      if (!artistName || artistName === 'Unknown Artist') {
+        // Try to resolve from publisher mapping
+        const publisherInfo = getPublisherInfo(slug) || getPublisherInfo(feed.id);
+        if (publisherInfo?.name) {
+          artistName = publisherInfo.name;
+          console.log(`✅ Resolved artist name from publisher mapping: "${artistName}"`);
+        }
+      }
+      
       foundAlbum = {
         id: albumId,
         title: albumTitle,
-        artist: feed.artist || 'Unknown Artist',
+        artist: artistName || 'Unknown Artist',
         description: feed.description || '',
         summary: feed.description || '',
         subtitle: '',
@@ -782,10 +793,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         const albumSlug = generateAlbumSlug(albumTitle);
         const albumId = albumSlug + '-' + feed.id.split('-')[0];
         
+        // Check if this is a publisher feed ID and resolve artist name
+        let artistName = feed.artist;
+        if (!artistName || artistName === 'Unknown Artist') {
+          // Try to resolve from publisher mapping
+          const publisherInfo = getPublisherInfo(slug) || getPublisherInfo(feed.id);
+          if (publisherInfo?.name) {
+            artistName = publisherInfo.name;
+            console.log(`✅ Resolved artist name from publisher mapping: "${artistName}"`);
+          }
+        }
+        
         foundAlbum = {
           id: albumId,
           title: albumTitle,
-          artist: feed.artist || 'Unknown Artist',
+          artist: artistName || 'Unknown Artist',
           description: feed.description || '',
           summary: feed.description || '',
           subtitle: '',

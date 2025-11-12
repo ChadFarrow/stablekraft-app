@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
+import { getPublisherInfo } from '@/lib/url-utils';
 
 /**
  * GET /api/favorites/albums
@@ -56,18 +57,33 @@ export async function GET(request: NextRequest) {
     const feedsWithFavorites = favoriteAlbums.map(favorite => {
       const feed = feedMap.get(favorite.feedId);
       if (feed) {
-        // Feed exists in database
+        // Feed exists in database - check if we need to resolve artist name from publisher mapping
+        let artistName = feed.artist;
+        if (!artistName || artistName === 'Unknown Artist') {
+          // Try to resolve from publisher mapping
+          const publisherInfo = getPublisherInfo(favorite.feedId);
+          if (publisherInfo?.name) {
+            artistName = publisherInfo.name;
+          }
+        }
+        
         return {
           ...feed,
+          artist: artistName || feed.artist,
           favoritedAt: favorite.createdAt
         };
       } else {
         // Feed doesn't exist (e.g., publisher not yet indexed)
-        // Return a minimal feed object with just the favorite data
+        // Try to resolve artist name from publisher mapping
+        const publisherInfo = getPublisherInfo(favorite.feedId);
+        const resolvedTitle = publisherInfo?.name || favorite.feedId;
+        const resolvedArtist = publisherInfo?.name || null;
+        
         return {
           id: favorite.feedId,
-          title: favorite.feedId, // Use feedId as fallback title
-          type: null, // Unknown type - will be filtered as non-publisher
+          title: resolvedTitle,
+          artist: resolvedArtist,
+          type: publisherInfo ? 'publisher' : null,
           favoritedAt: favorite.createdAt,
           createdAt: favorite.createdAt,
           updatedAt: favorite.createdAt
