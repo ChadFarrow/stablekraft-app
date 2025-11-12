@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Normalize npub (remove whitespace, convert to lowercase for comparison)
-    let normalizedNpub: string | null = null;
-    let normalizedPubkey: string | null = null;
+    let normalizedNpub: string;
+    let normalizedPubkey: string;
 
     if (npub) {
       normalizedNpub = npub.trim();
@@ -66,6 +66,15 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    } else {
+      // This should never happen due to the check above, but TypeScript needs it
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing npub or pubkey',
+        },
+        { status: 400 }
+      );
     }
 
     // Check if npub is in whitelist
