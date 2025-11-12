@@ -5,13 +5,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSession } from '@/contexts/SessionContext';
 import { useNostr } from '@/contexts/NostrContext';
+import { useAudio } from '@/contexts/AudioContext';
 import { getSessionId } from '@/lib/session-utils';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
-import { generateAlbumUrl } from '@/lib/url-utils';
+import { generateAlbumUrl, generateAlbumSlug } from '@/lib/url-utils';
+import { RSSAlbum } from '@/lib/rss-parser';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
-import { Heart, Music, Disc, Users } from 'lucide-react';
+import { Heart, Music, Disc, Users, Play } from 'lucide-react';
+import { toast } from '@/components/Toast';
 
 interface FavoriteTrack {
   id: string;
@@ -50,6 +53,7 @@ interface FavoriteAlbum {
 export default function FavoritesPage() {
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
+  const { playAlbum: globalPlayAlbum, playTrack } = useAudio();
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
@@ -134,6 +138,94 @@ export default function FavoritesPage() {
       if (currentSessionId) {
         loadFavorites(currentSessionId, null);
       }
+    }
+  };
+
+  const handlePlayAlbum = async (album: any, e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      // Fetch full album data with track URLs
+      const slug = generateAlbumSlug(album.title);
+      const response = await fetch(`/api/albums/${encodeURIComponent(slug)}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch album data');
+      }
+
+      const albumData = await response.json();
+      
+      if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
+        toast.error('No playable tracks found in this album');
+        return;
+      }
+
+      // Find the first playable track
+      const firstTrack = albumData.tracks.find((track: any) => track.url);
+      
+      if (!firstTrack || !firstTrack.url) {
+        toast.error('No playable tracks found in this album');
+        return;
+      }
+
+      // Convert to RSSAlbum format
+      const rssAlbum: RSSAlbum = {
+        id: albumData.id || album.id,
+        title: albumData.title || album.title,
+        artist: albumData.artist || album.artist || 'Unknown Artist',
+        description: albumData.description || album.description || '',
+        coverArt: albumData.coverArt || albumData.image || album.image || '',
+        releaseDate: albumData.releaseDate || album.favoritedAt,
+        tracks: albumData.tracks.map((track: any) => ({
+          title: track.title,
+          duration: track.duration || '0:00',
+          url: track.url || track.audioUrl || '',
+          trackNumber: track.trackNumber || 0,
+          subtitle: track.subtitle || '',
+          summary: track.summary || '',
+          image: track.image || albumData.coverArt || '',
+          explicit: track.explicit || false,
+          keywords: track.keywords || [],
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue,
+          guid: track.guid,
+          id: track.id,
+          startTime: track.startTime,
+          endTime: track.endTime
+        })),
+        link: albumData.link || albumData.feedUrl || '',
+        feedUrl: albumData.feedUrl || albumData.link || ''
+      };
+
+      const success = await globalPlayAlbum(rssAlbum, 0);
+      if (success) {
+        toast.success(`Playing ${rssAlbum.title}`);
+      } else {
+        toast.error('Unable to play audio - please try again');
+      }
+    } catch (err) {
+      console.error('Error playing album:', err);
+      toast.error('Failed to load album data');
+    }
+  };
+
+  const handlePlayTrack = async (track: FavoriteTrack) => {
+    if (!track.audioUrl) {
+      toast.error('No audio URL available for this track');
+      return;
+    }
+
+    try {
+      const success = await playTrack(track.audioUrl);
+      if (success) {
+        toast.success(`Playing ${track.title}`);
+      } else {
+        toast.error('Unable to play audio - please try again');
+      }
+    } catch (err) {
+      console.error('Error playing track:', err);
+      toast.error('Failed to play track');
     }
   };
 
@@ -261,7 +353,7 @@ export default function FavoritesPage() {
                     <AlbumCard
                       key={album.id}
                       album={albumForCard}
-                      onPlay={async () => {}}
+                      onPlay={handlePlayAlbum}
                     />
                   );
                 })}
@@ -312,7 +404,7 @@ export default function FavoritesPage() {
                     <AlbumCard
                       key={publisher.id}
                       album={publisherForCard}
-                      onPlay={async () => {}}
+                      onPlay={handlePlayAlbum}
                     />
                   );
                 })}
@@ -373,6 +465,19 @@ export default function FavoritesPage() {
                           {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
                         </span>
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePlayTrack(track);
+                        }}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!track.audioUrl}
+                        title={track.audioUrl ? 'Play track' : 'No audio available'}
+                      >
+                        <Play className="w-4 h-4" />
+                        Play
+                      </button>
                       <FavoriteButton
                         trackId={track.id}
                         onToggle={handleFavoriteToggle}
