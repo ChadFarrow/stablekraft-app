@@ -114,6 +114,23 @@ export default function FavoritesPage() {
         // Publishers have type === 'publisher', everything else is an album
         const albums = allAlbums.filter((album: any) => album.type !== 'publisher');
         const publishers = allAlbums.filter((album: any) => album.type === 'publisher');
+        
+        // Sort albums by artist, then by title
+        albums.sort((a: any, b: any) => {
+          const artistA = (a.artist || 'Unknown Artist').toLowerCase();
+          const artistB = (b.artist || 'Unknown Artist').toLowerCase();
+          
+          // First sort by artist
+          if (artistA !== artistB) {
+            return artistA.localeCompare(artistB);
+          }
+          
+          // If same artist, sort by title
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        });
+        
         setFavoriteAlbums(albums);
         setFavoritePublishers(publishers);
       }
