@@ -99,7 +99,7 @@ const GlobalNowPlayingBar: React.FC = () => {
   const currentTrack = React.useMemo(() => {
     const track = currentPlayingAlbum.tracks?.[currentTrackIndex];
     return {
-      id: track?.id || `${currentPlayingAlbum.id || currentPlayingAlbum.title}-${currentTrackIndex}`,
+      id: track?.guid || track?.episodeId || `${currentPlayingAlbum.id || currentPlayingAlbum.title}-${currentTrackIndex}`,
       title: track?.title || `Track ${currentTrackIndex + 1}`,
       artist: currentPlayingAlbum.artist,
       albumTitle: currentPlayingAlbum.title,
