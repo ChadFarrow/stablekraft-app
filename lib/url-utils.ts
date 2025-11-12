@@ -187,6 +187,18 @@ export const KNOWN_PUBLISHERS: { [slug: string]: { feedGuid: string; feedUrl: st
     name: 'Drawing Monsters'
   },
   
+  // Death by Lions
+  'death-by-lions': {
+    feedGuid: 'wavlake-publisher-1e7f8807',
+    feedUrl: 'https://wavlake.com/feed/artist/1e7f8807-31a7-454c-b612-f2563ba4cf67',
+    name: 'Death by Lions'
+  },
+  'wavlake-publisher-1e7f8807': {
+    feedGuid: 'wavlake-publisher-1e7f8807',
+    feedUrl: 'https://wavlake.com/feed/artist/1e7f8807-31a7-454c-b612-f2563ba4cf67',
+    name: 'Death by Lions'
+  },
+  
   // Wavlake Publisher (generic)
   'wavlake-publisher': {
     feedGuid: 'aa909244-7555-4b52-ad88-7233860c6fb4',
@@ -234,6 +246,288 @@ export const KNOWN_PUBLISHERS: { [slug: string]: { feedGuid: string; feedUrl: st
     feedGuid: 'cbcb895d-9a01-465f-af7b-9a09ffbc29f5',
     feedUrl: 'https://wavlake.com/feed/artist/cbcb895d-9a01-465f-af7b-9a09ffbc29f5',
     name: 'Drawing Monsters'
+  },
+  '1e7f8807': {
+    feedGuid: 'wavlake-publisher-1e7f8807',
+    feedUrl: 'https://wavlake.com/feed/artist/1e7f8807-31a7-454c-b612-f2563ba4cf67',
+    name: 'Death by Lions'
+  },
+  
+  // Additional Wavlake Publishers
+  'bennyjeans': {
+    feedGuid: 'wavlake-publisher-4e33ca0c',
+    feedUrl: 'https://wavlake.com/feed/artist/4e33ca0c-bd98-4f98-9284-e8073046c049',
+    name: 'bennyjeans'
+  },
+  'wavlake-publisher-4e33ca0c': {
+    feedGuid: 'wavlake-publisher-4e33ca0c',
+    feedUrl: 'https://wavlake.com/feed/artist/4e33ca0c-bd98-4f98-9284-e8073046c049',
+    name: 'bennyjeans'
+  },
+  '4e33ca0c': {
+    feedGuid: 'wavlake-publisher-4e33ca0c',
+    feedUrl: 'https://wavlake.com/feed/artist/4e33ca0c-bd98-4f98-9284-e8073046c049',
+    name: 'bennyjeans'
+  },
+  'big-awesome': {
+    feedGuid: 'wavlake-publisher-93fbacab',
+    feedUrl: 'https://wavlake.com/feed/artist/93fbacab-bbbb-4de4-863a-8adeb9fc4782',
+    name: 'Big Awesome'
+  },
+  'wavlake-publisher-93fbacab': {
+    feedGuid: 'wavlake-publisher-93fbacab',
+    feedUrl: 'https://wavlake.com/feed/artist/93fbacab-bbbb-4de4-863a-8adeb9fc4782',
+    name: 'Big Awesome'
+  },
+  '93fbacab': {
+    feedGuid: 'wavlake-publisher-93fbacab',
+    feedUrl: 'https://wavlake.com/feed/artist/93fbacab-bbbb-4de4-863a-8adeb9fc4782',
+    name: 'Big Awesome'
+  },
+  'charlie-crown': {
+    feedGuid: 'wavlake-publisher-707bc821',
+    feedUrl: 'https://wavlake.com/feed/artist/707bc821-489e-46b2-8b51-d0aaad856f20',
+    name: 'Charlie Crown'
+  },
+  'wavlake-publisher-707bc821': {
+    feedGuid: 'wavlake-publisher-707bc821',
+    feedUrl: 'https://wavlake.com/feed/artist/707bc821-489e-46b2-8b51-d0aaad856f20',
+    name: 'Charlie Crown'
+  },
+  '707bc821': {
+    feedGuid: 'wavlake-publisher-707bc821',
+    feedUrl: 'https://wavlake.com/feed/artist/707bc821-489e-46b2-8b51-d0aaad856f20',
+    name: 'Charlie Crown'
+  },
+  'cole-hansen': {
+    feedGuid: 'wavlake-publisher-cc63b375',
+    feedUrl: 'https://wavlake.com/feed/artist/cc63b375-8977-4048-9aee-99a500fb6108',
+    name: 'Cole Hansen'
+  },
+  'wavlake-publisher-cc63b375': {
+    feedGuid: 'wavlake-publisher-cc63b375',
+    feedUrl: 'https://wavlake.com/feed/artist/cc63b375-8977-4048-9aee-99a500fb6108',
+    name: 'Cole Hansen'
+  },
+  'cc63b375': {
+    feedGuid: 'wavlake-publisher-cc63b375',
+    feedUrl: 'https://wavlake.com/feed/artist/cc63b375-8977-4048-9aee-99a500fb6108',
+    name: 'Cole Hansen'
+  },
+  'herbivore': {
+    feedGuid: 'wavlake-publisher-eea2d330',
+    feedUrl: 'https://wavlake.com/feed/artist/eea2d330-fc71-4e90-81de-3de819728c9d',
+    name: 'Herbivore'
+  },
+  'wavlake-publisher-eea2d330': {
+    feedGuid: 'wavlake-publisher-eea2d330',
+    feedUrl: 'https://wavlake.com/feed/artist/eea2d330-fc71-4e90-81de-3de819728c9d',
+    name: 'Herbivore'
+  },
+  'eea2d330': {
+    feedGuid: 'wavlake-publisher-eea2d330',
+    feedUrl: 'https://wavlake.com/feed/artist/eea2d330-fc71-4e90-81de-3de819728c9d',
+    name: 'Herbivore'
+  },
+  'jessica-lynne-witty': {
+    feedGuid: 'wavlake-publisher-6fa983b3',
+    feedUrl: 'https://wavlake.com/feed/artist/6fa983b3-9aa2-4331-b22f-5f6d8dcdf3f2',
+    name: 'Jessica Lynne Witty'
+  },
+  'wavlake-publisher-6fa983b3': {
+    feedGuid: 'wavlake-publisher-6fa983b3',
+    feedUrl: 'https://wavlake.com/feed/artist/6fa983b3-9aa2-4331-b22f-5f6d8dcdf3f2',
+    name: 'Jessica Lynne Witty'
+  },
+  '6fa983b3': {
+    feedGuid: 'wavlake-publisher-6fa983b3',
+    feedUrl: 'https://wavlake.com/feed/artist/6fa983b3-9aa2-4331-b22f-5f6d8dcdf3f2',
+    name: 'Jessica Lynne Witty'
+  },
+  'john-depew-trio': {
+    feedGuid: 'wavlake-publisher-df5a4722',
+    feedUrl: 'https://wavlake.com/feed/artist/df5a4722-cd42-429c-896d-caec1ad39600',
+    name: 'John Depew Trio'
+  },
+  'wavlake-publisher-df5a4722': {
+    feedGuid: 'wavlake-publisher-df5a4722',
+    feedUrl: 'https://wavlake.com/feed/artist/df5a4722-cd42-429c-896d-caec1ad39600',
+    name: 'John Depew Trio'
+  },
+  'df5a4722': {
+    feedGuid: 'wavlake-publisher-df5a4722',
+    feedUrl: 'https://wavlake.com/feed/artist/df5a4722-cd42-429c-896d-caec1ad39600',
+    name: 'John Depew Trio'
+  },
+  'lara-j': {
+    feedGuid: 'wavlake-publisher-912c0793',
+    feedUrl: 'https://wavlake.com/feed/artist/912c0793-92cf-4726-a495-e5b1602693c0',
+    name: 'Lara J'
+  },
+  'wavlake-publisher-912c0793': {
+    feedGuid: 'wavlake-publisher-912c0793',
+    feedUrl: 'https://wavlake.com/feed/artist/912c0793-92cf-4726-a495-e5b1602693c0',
+    name: 'Lara J'
+  },
+  '912c0793': {
+    feedGuid: 'wavlake-publisher-912c0793',
+    feedUrl: 'https://wavlake.com/feed/artist/912c0793-92cf-4726-a495-e5b1602693c0',
+    name: 'Lara J'
+  },
+  'late-night-special': {
+    feedGuid: 'wavlake-publisher-bfb52718',
+    feedUrl: 'https://wavlake.com/feed/artist/bfb52718-dcfd-44d6-af94-d05559be2f21',
+    name: 'Late Night Special'
+  },
+  'wavlake-publisher-bfb52718': {
+    feedGuid: 'wavlake-publisher-bfb52718',
+    feedUrl: 'https://wavlake.com/feed/artist/bfb52718-dcfd-44d6-af94-d05559be2f21',
+    name: 'Late Night Special'
+  },
+  'bfb52718': {
+    feedGuid: 'wavlake-publisher-bfb52718',
+    feedUrl: 'https://wavlake.com/feed/artist/bfb52718-dcfd-44d6-af94-d05559be2f21',
+    name: 'Late Night Special'
+  },
+  'matt-johner': {
+    feedGuid: 'wavlake-publisher-7ca38fae',
+    feedUrl: 'https://wavlake.com/feed/artist/7ca38fae-f142-4ceb-ab0f-b17d92374315',
+    name: 'Matt Johner'
+  },
+  'wavlake-publisher-7ca38fae': {
+    feedGuid: 'wavlake-publisher-7ca38fae',
+    feedUrl: 'https://wavlake.com/feed/artist/7ca38fae-f142-4ceb-ab0f-b17d92374315',
+    name: 'Matt Johner'
+  },
+  '7ca38fae': {
+    feedGuid: 'wavlake-publisher-7ca38fae',
+    feedUrl: 'https://wavlake.com/feed/artist/7ca38fae-f142-4ceb-ab0f-b17d92374315',
+    name: 'Matt Johner'
+  },
+  'ro-shapiro': {
+    feedGuid: 'wavlake-publisher-299267e2',
+    feedUrl: 'https://wavlake.com/feed/artist/299267e2-9309-4276-a22d-70b44f0be754',
+    name: 'R.O. Shapiro'
+  },
+  'r-o-shapiro': {
+    feedGuid: 'wavlake-publisher-299267e2',
+    feedUrl: 'https://wavlake.com/feed/artist/299267e2-9309-4276-a22d-70b44f0be754',
+    name: 'R.O. Shapiro'
+  },
+  'wavlake-publisher-299267e2': {
+    feedGuid: 'wavlake-publisher-299267e2',
+    feedUrl: 'https://wavlake.com/feed/artist/299267e2-9309-4276-a22d-70b44f0be754',
+    name: 'R.O. Shapiro'
+  },
+  '299267e2': {
+    feedGuid: 'wavlake-publisher-299267e2',
+    feedUrl: 'https://wavlake.com/feed/artist/299267e2-9309-4276-a22d-70b44f0be754',
+    name: 'R.O. Shapiro'
+  },
+  'ryan-fonda': {
+    feedGuid: 'wavlake-publisher-d4c49f2e',
+    feedUrl: 'https://wavlake.com/feed/artist/d4c49f2e-0b50-4a5e-8101-7543d68e032f',
+    name: 'Ryan Fonda'
+  },
+  'wavlake-publisher-d4c49f2e': {
+    feedGuid: 'wavlake-publisher-d4c49f2e',
+    feedUrl: 'https://wavlake.com/feed/artist/d4c49f2e-0b50-4a5e-8101-7543d68e032f',
+    name: 'Ryan Fonda'
+  },
+  'd4c49f2e': {
+    feedGuid: 'wavlake-publisher-d4c49f2e',
+    feedUrl: 'https://wavlake.com/feed/artist/d4c49f2e-0b50-4a5e-8101-7543d68e032f',
+    name: 'Ryan Fonda'
+  },
+  'sara-jade': {
+    feedGuid: 'wavlake-publisher-a8ad6318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8ad6318-7312-4f77-adbf-80b54944c8da',
+    name: 'Sara Jade'
+  },
+  'wavlake-publisher-a8ad6318': {
+    feedGuid: 'wavlake-publisher-a8ad6318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8ad6318-7312-4f77-adbf-80b54944c8da',
+    name: 'Sara Jade'
+  },
+  'a8ad6318': {
+    feedGuid: 'wavlake-publisher-a8ad6318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8ad6318-7312-4f77-adbf-80b54944c8da',
+    name: 'Sara Jade'
+  },
+  'seth-fonda': {
+    feedGuid: 'wavlake-publisher-d5067e8a',
+    feedUrl: 'https://wavlake.com/feed/artist/d5067e8a-e2a2-47d7-a80c-b1a13def9a8d',
+    name: 'Seth Fonda'
+  },
+  'wavlake-publisher-d5067e8a': {
+    feedGuid: 'wavlake-publisher-d5067e8a',
+    feedUrl: 'https://wavlake.com/feed/artist/d5067e8a-e2a2-47d7-a80c-b1a13def9a8d',
+    name: 'Seth Fonda'
+  },
+  'd5067e8a': {
+    feedGuid: 'wavlake-publisher-d5067e8a',
+    feedUrl: 'https://wavlake.com/feed/artist/d5067e8a-e2a2-47d7-a80c-b1a13def9a8d',
+    name: 'Seth Fonda'
+  },
+  'the-greensands': {
+    feedGuid: 'wavlake-publisher-a8586318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8586318-c588-46ad-a769-ffb7e9c27b2c',
+    name: 'The Greensands'
+  },
+  'wavlake-publisher-a8586318': {
+    feedGuid: 'wavlake-publisher-a8586318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8586318-c588-46ad-a769-ffb7e9c27b2c',
+    name: 'The Greensands'
+  },
+  'a8586318': {
+    feedGuid: 'wavlake-publisher-a8586318',
+    feedUrl: 'https://wavlake.com/feed/artist/a8586318-c588-46ad-a769-ffb7e9c27b2c',
+    name: 'The Greensands'
+  },
+  'the-johner-boys': {
+    feedGuid: 'wavlake-publisher-bd040774',
+    feedUrl: 'https://wavlake.com/feed/artist/bd040774-1dd6-42c6-98ce-01d327697a1d',
+    name: 'The Johner Boys'
+  },
+  'wavlake-publisher-bd040774': {
+    feedGuid: 'wavlake-publisher-bd040774',
+    feedUrl: 'https://wavlake.com/feed/artist/bd040774-1dd6-42c6-98ce-01d327697a1d',
+    name: 'The Johner Boys'
+  },
+  'bd040774': {
+    feedGuid: 'wavlake-publisher-bd040774',
+    feedUrl: 'https://wavlake.com/feed/artist/bd040774-1dd6-42c6-98ce-01d327697a1d',
+    name: 'The Johner Boys'
+  },
+  'theo-katzman': {
+    feedGuid: 'wavlake-publisher-09954f14',
+    feedUrl: 'https://wavlake.com/feed/artist/09954f14-c5a7-4680-90f4-0869243b9c26',
+    name: 'Theo Katzman'
+  },
+  'wavlake-publisher-09954f14': {
+    feedGuid: 'wavlake-publisher-09954f14',
+    feedUrl: 'https://wavlake.com/feed/artist/09954f14-c5a7-4680-90f4-0869243b9c26',
+    name: 'Theo Katzman'
+  },
+  '09954f14': {
+    feedGuid: 'wavlake-publisher-09954f14',
+    feedUrl: 'https://wavlake.com/feed/artist/09954f14-c5a7-4680-90f4-0869243b9c26',
+    name: 'Theo Katzman'
+  },
+  'vertigo-kidd': {
+    feedGuid: 'wavlake-publisher-eff27dd6',
+    feedUrl: 'https://wavlake.com/feed/artist/eff27dd6-764c-497e-81fe-3a7e10eb7b3b',
+    name: 'Vertigo Kidd'
+  },
+  'wavlake-publisher-eff27dd6': {
+    feedGuid: 'wavlake-publisher-eff27dd6',
+    feedUrl: 'https://wavlake.com/feed/artist/eff27dd6-764c-497e-81fe-3a7e10eb7b3b',
+    name: 'Vertigo Kidd'
+  },
+  'eff27dd6': {
+    feedGuid: 'wavlake-publisher-eff27dd6',
+    feedUrl: 'https://wavlake.com/feed/artist/eff27dd6-764c-497e-81fe-3a7e10eb7b3b',
+    name: 'Vertigo Kidd'
   }
 };
 
