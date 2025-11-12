@@ -25,7 +25,6 @@ export default function AdminPanel() {
   const [addingFeed, setAddingFeed] = useState(false);
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newFeedType, setNewFeedType] = useState<'album' | 'publisher'>('album');
-  const [cdnStatus, setCdnStatus] = useState<any>(null);
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -39,7 +38,6 @@ export default function AdminPanel() {
     if (savedAuth === 'true') {
       setIsAuthenticated(true);
       loadFeeds();
-      loadCDNStatus();
     } else {
       setLoading(false);
     }
@@ -53,7 +51,6 @@ export default function AdminPanel() {
       setAuthError('');
       localStorage.setItem('admin-authenticated', 'true');
       loadFeeds();
-      loadCDNStatus();
     } else {
       setAuthError('Incorrect passphrase. Please try again.');
       setPassphrase('');
@@ -85,18 +82,6 @@ export default function AdminPanel() {
     }
   };
 
-  const loadCDNStatus = async () => {
-    try {
-      const response = await fetch('/api/admin/cdn-status');
-      const data = await response.json();
-      
-      if (data.success) {
-        setCdnStatus(data.cdnStatus);
-      }
-    } catch (error) {
-      console.error('Error loading CDN status:', error);
-    }
-  };
 
   const addFeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,23 +295,8 @@ export default function AdminPanel() {
             </button>
           </div>
           <p className="text-gray-400 mb-4">
-            Manage RSS feeds for the music catalog. Feeds are automatically processed and cached to CDN.
+            Manage RSS feeds for the music catalog.
           </p>
-          
-          {/* CDN Status */}
-          {cdnStatus && (
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-              cdnStatus.configured 
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-            }`}>
-              <span className="w-2 h-2 rounded-full bg-current"></span>
-              <span>
-                CDN: {cdnStatus.configured ? 'Connected' : 'Not Configured'} 
-                {cdnStatus.configured && ` (${cdnStatus.storageZone})`}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Add Feed Form - Simple paste interface */}
@@ -375,32 +345,6 @@ export default function AdminPanel() {
               </p>
             </div>
           </form>
-        </div>
-
-        {/* Feed Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-            <h3 className="text-lg font-semibold mb-2">Total Feeds</h3>
-            <p className="text-3xl font-bold text-blue-400">{feeds.length}</p>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-            <h3 className="text-lg font-semibold mb-2">Built-in</h3>
-            <p className="text-3xl font-bold text-blue-400">
-              {feeds.filter(f => f.source === 'hardcoded').length}
-            </p>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-            <h3 className="text-lg font-semibold mb-2">Added</h3>
-            <p className="text-3xl font-bold text-green-400">
-              {feeds.filter(f => f.source === 'managed').length}
-            </p>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-            <h3 className="text-lg font-semibold mb-2">Active</h3>
-            <p className="text-3xl font-bold text-purple-400">
-              {feeds.filter(f => f.status === 'active').length}
-            </p>
-          </div>
         </div>
 
         {/* Feeds List */}
