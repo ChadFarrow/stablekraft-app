@@ -5,6 +5,7 @@ import CDNImage from '@/components/CDNImage';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 
 interface Track {
+  id?: string;
   title: string;
   artist: string;
   albumTitle: string;
@@ -95,7 +96,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
         }}
       >
         <CDNImage 
-          key={`${track.title}-${track.artist}-${track.albumArt}`}
+          key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}`}
           src={track.albumArt || ''}
           alt={track.title}
           width={48}

@@ -74,8 +74,8 @@ const GlobalNowPlayingBar: React.FC = () => {
   };
 
   // Get the artwork URL with proper fallbacks
-  const getArtworkUrl = (): string => {
-    const track = currentPlayingAlbum.tracks?.[currentTrackIndex];
+  const getArtworkUrl = React.useCallback((trackIndex: number): string => {
+    const track = currentPlayingAlbum.tracks?.[trackIndex];
     const trackImage = track?.image;
     const albumCoverArt = currentPlayingAlbum.coverArt;
     
@@ -92,17 +92,22 @@ const GlobalNowPlayingBar: React.FC = () => {
     
     // Use placeholder when no artwork is available
     return getPlaceholderImageUrl('thumbnail');
-  };
+  }, [currentPlayingAlbum]);
 
   // Create track object for NowPlaying component
-  const currentTrack = {
-    title: currentPlayingAlbum.tracks?.[currentTrackIndex]?.title || `Track ${currentTrackIndex + 1}`,
-    artist: currentPlayingAlbum.artist,
-    albumTitle: currentPlayingAlbum.title,
-    duration: duration || 0,
-    // Get artwork URL with proper fallbacks
-    albumArt: getArtworkUrl()
-  };
+  // Use useMemo to ensure the object reference changes when dependencies change
+  const currentTrack = React.useMemo(() => {
+    const track = currentPlayingAlbum.tracks?.[currentTrackIndex];
+    return {
+      id: track?.id || `${currentPlayingAlbum.id || currentPlayingAlbum.title}-${currentTrackIndex}`,
+      title: track?.title || `Track ${currentTrackIndex + 1}`,
+      artist: currentPlayingAlbum.artist,
+      albumTitle: currentPlayingAlbum.title,
+      duration: duration || 0,
+      // Get artwork URL with proper fallbacks
+      albumArt: getArtworkUrl(currentTrackIndex)
+    };
+  }, [currentPlayingAlbum, currentTrackIndex, duration, getArtworkUrl]);
 
   // Debug logging for artwork troubleshooting
   if (process.env.NODE_ENV === 'development' && currentPlayingAlbum.tracks?.[currentTrackIndex]) {
