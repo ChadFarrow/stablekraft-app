@@ -355,13 +355,15 @@ export default function BaseMusicTrackCard({
 
             {/* Lightning Boost Button for V4V tracks */}
             {variant === 'v4v' && isV4VTrack(track) && track.valueForValue && (
-              <BoostButton
-                trackId={track.id}
-                feedId={track.feedUrl}
-                trackTitle={track.title}
-                artistName={track.artist}
-                className="text-sm"
-              />
+              <div onClick={(e) => e.stopPropagation()}>
+                <BoostButton
+                  trackId={track.id}
+                  feedId={track.feedUrl}
+                  trackTitle={track.title}
+                  artistName={track.artist}
+                  className="text-sm"
+                />
+              </div>
             )}
 
             {/* Additional Actions */}

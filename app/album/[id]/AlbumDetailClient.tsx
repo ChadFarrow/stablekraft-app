@@ -1041,20 +1041,22 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       )}
 
                       {/* Boost Button */}
-                      <BoostButton
-                        trackId={track.guid}
-                        feedId={album.feedId}
-                        trackTitle={track.title}
-                        artistName={album.artist}
-                        valueSplits={track.v4vValue?.recipients ? track.v4vValue.recipients.map((recipient: any) => ({
-                          name: recipient.name || album.artist,
-                          address: recipient.address || '',
-                          split: parseInt(recipient.split) || 100,
-                          type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
-                        })) : undefined}
-                        lightningAddress={track.v4vRecipient}
-                        className="text-xs px-2 py-1"
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <BoostButton
+                          trackId={track.guid}
+                          feedId={album.feedId}
+                          trackTitle={track.title}
+                          artistName={album.artist}
+                          valueSplits={track.v4vValue?.recipients ? track.v4vValue.recipients.map((recipient: any) => ({
+                            name: recipient.name || album.artist,
+                            address: recipient.address || '',
+                            split: parseInt(recipient.split) || 100,
+                            type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
+                          })) : undefined}
+                          lightningAddress={track.v4vRecipient}
+                          className="text-xs px-2 py-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}

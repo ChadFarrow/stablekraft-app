@@ -266,13 +266,15 @@ export default function PlaylistAlbumProgressive({
                   </div>
                 )}
 
-                <BoostButton
-                  trackId={track.valueForValue?.itemGuid || track.id}
-                  feedId={track.valueForValue?.feedGuid}
-                  trackTitle={displayTitle}
-                  artistName={displayArtist}
-                  className="text-xs"
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <BoostButton
+                    trackId={track.valueForValue?.itemGuid || track.id}
+                    feedId={track.valueForValue?.feedGuid}
+                    trackTitle={displayTitle}
+                    artistName={displayArtist}
+                    className="text-xs"
+                  />
+                </div>
                 {hasAudio && (
                   <button
                     onClick={(e) => {
