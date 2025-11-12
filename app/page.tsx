@@ -13,7 +13,6 @@ import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
-import NowPlayingScreen from '@/components/NowPlayingScreen';
 import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 
@@ -1036,8 +1035,7 @@ function HomePageContent() {
       const success = await globalPlayAlbum(album, 0);
       if (success) {
         console.log('✅ Successfully started playback');
-        // Open the fullscreen now playing screen
-        setFullscreenMode(true);
+        // Fullscreen modal removed - playback starts without opening modal
       } else {
         throw new Error('Failed to start album playback');
       }
@@ -1870,11 +1868,7 @@ function HomePageContent() {
         {/* Now Playing Bar is now handled by the global AudioContext */}
       </div>
       
-      {/* Fullscreen Now Playing Screen */}
-      <NowPlayingScreen
-        isOpen={isFullscreenMode}
-        onClose={() => setFullscreenMode(false)}
-      />
+      {/* Fullscreen Now Playing Screen removed */}
     </div>
   );
 }

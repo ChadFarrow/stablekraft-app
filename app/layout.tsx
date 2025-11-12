@@ -10,7 +10,6 @@ import { SessionProvider } from '@/contexts/SessionContext'
 import { NostrProvider } from '@/contexts/NostrContext'
 import LightningWrapper from '@/components/LightningWrapper'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
-import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
 
@@ -148,7 +147,6 @@ export default function RootLayout({
                     </div>
                   </div>
                   <GlobalNowPlayingBar />
-                  <NowPlayingScreen />
                   <ToastContainer />
                   <ServiceWorkerRegistration />
                     </AudioProvider>
