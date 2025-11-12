@@ -1,46 +1,96 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/Toast';
+import { useNostr } from '@/contexts/NostrContext';
+import dynamic from 'next/dynamic';
+
+// Dynamically import LoginModal to avoid SSR issues
+const LoginModal = dynamic(() => import('@/components/Nostr/LoginModal'), {
+  ssr: false,
+});
 
 export default function AdminPanel() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [addingFeed, setAddingFeed] = useState(false);
   const [newFeedUrl, setNewFeedUrl] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passphrase, setPassphrase] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isMigrating, setIsMigrating] = useState(false);
+  // Nostr authentication
+  const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
+  
+  // Admin authentication state (separate from Nostr auth)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
-  useEffect(() => {
-    // Check if already authenticated from localStorage
-    const savedAuth = localStorage.getItem('admin-authenticated');
-    if (savedAuth === 'true') {
-      setIsAuthenticated(true);
+  const verifyAdminAccess = useCallback(async (npub: string, pubkey: string) => {
+    setVerifying(true);
+    try {
+      const response = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ npub, pubkey }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.authorized) {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem('admin-authenticated', 'true');
+        localStorage.setItem('admin-npub', npub);
+      } else {
+        setIsAdminAuthenticated(false);
+        localStorage.removeItem('admin-authenticated');
+        localStorage.removeItem('admin-npub');
+      }
+    } catch (error) {
+      console.error('Error verifying admin access:', error);
+      setIsAdminAuthenticated(false);
+      localStorage.removeItem('admin-authenticated');
+      localStorage.removeItem('admin-npub');
+    } finally {
+      setVerifying(false);
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  // When Nostr user changes, check admin access
+  useEffect(() => {
+    if (nostrLoading) return;
     
-    if (passphrase.trim().toLowerCase() === 'doerfel') {
-      setIsAuthenticated(true);
-      setAuthError('');
-      localStorage.setItem('admin-authenticated', 'true');
+    if (isNostrAuthenticated && nostrUser) {
+      // Check if already authenticated as admin
+      const savedAdminAuth = localStorage.getItem('admin-authenticated');
+      const savedNpub = localStorage.getItem('admin-npub');
+      
+      // If we have a saved admin auth and the npub matches, verify it's still valid
+      if (savedAdminAuth === 'true' && savedNpub === nostrUser.nostrNpub) {
+        verifyAdminAccess(nostrUser.nostrNpub, nostrUser.nostrPubkey);
+      } else if (savedAdminAuth !== 'true') {
+        // No saved admin auth, verify the current user
+        verifyAdminAccess(nostrUser.nostrNpub, nostrUser.nostrPubkey);
+      } else {
+        // Saved npub doesn't match current user, clear and verify
+        localStorage.removeItem('admin-authenticated');
+        localStorage.removeItem('admin-npub');
+        verifyAdminAccess(nostrUser.nostrNpub, nostrUser.nostrPubkey);
+      }
     } else {
-      setAuthError('Incorrect passphrase. Please try again.');
-      setPassphrase('');
+      // Not authenticated, clear admin auth
+      setIsAdminAuthenticated(false);
+      localStorage.removeItem('admin-authenticated');
+      localStorage.removeItem('admin-npub');
+      setLoading(false);
     }
-  };
+  }, [nostrLoading, isNostrAuthenticated, nostrUser?.nostrNpub, nostrUser?.nostrPubkey, verifyAdminAccess]);
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    setIsAdminAuthenticated(false);
     localStorage.removeItem('admin-authenticated');
-    setPassphrase('');
-    setAuthError('');
+    localStorage.removeItem('admin-npub');
+    setShowLoginModal(false);
   };
 
 
@@ -112,62 +162,72 @@ export default function AdminPanel() {
   };
 
 
-  // Authentication screen
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-8 w-full max-w-md">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-2">Admin Access</h1>
-            <p className="text-gray-400">Enter passphrase to access RSS feed management</p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label htmlFor="passphrase" className="block text-sm font-medium text-gray-300 mb-2">
-                Passphrase
-              </label>
-              <input
-                type="password"
-                id="passphrase"
-                value={passphrase}
-                onChange={(e) => {
-                  setPassphrase(e.target.value);
-                  if (authError) setAuthError('');
-                }}
-                placeholder="Enter admin passphrase"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                autoFocus
-                required
-              />
-              {authError && (
-                <p className="mt-2 text-sm text-red-400">{authError}</p>
-              )}
-            </div>
-            
-            <button
-              type="submit"
-              disabled={!passphrase.trim()}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              Access Admin Panel
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
+  // Show loading state
+  if (loading || nostrLoading || verifying) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
         <div className="container mx-auto px-6 py-12">
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            <span className="ml-4 text-lg">Loading feeds...</span>
+            <span className="ml-4 text-lg">
+              {verifying ? 'Verifying admin access...' : 'Loading...'}
+            </span>
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isNostrAuthenticated || !isAdminAuthenticated) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-8 w-full max-w-md">
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold mb-2">Admin Access</h1>
+              <p className="text-gray-400 mb-4">
+                Sign in with Nostr to access RSS feed management
+              </p>
+              {isNostrAuthenticated && !isAdminAuthenticated && (
+                <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                  <p className="text-sm text-yellow-400">
+                    ⚠️ Your Nostr account is not whitelisted for admin access.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {!isNostrAuthenticated ? (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors font-medium"
+              >
+                🔐 Sign in with Nostr
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-white/5 rounded-lg text-sm">
+                  <p className="text-gray-300">Logged in as:</p>
+                  <p className="text-blue-400 font-mono text-xs break-all mt-1">
+                    {nostrUser?.nostrNpub || nostrUser?.nostrPubkey}
+                  </p>
+                </div>
+                <button
+                  onClick={() => verifyAdminAccess(nostrUser!.nostrNpub, nostrUser!.nostrPubkey)}
+                  disabled={verifying}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {verifying ? 'Verifying...' : 'Verify Admin Access'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {showLoginModal && (
+          <LoginModal onClose={() => setShowLoginModal(false)} />
+        )}
+      </>
     );
   }
 
