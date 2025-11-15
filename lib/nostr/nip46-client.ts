@@ -454,8 +454,10 @@ export class NIP46Client {
     const appPubkey = connectionInfo.publicKey;
     const signerPubkey = this.connection.pubkey;
 
-    if (!signerPubkey) {
-      throw new Error('Signer public key not available');
+    // For get_public_key, we can proceed even without the pubkey (we're requesting it)
+    // For other methods, we need the pubkey to be available
+    if (method !== 'get_public_key' && !signerPubkey) {
+      throw new Error('Signer public key not available. Please wait for the connection to be established.');
     }
 
     // Create NIP-46 request event (kind 24133)
@@ -480,13 +482,17 @@ export class NIP46Client {
         }
       }, 60000);
 
-      // For now, if it's get_public_key and we have the pubkey, return it immediately
+      // If it's get_public_key and we already have the pubkey, return it immediately
       if (method === 'get_public_key' && signerPubkey) {
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
         resolve(signerPubkey);
         return;
       }
+
+      // For get_public_key without pubkey, we need to use the app's pubkey as a placeholder
+      // The signer will respond with their actual pubkey
+      const pubkeyForRequest = signerPubkey || appPubkey;
 
       // For other methods, publish a request event and wait for response
       // 1. Create and publish a kind 24133 event with the request
