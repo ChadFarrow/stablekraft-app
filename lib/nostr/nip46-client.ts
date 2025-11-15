@@ -103,16 +103,33 @@ export class NIP46Client {
     const appPubkey = connectionInfo.publicKey;
 
     // Subscribe to NIP-46 events (kind 24133) directed to our app
+    // NIP-46 uses kind 24133 for request/response events
+    // We need to listen for events where we are the recipient (tagged with our pubkey)
     const filters: Filter[] = [{
       kinds: [24133], // NIP-46 request/response events
-      '#p': [appPubkey], // Events tagged with our public key
+      '#p': [appPubkey], // Events tagged with our public key (recipient)
     }];
+
+    console.log('🔍 NIP-46: Subscribing to relay events:', {
+      relayUrl,
+      appPubkey: appPubkey.slice(0, 16) + '...',
+      filters,
+    });
 
     this.relaySubscription = this.relayClient.subscribe({
       relays: [relayUrl],
       filters,
       onEvent: (event: Event) => {
+        console.log('📨 NIP-46: Received event from relay:', {
+          id: event.id.slice(0, 16) + '...',
+          pubkey: event.pubkey.slice(0, 16) + '...',
+          kind: event.kind,
+          content: event.content.substring(0, 100),
+        });
         this.handleRelayEvent(event, connectionInfo);
+      },
+      onEose: () => {
+        console.log('✅ NIP-46: Subscription EOSE (End of Stored Events)');
       },
       onError: (error) => {
         console.error('❌ NIP-46: Relay subscription error:', error);
@@ -127,24 +144,79 @@ export class NIP46Client {
    */
   private handleRelayEvent(event: Event, connectionInfo: any): void {
     try {
+      console.log('🔍 NIP-46: Processing relay event:', {
+        id: event.id.slice(0, 16) + '...',
+        pubkey: event.pubkey.slice(0, 16) + '...',
+        kind: event.kind,
+        tags: event.tags,
+        contentLength: event.content.length,
+      });
+
       // Parse NIP-46 event content
-      const content = JSON.parse(event.content);
-      
+      let content;
+      try {
+        content = JSON.parse(event.content);
+      } catch (parseError) {
+        console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', event.content.substring(0, 100));
+        // Some NIP-46 implementations might send plain text
+        content = { method: 'connect', params: [] };
+      }
+
+      console.log('📋 NIP-46: Parsed content:', content);
+
       // Check if this is a connection/authentication response
-      if (content.method === 'connect' || content.method === 'get_public_key') {
+      // NIP-46 connection events can have different structures:
+      // 1. Method-based: { method: 'connect', params: [...] }
+      // 2. Response-based: { id: '...', result: 'pubkey' }
+      // 3. Direct pubkey in content
+      
+      const isConnectionEvent = 
+        content.method === 'connect' || 
+        content.method === 'get_public_key' ||
+        (content.result && typeof content.result === 'string' && content.result.length === 64) ||
+        (event.content && event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content));
+
+      if (isConnectionEvent) {
+        // Extract signer's public key
+        let signerPubkey = event.pubkey; // Default to event author
+        
+        if (content.result && typeof content.result === 'string') {
+          signerPubkey = content.result;
+        } else if (event.content && /^[a-f0-9]{64}$/i.test(event.content)) {
+          signerPubkey = event.content;
+        }
+
         // This is a connection from the signer
         if (this.connection) {
           this.connection.connected = true;
           this.connection.connectedAt = Date.now();
-          this.connection.pubkey = event.pubkey; // Signer's public key
+          this.connection.pubkey = signerPubkey;
         }
+
+        // Save connection to localStorage for persistence
+        if (typeof window !== 'undefined' && this.connection) {
+          try {
+            const { saveNIP46Connection } = require('./nip46-storage');
+            saveNIP46Connection({
+              token: this.connection.token,
+              pubkey: signerPubkey,
+              signerUrl: this.connection.signerUrl,
+              connectedAt: Date.now(),
+            });
+            console.log('💾 NIP-46: Saved connection to localStorage');
+          } catch (err) {
+            console.error('❌ NIP-46: Failed to save connection:', err);
+          }
+        }
+
+        console.log('✅ NIP-46: Connected via relay, signer pubkey:', signerPubkey);
 
         // Call the connection callback if set
-        if (this.onConnectionCallback && event.pubkey) {
-          this.onConnectionCallback(event.pubkey);
+        if (this.onConnectionCallback && signerPubkey) {
+          this.onConnectionCallback(signerPubkey);
         }
-
-        console.log('✅ NIP-46: Connected via relay, signer pubkey:', event.pubkey);
+      } else {
+        console.log('ℹ️ NIP-46: Event received but not a connection event:', content);
       }
     } catch (error) {
       console.error('❌ NIP-46: Failed to handle relay event:', error);

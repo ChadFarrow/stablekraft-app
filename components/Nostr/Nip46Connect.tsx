@@ -27,19 +27,24 @@ export default function Nip46Connect({
   useEffect(() => {
     if (connectionStatus === 'waiting' || connectionStatus === 'connecting') {
       const interval = setInterval(() => {
-        // Check if connection was established (stored in sessionStorage or localStorage)
-        const pendingConnection = sessionStorage.getItem('nip46_pending_connection');
-        if (pendingConnection) {
-          const connectionInfo = JSON.parse(pendingConnection);
-          // Check if we have a connection established
-          const storedConnection = localStorage.getItem('nip46_connection');
-          if (storedConnection) {
-            setConnectionStatus('connected');
-            setIsConnecting(false);
-            // Call onConnected after a short delay to allow UI to update
-            setTimeout(() => {
-              onConnected();
-            }, 500);
+        // Check if connection was established (stored in localStorage)
+        // The key should match what saveNIP46Connection uses: 'nostr_nip46_connection'
+        const storedConnection = localStorage.getItem('nostr_nip46_connection');
+        if (storedConnection) {
+          try {
+            const connection = JSON.parse(storedConnection);
+            // Check if connection has a pubkey (means it's connected)
+            if (connection.pubkey) {
+              console.log('✅ NIP-46: Connection detected in storage:', connection.pubkey.slice(0, 16) + '...');
+              setConnectionStatus('connected');
+              setIsConnecting(false);
+              // Call onConnected after a short delay to allow UI to update
+              setTimeout(() => {
+                onConnected();
+              }, 500);
+            }
+          } catch (err) {
+            console.error('Failed to parse stored connection:', err);
           }
         }
       }, 2000); // Check every 2 seconds
@@ -139,6 +144,12 @@ export default function Nip46Connect({
           <p className="text-sm text-blue-800 text-center">
             ⏳ Waiting for connection from Amber...
           </p>
+          <p className="text-xs text-blue-600 text-center mt-2">
+            Make sure you've scanned the QR code or opened the app, and approved the connection in Amber.
+          </p>
+          <div className="mt-3 flex justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
         </div>
       )}
 
