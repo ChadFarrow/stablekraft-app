@@ -261,31 +261,80 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       });
 
       // Validate signed event has all required fields
-      if (!signedEvent || !signedEvent.pubkey || !signedEvent.sig || !signedEvent.id || !signedEvent.created_at) {
+      if (!signedEvent) {
+        console.error('❌ LoginModal: Signed event is null or undefined');
+        throw new Error('Failed to sign event. Please try again.');
+      }
+
+      // Validate each required field individually with detailed error messages
+      const missingFields: string[] = [];
+      if (!signedEvent.pubkey || typeof signedEvent.pubkey !== 'string' || signedEvent.pubkey.length === 0) {
+        missingFields.push('pubkey');
+      }
+      if (!signedEvent.sig || typeof signedEvent.sig !== 'string' || signedEvent.sig.length === 0) {
+        missingFields.push('sig');
+      }
+      if (!signedEvent.id || typeof signedEvent.id !== 'string' || signedEvent.id.length === 0) {
+        missingFields.push('id');
+      }
+      if (!signedEvent.created_at || typeof signedEvent.created_at !== 'number') {
+        missingFields.push('created_at');
+      }
+
+      if (missingFields.length > 0) {
         console.error('❌ LoginModal: Signed event missing required fields:', {
+          missingFields,
           hasEvent: !!signedEvent,
-          hasPubkey: !!signedEvent?.pubkey,
-          hasSig: !!signedEvent?.sig,
-          hasId: !!signedEvent?.id,
-          hasCreatedAt: !!signedEvent?.created_at,
-          event: signedEvent,
+          pubkey: signedEvent.pubkey ? `${signedEvent.pubkey.slice(0, 16)}...` : 'MISSING',
+          sig: signedEvent.sig ? `${signedEvent.sig.slice(0, 16)}...` : 'MISSING',
+          id: signedEvent.id ? `${signedEvent.id.slice(0, 16)}...` : 'MISSING',
+          created_at: signedEvent.created_at,
+          fullEvent: JSON.stringify(signedEvent, null, 2),
         });
-        throw new Error('Signed event is missing required fields. Please try again.');
+        throw new Error(`Signed event is missing required fields: ${missingFields.join(', ')}. Please try again.`);
+      }
+
+      // Validate challenge is present
+      if (!challenge || typeof challenge !== 'string' || challenge.length === 0) {
+        console.error('❌ LoginModal: Challenge is missing or invalid:', challenge);
+        throw new Error('Challenge is missing. Please try again.');
       }
 
       // Calculate npub from public key
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
-      const npub = publicKeyToNpub(signedEvent.pubkey);
+      let npub: string;
+      try {
+        npub = publicKeyToNpub(signedEvent.pubkey);
+      } catch (error) {
+        console.error('❌ LoginModal: Failed to calculate npub:', error);
+        throw new Error('Failed to calculate npub from public key. Please try again.');
+      }
 
-      // Prepare login payload
+      // Prepare login payload with explicit validation
       const loginPayload = {
-        publicKey: signedEvent.pubkey,
-        npub: npub,
-        challenge,
-        signature: signedEvent.sig,
-        eventId: signedEvent.id,
+        publicKey: signedEvent.pubkey.trim(),
+        npub: npub.trim(),
+        challenge: challenge.trim(),
+        signature: signedEvent.sig.trim(),
+        eventId: signedEvent.id.trim(),
         createdAt: signedEvent.created_at,
       };
+
+      // Final validation of payload before sending
+      const payloadMissingFields: string[] = [];
+      if (!loginPayload.publicKey || loginPayload.publicKey.length === 0) payloadMissingFields.push('publicKey');
+      if (!loginPayload.challenge || loginPayload.challenge.length === 0) payloadMissingFields.push('challenge');
+      if (!loginPayload.signature || loginPayload.signature.length === 0) payloadMissingFields.push('signature');
+      if (!loginPayload.eventId || loginPayload.eventId.length === 0) payloadMissingFields.push('eventId');
+      if (!loginPayload.createdAt || typeof loginPayload.createdAt !== 'number') payloadMissingFields.push('createdAt');
+
+      if (payloadMissingFields.length > 0) {
+        console.error('❌ LoginModal: Login payload missing required fields:', {
+          missingFields: payloadMissingFields,
+          payload: loginPayload,
+        });
+        throw new Error(`Login payload is missing required fields: ${payloadMissingFields.join(', ')}. Please try again.`);
+      }
 
       console.log('📤 LoginModal: Sending login request with payload:', {
         publicKey: loginPayload.publicKey.slice(0, 16) + '...',
