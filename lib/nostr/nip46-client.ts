@@ -5,7 +5,7 @@
  * Protocol: https://github.com/nostr-protocol/nips/blob/master/46.md
  */
 
-import { Event, getEventHash, Filter, EventTemplate, finalizeEvent, getPublicKey } from 'nostr-tools';
+import { Event, getEventHash, Filter, EventTemplate, finalizeEvent } from 'nostr-tools';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
 
