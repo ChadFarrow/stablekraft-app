@@ -378,11 +378,12 @@ export function BoostButton({
             const { createNoteTemplate } = await import('@/lib/nostr/events');
             const noteTemplate = createNoteTemplate(content, tags);
             
-            // Sign with NIP-07 extension
-            const nostr = (window as any).nostr;
-            const signedEvent = await nostr.signEvent(noteTemplate);
+            // Sign with unified signer
+            const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+            const signer = getUnifiedSigner();
+            const signedEvent = await signer.signEvent(noteTemplate as any);
             
-            console.log('✅ Boost event signed with NIP-07:', signedEvent.id.slice(0, 16) + '...');
+            console.log('✅ Boost event signed:', signedEvent.id.slice(0, 16) + '...');
             
             // Send signed event to API
             const zapResponse = await fetch('/api/nostr/boost', {

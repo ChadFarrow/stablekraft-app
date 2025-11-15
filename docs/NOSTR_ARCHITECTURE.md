@@ -143,6 +143,81 @@ Other app data endpoints (tracks, albums):
 3. **Reliability**: Database ensures favorites always work even if relays are down
 4. **Decentralization**: Favorites are user-owned and portable via Nostr
 
+## Signing Methods
+
+The app supports multiple methods for signing Nostr events:
+
+### NIP-07 (Browser Extensions)
+- **Supported**: Alby, nos2x, and other NIP-07 compatible extensions
+- **Platform**: Desktop browsers (Chrome, Firefox, etc.)
+- **Usage**: Automatically detected and used when available
+- **Priority**: Highest (preferred method)
+
+### NIP-46 (Remote Signing)
+- **Supported**: Amber and other NIP-46 compatible signers
+- **Platform**: Android devices (PWA, TWA, and web)
+- **Usage**: 
+  1. User selects "Amber" login method
+  2. App generates connection token
+  3. User connects via QR code or deep link
+  4. All subsequent signing uses NIP-46 client
+- **Priority**: Secondary (used when NIP-07 not available)
+- **Connection**: WebSocket-based communication with remote signer
+- **Persistence**: Connection tokens stored in localStorage
+
+### NIP-05 (Read-Only)
+- **Supported**: Any NIP-05 verified identifier
+- **Platform**: All platforms
+- **Usage**: Read-only mode for viewing favorites
+- **Limitation**: Cannot sign events (no private key access)
+
+### Unified Signer Interface
+
+All signing operations use a unified signer interface (`lib/nostr/signer.ts`) that:
+- Automatically detects available signing methods
+- Falls back gracefully between methods
+- Provides consistent API for all signing operations
+- Handles connection persistence for NIP-46
+
+**Files using unified signer:**
+- `components/Nostr/ShareButton.tsx` - Share to Nostr
+- `components/Lightning/BoostButton.tsx` - Lightning boosts
+- `lib/nostr/favorites.ts` - Favorite tracks/albums
+- `components/Nostr/LoginModal.tsx` - Authentication
+
+## Android / Amber Integration
+
+### Setup
+1. Install Amber app on Android device
+2. Open the app and go to login
+3. Select "Amber" login method (automatically shown on Android)
+4. Scan QR code or use deep link to connect
+5. Approve connection in Amber app
+
+### Deep Linking
+- **Scheme**: `amber://nip46?token=<token>&relay=<relay>`
+- **Callback**: `nostrconnect://` or `amber://`
+- **Configuration**: Android manifest includes intent filters for both schemes
+
+### Connection Flow
+```
+User clicks "Connect with Amber"
+    ↓
+App generates connection token
+    ↓
+QR code displayed / Deep link generated
+    ↓
+User scans/opens in Amber
+    ↓
+Amber connects via WebSocket
+    ↓
+App authenticates with signer
+    ↓
+Connection saved to localStorage
+    ↓
+All signing operations use NIP-46 client
+```
+
 ## Future Enhancements
 
 - [ ] Sync from Nostr on login (pull latest social events)
@@ -150,4 +225,5 @@ Other app data endpoints (tracks, albums):
 - [ ] Conflict resolution (Nostr events take precedence for social data)
 - [ ] Event ID storage for deletion tracking
 - [ ] Relay health monitoring
+- [ ] NIP-47 (Nostr Wallet Connect) integration for Lightning payments via Amber
 

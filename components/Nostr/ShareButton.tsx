@@ -34,9 +34,12 @@ export default function ShareButton({
       return;
     }
 
-    // Check if NIP-07 extension is available
-    if (typeof window === 'undefined' || !(window as any).nostr) {
-      setError('NIP-07 extension required. Please install Alby extension.');
+    // Check if signer is available
+    const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+    const signer = getUnifiedSigner();
+    
+    if (!signer.isAvailable()) {
+      setError('No signer available. Please connect a Nostr extension or NIP-46 signer.');
       return;
     }
 
@@ -64,9 +67,8 @@ export default function ShareButton({
         created_at: Math.floor(Date.now() / 1000),
       };
       
-      // Sign with NIP-07 extension
-      const nostr = (window as any).nostr;
-      const signedEvent = await nostr.signEvent(noteTemplate);
+      // Sign with unified signer
+      const signedEvent = await signer.signEvent(noteTemplate as any);
       
       // Send signed event to API
       const response = await fetch('/api/nostr/share', {

@@ -25,46 +25,50 @@ export async function publishFavoriteTrackToNostr(
   relays?: string[]
 ): Promise<string | null> {
   try {
-    // For extension-based logins, use the extension to sign
-    if (!privateKey && typeof window !== 'undefined' && (window as any).nostr) {
-      const nostr = (window as any).nostr;
-      const event = {
-        kind: 30001,
-        tags: [
-          ['t', 'favorite-track'],
-          ['trackId', trackId],
-          ...(trackTitle ? [['title', trackTitle]] : []),
-          ...(artistName ? [['artist', artistName]] : []),
-        ],
-        content: JSON.stringify({
-          trackId,
-          ...(trackTitle && { title: trackTitle }),
-          ...(artistName && { artist: artistName }),
-        }),
-        created_at: Math.floor(Date.now() / 1000),
-      };
+    // For extension/NIP-46 logins, use unified signer
+    if (!privateKey && typeof window !== 'undefined') {
+      const { getUnifiedSigner } = await import('./signer');
+      const signer = getUnifiedSigner();
+      
+      if (signer.isAvailable()) {
+        const event = {
+          kind: 30001,
+          tags: [
+            ['t', 'favorite-track'],
+            ['trackId', trackId],
+            ...(trackTitle ? [['title', trackTitle]] : []),
+            ...(artistName ? [['artist', artistName]] : []),
+          ],
+          content: JSON.stringify({
+            trackId,
+            ...(trackTitle && { title: trackTitle }),
+            ...(artistName && { artist: artistName }),
+          }),
+          created_at: Math.floor(Date.now() / 1000),
+        };
 
-      const signedEvent = await nostr.signEvent(event);
-      
-      // Publish to relays
-      const relayUrls = relays || getDefaultRelays();
-      const relayManager = new RelayManager();
-      
-      await Promise.all(
-        relayUrls.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
-        )
-      );
+        const signedEvent = await signer.signEvent(event as any);
+        
+        // Publish to relays
+        const relayUrls = relays || getDefaultRelays();
+        const relayManager = new RelayManager();
+        
+        await Promise.all(
+          relayUrls.map(url =>
+            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          )
+        );
 
-      const results = await relayManager.publish(signedEvent);
-      const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
-      if (hasSuccess) {
-        console.log('✅ Published favorite track to Nostr:', signedEvent.id);
-        return signedEvent.id;
-      } else {
-        console.warn('⚠️ Failed to publish favorite track to any relay');
-        return null;
+        const results = await relayManager.publish(signedEvent);
+        const hasSuccess = results.some(r => r.status === 'fulfilled');
+        
+        if (hasSuccess) {
+          console.log('✅ Published favorite track to Nostr:', signedEvent.id);
+          return signedEvent.id;
+        } else {
+          console.warn('⚠️ Failed to publish favorite track to any relay');
+          return null;
+        }
       }
     }
 
@@ -117,46 +121,50 @@ export async function publishFavoriteAlbumToNostr(
   relays?: string[]
 ): Promise<string | null> {
   try {
-    // For extension-based logins, use the extension to sign
-    if (!privateKey && typeof window !== 'undefined' && (window as any).nostr) {
-      const nostr = (window as any).nostr;
-      const event = {
-        kind: 30002,
-        tags: [
-          ['t', 'favorite-album'],
-          ['feedId', feedId],
-          ...(albumTitle ? [['title', albumTitle]] : []),
-          ...(artistName ? [['artist', artistName]] : []),
-        ],
-        content: JSON.stringify({
-          feedId,
-          ...(albumTitle && { title: albumTitle }),
-          ...(artistName && { artist: artistName }),
-        }),
-        created_at: Math.floor(Date.now() / 1000),
-      };
+    // For extension/NIP-46 logins, use unified signer
+    if (!privateKey && typeof window !== 'undefined') {
+      const { getUnifiedSigner } = await import('./signer');
+      const signer = getUnifiedSigner();
+      
+      if (signer.isAvailable()) {
+        const event = {
+          kind: 30002,
+          tags: [
+            ['t', 'favorite-album'],
+            ['feedId', feedId],
+            ...(albumTitle ? [['title', albumTitle]] : []),
+            ...(artistName ? [['artist', artistName]] : []),
+          ],
+          content: JSON.stringify({
+            feedId,
+            ...(albumTitle && { title: albumTitle }),
+            ...(artistName && { artist: artistName }),
+          }),
+          created_at: Math.floor(Date.now() / 1000),
+        };
 
-      const signedEvent = await nostr.signEvent(event);
-      
-      // Publish to relays
-      const relayUrls = relays || getDefaultRelays();
-      const relayManager = new RelayManager();
-      
-      await Promise.all(
-        relayUrls.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
-        )
-      );
+        const signedEvent = await signer.signEvent(event as any);
+        
+        // Publish to relays
+        const relayUrls = relays || getDefaultRelays();
+        const relayManager = new RelayManager();
+        
+        await Promise.all(
+          relayUrls.map(url =>
+            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          )
+        );
 
-      const results = await relayManager.publish(signedEvent);
-      const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
-      if (hasSuccess) {
-        console.log('✅ Published favorite album to Nostr:', signedEvent.id);
-        return signedEvent.id;
-      } else {
-        console.warn('⚠️ Failed to publish favorite album to any relay');
-        return null;
+        const results = await relayManager.publish(signedEvent);
+        const hasSuccess = results.some(r => r.status === 'fulfilled');
+        
+        if (hasSuccess) {
+          console.log('✅ Published favorite album to Nostr:', signedEvent.id);
+          return signedEvent.id;
+        } else {
+          console.warn('⚠️ Failed to publish favorite album to any relay');
+          return null;
+        }
       }
     }
 
@@ -205,37 +213,41 @@ export async function deleteFavoriteFromNostr(
   relays?: string[]
 ): Promise<string | null> {
   try {
-    // For extension-based logins, use the extension to sign
-    if (!privateKey && typeof window !== 'undefined' && (window as any).nostr) {
-      const nostr = (window as any).nostr;
-      const event = {
-        kind: 5, // Deletion event (NIP-09)
-        tags: [['e', eventId]],
-        content: '',
-        created_at: Math.floor(Date.now() / 1000),
-      };
+    // For extension/NIP-46 logins, use unified signer
+    if (!privateKey && typeof window !== 'undefined') {
+      const { getUnifiedSigner } = await import('./signer');
+      const signer = getUnifiedSigner();
+      
+      if (signer.isAvailable()) {
+        const event = {
+          kind: 5, // Deletion event (NIP-09)
+          tags: [['e', eventId]],
+          content: '',
+          created_at: Math.floor(Date.now() / 1000),
+        };
 
-      const signedEvent = await nostr.signEvent(event);
-      
-      // Publish to relays
-      const relayUrls = relays || getDefaultRelays();
-      const relayManager = new RelayManager();
-      
-      await Promise.all(
-        relayUrls.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
-        )
-      );
+        const signedEvent = await signer.signEvent(event as any);
+        
+        // Publish to relays
+        const relayUrls = relays || getDefaultRelays();
+        const relayManager = new RelayManager();
+        
+        await Promise.all(
+          relayUrls.map(url =>
+            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          )
+        );
 
-      const results = await relayManager.publish(signedEvent);
-      const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
-      if (hasSuccess) {
-        console.log('✅ Published favorite deletion to Nostr:', signedEvent.id);
-        return signedEvent.id;
-      } else {
-        console.warn('⚠️ Failed to publish favorite deletion to any relay');
-        return null;
+        const results = await relayManager.publish(signedEvent);
+        const hasSuccess = results.some(r => r.status === 'fulfilled');
+        
+        if (hasSuccess) {
+          console.log('✅ Published favorite deletion to Nostr:', signedEvent.id);
+          return signedEvent.id;
+        } else {
+          console.warn('⚠️ Failed to publish favorite deletion to any relay');
+          return null;
+        }
       }
     }
 
