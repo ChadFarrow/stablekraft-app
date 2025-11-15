@@ -243,6 +243,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       const challenge = challengeData.challenge;
 
+      // Validate challenge
+      if (!challenge || typeof challenge !== 'string' || challenge.length === 0) {
+        throw new Error('Invalid challenge received from server');
+      }
+
       // Sign challenge with NIP-46
       const event = {
         kind: 22242,
@@ -251,8 +256,21 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      console.log('✍️ LoginModal: Requesting signature from NIP-46 signer...');
-      const signedEvent = await client.signEvent(event as any);
+      console.log('✍️ LoginModal: Requesting signature from NIP-46 signer...', {
+        kind: event.kind,
+        tags: event.tags,
+        content: event.content,
+        created_at: event.created_at,
+        challenge: challenge.slice(0, 16) + '...',
+      });
+
+      let signedEvent: any;
+      try {
+        signedEvent = await client.signEvent(event as any);
+      } catch (signError) {
+        console.error('❌ LoginModal: Error signing event:', signError);
+        throw new Error(`Failed to sign event: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
+      }
       console.log('✅ LoginModal: Got signed event', {
         id: signedEvent.id?.slice(0, 16) + '...',
         pubkey: signedEvent.pubkey?.slice(0, 16) + '...',
