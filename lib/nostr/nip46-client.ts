@@ -497,6 +497,13 @@ export class NIP46Client {
       const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, signerPubkey, connectionInfo.privateKey);
       
       // Publish the request event
+      if (!this.connection) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        reject(new Error('Connection not initialized'));
+        return;
+      }
+      
       this.relayClient!.publish(requestEvent, {
         relays: [this.connection.signerUrl],
         waitForRelay: false,
