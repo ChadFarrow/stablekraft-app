@@ -335,6 +335,12 @@ export class NIP46Client {
    * Send a request to the signer
    */
   private async sendRequest(method: string, params: any[]): Promise<any> {
+    // For relay-based connections, we need to publish a NIP-46 request event
+    if (!this.ws && this.relayClient && this.connection) {
+      return this.sendRelayRequest(method, params);
+    }
+
+    // For WebSocket connections
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       if (this.connection && !this.connection.connected) {
         await this.establishConnection();
@@ -354,19 +360,88 @@ export class NIP46Client {
       this.pendingRequests.set(id, { resolve, reject });
 
       // Timeout after 30 seconds
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
-          reject(new Error('Request timeout'));
+          reject(new Error('Request timeout after 30 seconds'));
         }
       }, 30000);
 
       try {
         this.ws!.send(JSON.stringify(request));
       } catch (error) {
+        clearTimeout(timeout);
         this.pendingRequests.delete(id);
         reject(error);
       }
+    });
+  }
+
+  /**
+   * Send a request via relay (for relay-based NIP-46 connections)
+   */
+  private async sendRelayRequest(method: string, params: any[]): Promise<any> {
+    if (!this.relayClient || !this.connection) {
+      throw new Error('Relay client not initialized');
+    }
+
+    // Get connection info
+    const pendingConnection = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('nip46_pending_connection')
+      : null;
+    
+    if (!pendingConnection) {
+      throw new Error('No pending connection found');
+    }
+
+    const connectionInfo = JSON.parse(pendingConnection);
+    const appPubkey = connectionInfo.publicKey;
+    const signerPubkey = this.connection.pubkey;
+
+    if (!signerPubkey) {
+      throw new Error('Signer public key not available');
+    }
+
+    // Create NIP-46 request event (kind 24133)
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const request: NIP46Request = {
+      id,
+      method,
+      params,
+    };
+
+    // For relay-based requests, we need to wait for the response event
+    // This is a simplified implementation - in production, you'd want to
+    // properly handle the request/response cycle via relay events
+    return new Promise((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve, reject });
+
+      // Timeout after 60 seconds for relay requests (longer than WebSocket)
+      const timeout = setTimeout(() => {
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          reject(new Error(`Request timeout: ${method} - Relay requests may take longer. Please ensure Amber is connected and try again.`));
+        }
+      }, 60000);
+
+      // For now, if it's get_public_key and we have the pubkey, return it immediately
+      if (method === 'get_public_key' && signerPubkey) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        resolve(signerPubkey);
+        return;
+      }
+
+      // For other methods, we'd need to publish a request event and wait for response
+      // This is a placeholder - full implementation would require:
+      // 1. Publishing a kind 24133 event with the request
+      // 2. Listening for a response event with matching ID
+      // 3. Resolving/rejecting based on the response
+      
+      // For now, throw an error indicating relay-based requests need full implementation
+      clearTimeout(timeout);
+      this.pendingRequests.delete(id);
+      reject(new Error(`Relay-based ${method} requests are not yet fully implemented. Please use WebSocket-based connections for full functionality.`));
     });
   }
 
@@ -394,11 +469,26 @@ export class NIP46Client {
    * Get public key from signer
    */
   async getPublicKey(): Promise<string> {
+    // For relay-based connections, we already have the pubkey from the connection event
+    if (this.connection?.pubkey && !this.ws) {
+      return this.connection.pubkey;
+    }
+
     if (!this.connection?.connected) {
       await this.authenticate();
     }
 
-    return this.sendRequest('get_public_key', []);
+    // For WebSocket connections, request it
+    if (this.ws) {
+      return this.sendRequest('get_public_key', []);
+    }
+
+    // Fallback: return stored pubkey if available
+    if (this.connection?.pubkey) {
+      return this.connection.pubkey;
+    }
+
+    throw new Error('No public key available and unable to request it');
   }
 
   /**
