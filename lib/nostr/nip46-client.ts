@@ -550,13 +550,29 @@ export class NIP46Client {
    * Get public key from signer
    */
   async getPublicKey(): Promise<string> {
-    // For relay-based connections, we already have the pubkey from the connection event
+    // For relay-based connections, check if we already have the pubkey
     if (this.connection?.pubkey && !this.ws) {
       return this.connection.pubkey;
     }
 
-    if (!this.connection?.connected) {
+    // For WebSocket connections, authenticate first if needed
+    if (this.ws && !this.connection?.connected) {
       await this.authenticate();
+    }
+
+    // For relay-based connections without pubkey, request it via relay
+    if (!this.ws && this.relayClient) {
+      // Request the public key via relay
+      const pubkey = await this.sendRequest('get_public_key', []);
+      // Store it in the connection
+      if (this.connection && pubkey) {
+        this.connection.pubkey = pubkey;
+        this.connection.connected = true;
+        if (!this.connection.connectedAt) {
+          this.connection.connectedAt = Date.now();
+        }
+      }
+      return pubkey;
     }
 
     // For WebSocket connections, request it
