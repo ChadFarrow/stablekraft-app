@@ -221,18 +221,30 @@ export class NIP46Client {
       await this.authenticate();
     }
 
-    // Prepare event for signing (without id and sig)
+    // Get pubkey if not already available
+    if (!this.connection?.pubkey) {
+      await this.getPublicKey();
+    }
+
+    // Prepare event for signing (without id and sig, but with pubkey for hash calculation)
     const eventToSign = {
       kind: event.kind,
       tags: event.tags,
       content: event.content,
       created_at: event.created_at,
+      pubkey: this.connection!.pubkey!,
     };
 
-    // Request signature from signer
-    const signature = await this.sendRequest('sign_event', [JSON.stringify(eventToSign)]);
+    // Request signature from signer (send without pubkey as per NIP-46 spec)
+    const eventForSigner = {
+      kind: event.kind,
+      tags: event.tags,
+      content: event.content,
+      created_at: event.created_at,
+    };
+    const signature = await this.sendRequest('sign_event', [JSON.stringify(eventForSigner)]);
 
-    // Calculate event ID
+    // Calculate event ID (requires pubkey)
     const id = getEventHash(eventToSign);
 
     // Return complete signed event
