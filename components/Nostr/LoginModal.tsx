@@ -165,6 +165,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Set up connection callback
       client.setOnConnection((signerPubkey: string) => {
         console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
+        // Hide the connection UI first
+        setShowNip46Connect(false);
         // Automatically complete login when connection is established
         handleNip46Connected();
       });
@@ -288,6 +290,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           await signer.setNIP46Signer(nip46Client);
         }
 
+        // Hide NIP-46 connect UI if still showing
+        setShowNip46Connect(false);
+        
+        // Close modal and reload
         onClose();
         window.location.reload();
       } else {
