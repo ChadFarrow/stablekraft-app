@@ -24,6 +24,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [nip46ConnectionToken, setNip46ConnectionToken] = useState<string>('');
   const [nip46SignerUrl, setNip46SignerUrl] = useState<string>('');
   const [nip46Client, setNip46Client] = useState<NIP46Client | null>(null);
+  const nip46ClientRef = useRef<NIP46Client | null>(null);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -162,13 +163,18 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Initialize NIP-46 client (but don't connect yet - wait for Amber)
       const client = new NIP46Client();
       
-      // Set up connection callback
+      // Store client in ref for callback access
+      nip46ClientRef.current = client;
+      setNip46Client(client);
+      
+      // Set up connection callback - use ref to access client
       client.setOnConnection((signerPubkey: string) => {
         console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
         // Hide the connection UI first
         setShowNip46Connect(false);
         // Automatically complete login when connection is established
-        handleNip46Connected();
+        // Use the ref to ensure we have the client
+        handleNip46ConnectedWithClient(nip46ClientRef.current!);
       });
       
       // Start listening on relay for connection
@@ -178,8 +184,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         console.warn('Failed to start relay connection:', err);
         // Continue anyway - connection will be established when Amber connects
       }
-      
-      setNip46Client(client);
       
       // Generate nostrconnect URI
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
@@ -201,16 +205,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   };
 
   const handleNip46Connected = async () => {
+    // Use the ref to get the client
+    const client = nip46ClientRef.current || nip46Client;
+    if (!client) {
+      setError('NIP-46 client not initialized. Please try connecting again.');
+      setIsSubmitting(false);
+      return;
+    }
+    await handleNip46ConnectedWithClient(client);
+  };
+
+  const handleNip46ConnectedWithClient = async (client: NIP46Client) => {
     try {
       setIsSubmitting(true);
       setError(null);
 
-      if (!nip46Client) {
-        throw new Error('NIP-46 client not initialized');
-      }
-
       // Get public key from signer
-      const publicKey = await nip46Client.getPublicKey();
+      const publicKey = await client.getPublicKey();
       console.log('✅ LoginModal: Got public key from NIP-46', publicKey.slice(0, 16) + '...');
 
       // Request signature for challenge
@@ -241,7 +252,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       };
 
       console.log('✍️ LoginModal: Requesting signature from NIP-46 signer...');
-      const signedEvent = await nip46Client.signEvent(event as any);
+      const signedEvent = await client.signEvent(event as any);
       console.log('✅ LoginModal: Got signed event', {
         id: signedEvent.id.slice(0, 16) + '...',
         pubkey: signedEvent.pubkey.slice(0, 16) + '...',
@@ -279,16 +290,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         localStorage.setItem('nostr_login_type', 'nip46');
         
         // Save NIP-46 connection
-        if (nip46Client) {
-          const connection = nip46Client.getConnection();
-          if (connection) {
-            saveNIP46Connection(connection);
-          }
-          
-          // Register with unified signer
-          const signer = getUnifiedSigner();
-          await signer.setNIP46Signer(nip46Client);
+        const connection = client.getConnection();
+        if (connection) {
+          saveNIP46Connection(connection);
         }
+        
+        // Register with unified signer
+        const signer = getUnifiedSigner();
+        await signer.setNIP46Signer(client);
 
         // Hide NIP-46 connect UI if still showing
         setShowNip46Connect(false);
