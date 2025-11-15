@@ -540,16 +540,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               <Nip46Connect
                 connectionToken={nip46ConnectionToken}
                 signerUrl={nip46SignerUrl}
-                onConnected={handleNip46Connected}
+                onConnected={() => {
+                  // Hide the connection UI immediately when connected
+                  setShowNip46Connect(false);
+                  // Then handle the connection and login
+                  handleNip46Connected();
+                }}
                 onError={(error) => {
                   setError(error);
                   setIsSubmitting(false);
+                  setShowNip46Connect(false);
                 }}
                 onCancel={() => {
                   setShowNip46Connect(false);
                   if (nip46Client) {
                     nip46Client.disconnect();
                   }
+                  setIsSubmitting(false);
                 }}
               />
             ) : (
