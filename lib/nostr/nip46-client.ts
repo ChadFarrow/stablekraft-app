@@ -229,8 +229,16 @@ export class NIP46Client {
         if (pending) {
           this.pendingRequests.delete(content.id);
           if (content.error) {
+            console.error('❌ NIP-46: Error in response:', content.error);
             pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
           } else {
+            console.log('✅ NIP-46: Resolving pending request:', {
+              id: content.id,
+              resultType: typeof content.result,
+              resultIsString: typeof content.result === 'string',
+              resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+              resultPreview: typeof content.result === 'string' ? content.result.slice(0, 32) + '...' : JSON.stringify(content.result).slice(0, 100),
+            });
             pending.resolve(content.result);
           }
           return;
@@ -633,14 +641,62 @@ export class NIP46Client {
       createdAt: eventForSigner.created_at,
     });
 
-    const signature = await this.sendRequest('sign_event', [JSON.stringify(eventForSigner)]);
+    const signatureResponse = await this.sendRequest('sign_event', [JSON.stringify(eventForSigner)]);
 
-    if (!signature || typeof signature !== 'string') {
-      console.error('❌ NIP-46: Invalid signature received:', signature);
+    console.log('🔍 NIP-46: Raw signature response:', {
+      type: typeof signatureResponse,
+      isString: typeof signatureResponse === 'string',
+      isObject: typeof signatureResponse === 'object',
+      value: typeof signatureResponse === 'string' 
+        ? signatureResponse.slice(0, 32) + '...' 
+        : JSON.stringify(signatureResponse).slice(0, 200),
+    });
+
+    // Handle different response formats
+    let signature: string;
+    if (typeof signatureResponse === 'string') {
+      signature = signatureResponse;
+    } else if (signatureResponse && typeof signatureResponse === 'object') {
+      // Some implementations might return { sig: "..." } or { signature: "..." }
+      if ('sig' in signatureResponse && typeof signatureResponse.sig === 'string') {
+        signature = signatureResponse.sig;
+      } else if ('signature' in signatureResponse && typeof signatureResponse.signature === 'string') {
+        signature = signatureResponse.signature;
+      } else if (Array.isArray(signatureResponse) && signatureResponse.length > 0 && typeof signatureResponse[0] === 'string') {
+        signature = signatureResponse[0];
+      } else {
+        console.error('❌ NIP-46: Signature response is an object but no valid signature field found:', signatureResponse);
+        throw new Error('Invalid signature format received from signer');
+      }
+    } else {
+      console.error('❌ NIP-46: Invalid signature received:', {
+        type: typeof signatureResponse,
+        value: signatureResponse,
+      });
       throw new Error('Invalid signature received from signer');
     }
 
-    console.log('✅ NIP-46: Received signature:', signature.slice(0, 16) + '...');
+    // Validate signature format (should be 64 character hex string)
+    if (!signature || typeof signature !== 'string' || signature.length === 0) {
+      console.error('❌ NIP-46: Signature is empty or not a string:', signature);
+      throw new Error('Invalid signature received from signer: signature is empty');
+    }
+
+    // Normalize signature (remove any whitespace)
+    signature = signature.trim();
+
+    if (signature.length < 64) {
+      console.error('❌ NIP-46: Signature too short:', {
+        length: signature.length,
+        preview: signature.slice(0, 32),
+      });
+      throw new Error(`Invalid signature received from signer: signature too short (${signature.length} chars, expected 64+)`);
+    }
+
+    console.log('✅ NIP-46: Received and validated signature:', {
+      length: signature.length,
+      preview: signature.slice(0, 16) + '...',
+    });
 
     // Calculate event ID (requires pubkey)
     const id = getEventHash(eventToSign);
