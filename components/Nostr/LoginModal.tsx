@@ -254,13 +254,47 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       console.log('✍️ LoginModal: Requesting signature from NIP-46 signer...');
       const signedEvent = await client.signEvent(event as any);
       console.log('✅ LoginModal: Got signed event', {
-        id: signedEvent.id.slice(0, 16) + '...',
-        pubkey: signedEvent.pubkey.slice(0, 16) + '...',
+        id: signedEvent.id?.slice(0, 16) + '...',
+        pubkey: signedEvent.pubkey?.slice(0, 16) + '...',
+        sig: signedEvent.sig?.slice(0, 16) + '...',
+        created_at: signedEvent.created_at,
       });
+
+      // Validate signed event has all required fields
+      if (!signedEvent || !signedEvent.pubkey || !signedEvent.sig || !signedEvent.id || !signedEvent.created_at) {
+        console.error('❌ LoginModal: Signed event missing required fields:', {
+          hasEvent: !!signedEvent,
+          hasPubkey: !!signedEvent?.pubkey,
+          hasSig: !!signedEvent?.sig,
+          hasId: !!signedEvent?.id,
+          hasCreatedAt: !!signedEvent?.created_at,
+          event: signedEvent,
+        });
+        throw new Error('Signed event is missing required fields. Please try again.');
+      }
 
       // Calculate npub from public key
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
       const npub = publicKeyToNpub(signedEvent.pubkey);
+
+      // Prepare login payload
+      const loginPayload = {
+        publicKey: signedEvent.pubkey,
+        npub: npub,
+        challenge,
+        signature: signedEvent.sig,
+        eventId: signedEvent.id,
+        createdAt: signedEvent.created_at,
+      };
+
+      console.log('📤 LoginModal: Sending login request with payload:', {
+        publicKey: loginPayload.publicKey.slice(0, 16) + '...',
+        npub: loginPayload.npub.slice(0, 16) + '...',
+        challenge: loginPayload.challenge.slice(0, 16) + '...',
+        signature: loginPayload.signature.slice(0, 16) + '...',
+        eventId: loginPayload.eventId.slice(0, 16) + '...',
+        createdAt: loginPayload.createdAt,
+      });
 
       // Login with signed event
       const loginResponse = await fetch('/api/nostr/auth/login', {
@@ -268,14 +302,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          publicKey: signedEvent.pubkey,
-          npub: npub,
-          challenge,
-          signature: signedEvent.sig,
-          eventId: signedEvent.id,
-          createdAt: signedEvent.created_at,
-        }),
+        body: JSON.stringify(loginPayload),
       });
 
       if (!loginResponse.ok) {

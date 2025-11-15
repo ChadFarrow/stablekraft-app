@@ -602,13 +602,20 @@ export class NIP46Client {
       await this.getPublicKey();
     }
 
+    // Validate we have the pubkey
+    if (!this.connection?.pubkey) {
+      throw new Error('Signer public key not available. Please wait for the connection to be established.');
+    }
+
+    const signerPubkey = this.connection.pubkey;
+
     // Prepare event for signing (without id and sig, but with pubkey for hash calculation)
     const eventToSign = {
       kind: event.kind,
       tags: event.tags,
       content: event.content,
       created_at: event.created_at,
-      pubkey: this.connection!.pubkey!,
+      pubkey: signerPubkey,
     };
 
     // Request signature from signer (send without pubkey as per NIP-46 spec)
@@ -618,18 +625,42 @@ export class NIP46Client {
       content: event.content,
       created_at: event.created_at,
     };
+
+    console.log('✍️ NIP-46: Requesting signature for event:', {
+      kind: eventForSigner.kind,
+      tags: eventForSigner.tags,
+      contentLength: eventForSigner.content.length,
+      createdAt: eventForSigner.created_at,
+    });
+
     const signature = await this.sendRequest('sign_event', [JSON.stringify(eventForSigner)]);
+
+    if (!signature || typeof signature !== 'string') {
+      console.error('❌ NIP-46: Invalid signature received:', signature);
+      throw new Error('Invalid signature received from signer');
+    }
+
+    console.log('✅ NIP-46: Received signature:', signature.slice(0, 16) + '...');
 
     // Calculate event ID (requires pubkey)
     const id = getEventHash(eventToSign);
 
     // Return complete signed event
-    return {
+    const signedEvent = {
       ...eventToSign,
       id,
-      pubkey: this.connection!.pubkey!,
+      pubkey: signerPubkey,
       sig: signature,
     };
+
+    console.log('✅ NIP-46: Constructed signed event:', {
+      id: signedEvent.id.slice(0, 16) + '...',
+      pubkey: signedEvent.pubkey.slice(0, 16) + '...',
+      sig: signedEvent.sig.slice(0, 16) + '...',
+      created_at: signedEvent.created_at,
+    });
+
+    return signedEvent;
   }
 
   /**
