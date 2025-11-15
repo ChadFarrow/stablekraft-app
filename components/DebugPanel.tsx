@@ -65,6 +65,7 @@ export function DebugPanel() {
   const [logEntries, setLogEntries] = useState<typeof logs>([]);
   const [filter, setFilter] = useState<string>('');
   const [autoScroll, setAutoScroll] = useState(true);
+  const [copySuccess, setCopySuccess] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,6 +103,41 @@ export function DebugPanel() {
         return '#6bcf7f';
       default:
         return '#d4d4d4';
+    }
+  };
+
+  const copyLogsToClipboard = async () => {
+    try {
+      const logsText = filteredLogs
+        .map(log => {
+          const timestamp = new Date(log.timestamp).toLocaleString();
+          return `[${timestamp}] [${log.level.toUpperCase()}] ${log.message}`;
+        })
+        .join('\n');
+      
+      await navigator.clipboard.writeText(logsText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy logs:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = filteredLogs
+        .map(log => {
+          const timestamp = new Date(log.timestamp).toLocaleString();
+          return `[${timestamp}] [${log.level.toUpperCase()}] ${log.message}`;
+        })
+        .join('\n');
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
     }
   };
 
@@ -188,6 +224,22 @@ export function DebugPanel() {
               width: '150px',
             }}
           />
+          <button
+            onClick={copyLogsToClipboard}
+            style={{
+              padding: '5px 12px',
+              backgroundColor: copySuccess ? '#28a745' : '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'background-color 0.2s',
+            }}
+            title="Copy all logs to clipboard"
+          >
+            {copySuccess ? '✓ Copied!' : '📋 Copy'}
+          </button>
           <button
             onClick={() => {
               logs.length = 0;
