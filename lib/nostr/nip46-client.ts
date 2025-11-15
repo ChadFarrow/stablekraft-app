@@ -5,7 +5,7 @@
  * Protocol: https://github.com/nostr-protocol/nips/blob/master/46.md
  */
 
-import { Event, getEventHash, Filter, EventTemplate, finalizeEvent } from 'nostr-tools';
+import { Event, getEventHash, Filter, EventTemplate, finalizeEvent, getPublicKey } from 'nostr-tools';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
 
@@ -183,6 +183,10 @@ export class NIP46Client {
       params,
     };
 
+    // Derive pubkey from private key to ensure it's correct
+    const secretKey = hexToBytes(appPrivateKey);
+    const derivedPubkey = getPublicKey(secretKey);
+
     const template: EventTemplate = {
       kind: 24133, // NIP-46 request/response event kind
       tags: [
@@ -190,10 +194,10 @@ export class NIP46Client {
       ],
       content: JSON.stringify(request),
       created_at: Math.floor(Date.now() / 1000),
+      pubkey: derivedPubkey, // Add pubkey field (required by finalizeEvent)
     };
 
     // Sign with app's temporary private key
-    const secretKey = hexToBytes(appPrivateKey);
     return finalizeEvent(template, secretKey);
   }
 
