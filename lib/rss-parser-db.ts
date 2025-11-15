@@ -301,9 +301,10 @@ function extractItunesCategories(categories: any): string[] {
   
   if (Array.isArray(categories)) {
     categories.forEach(cat => {
+      if (!cat) return; // Skip null/undefined items
       if (typeof cat === 'string') {
         result.push(cat);
-      } else if (cat.$ && cat.$.text) {
+      } else if (cat && cat.$ && cat.$.text) {
         result.push(cat.$.text);
       }
     });

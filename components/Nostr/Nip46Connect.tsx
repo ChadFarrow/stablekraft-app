@@ -26,12 +26,9 @@ export default function Nip46Connect({
   // Generate deep link URL for Amber
   useEffect(() => {
     if (isAndroid()) {
-      // Amber deep link format: amber://nip46?token=<token>&relay=<relay>
-      const params = new URLSearchParams({
-        token: connectionToken,
-        relay: signerUrl,
-      });
-      setDeepLinkUrl(`amber://nip46?${params.toString()}`);
+      // Amber supports nostrconnect:// URIs directly
+      // Also support amber:// deep link as fallback
+      setDeepLinkUrl(connectionToken); // connectionToken is already the nostrconnect:// URI
     }
   }, [connectionToken, signerUrl]);
 
@@ -64,24 +61,24 @@ export default function Nip46Connect({
       {/* QR Code */}
       <div className="flex justify-center p-4 bg-white rounded-lg border border-gray-200">
         <QRCodeSVG
-          value={connectionToken}
+          value={connectionToken} // This is the nostrconnect:// URI
           size={256}
           level="M"
           includeMargin={true}
         />
       </div>
 
-      {/* Connection Token (for manual entry) */}
+      {/* Connection URI (for manual entry) */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
-          Connection Token
+          Connection URI
         </label>
         <div className="flex gap-2">
           <input
             type="text"
             value={connectionToken}
             readOnly
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono text-xs"
           />
           <button
             onClick={handleCopyToken}
@@ -91,7 +88,7 @@ export default function Nip46Connect({
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          You can manually enter this token in Amber if QR code doesn't work
+          You can manually enter this URI in Amber if QR code doesn't work
         </p>
       </div>
 
@@ -141,9 +138,10 @@ export default function Nip46Connect({
         <h4 className="text-sm font-semibold mb-2">How to connect:</h4>
         <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
           <li>Open the Amber app on your Android device</li>
-          <li>Go to Settings → Remote Signing (NIP-46)</li>
-          <li>Scan the QR code above or enter the connection token manually</li>
+          <li>Go to Settings → Remote Signing (NIP-46) or use the "Connect" option</li>
+          <li>Scan the QR code above or tap "Open in Amber App" button</li>
           <li>Approve the connection request in Amber</li>
+          <li>Wait for the connection to be established</li>
         </ol>
       </div>
 

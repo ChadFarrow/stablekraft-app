@@ -44,12 +44,22 @@ export default function AdminPanel() {
         setIsAdminAuthenticated(false);
         localStorage.removeItem('admin-authenticated');
         localStorage.removeItem('admin-npub');
+        
+        // Show specific error message if ADMIN_NPUBS is not configured
+        if (response.status === 500 && data.error === 'No admin npubs configured') {
+          toast.error('Admin access is not configured. Please set ADMIN_NPUBS environment variable.');
+        } else if (response.status === 403) {
+          toast.error('Your Nostr account is not whitelisted for admin access.');
+        } else if (data.error) {
+          toast.error(data.error);
+        }
       }
     } catch (error) {
       console.error('Error verifying admin access:', error);
       setIsAdminAuthenticated(false);
       localStorage.removeItem('admin-authenticated');
       localStorage.removeItem('admin-npub');
+      toast.error('Failed to verify admin access. Please try again.');
     } finally {
       setVerifying(false);
       setLoading(false);
@@ -193,6 +203,12 @@ export default function AdminPanel() {
                 <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
                   <p className="text-sm text-yellow-400">
                     ⚠️ Your Nostr account is not whitelisted for admin access.
+                  </p>
+                  <p className="text-xs text-yellow-500/80 mt-2">
+                    Your npub: <span className="font-mono break-all">{nostrUser?.nostrNpub}</span>
+                  </p>
+                  <p className="text-xs text-yellow-500/80 mt-2">
+                    Add this npub to the ADMIN_NPUBS environment variable to grant access.
                   </p>
                 </div>
               )}

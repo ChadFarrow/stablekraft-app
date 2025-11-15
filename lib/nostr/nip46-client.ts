@@ -41,10 +41,11 @@ export class NIP46Client {
 
   /**
    * Connect to a NIP-46 signer
-   * @param signerUrl - WebSocket URL of the signer (e.g., wss://signer.example.com)
+   * @param signerUrl - WebSocket URL of the signer (e.g., wss://signer.example.com) or relay URL
    * @param token - Connection token (nsecBunker token)
+   * @param connectImmediately - Whether to connect immediately (default: false, wait for signer to initiate)
    */
-  async connect(signerUrl: string, token: string): Promise<void> {
+  async connect(signerUrl: string, token: string, connectImmediately: boolean = false): Promise<void> {
     if (this.connection && this.connection.connected) {
       await this.disconnect();
     }
@@ -55,7 +56,15 @@ export class NIP46Client {
       connected: false,
     };
 
-    return this.establishConnection();
+    // Only connect immediately if requested (for direct WebSocket connections)
+    // For relay-based connections, wait for the signer to initiate
+    if (connectImmediately && signerUrl.startsWith('wss://') && !signerUrl.includes('relay')) {
+      return this.establishConnection();
+    }
+    
+    // For relay-based connections, we'll wait for the signer to connect
+    // The connection will be established when we receive a connection request
+    return Promise.resolve();
   }
 
   /**
