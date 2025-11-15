@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNostr } from '@/contexts/NostrContext';
 import { NIP46Client } from '@/lib/nostr/nip46-client';
