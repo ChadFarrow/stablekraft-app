@@ -220,9 +220,17 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setIsSubmitting(true);
       setError(null);
 
-      // Get public key from signer
+      // Wait a bit to ensure connection is fully established
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get public key from signer (this should be available from the connection)
+      console.log('🔍 LoginModal: Getting public key from NIP-46 client...');
       const publicKey = await client.getPublicKey();
       console.log('✅ LoginModal: Got public key from NIP-46', publicKey.slice(0, 16) + '...');
+      
+      if (!publicKey || publicKey.length === 0) {
+        throw new Error('Failed to get public key from signer. Please try connecting again.');
+      }
 
       // Request signature for challenge
       const challengeResponse = await fetch('/api/nostr/auth/challenge', {

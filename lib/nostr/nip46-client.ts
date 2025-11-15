@@ -267,11 +267,18 @@ export class NIP46Client {
           signerPubkey = event.content;
         }
 
-        // This is a connection from the signer
-        if (this.connection) {
+        console.log('✅ NIP-46: Connected via relay, signer pubkey:', signerPubkey);
+
+        // Store pubkey in connection object BEFORE calling callback
+        if (this.connection && signerPubkey) {
           this.connection.connected = true;
           this.connection.connectedAt = Date.now();
           this.connection.pubkey = signerPubkey;
+          console.log('💾 NIP-46: Stored pubkey in connection object:', {
+            hasConnection: !!this.connection,
+            hasPubkey: !!this.connection.pubkey,
+            pubkeyPreview: this.connection.pubkey.slice(0, 16) + '...',
+          });
         }
 
         // Save connection to localStorage for persistence
@@ -290,11 +297,17 @@ export class NIP46Client {
           }
         }
 
-        console.log('✅ NIP-46: Connected via relay, signer pubkey:', signerPubkey);
-
-        // Call the connection callback if set
+        // Call the connection callback if set (pubkey is now guaranteed to be stored)
         if (this.onConnectionCallback && signerPubkey) {
-          this.onConnectionCallback(signerPubkey);
+          console.log('📞 NIP-46: Calling connection callback with pubkey:', signerPubkey.slice(0, 16) + '...');
+          // Use setTimeout to ensure pubkey is fully stored before callback
+          setTimeout(() => {
+            if (this.connection?.pubkey) {
+              this.onConnectionCallback!(signerPubkey);
+            } else {
+              console.error('❌ NIP-46: Pubkey not available when calling callback');
+            }
+          }, 0);
         }
       } else {
         console.log('ℹ️ NIP-46: Event received but not a connection event:', content);
