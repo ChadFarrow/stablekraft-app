@@ -228,22 +228,35 @@ export class NIP46Client {
           fullContent: JSON.stringify(content, null, 2),
         });
       } catch (parseError) {
-        console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', {
-          content: event.content.substring(0, 100),
-          contentLength: event.content.length,
-          parseError: parseError instanceof Error ? parseError.message : String(parseError),
-        });
-        // Some NIP-46 implementations might send plain text
-        // If it looks like a signature (64 char hex), treat it as result
+        // Check if it's a plain text signature (64 char hex)
         if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
           console.log('✅ NIP-46: Event content appears to be a signature, creating response object');
           content = { 
             id: event.id, // Use event ID as request ID
             result: event.content 
           };
+        } else if (event.content === 'network-check') {
+          // Ignore network-check messages
+          console.log('ℹ️ NIP-46: Ignoring network-check message');
+          return;
         } else {
+          console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', {
+            content: event.content.substring(0, 100),
+            contentLength: event.content.length,
+            parseError: parseError instanceof Error ? parseError.message : String(parseError),
+          });
           content = { method: 'connect', params: [] };
         }
+      }
+
+      // IMPORTANT: Skip events that are requests (have 'method' field) - these are our own requests
+      // We only want to process responses (have 'result' or 'error' field)
+      if (content.method && !content.result && !content.error) {
+        console.log('ℹ️ NIP-46: Ignoring request event (this is our own request, not a response):', {
+          method: content.method,
+          id: content.id,
+        });
+        return;
       }
 
       // Check if this is a response to a pending request
