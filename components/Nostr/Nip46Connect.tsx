@@ -23,6 +23,31 @@ export default function Nip46Connect({
   const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'connecting' | 'connected' | 'error'>('waiting');
   const [deepLinkUrl, setDeepLinkUrl] = useState<string>('');
 
+  // Poll for connection status
+  useEffect(() => {
+    if (connectionStatus === 'waiting' || connectionStatus === 'connecting') {
+      const interval = setInterval(() => {
+        // Check if connection was established (stored in sessionStorage or localStorage)
+        const pendingConnection = sessionStorage.getItem('nip46_pending_connection');
+        if (pendingConnection) {
+          const connectionInfo = JSON.parse(pendingConnection);
+          // Check if we have a connection established
+          const storedConnection = localStorage.getItem('nip46_connection');
+          if (storedConnection) {
+            setConnectionStatus('connected');
+            setIsConnecting(false);
+            // Call onConnected after a short delay to allow UI to update
+            setTimeout(() => {
+              onConnected();
+            }, 500);
+          }
+        }
+      }, 2000); // Check every 2 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [connectionStatus, onConnected]);
+
   // Generate deep link URL for Amber
   useEffect(() => {
     if (isAndroid()) {

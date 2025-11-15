@@ -161,6 +161,22 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       
       // Initialize NIP-46 client (but don't connect yet - wait for Amber)
       const client = new NIP46Client();
+      
+      // Set up connection callback
+      client.setOnConnection((signerPubkey: string) => {
+        console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
+        // Automatically complete login when connection is established
+        handleNip46Connected();
+      });
+      
+      // Start listening on relay for connection
+      try {
+        await client.connect(relayUrl, token, false);
+      } catch (err) {
+        console.warn('Failed to start relay connection:', err);
+        // Continue anyway - connection will be established when Amber connects
+      }
+      
       setNip46Client(client);
       
       // Generate nostrconnect URI

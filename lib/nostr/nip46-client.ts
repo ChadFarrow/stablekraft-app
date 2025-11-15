@@ -5,7 +5,9 @@
  * Protocol: https://github.com/nostr-protocol/nips/blob/master/46.md
  */
 
-import { Event, getEventHash } from 'nostr-tools';
+import { Event, getEventHash, Filter } from 'nostr-tools';
+import { NostrClient } from './client';
+import { RelayManager } from './relay';
 
 export interface NIP46Connection {
   signerUrl: string;
@@ -38,6 +40,9 @@ export class NIP46Client {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private relayClient: NostrClient | null = null;
+  private relaySubscription: (() => void) | null = null;
+  private onConnectionCallback: ((pubkey: string) => void) | null = null;
 
   /**
    * Connect to a NIP-46 signer
@@ -64,7 +69,93 @@ export class NIP46Client {
     
     // For relay-based connections, we'll wait for the signer to connect
     // The connection will be established when we receive a connection request
+    if (signerUrl.includes('relay') || signerUrl.startsWith('wss://') && signerUrl.includes('relay')) {
+      // Start listening for connection events on the relay
+      return this.startRelayConnection(signerUrl);
+    }
+    
     return Promise.resolve();
+  }
+
+  /**
+   * Start listening for NIP-46 connection events on a relay
+   * @param relayUrl - Relay URL to listen on
+   */
+  private async startRelayConnection(relayUrl: string): Promise<void> {
+    if (!this.connection) {
+      throw new Error('No connection configured');
+    }
+
+    // Initialize relay client
+    this.relayClient = new NostrClient([relayUrl]);
+    await this.relayClient.connectToRelays([relayUrl]);
+
+    // Get the app's public key from sessionStorage (stored during connection initiation)
+    const pendingConnection = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('nip46_pending_connection')
+      : null;
+    
+    if (!pendingConnection) {
+      throw new Error('No pending connection found');
+    }
+
+    const connectionInfo = JSON.parse(pendingConnection);
+    const appPubkey = connectionInfo.publicKey;
+
+    // Subscribe to NIP-46 events (kind 24133) directed to our app
+    const filters: Filter[] = [{
+      kinds: [24133], // NIP-46 request/response events
+      '#p': [appPubkey], // Events tagged with our public key
+    }];
+
+    this.relaySubscription = this.relayClient.subscribe({
+      relays: [relayUrl],
+      filters,
+      onEvent: (event: Event) => {
+        this.handleRelayEvent(event, connectionInfo);
+      },
+      onError: (error) => {
+        console.error('❌ NIP-46: Relay subscription error:', error);
+      },
+    });
+
+    console.log('✅ NIP-46: Listening for connection on relay:', relayUrl);
+  }
+
+  /**
+   * Handle events received from the relay
+   */
+  private handleRelayEvent(event: Event, connectionInfo: any): void {
+    try {
+      // Parse NIP-46 event content
+      const content = JSON.parse(event.content);
+      
+      // Check if this is a connection/authentication response
+      if (content.method === 'connect' || content.method === 'get_public_key') {
+        // This is a connection from the signer
+        if (this.connection) {
+          this.connection.connected = true;
+          this.connection.connectedAt = Date.now();
+          this.connection.pubkey = event.pubkey; // Signer's public key
+        }
+
+        // Call the connection callback if set
+        if (this.onConnectionCallback && event.pubkey) {
+          this.onConnectionCallback(event.pubkey);
+        }
+
+        console.log('✅ NIP-46: Connected via relay, signer pubkey:', event.pubkey);
+      }
+    } catch (error) {
+      console.error('❌ NIP-46: Failed to handle relay event:', error);
+    }
+  }
+
+  /**
+   * Set callback for when connection is established
+   */
+  setOnConnection(callback: (pubkey: string) => void): void {
+    this.onConnectionCallback = callback;
   }
 
   /**
@@ -302,6 +393,17 @@ export class NIP46Client {
       this.ws = null;
     }
 
+    // Unsubscribe from relay
+    if (this.relaySubscription) {
+      this.relaySubscription();
+      this.relaySubscription = null;
+    }
+
+    if (this.relayClient) {
+      await this.relayClient.disconnect();
+      this.relayClient = null;
+    }
+
     // Reject all pending requests
     for (const [id, { reject }] of this.pendingRequests.entries()) {
       reject(new Error('Connection closed'));
@@ -311,13 +413,20 @@ export class NIP46Client {
     if (this.connection) {
       this.connection.connected = false;
     }
+
+    this.onConnectionCallback = null;
   }
 
   /**
    * Check if connected
    */
   isConnected(): boolean {
-    return this.connection?.connected === true && this.ws?.readyState === WebSocket.OPEN;
+    // For WebSocket connections
+    if (this.ws) {
+      return this.connection?.connected === true && this.ws.readyState === WebSocket.OPEN;
+    }
+    // For relay-based connections
+    return this.connection?.connected === true;
   }
 
   /**
