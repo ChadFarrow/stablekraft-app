@@ -13,6 +13,7 @@ import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
+import { DebugPanel } from '@/components/DebugPanel'
 
 
 
@@ -153,13 +154,14 @@ export default function RootLayout({
                   <ServiceWorkerRegistration />
                     </AudioProvider>
                   </SessionProvider>
-                </ScrollDetectionProvider>
+                  </ScrollDetectionProvider>
               </LightningWrapper>
             </NostrProvider>
           </ErrorBoundary>
           <PerformanceMonitor />
+          <DebugPanel />
         </ClientErrorBoundary>
       </body>
     </html>
   )
-} 
+}
