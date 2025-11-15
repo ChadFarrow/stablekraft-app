@@ -5,9 +5,20 @@
  * Protocol: https://github.com/nostr-protocol/nips/blob/master/46.md
  */
 
-import { Event, getEventHash, Filter } from 'nostr-tools';
+import { Event, getEventHash, Filter, EventTemplate, finalizeEvent } from 'nostr-tools';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
+
+/**
+ * Convert hex string to Uint8Array
+ */
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
 
 export interface NIP46Connection {
   signerUrl: string;
@@ -156,6 +167,37 @@ export class NIP46Client {
   }
 
   /**
+   * Create a NIP-46 request event (kind 24133)
+   */
+  private createNIP46RequestEvent(
+    method: string,
+    params: any[],
+    requestId: string,
+    appPubkey: string,
+    signerPubkey: string,
+    appPrivateKey: string
+  ): Event {
+    const request: NIP46Request = {
+      id: requestId,
+      method,
+      params,
+    };
+
+    const template: EventTemplate = {
+      kind: 24133, // NIP-46 request/response event kind
+      tags: [
+        ['p', signerPubkey], // Tag the signer
+      ],
+      content: JSON.stringify(request),
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    // Sign with app's temporary private key
+    const secretKey = hexToBytes(appPrivateKey);
+    return finalizeEvent(template, secretKey);
+  }
+
+  /**
    * Handle events received from the relay
    */
   private handleRelayEvent(event: Event, connectionInfo: any): void {
@@ -179,6 +221,20 @@ export class NIP46Client {
       }
 
       console.log('📋 NIP-46: Parsed content:', content);
+
+      // Check if this is a response to a pending request
+      if (content.id && this.pendingRequests.has(content.id)) {
+        const pending = this.pendingRequests.get(content.id);
+        if (pending) {
+          this.pendingRequests.delete(content.id);
+          if (content.error) {
+            pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
+          } else {
+            pending.resolve(content.result);
+          }
+          return;
+        }
+      }
 
       // Check if this is a connection/authentication response
       // NIP-46 connection events can have different structures:
@@ -432,16 +488,27 @@ export class NIP46Client {
         return;
       }
 
-      // For other methods, we'd need to publish a request event and wait for response
-      // This is a placeholder - full implementation would require:
-      // 1. Publishing a kind 24133 event with the request
-      // 2. Listening for a response event with matching ID
-      // 3. Resolving/rejecting based on the response
+      // For other methods, publish a request event and wait for response
+      // 1. Create and publish a kind 24133 event with the request
+      // 2. Listen for a response event with matching ID
+      // 3. Resolve/reject based on the response
       
-      // For now, throw an error indicating relay-based requests need full implementation
-      clearTimeout(timeout);
-      this.pendingRequests.delete(id);
-      reject(new Error(`Relay-based ${method} requests are not yet fully implemented. Please use WebSocket-based connections for full functionality.`));
+      // Create NIP-46 request event
+      const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, signerPubkey, connectionInfo.privateKey);
+      
+      // Publish the request event
+      this.relayClient!.publish(requestEvent, {
+        relays: [this.connection.signerUrl],
+        waitForRelay: false,
+      }).catch(err => {
+        console.error('❌ NIP-46: Failed to publish request event:', err);
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        reject(new Error(`Failed to publish request: ${err instanceof Error ? err.message : 'Unknown error'}`));
+      });
+
+      // The response will be handled by handleRelayEvent when we receive it
+      // We store the pending request so it can be resolved when the response arrives
     });
   }
 
