@@ -149,10 +149,18 @@ export class NIP46Client {
         
         // Check if this event is for us (tagged with our pubkey)
         const isForUs = event.tags.some(tag => tag[0] === 'p' && tag[1] === appPubkey);
-        if (isForUs || event.kind === 24133) {
+        // Check if event is from us (our own requests) - we should ignore these
+        const isFromUs = event.pubkey === appPubkey;
+        
+        if (isForUs && !isFromUs) {
+          // Only process events that are for us AND not from us (responses from signer)
           this.handleRelayEvent(event, connectionInfo);
         } else {
-          console.log('ℹ️ NIP-46: Event received but not for us, skipping');
+          if (isFromUs) {
+            console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
+          } else if (!isForUs) {
+            console.log('ℹ️ NIP-46: Event received but not for us, skipping');
+          }
         }
       },
       onEose: () => {
