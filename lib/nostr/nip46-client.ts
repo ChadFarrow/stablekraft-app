@@ -500,7 +500,8 @@ export class NIP46Client {
       // 3. Resolve/reject based on the response
       
       // Create NIP-46 request event
-      const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, signerPubkey, connectionInfo.privateKey);
+      // For get_public_key, we use appPubkey as placeholder if signerPubkey isn't available yet
+      const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, pubkeyForRequest, connectionInfo.privateKey);
       
       // Publish the request event
       if (!this.connection) {
