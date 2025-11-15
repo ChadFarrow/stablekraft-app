@@ -22,11 +22,40 @@ export default function Nip46Connect({
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'connecting' | 'connected' | 'error'>('waiting');
   const [deepLinkUrl, setDeepLinkUrl] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<{
+    relayUrl?: string;
+    appPubkey?: string;
+    eventsReceived?: number;
+    lastEventTime?: string;
+    connectionCheckCount?: number;
+  }>({});
 
-  // Poll for connection status
+  // Poll for connection status and update debug info
   useEffect(() => {
+    // Get debug info from sessionStorage
+    const pendingConnection = sessionStorage.getItem('nip46_pending_connection');
+    if (pendingConnection) {
+      try {
+        const connectionInfo = JSON.parse(pendingConnection);
+        setDebugInfo(prev => ({
+          ...prev,
+          relayUrl: connectionInfo.relayUrl,
+          appPubkey: connectionInfo.publicKey ? connectionInfo.publicKey.slice(0, 16) + '...' : undefined,
+        }));
+      } catch (err) {
+        // Ignore parse errors
+      }
+    }
+
     if (connectionStatus === 'waiting' || connectionStatus === 'connecting') {
+      let checkCount = 0;
       const interval = setInterval(() => {
+        checkCount++;
+        setDebugInfo(prev => ({
+          ...prev,
+          connectionCheckCount: checkCount,
+        }));
+
         // Check if connection was established (stored in localStorage)
         // The key should match what saveNIP46Connection uses: 'nostr_nip46_connection'
         const storedConnection = localStorage.getItem('nostr_nip46_connection');
@@ -35,16 +64,19 @@ export default function Nip46Connect({
             const connection = JSON.parse(storedConnection);
             // Check if connection has a pubkey (means it's connected)
             if (connection.pubkey) {
-              console.log('✅ NIP-46: Connection detected in storage:', connection.pubkey.slice(0, 16) + '...');
               setConnectionStatus('connected');
               setIsConnecting(false);
+              setDebugInfo(prev => ({
+                ...prev,
+                lastEventTime: new Date().toLocaleTimeString(),
+              }));
               // Call onConnected after a short delay to allow UI to update
               setTimeout(() => {
                 onConnected();
               }, 500);
             }
           } catch (err) {
-            console.error('Failed to parse stored connection:', err);
+            // Ignore parse errors
           }
         }
       }, 2000); // Check every 2 seconds
@@ -140,15 +172,28 @@ export default function Nip46Connect({
 
       {/* Connection Status */}
       {connectionStatus === 'connecting' && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800 text-center">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+          <p className="text-sm text-blue-800 text-center font-medium">
             ⏳ Waiting for connection from Amber...
           </p>
-          <p className="text-xs text-blue-600 text-center mt-2">
+          <p className="text-xs text-blue-600 text-center">
             Make sure you've scanned the QR code or opened the app, and approved the connection in Amber.
           </p>
           <div className="mt-3 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
+          
+          {/* Debug Info */}
+          <div className="mt-3 pt-3 border-t border-blue-200">
+            <p className="text-xs text-blue-700 font-semibold mb-1">Connection Status:</p>
+            <div className="text-xs text-blue-600 space-y-1">
+              <div>Relay: {debugInfo.relayUrl || 'Not set'}</div>
+              <div>App Key: {debugInfo.appPubkey || 'Not set'}</div>
+              <div>Checks: {debugInfo.connectionCheckCount || 0}</div>
+              {debugInfo.lastEventTime && (
+                <div className="text-green-600">Last event: {debugInfo.lastEventTime}</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -180,6 +225,37 @@ export default function Nip46Connect({
           <li>Wait for the connection to be established</li>
         </ol>
       </div>
+
+      {/* Manual Check Button */}
+      {connectionStatus === 'connecting' && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              // Force check connection status
+              const storedConnection = localStorage.getItem('nostr_nip46_connection');
+              if (storedConnection) {
+                try {
+                  const connection = JSON.parse(storedConnection);
+                  if (connection.pubkey) {
+                    setConnectionStatus('connected');
+                    setIsConnecting(false);
+                    setTimeout(() => onConnected(), 500);
+                  } else {
+                    alert('Connection not yet established. Please approve the connection in Amber.');
+                  }
+                } catch (err) {
+                  alert('Error checking connection status.');
+                }
+              } else {
+                alert('No connection found. Make sure you\'ve approved the connection in Amber.');
+              }
+            }}
+            className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm"
+          >
+            Check Connection Status
+          </button>
+        </div>
+      )}
 
       {/* Cancel Button */}
       <div className="flex gap-2">

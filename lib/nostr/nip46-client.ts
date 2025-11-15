@@ -105,10 +105,18 @@ export class NIP46Client {
     // Subscribe to NIP-46 events (kind 24133) directed to our app
     // NIP-46 uses kind 24133 for request/response events
     // We need to listen for events where we are the recipient (tagged with our pubkey)
-    const filters: Filter[] = [{
-      kinds: [24133], // NIP-46 request/response events
-      '#p': [appPubkey], // Events tagged with our public key (recipient)
-    }];
+    // Also listen for all kind 24133 events in case the tagging is different
+    const filters: Filter[] = [
+      {
+        kinds: [24133], // NIP-46 request/response events
+        '#p': [appPubkey], // Events tagged with our public key (recipient)
+      },
+      // Also subscribe to all kind 24133 events to catch any connection attempts
+      // We'll filter them in handleRelayEvent
+      {
+        kinds: [24133],
+      },
+    ];
 
     console.log('🔍 NIP-46: Subscribing to relay events:', {
       relayUrl,
@@ -124,9 +132,17 @@ export class NIP46Client {
           id: event.id.slice(0, 16) + '...',
           pubkey: event.pubkey.slice(0, 16) + '...',
           kind: event.kind,
+          tags: event.tags,
           content: event.content.substring(0, 100),
         });
-        this.handleRelayEvent(event, connectionInfo);
+        
+        // Check if this event is for us (tagged with our pubkey)
+        const isForUs = event.tags.some(tag => tag[0] === 'p' && tag[1] === appPubkey);
+        if (isForUs || event.kind === 24133) {
+          this.handleRelayEvent(event, connectionInfo);
+        } else {
+          console.log('ℹ️ NIP-46: Event received but not for us, skipping');
+        }
       },
       onEose: () => {
         console.log('✅ NIP-46: Subscription EOSE (End of Stored Events)');
