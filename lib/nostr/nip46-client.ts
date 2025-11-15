@@ -215,13 +215,36 @@ export class NIP46Client {
       let content;
       try {
         content = JSON.parse(event.content);
+        console.log('📋 NIP-46: Parsed content (JSON):', {
+          hasId: 'id' in content,
+          hasResult: 'result' in content,
+          hasError: 'error' in content,
+          hasMethod: 'method' in content,
+          id: content.id,
+          resultType: typeof content.result,
+          resultValue: content.result,
+          error: content.error,
+          method: content.method,
+          fullContent: JSON.stringify(content, null, 2),
+        });
       } catch (parseError) {
-        console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', event.content.substring(0, 100));
+        console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', {
+          content: event.content.substring(0, 100),
+          contentLength: event.content.length,
+          parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        });
         // Some NIP-46 implementations might send plain text
-        content = { method: 'connect', params: [] };
+        // If it looks like a signature (64 char hex), treat it as result
+        if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
+          console.log('✅ NIP-46: Event content appears to be a signature, creating response object');
+          content = { 
+            id: event.id, // Use event ID as request ID
+            result: event.content 
+          };
+        } else {
+          content = { method: 'connect', params: [] };
+        }
       }
-
-      console.log('📋 NIP-46: Parsed content:', content);
 
       // Check if this is a response to a pending request
       if (content.id && this.pendingRequests.has(content.id)) {
@@ -236,10 +259,46 @@ export class NIP46Client {
               id: content.id,
               resultType: typeof content.result,
               resultIsString: typeof content.result === 'string',
+              resultIsUndefined: content.result === undefined,
+              resultIsNull: content.result === null,
               resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
-              resultPreview: typeof content.result === 'string' ? content.result.slice(0, 32) + '...' : JSON.stringify(content.result).slice(0, 100),
+              resultPreview: typeof content.result === 'string' 
+                ? content.result.slice(0, 32) + '...' 
+                : content.result === undefined 
+                  ? 'UNDEFINED' 
+                  : content.result === null 
+                    ? 'NULL'
+                    : JSON.stringify(content.result).slice(0, 200),
+              fullContent: JSON.stringify(content, null, 2),
             });
-            pending.resolve(content.result);
+            
+            // Handle case where result might be undefined
+            if (content.result === undefined) {
+              console.error('❌ NIP-46: Response result is undefined! Full content:', JSON.stringify(content, null, 2));
+              console.error('❌ NIP-46: Event content:', event.content);
+              console.error('❌ NIP-46: Parsed content:', content);
+              // Try to extract result from different possible locations
+              if (event.content && typeof event.content === 'string') {
+                try {
+                  const parsedContent = JSON.parse(event.content);
+                  if (parsedContent.result !== undefined) {
+                    console.log('✅ NIP-46: Found result in parsed event.content:', parsedContent.result);
+                    pending.resolve(parsedContent.result);
+                    return;
+                  }
+                } catch (e) {
+                  // Not JSON, might be plain text
+                  if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
+                    console.log('✅ NIP-46: Event content appears to be a signature:', event.content.slice(0, 16) + '...');
+                    pending.resolve(event.content);
+                    return;
+                  }
+                }
+              }
+              pending.reject(new Error('Response result is undefined - no signature received from signer'));
+            } else {
+              pending.resolve(content.result);
+            }
           }
           return;
         }
