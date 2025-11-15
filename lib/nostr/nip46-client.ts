@@ -183,10 +183,6 @@ export class NIP46Client {
       params,
     };
 
-    // Derive pubkey from private key to ensure it's correct
-    const secretKey = hexToBytes(appPrivateKey);
-    const derivedPubkey = getPublicKey(secretKey);
-
     const template: EventTemplate = {
       kind: 24133, // NIP-46 request/response event kind
       tags: [
@@ -194,10 +190,11 @@ export class NIP46Client {
       ],
       content: JSON.stringify(request),
       created_at: Math.floor(Date.now() / 1000),
-      pubkey: derivedPubkey, // Add pubkey field (required by finalizeEvent)
     };
 
     // Sign with app's temporary private key
+    // finalizeEvent will automatically derive the pubkey from the secret key
+    const secretKey = hexToBytes(appPrivateKey);
     return finalizeEvent(template, secretKey);
   }
 
