@@ -5,7 +5,7 @@
  * Protocol: https://github.com/nostr-protocol/nips/blob/master/46.md
  */
 
-import { Event, getEventHash, signEvent as nostrSignEvent } from 'nostr-tools';
+import { Event, getEventHash } from 'nostr-tools';
 
 export interface NIP46Connection {
   signerUrl: string;
