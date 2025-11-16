@@ -786,8 +786,19 @@ export class NIP46Client {
         requestId: id,
         method,
         tags: requestEvent.tags,
+        tagsDetail: requestEvent.tags.map(tag => ({
+          type: tag[0],
+          value: tag[1]?.slice(0, 16) + '...',
+          fullTag: tag,
+        })),
         contentPreview: requestEvent.content.substring(0, 100),
+        fullContent: requestEvent.content,
         relayUrl: this.connection?.signerUrl,
+        connectionToken: this.connection?.token?.slice(0, 20) + '...',
+        hasSignerPubkey: !!signerPubkey,
+        warning: !signerPubkey && method === 'get_public_key' 
+          ? '⚠️ WARNING: Tagging with app pubkey - Amber might not see this if not subscribed to app pubkey events'
+          : undefined,
       });
       
       // Publish the request event
@@ -837,6 +848,12 @@ export class NIP46Client {
               status: r.status,
               value: r.status === 'fulfilled' ? 'published' : (r.reason instanceof Error ? r.reason.message : String(r.reason)),
             })),
+            eventId: requestEvent.id.slice(0, 16) + '...',
+            eventTags: requestEvent.tags,
+            relayUrl: this.connection?.signerUrl,
+            note: !signerPubkey && method === 'get_public_key'
+              ? '⚠️ Request tagged with app pubkey - ensure Amber is subscribed to events from this app pubkey'
+              : 'Request tagged with signer pubkey',
           });
           
           // Check if at least one relay accepted the event
