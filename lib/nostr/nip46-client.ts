@@ -783,7 +783,7 @@ export class NIP46Client {
           if (!isAmberPubkey) {
             looksLikeGetPublicKeyResponse = true;
             extractedPubkey = content.result;
-            console.error(`[NIP46-GETPUBKEY] Found direct hex pubkey (not Amber's): ${extractedPubkey.slice(0, 16)}...`);
+            console.error(`[NIP46-GETPUBKEY] Found direct hex pubkey (not Amber's): ${content.result.slice(0, 16)}...`);
           } else {
             console.error(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it's Amber's pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
           }
