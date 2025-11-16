@@ -221,8 +221,15 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       try {
         await client.connect(relayUrl, token, false);
       } catch (err) {
-        console.warn('Failed to start relay connection:', err);
-        // Continue anyway - connection will be established when Amber connects
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error('❌ LoginModal: Failed to start relay connection:', {
+          error: errorMessage,
+          relayUrl,
+          errorDetails: err,
+        });
+        setError(`Failed to connect to relay: ${errorMessage}. Please check your connection and try again.`);
+        setIsSubmitting(false);
+        return;
       }
       
       // Generate nostrconnect URI
@@ -294,8 +301,24 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           publicKey = await client.getPublicKey();
           console.log('✅ LoginModal: Got public key from signer:', publicKey.slice(0, 16) + '...');
         } catch (err) {
-          console.error('❌ LoginModal: Failed to get public key:', err);
-          throw new Error('Unable to communicate with signer. Please ensure Amber is connected and try again.');
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          const errorDetails = err instanceof Error ? {
+            name: err.name,
+            message: err.message,
+            stack: err.stack,
+          } : err;
+          
+          console.error('❌ LoginModal: Failed to get public key:', {
+            error: errorMessage,
+            errorDetails,
+            connectionState: {
+              hasConnection: !!connection,
+              hasPubkey: !!connection?.pubkey,
+              connected: connection?.connected,
+            },
+          });
+          
+          throw new Error(`Unable to communicate with signer: ${errorMessage}. Please ensure Amber is connected and try again.`);
         }
       }
       
@@ -347,8 +370,24 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       try {
         signedEvent = await client.signEvent(event as any);
       } catch (signError) {
-        console.error('❌ LoginModal: Error signing event:', signError);
-        throw new Error(`Failed to sign event: ${signError instanceof Error ? signError.message : 'Unknown error'}`);
+        const errorMessage = signError instanceof Error ? signError.message : String(signError);
+        const errorDetails = signError instanceof Error ? {
+          name: signError.name,
+          message: signError.message,
+          stack: signError.stack,
+        } : signError;
+        
+        console.error('❌ LoginModal: Error signing event:', {
+          error: errorMessage,
+          errorDetails,
+          eventDetails: {
+            kind: event.kind,
+            challenge: challenge.slice(0, 16) + '...',
+            created_at: event.created_at,
+          },
+        });
+        
+        throw new Error(`Failed to sign event: ${errorMessage}`);
       }
       console.log('✅ LoginModal: Got signed event', {
         id: signedEvent.id?.slice(0, 16) + '...',

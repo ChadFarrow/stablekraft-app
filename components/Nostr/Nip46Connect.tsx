@@ -22,6 +22,8 @@ export default function Nip46Connect({
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'connecting' | 'connected' | 'error'>('waiting');
   const [deepLinkUrl, setDeepLinkUrl] = useState<string>('');
+  const [errorLog, setErrorLog] = useState<Array<{ timestamp: string; message: string; details?: any }>>([]);
+  const [showErrorLog, setShowErrorLog] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{
     relayUrl?: string;
     appPubkey?: string;
@@ -29,6 +31,48 @@ export default function Nip46Connect({
     lastEventTime?: string;
     connectionCheckCount?: number;
   }>({});
+
+  // Set up error logging from console
+  useEffect(() => {
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    // Intercept console errors and warnings related to NIP-46/Amber
+    console.error = (...args: any[]) => {
+      originalError(...args);
+      const message = args.map(arg => 
+        typeof arg === 'string' ? arg : JSON.stringify(arg)
+      ).join(' ');
+      
+      if (message.includes('NIP-46') || message.includes('Amber') || message.includes('relay')) {
+        setErrorLog(prev => [...prev.slice(-19), {
+          timestamp: new Date().toLocaleTimeString(),
+          message: message.substring(0, 200),
+          details: args.length > 1 ? args.slice(1) : undefined,
+        }]);
+      }
+    };
+    
+    console.warn = (...args: any[]) => {
+      originalWarn(...args);
+      const message = args.map(arg => 
+        typeof arg === 'string' ? arg : JSON.stringify(arg)
+      ).join(' ');
+      
+      if (message.includes('NIP-46') || message.includes('Amber') || message.includes('relay')) {
+        setErrorLog(prev => [...prev.slice(-19), {
+          timestamp: new Date().toLocaleTimeString(),
+          message: `⚠️ ${message.substring(0, 200)}`,
+          details: args.length > 1 ? args.slice(1) : undefined,
+        }]);
+      }
+    };
+    
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
 
   // Poll for connection status and update debug info
   useEffect(() => {
@@ -212,9 +256,79 @@ export default function Nip46Connect({
 
       {connectionStatus === 'error' && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800 text-center">
+          <p className="text-sm text-red-800 text-center mb-2">
             ❌ Connection failed. Please try again.
           </p>
+          {errorLog.length > 0 && (
+            <button
+              onClick={() => setShowErrorLog(!showErrorLog)}
+              className="text-xs text-red-600 hover:text-red-800 underline"
+            >
+              {showErrorLog ? 'Hide' : 'Show'} error log ({errorLog.length})
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Error Log Display */}
+      {showErrorLog && errorLog.length > 0 && (
+        <div className="p-4 bg-gray-900 text-gray-100 rounded-md border border-gray-700 max-h-64 overflow-y-auto">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-semibold">Error Log</h4>
+            <button
+              onClick={() => setErrorLog([])}
+              className="text-xs text-gray-400 hover:text-gray-200"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="space-y-1 text-xs font-mono">
+            {errorLog.map((error, index) => (
+              <div key={index} className="border-b border-gray-700 pb-1">
+                <div className="text-gray-400 text-xs mb-1">{error.timestamp}</div>
+                <div className="text-red-300 break-words">{error.message}</div>
+                {error.details && error.details.length > 0 && (
+                  <details className="mt-1">
+                    <summary className="text-gray-400 cursor-pointer text-xs">Details</summary>
+                    <pre className="text-xs text-gray-500 mt-1 overflow-x-auto">
+                      {JSON.stringify(error.details, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Debug Info Panel (always visible on web) */}
+      {!isAndroid() && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-semibold text-blue-900">Debug Info</h4>
+            <button
+              onClick={() => setShowErrorLog(!showErrorLog)}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              {showErrorLog ? 'Hide' : 'Show'} error log {errorLog.length > 0 && `(${errorLog.length})`}
+            </button>
+          </div>
+          <div className="text-xs text-blue-800 space-y-1">
+            {debugInfo.relayUrl && (
+              <div>Relay: <span className="font-mono">{debugInfo.relayUrl}</span></div>
+            )}
+            {debugInfo.appPubkey && (
+              <div>App Pubkey: <span className="font-mono">{debugInfo.appPubkey}</span></div>
+            )}
+            {debugInfo.connectionCheckCount !== undefined && (
+              <div>Connection Checks: {debugInfo.connectionCheckCount}</div>
+            )}
+            {errorLog.length > 0 && (
+              <div className="text-red-600 font-semibold">
+                ⚠️ {errorLog.length} error(s) logged
+              </div>
+            )}
+          </div>
         </div>
       )}
 
