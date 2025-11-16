@@ -272,16 +272,14 @@ export class NIP46Client {
 
     // Encrypt the request using NIP-44
     // Encrypt from app's private key to signer's public key
-    // NIP-44 encrypt expects hex string for private key
+    // NIP-44 functions accept hex strings for keys and string for message
     const requestJson = JSON.stringify(request);
     let encryptedContent: string;
     
     try {
-      // NIP-44 encrypt expects hex string for private key, not Uint8Array
-      // Public key and message need to be converted to Uint8Array
-      const signerPubkeyBytes = hexToBytes(signerPubkey);
-      const requestJsonBytes = new TextEncoder().encode(requestJson);
-      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkeyBytes, requestJsonBytes);
+      // nip44.encrypt(sk: string | Uint8Array, pk: string | Uint8Array, plaintext: string): string
+      // All parameters can be hex strings - the library handles conversion internally
+      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkey, requestJson);
       console.log('🔐 NIP-46: Encrypted request content with NIP-44:', {
         method,
         requestId,
@@ -348,10 +346,10 @@ export class NIP46Client {
         
         try {
           // Decrypt using NIP-44
-          // Private key should be hex string, encrypted message should be Uint8Array
-          // The public key information is embedded in the encrypted message
-          const encryptedContentBytes = new TextEncoder().encode(event.content);
-          decryptedContent = nip44.decrypt(appPrivateKey, encryptedContentBytes);
+          // nip44.decrypt(sk: string | Uint8Array, pk: string | Uint8Array, ciphertext: string): string
+          // The encrypted content is already a base64-encoded string from Amber
+          // We need to pass the signer's public key (who encrypted it) and our private key
+          decryptedContent = nip44.decrypt(appPrivateKey, signerPubkey, event.content);
           console.log('✅ NIP-46: Successfully decrypted NIP-44 content');
           
           // Now parse the decrypted JSON
