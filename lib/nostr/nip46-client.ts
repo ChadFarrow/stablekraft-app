@@ -154,7 +154,15 @@ export class NIP46Client {
       relayUrl,
       appPubkey: appPubkey.slice(0, 16) + '...',
       filters,
+      connectionState: {
+        hasConnection: !!this.connection,
+        hasPubkey: !!this.connection?.pubkey,
+        connected: this.connection?.connected,
+      },
     });
+    
+    // Log that we're waiting for connection
+    console.log('⏳ NIP-46: Waiting for connection event from signer...');
 
     this.relaySubscription = this.relayClient.subscribe({
       relays: [relayUrl],
