@@ -1614,15 +1614,10 @@ export class NIP46Client {
         }
       }, 90000);
 
-      // If it's get_public_key and we already have the pubkey, return it immediately
-      if (method === 'get_public_key' && signerPubkey) {
-        console.log('✅ NIP-46: Already have signer pubkey, returning immediately:', signerPubkey.slice(0, 16) + '...');
-        clearTimeout(timeout);
-        clearInterval(statusInterval);
-        this.pendingRequests.delete(id);
-        resolve(signerPubkey);
-        return;
-      }
+      // CRITICAL: NEVER return stored pubkey for get_public_key requests
+      // The stored pubkey might be Amber's pubkey (from connect response), not the user's pubkey
+      // We MUST wait for the actual get_public_key response to get the user's pubkey
+      // This was causing the promise to resolve immediately with Amber's pubkey instead of waiting
 
       // For get_public_key without pubkey, we can't tag the signer (we don't know their pubkey yet)
       // According to NIP-46, for relay-based connections, the signer should be listening for
