@@ -111,7 +111,7 @@ export interface NIP46Response {
 export class NIP46Client {
   private connection: NIP46Connection | null = null;
   private ws: WebSocket | null = null;
-  private pendingRequests: Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }> = new Map();
+  private pendingRequests: Map<string, { method: string; resolve: (value: any) => void; reject: (error: Error) => void }> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -690,6 +690,7 @@ export class NIP46Client {
         console.log('🔍 NIP-46: Checking if response matches pending request:', {
           responseId: content.id,
           pendingRequestIds: Array.from(this.pendingRequests.keys()),
+          pendingRequestMethods: Array.from(this.pendingRequests.values()).map(p => p.method),
           hasMatch: this.pendingRequests.has(content.id),
         });
 
@@ -708,7 +709,8 @@ export class NIP46Client {
             this.pendingRequests.delete(content.id);
             console.log('✅ NIP-46: Found matching pending request, processing response:', {
               requestId: content.id,
-              method: content.method,
+              requestMethod: pending.method,
+              responseMethod: content.method,
               hasResult: 'result' in content,
               hasError: 'error' in content,
             });
@@ -794,6 +796,45 @@ export class NIP46Client {
             contentPreview: JSON.stringify(content).substring(0, 300),
             note: 'This might be a response to an old request, or the request ID format is different. Check if IDs match exactly (including type and length).',
           });
+          
+          // 🔵 Amber fallback: If this is a get_public_key response (pubkey) and we have a pending get_public_key request,
+          // resolve it even if the ID doesn't match (Amber might use different ID format)
+          if (isAmberCompatible && 
+              content.result && 
+              typeof content.result === 'string' && 
+              content.result.length === 64 && 
+              /^[a-f0-9]{64}$/i.test(content.result) &&
+              content.result !== this.connection?.token) {
+            
+            // Check if we have any pending get_public_key requests
+            // We'll resolve the first one we find (there should only be one)
+            const pendingGetPublicKeyRequest = Array.from(this.pendingRequests.entries()).find(([reqId, pending]) => {
+              // Check if this request was for get_public_key by checking the stored method
+              return pending.method === 'get_public_key';
+            });
+            
+            if (pendingGetPublicKeyRequest) {
+              const [reqId, pending] = pendingGetPublicKeyRequest;
+              console.log('🔵 [NIP46Client] Amber fallback: Resolving get_public_key request despite ID mismatch:', {
+                responseId: content.id,
+                requestId: reqId,
+                pubkey: content.result.slice(0, 16) + '...',
+                note: 'Amber may use different ID format, but response is valid pubkey',
+              });
+              
+              // Clear timeout and interval if they exist
+              if ((pending as any).statusInterval) {
+                clearInterval((pending as any).statusInterval);
+              }
+              
+              // Remove from pending requests
+              this.pendingRequests.delete(reqId);
+              
+              // Resolve with the pubkey
+              pending.resolve(content.result);
+              return; // Don't process further
+            }
+          }
         }
       }
 
@@ -1161,7 +1202,7 @@ export class NIP46Client {
     };
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      this.pendingRequests.set(id, { method, resolve, reject });
 
       // Timeout after 30 seconds
       const timeout = setTimeout(() => {
@@ -1252,7 +1293,8 @@ export class NIP46Client {
     // properly handle the request/response cycle via relay events
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
-      const pendingRequest: { resolve: (value: any) => void; reject: (error: Error) => void; startTime?: number; statusInterval?: NodeJS.Timeout } = { 
+      const pendingRequest: { method: string; resolve: (value: any) => void; reject: (error: Error) => void; startTime?: number; statusInterval?: NodeJS.Timeout } = { 
+        method,
         resolve, 
         reject,
         startTime,
