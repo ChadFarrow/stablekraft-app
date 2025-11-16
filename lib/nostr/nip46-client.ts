@@ -389,9 +389,10 @@ export class NIP46Client {
               // First try NIP-44 decryption
               let content: any;
               try {
+                // Use NIP-44 v2 API: get conversation key first, then decrypt
                 const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
-                const eventPubkeyBytes = hexToBytes(event.pubkey);
-                const decrypted = nip44.decrypt(appPrivateKeyBytes, event.pubkey, event.content);
+                const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, event.pubkey);
+                const decrypted = nip44.decrypt(event.content, conversationKey);
                 content = JSON.parse(decrypted);
                 console.log('📋 NIP-46: Successfully decrypted untagged event content');
               } catch (decryptErr) {
