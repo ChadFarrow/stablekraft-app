@@ -235,7 +235,13 @@ export class NIP46Client {
       },
     });
 
-    console.log('✅ NIP-46: Listening for connection on relay:', relayUrl);
+    console.log('✅ NIP-46: Subscription created successfully. Listening for connection on relay:', relayUrl);
+    console.log('📋 NIP-46: Subscription details:', {
+      relayUrl,
+      filtersCount: filters.length,
+      appPubkey: appPubkey.slice(0, 16) + '...',
+      hasSubscription: !!this.relaySubscription,
+    });
   }
 
   /**
