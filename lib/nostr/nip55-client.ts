@@ -37,6 +37,7 @@ export class NIP55Client {
     // Set up callback URL handler
     if (typeof window !== 'undefined') {
       this.callbackUrl = `${window.location.origin}${window.location.pathname}#nip55-callback`;
+      console.log('📱 NIP-55: Initialized with callback URL:', this.callbackUrl);
       this.setupCallbackHandler();
     }
   }
@@ -106,6 +107,14 @@ export class NIP55Client {
 
       return pubkey;
     } catch (error) {
+      const errorDetails = error instanceof Error
+        ? {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+          }
+        : { error: String(error) };
+      console.error('❌ NIP-55: Connect error:', errorDetails);
       throw new Error(`Failed to connect to NIP-55 signer: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -283,12 +292,21 @@ export class NIP55Client {
     // Check if we're returning from a callback
     const handleCallback = () => {
       const hash = window.location.hash;
-      if (hash.includes('nip55-callback')) {
-        const urlParams = new URLSearchParams(hash.split('?')[1] || '');
-        const requestId = urlParams.get('requestId');
-        const signature = urlParams.get('signature');
-        const pubkey = urlParams.get('pubkey');
-        const error = urlParams.get('error');
+      const fullUrl = window.location.href;
+      console.log('📱 NIP-55: Checking callback:', { hash, fullUrl });
+      
+      if (hash.includes('nip55-callback') || fullUrl.includes('nip55-callback')) {
+        // Try both hash and query string params
+        const hashPart = hash.includes('?') ? hash.split('?')[1] : '';
+        const queryPart = window.location.search.substring(1);
+        const urlParams = new URLSearchParams(hashPart || queryPart || '');
+        
+        const requestId = urlParams.get('requestId') || new URLSearchParams(window.location.search).get('requestId');
+        const signature = urlParams.get('signature') || new URLSearchParams(window.location.search).get('signature');
+        const pubkey = urlParams.get('pubkey') || new URLSearchParams(window.location.search).get('pubkey');
+        const error = urlParams.get('error') || new URLSearchParams(window.location.search).get('error');
+
+        console.log('📱 NIP-55: Callback params:', { requestId, hasSignature: !!signature, hasPubkey: !!pubkey, error });
 
         if (requestId) {
           const pending = this.pendingSignatures.get(requestId);
@@ -328,14 +346,19 @@ export class NIP55Client {
                 pending.resolve(signature);
               }
             } else {
+              console.error('❌ NIP-55: Callback missing signature and error:', { requestId, signature, error });
               pending.reject(new Error('No signature or error in NIP-55 callback'));
             }
 
             this.pendingSignatures.delete(requestId);
+          } else {
+            console.warn('⚠️ NIP-55: Callback received but no pending request found:', { requestId, pendingRequests: Array.from(this.pendingSignatures.keys()) });
           }
 
           // Clean up URL
           window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          console.warn('⚠️ NIP-55: Callback received but no requestId found');
         }
       }
     };

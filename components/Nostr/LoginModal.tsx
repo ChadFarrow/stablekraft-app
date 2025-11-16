@@ -795,8 +795,28 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         throw new Error(loginData.error || 'Login failed');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'NIP-55 login failed');
-      console.error('❌ NIP-55: Login error:', err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : typeof err === 'string'
+        ? err
+        : JSON.stringify(err, Object.getOwnPropertyNames(err));
+      const errorDetails = err instanceof Error
+        ? {
+            message: err.message,
+            name: err.name,
+            stack: err.stack,
+            ...(err as any).cause && { cause: (err as any).cause },
+          }
+        : err;
+      
+      setError(errorMessage || 'NIP-55 login failed');
+      console.error('❌ NIP-55: Login error:', {
+        error: errorDetails,
+        errorMessage,
+        errorType: typeof err,
+        errorConstructor: err?.constructor?.name,
+        stringified: JSON.stringify(err, Object.getOwnPropertyNames(err)),
+      });
     } finally {
       setIsSubmitting(false);
     }
