@@ -119,8 +119,17 @@ export class NIP46Client {
     }
 
     // Initialize relay client
+    console.log('🔌 NIP-46: Initializing relay client for:', relayUrl);
     this.relayClient = new NostrClient([relayUrl]);
-    await this.relayClient.connectToRelays([relayUrl]);
+    
+    console.log('🔌 NIP-46: Connecting to relay...');
+    try {
+      await this.relayClient.connectToRelays([relayUrl]);
+      console.log('✅ NIP-46: Successfully connected to relay');
+    } catch (err) {
+      console.error('❌ NIP-46: Failed to connect to relay:', err);
+      throw err;
+    }
 
     // Get the app's public key from sessionStorage (stored during connection initiation)
     const pendingConnection = typeof window !== 'undefined' 
@@ -164,10 +173,12 @@ export class NIP46Client {
     // Log that we're waiting for connection
     console.log('⏳ NIP-46: Waiting for connection event from signer...');
 
+    console.log('📡 NIP-46: Creating subscription...');
     this.relaySubscription = this.relayClient.subscribe({
       relays: [relayUrl],
       filters,
       onEvent: (event: Event) => {
+        console.log('🎯 NIP-46: onEvent callback triggered!');
         console.log('📨 NIP-46: Received event from relay:', {
           id: event.id.slice(0, 16) + '...',
           pubkey: event.pubkey.slice(0, 16) + '...',
