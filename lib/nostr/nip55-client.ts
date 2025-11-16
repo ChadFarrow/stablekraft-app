@@ -261,20 +261,30 @@ export class NIP55Client {
         reject,
       });
 
-      // Set timeout
-      const timeout = setTimeout(() => {
-        this.pendingSignatures.delete(requestId);
-        reject(new Error('NIP-55 signature request timed out after 60 seconds'));
-      }, 60000);
+      // Set timeout with warning
+      const warningTimeout = setTimeout(() => {
+        console.warn('⚠️ NIP-55: Still waiting for signature approval (30s elapsed). Please check your Android signer app and approve the request.');
+      }, 30000);
 
-      // Store timeout for cleanup
-      (this.pendingSignatures.get(requestId) as any).timeout = timeout;
+      const timeout = setTimeout(() => {
+        clearTimeout(warningTimeout);
+        this.pendingSignatures.delete(requestId);
+        reject(new Error('NIP-55 signature request timed out after 90 seconds. Please ensure your Android signer app is open and try again.'));
+      }, 90000); // Increased to 90 seconds to match NIP-46
+
+      // Store timeouts for cleanup
+      const pending = this.pendingSignatures.get(requestId);
+      if (pending) {
+        (pending as any).timeout = timeout;
+        (pending as any).warningTimeout = warningTimeout;
+      }
 
       // Open intent
       try {
         window.location.href = nip55Uri;
       } catch (error) {
         clearTimeout(timeout);
+        clearTimeout(warningTimeout);
         this.pendingSignatures.delete(requestId);
         reject(new Error(`Failed to open NIP-55 intent: ${error instanceof Error ? error.message : String(error)}`));
       }
@@ -311,9 +321,12 @@ export class NIP55Client {
         if (requestId) {
           const pending = this.pendingSignatures.get(requestId);
           if (pending) {
-            // Clear timeout
+            // Clear timeouts
             if ((pending as any).timeout) {
               clearTimeout((pending as any).timeout);
+            }
+            if ((pending as any).warningTimeout) {
+              clearTimeout((pending as any).warningTimeout);
             }
 
             if (error) {
