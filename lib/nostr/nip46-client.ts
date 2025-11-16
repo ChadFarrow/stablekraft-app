@@ -832,6 +832,15 @@ export class NIP46Client {
                 looksLikeGetPublicKeyResponse = true;
                 extractedPubkey = possiblePubkey;
                 console.error(`[NIP46-GETPUBKEY] Found user's pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${fieldName})`);
+                
+                // Verify the pubkey by converting to npub for user verification
+                try {
+                  const { publicKeyToNpub } = require('@/lib/nostr/keys');
+                  const npub = publicKeyToNpub(extractedPubkey);
+                  console.error(`[NIP46-GETPUBKEY] User's pubkey converts to npub: ${npub}`);
+                } catch (e) {
+                  console.error(`[NIP46-GETPUBKEY] Failed to convert pubkey to npub:`, e);
+                }
               } else {
                 console.error(`[NIP46-GETPUBKEY] No valid user pubkey found in JSON (all candidates were Amber's pubkey or invalid)`);
               }
@@ -1889,6 +1898,16 @@ export class NIP46Client {
     }
 
     const signerPubkey = this.connection.pubkey;
+    
+    // CRITICAL: Verify we're using the user's pubkey, not Amber's pubkey
+    console.error(`[NIP46-SIGN] Using pubkey for signing: ${signerPubkey.slice(0, 16)}...`);
+    try {
+      const { publicKeyToNpub } = require('@/lib/nostr/keys');
+      const npub = publicKeyToNpub(signerPubkey);
+      console.error(`[NIP46-SIGN] Pubkey converts to npub: ${npub}`);
+    } catch (e) {
+      console.error(`[NIP46-SIGN] Failed to convert pubkey to npub:`, e);
+    }
 
     // Prepare event for signing (without id and sig, but with pubkey for hash calculation)
     const eventToSign = {
