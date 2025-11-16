@@ -272,16 +272,14 @@ export class NIP46Client {
 
     // Encrypt the request using NIP-44
     // Encrypt from app's private key to signer's public key
-    // NIP-44 functions expect Uint8Array, so convert hex strings to bytes
+    // NIP-44 encrypt expects hex string for private key
     const requestJson = JSON.stringify(request);
     let encryptedContent: string;
     
     try {
-      // Convert private key to Uint8Array for NIP-44
+      // NIP-44 encrypt expects hex string for private key, not Uint8Array
       // Public key should remain as hex string
-      const appPrivateKeyBytes = hexToBytes(appPrivateKey);
-      
-      encryptedContent = nip44.encrypt(appPrivateKeyBytes, signerPubkey, requestJson);
+      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkey, requestJson);
       console.log('🔐 NIP-46: Encrypted request content with NIP-44:', {
         method,
         requestId,
