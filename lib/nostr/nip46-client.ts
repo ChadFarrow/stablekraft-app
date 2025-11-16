@@ -1102,15 +1102,19 @@ export class NIP46Client {
           
           // CRITICAL: Make sure we're using the user's pubkey, not Amber's pubkey
           // The pubkey should be the user's pubkey from the get_public_key response
-          if (pubkey === this.connection?.pubkey && pubkey === event.pubkey) {
-            console.error(`[NIP46-ERROR] Got Amber's pubkey instead of user's pubkey! This is wrong!`);
+          // Amber's pubkey is stored temporarily in connection.pubkey from the connect response
+          const amberPubkey = event.pubkey; // This is Amber's pubkey from the connect response event
+          if (pubkey === amberPubkey) {
+            console.error(`[NIP46-ERROR] Got Amber's pubkey (${pubkey.slice(0, 16)}...) instead of user's pubkey! This is wrong!`);
             // Don't proceed with authentication if we got Amber's pubkey
             return;
           }
           
-          // Store pubkey in connection
+          console.error(`[NIP46-SUCCESS] Using user's pubkey: ${pubkey.slice(0, 16)}... (Amber's pubkey was: ${amberPubkey.slice(0, 16)}...)`);
+          
+          // Store user's pubkey in connection (this replaces Amber's pubkey that was stored temporarily)
           if (this.connection) {
-            this.connection.pubkey = pubkey;
+            this.connection.pubkey = pubkey; // This is the user's pubkey
             this.connection.connected = true;
             this.connection.connectedAt = Date.now();
           }
