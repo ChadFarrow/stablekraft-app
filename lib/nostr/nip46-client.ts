@@ -6,6 +6,7 @@
  */
 
 import { Event, getEventHash, Filter, EventTemplate, finalizeEvent } from 'nostr-tools';
+import { nip44 } from 'nostr-tools';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
 
@@ -253,6 +254,7 @@ export class NIP46Client {
 
   /**
    * Create a NIP-46 request event (kind 24133)
+   * According to NIP-46 spec, content must be NIP-44 encrypted
    */
   private createNIP46RequestEvent(
     method: string,
@@ -268,12 +270,36 @@ export class NIP46Client {
       params,
     };
 
+    // Encrypt the request using NIP-44
+    // Encrypt from app's private key to signer's public key
+    const requestJson = JSON.stringify(request);
+    let encryptedContent: string;
+    
+    try {
+      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkey, requestJson);
+      console.log('🔐 NIP-46: Encrypted request content with NIP-44:', {
+        method,
+        requestId,
+        originalLength: requestJson.length,
+        encryptedLength: encryptedContent.length,
+        signerPubkey: signerPubkey.slice(0, 16) + '...',
+        appPubkey: appPubkey.slice(0, 16) + '...',
+      });
+    } catch (encryptError) {
+      console.error('❌ NIP-46: Failed to encrypt request with NIP-44:', {
+        error: encryptError instanceof Error ? encryptError.message : String(encryptError),
+        method,
+        requestId,
+      });
+      throw new Error(`Failed to encrypt NIP-46 request: ${encryptError instanceof Error ? encryptError.message : String(encryptError)}`);
+    }
+
     const template: EventTemplate = {
       kind: 24133, // NIP-46 request/response event kind
       tags: [
         ['p', signerPubkey], // Tag the signer
       ],
-      content: JSON.stringify(request),
+      content: encryptedContent, // NIP-44 encrypted JSON-RPC request
       created_at: Math.floor(Date.now() / 1000),
     };
 
@@ -297,21 +323,58 @@ export class NIP46Client {
       });
 
       // Parse NIP-46 event content
+      // According to NIP-46 spec, content is NIP-44 encrypted JSON-RPC message
+      // We need to decrypt it first using the app's private key and signer's public key
       let content;
+      let decryptedContent: string | null = null;
+      
       try {
-        content = JSON.parse(event.content);
-        console.log('📋 NIP-46: Parsed content (JSON):', {
-          hasId: 'id' in content,
-          hasResult: 'result' in content,
-          hasError: 'error' in content,
-          hasMethod: 'method' in content,
-          id: content.id,
-          resultType: typeof content.result,
-          resultValue: content.result,
-          error: content.error,
-          method: content.method,
-          fullContent: JSON.stringify(content, null, 2),
+        // First, try to decrypt as NIP-44 encrypted content
+        // The content is encrypted from signer's pubkey to our app's pubkey
+        const signerPubkey = event.pubkey; // The signer's public key (who sent this event)
+        const appPrivateKey = connectionInfo.privateKey; // Our app's private key
+        
+        console.log('🔐 NIP-46: Attempting to decrypt NIP-44 content:', {
+          signerPubkey: signerPubkey.slice(0, 16) + '...',
+          hasAppPrivateKey: !!appPrivateKey,
+          contentLength: event.content.length,
+          contentPreview: event.content.substring(0, 50) + '...',
         });
+        
+        try {
+          // Decrypt using NIP-44
+          decryptedContent = nip44.decrypt(appPrivateKey, signerPubkey, event.content);
+          console.log('✅ NIP-46: Successfully decrypted NIP-44 content');
+          
+          // Now parse the decrypted JSON
+          content = JSON.parse(decryptedContent);
+          console.log('📋 NIP-46: Parsed decrypted content (JSON):', {
+            hasId: 'id' in content,
+            hasResult: 'result' in content,
+            hasError: 'error' in content,
+            hasMethod: 'method' in content,
+            id: content.id,
+            resultType: typeof content.result,
+            resultValue: content.result,
+            error: content.error,
+            method: content.method,
+            fullContent: JSON.stringify(content, null, 2),
+          });
+        } catch (decryptError) {
+          console.warn('⚠️ NIP-46: Failed to decrypt as NIP-44, trying plain JSON:', {
+            decryptError: decryptError instanceof Error ? decryptError.message : String(decryptError),
+            contentPreview: event.content.substring(0, 100),
+          });
+          
+          // Fallback: try parsing as plain JSON (for backwards compatibility or non-encrypted responses)
+          content = JSON.parse(event.content);
+          console.log('📋 NIP-46: Parsed content as plain JSON (not encrypted):', {
+            hasId: 'id' in content,
+            hasResult: 'result' in content,
+            hasError: 'error' in content,
+            hasMethod: 'method' in content,
+          });
+        }
       } catch (parseError) {
         // Check if it's a plain text signature (64 char hex)
         if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
@@ -325,12 +388,16 @@ export class NIP46Client {
           console.log('ℹ️ NIP-46: Ignoring network-check message');
           return;
         } else {
-          console.warn('⚠️ NIP-46: Event content is not JSON, treating as string:', {
+          console.error('❌ NIP-46: Failed to parse event content (neither NIP-44 encrypted nor plain JSON):', {
             content: event.content.substring(0, 100),
             contentLength: event.content.length,
             parseError: parseError instanceof Error ? parseError.message : String(parseError),
+            signerPubkey: event.pubkey.slice(0, 16) + '...',
+            hasAppPrivateKey: !!connectionInfo?.privateKey,
+            note: 'Content should be NIP-44 encrypted JSON-RPC message per NIP-46 spec',
           });
-          content = { method: 'connect', params: [] };
+          // Don't create fake content - return early to avoid processing invalid events
+          return;
         }
       }
 
