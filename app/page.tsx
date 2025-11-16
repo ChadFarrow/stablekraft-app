@@ -8,7 +8,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, generatePublisherSlug } from '@/lib/url-utils';
-import { getVersionString } from '@/lib/version';
+import { getVersionString, getBuildVersion } from '@/lib/version';
 import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
@@ -1447,7 +1447,7 @@ function HomePageContent() {
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-gray-500">Build</span>
-                <span className="text-xs text-gray-400 font-mono">1.2a587df</span>
+                <span className="text-xs text-gray-400 font-mono">{getBuildVersion()}</span>
               </div>
             </div>
           </div>

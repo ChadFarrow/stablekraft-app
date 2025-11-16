@@ -118,10 +118,31 @@ const withPWA = require('next-pwa')({
   reloadOnOnline: true,
 });
 
+// Read package.json to get version for build
+const fs = require('fs');
+const path = require('path');
+const packageJsonPath = path.join(__dirname, 'package.json');
+let packageVersion = '1.2a000000';
+let buildVersion = '1.2a000000';
+
+try {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  packageVersion = packageJson.version || '1.2a000000';
+  buildVersion = packageJson.version || '1.2a000000';
+} catch (err) {
+  console.warn('⚠️ Could not read package.json for version:', err.message);
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Domain configuration for re.podtards.com deployment
   basePath: '',
+  
+  // Inject version from package.json as environment variable
+  env: {
+    NEXT_PUBLIC_APP_VERSION: packageVersion,
+    NEXT_PUBLIC_BUILD_VERSION: buildVersion,
+  },
   
   // Performance optimizations
   reactStrictMode: true,

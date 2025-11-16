@@ -61,8 +61,35 @@ export function getFullVersionString(): string {
 }
 
 /**
- * Get simple version string
+ * Get simple version string from package.json
+ * Reads from NEXT_PUBLIC_APP_VERSION env var (set at build time)
  */
 export function getVersionString(): string {
+  // Try to get from environment variable (set at build time)
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_VERSION) {
+    const version = process.env.NEXT_PUBLIC_APP_VERSION;
+    // Extract just the version part (e.g., "1.2" from "1.2a40a7018")
+    const versionMatch = version.match(/^(\d+\.\d+)/);
+    if (versionMatch) {
+      return `v${versionMatch[1]}`;
+    }
+    return `v${version}`;
+  }
+  
+  // Fallback to hardcoded version
   return `v${formatVersion()}`;
+}
+
+/**
+ * Get build version from package.json (git commit hash)
+ * Reads from NEXT_PUBLIC_BUILD_VERSION env var (set at build time)
+ */
+export function getBuildVersion(): string {
+  // Try to get from environment variable (set at build time)
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BUILD_VERSION) {
+    return process.env.NEXT_PUBLIC_BUILD_VERSION;
+  }
+  
+  // Fallback
+  return '1.2a000000';
 }
