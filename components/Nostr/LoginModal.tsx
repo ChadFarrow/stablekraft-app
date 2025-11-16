@@ -140,7 +140,48 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
-    // Check if we already have a connected client
+    // First, check if there's an existing valid connection in localStorage
+    const { loadNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+    const existingStoredConnection = loadNIP46Connection();
+    
+    if (existingStoredConnection && existingStoredConnection.pubkey) {
+      console.log('✅ NIP-46: Found existing connection in storage, reusing it:', {
+        pubkey: existingStoredConnection.pubkey.slice(0, 16) + '...',
+        signerUrl: existingStoredConnection.signerUrl,
+      });
+      
+      // Try to reuse the existing connection
+      try {
+        // Create or get client
+        if (!nip46ClientRef.current) {
+          const { NIP46Client } = await import('@/lib/nostr/nip46-client');
+          nip46ClientRef.current = new NIP46Client();
+        }
+        
+        // Restore the connection
+        const client = nip46ClientRef.current;
+        await client.connect(existingStoredConnection.signerUrl, existingStoredConnection.token, false);
+        
+        // Set the pubkey from stored connection
+        const connection = client.getConnection();
+        if (connection && !connection.pubkey) {
+          // Manually set the pubkey from storage
+          (connection as any).pubkey = existingStoredConnection.pubkey;
+          (connection as any).connected = true;
+        }
+        
+        // Proceed with login using existing connection
+        await handleNip46ConnectedWithClient(client);
+        return;
+      } catch (err) {
+        console.warn('⚠️ NIP-46: Failed to reuse existing connection, creating new one:', err);
+        // Clear the invalid connection and continue with new connection
+        const { clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+        clearNIP46Connection();
+      }
+    }
+
+    // Check if we already have a connected client in memory
     if (nip46ClientRef.current) {
       const existingConnection = nip46ClientRef.current.getConnection();
       if (existingConnection?.connected && existingConnection?.pubkey) {
