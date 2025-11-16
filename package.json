@@ -1,10 +1,10 @@
 {
   "name": "podcast-music-site",
-  "version": "1.2a587df",
+  "version": "1.2afbe6f57",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "echo 'Skipping auto-version update for deployment'",
+    "prebuild": "node scripts/auto-version-update.js",
     "build": "npx prisma generate && npx next build --no-lint",
     "postbuild": "echo 'Build complete'",
     "postinstall": "npm run check-env || true && npm run dev-setup || true",
