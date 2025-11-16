@@ -660,6 +660,31 @@ export class NIP46Client {
         return;
       }
 
+      // 🔵 Amber-compatible response handling
+      // Amber sends responses without a 'method' field, so we need to infer the response type
+      const isAmberCompatible = !content.method && (content.result !== undefined || content.error !== undefined);
+      if (isAmberCompatible) {
+        console.log('🔵 [NIP46Client] Amber-compatible response (no method field), inferring type from context');
+        console.log('🔵 [NIP46Client] Handling Amber-compatible response');
+        
+        // Infer response type based on context
+        if (content.result) {
+          // Check if this is a connect response (result matches the secret)
+          if (this.connection?.token && content.result === this.connection.token) {
+            console.log('🔵 [NIP46Client] Inferred connect response from secret match');
+            // This is a connect response - the result is the secret, which confirms connection
+            // We still need to get the public key, so we'll handle this in the connection event section
+            // For now, mark that we've received the connect confirmation
+          } 
+          // Check if this is a get_public_key response (result is a 64-char hex string)
+          else if (typeof content.result === 'string' && content.result.length === 64 && /^[a-f0-9]{64}$/i.test(content.result)) {
+            console.log('🔵 [NIP46Client] Inferred get_public_key response from string pubkey (Amber compatibility)');
+            // This is a get_public_key response - the result is the pubkey
+            // We'll handle this in the pending request section or connection event section
+          }
+        }
+      }
+
       // Check if this is a response to a pending request
       if (content.id) {
         console.log('🔍 NIP-46: Checking if response matches pending request:', {
@@ -777,15 +802,33 @@ export class NIP46Client {
       // 1. Method-based: { method: 'connect', params: [...] }
       // 2. Response-based: { id: '...', result: 'pubkey' }
       // 3. Direct pubkey in content
+      // 4. Amber-compatible: { id: '...', result: 'secret' } (connect response) or { id: '...', result: 'pubkey' } (get_public_key response)
+      
+      // Check if this is a connect response (Amber sends secret as result)
+      const isConnectResponse = isAmberCompatible && 
+        this.connection?.token && 
+        content.result === this.connection.token;
+      
+      // Check if this is a get_public_key response (result is a 64-char hex pubkey)
+      const isGetPublicKeyResponse = isAmberCompatible &&
+        content.result &&
+        typeof content.result === 'string' &&
+        content.result.length === 64 &&
+        /^[a-f0-9]{64}$/i.test(content.result) &&
+        content.result !== this.connection?.token; // Not the secret
       
       const isConnectionEvent = 
         content.method === 'connect' || 
         content.method === 'get_public_key' ||
-        (content.result && typeof content.result === 'string' && content.result.length === 64) ||
+        isConnectResponse ||
+        isGetPublicKeyResponse ||
+        (content.result && typeof content.result === 'string' && content.result.length === 64 && /^[a-f0-9]{64}$/i.test(content.result)) ||
         (event.content && event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content));
 
       console.log('🔍 NIP-46: Checking if event is connection event:', {
         isConnectionEvent,
+        isConnectResponse,
+        isGetPublicKeyResponse,
         hasMethod: !!content.method,
         method: content.method,
         hasResult: !!content.result,
@@ -794,11 +837,101 @@ export class NIP46Client {
         contentIsHex: event.content && /^[a-f0-9]{64}$/i.test(event.content),
       });
 
+      // Handle Amber connect response - automatically request public key
+      if (isConnectResponse && !this.connection?.pubkey) {
+        console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
+        // Request public key asynchronously (don't await, let it complete in background)
+        this.sendRequest('get_public_key', []).then((pubkey: string) => {
+          console.log('🔵 [NIP46Client] Successfully authenticated with Amber pubkey:', pubkey);
+          // Store pubkey in connection
+          if (this.connection) {
+            this.connection.pubkey = pubkey;
+            this.connection.connected = true;
+            this.connection.connectedAt = Date.now();
+          }
+          
+          // Save connection to localStorage
+          if (typeof window !== 'undefined' && this.connection) {
+            try {
+              const { saveNIP46Connection } = require('./nip46-storage');
+              saveNIP46Connection({
+                token: this.connection.token,
+                pubkey: pubkey,
+                signerUrl: this.connection.signerUrl,
+                connectedAt: Date.now(),
+              });
+              console.log('💾 NIP-46: Saved connection to localStorage');
+            } catch (err) {
+              console.error('❌ NIP-46: Failed to save connection:', err);
+            }
+          }
+          
+          // Trigger connection callback to complete authentication with server
+          if (this.onConnectionCallback) {
+            console.log('🔵 [NIP46Client] Completing authentication with server for pubkey:', pubkey);
+            const callback = this.onConnectionCallback;
+            this.onConnectionCallback = null; // Clear to prevent duplicate calls
+            setTimeout(() => {
+              callback(pubkey);
+            }, 100);
+          }
+        }).catch((err) => {
+          console.error('❌ NIP-46: Failed to get public key after connect:', err);
+        });
+        return; // Don't process as regular connection event yet
+      }
+      
+      // Handle Amber get_public_key response - complete connection
+      // Only handle if it wasn't already processed via pending request mechanism
+      // (check if there's no matching pending request, or if we don't have pubkey yet)
+      const wasProcessedAsPendingRequest = content.id && this.pendingRequests.has(content.id);
+      if (isGetPublicKeyResponse && content.result && !this.connection?.pubkey && !wasProcessedAsPendingRequest) {
+        const pubkey = content.result;
+        console.log('🔵 [NIP46Client] Successfully authenticated with Amber pubkey:', pubkey);
+        
+        // Store pubkey in connection
+        if (this.connection) {
+          this.connection.pubkey = pubkey;
+          this.connection.connected = true;
+          this.connection.connectedAt = Date.now();
+        }
+        
+        // Save connection to localStorage
+        if (typeof window !== 'undefined' && this.connection) {
+          try {
+            const { saveNIP46Connection } = require('./nip46-storage');
+            saveNIP46Connection({
+              token: this.connection.token,
+              pubkey: pubkey,
+              signerUrl: this.connection.signerUrl,
+              connectedAt: Date.now(),
+            });
+            console.log('💾 NIP-46: Saved connection to localStorage');
+          } catch (err) {
+            console.error('❌ NIP-46: Failed to save connection:', err);
+          }
+        }
+        
+        // Trigger connection callback to complete authentication with server
+        if (this.onConnectionCallback) {
+          console.log('🔵 [NIP46Client] Completing authentication with server for pubkey:', pubkey);
+          const callback = this.onConnectionCallback;
+          this.onConnectionCallback = null; // Clear to prevent duplicate calls
+          setTimeout(() => {
+            callback(pubkey);
+          }, 100);
+        }
+        return; // Don't process as regular connection event (already handled)
+      }
+
       if (isConnectionEvent) {
         // Extract signer's public key
         let signerPubkey = event.pubkey; // Default to event author
         
-        if (content.result && typeof content.result === 'string') {
+        // For get_public_key response, the result is the pubkey
+        if (isGetPublicKeyResponse && content.result) {
+          signerPubkey = content.result;
+        } else if (content.result && typeof content.result === 'string' && content.result.length === 64 && /^[a-f0-9]{64}$/i.test(content.result)) {
           signerPubkey = content.result;
         } else if (event.content && /^[a-f0-9]{64}$/i.test(event.content)) {
           signerPubkey = event.content;
