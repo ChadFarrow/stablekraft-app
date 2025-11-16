@@ -334,8 +334,10 @@ export class NIP46Client {
           pubkey: event.pubkey.slice(0, 16) + '...',
           kind: event.kind,
           tags: event.tags,
-          content: event.content.substring(0, 200),
+          tagsCount: event.tags.length,
           contentLength: event.content.length,
+          contentPreview: event.content.substring(0, 200),
+          timestamp: new Date(event.created_at * 1000).toISOString(),
         });
         
         // Check if this event is for us (tagged with our pubkey)
@@ -343,15 +345,13 @@ export class NIP46Client {
         // Check if event is from us (our own requests) - we should ignore these
         const isFromUs = event.pubkey === appPubkey;
         
+        // Also check all 'p' tags to see what pubkeys are tagged
+        const allPTags = event.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
+        
         console.log('🔍 NIP-46: Event filtering check:', {
           eventId: event.id.slice(0, 16) + '...',
           eventPubkey: event.pubkey.slice(0, 16) + '...',
-          tags: event.tags,
-          tagsDetail: event.tags.map(tag => ({
-            type: tag[0],
-            value: tag[1]?.slice(0, 16) + '...',
-            fullTag: tag,
-          })),
+          allPTags: allPTags.map(p => p.slice(0, 16) + '...'),
           appPubkey: appPubkey.slice(0, 16) + '...',
           isForUs,
           isFromUs,
@@ -367,19 +367,52 @@ export class NIP46Client {
           if (isFromUs) {
             console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
           } else if (!isForUs) {
-            console.log('ℹ️ NIP-46: Event received but not tagged for us, skipping. Event tags:', event.tags);
+            console.log('ℹ️ NIP-46: Event received but not tagged for us. Event details:', {
+              eventId: event.id.slice(0, 16) + '...',
+              eventPubkey: event.pubkey.slice(0, 16) + '...',
+              allPTags: allPTags.map(p => p.slice(0, 16) + '...'),
+              appPubkey: appPubkey.slice(0, 16) + '...',
+              tags: event.tags,
+            });
+            
             // For connection events, Amber might not tag us - let's check if it's a connection event anyway
+            // Try to decrypt and parse the content
             try {
-              const content = JSON.parse(event.content);
+              // First try NIP-44 decryption
+              let content: any;
+              try {
+                const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
+                const eventPubkeyBytes = hexToBytes(event.pubkey);
+                const decrypted = nip44.decrypt(appPrivateKeyBytes, event.pubkey, event.content);
+                content = JSON.parse(decrypted);
+                console.log('📋 NIP-46: Successfully decrypted untagged event content');
+              } catch (decryptErr) {
+                // Try plain JSON
+                content = JSON.parse(event.content);
+                console.log('📋 NIP-46: Parsed untagged event as plain JSON');
+              }
+              
               const mightBeConnection = content.method === 'connect' || 
                                        content.method === 'get_public_key' ||
                                        (content.result && typeof content.result === 'string' && content.result.length === 64);
-              if (mightBeConnection) {
-                console.log('⚠️ NIP-46: Event looks like a connection event but not tagged for us. Processing anyway...');
+              
+              // Also check if it's a response to one of our pending requests
+              const isResponseToPending = content.id && this.pendingRequests.has(content.id);
+              
+              if (mightBeConnection || isResponseToPending) {
+                console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
+                  mightBeConnection,
+                  isResponseToPending,
+                  requestId: content.id,
+                  hasPendingRequest: isResponseToPending,
+                });
                 this.handleRelayEvent(event, connectionInfo);
+              } else {
+                console.log('ℹ️ NIP-46: Event is not for us and not a connection/response event, ignoring');
               }
             } catch (e) {
-              // Not JSON, ignore
+              // Not JSON or can't decrypt, ignore
+              console.log('ℹ️ NIP-46: Event content is not parseable, ignoring:', e instanceof Error ? e.message : String(e));
             }
           }
         }
