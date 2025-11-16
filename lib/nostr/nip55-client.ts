@@ -36,7 +36,9 @@ export class NIP55Client {
   constructor() {
     // Set up callback URL handler
     if (typeof window !== 'undefined') {
-      this.callbackUrl = `${window.location.origin}${window.location.pathname}#nip55-callback`;
+      // Use query parameter instead of hash for better compatibility with Android intents
+      // Hash fragments might not be preserved when returning from Amber
+      this.callbackUrl = `${window.location.origin}${window.location.pathname}?nip55-callback=true`;
       console.log('📱 NIP-55: Initialized with callback URL:', this.callbackUrl);
       this.setupCallbackHandler();
     }
@@ -140,12 +142,17 @@ export class NIP55Client {
     const callbackWithId = `${this.callbackUrl}?requestId=${requestId}`;
 
     // Build NIP-55 URI
+    // Format: nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${callbackUrl}
     const nip55Uri = `nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${encodeURIComponent(callbackWithId)}`;
 
     console.log('📱 NIP-55: Requesting signature (initial connection, no pubkey yet):', {
       requestId,
       eventKind: eventTemplate.kind,
       callbackUrl: callbackWithId,
+      fullCallbackUrl: callbackWithId,
+      uriPreview: nip55Uri.substring(0, 200) + '...',
+      uriLength: nip55Uri.length,
+      eventTemplate: JSON.stringify(eventTemplate),
     });
 
     // Create promise for signature
@@ -312,21 +319,46 @@ export class NIP55Client {
     // Check if we're returning from a callback
     const handleCallback = () => {
       const hash = window.location.hash;
+      const search = window.location.search;
       const fullUrl = window.location.href;
-      console.log('📱 NIP-55: Checking callback:', { hash, fullUrl });
+      console.log('📱 NIP-55: Checking callback:', { 
+        hash, 
+        search, 
+        fullUrl,
+        pathname: window.location.pathname,
+      });
       
-      if (hash.includes('nip55-callback') || fullUrl.includes('nip55-callback')) {
-        // Try both hash and query string params
-        const hashPart = hash.includes('?') ? hash.split('?')[1] : '';
-        const queryPart = window.location.search.substring(1);
-        const urlParams = new URLSearchParams(hashPart || queryPart || '');
+      // Check both query params and hash for callback indicator
+      const isCallback = search.includes('nip55-callback') || 
+                        hash.includes('nip55-callback') || 
+                        fullUrl.includes('nip55-callback');
+      
+      if (isCallback) {
+        console.log('📱 NIP-55: Callback detected, parsing parameters...');
         
-        const requestId = urlParams.get('requestId') || new URLSearchParams(window.location.search).get('requestId');
-        const signature = urlParams.get('signature') || new URLSearchParams(window.location.search).get('signature');
-        const pubkey = urlParams.get('pubkey') || new URLSearchParams(window.location.search).get('pubkey');
-        const error = urlParams.get('error') || new URLSearchParams(window.location.search).get('error');
+        // Parse query parameters (primary)
+        const queryParams = new URLSearchParams(search);
+        // Also check hash for parameters (fallback)
+        const hashParams = hash.includes('?') 
+          ? new URLSearchParams(hash.split('?')[1]) 
+          : new URLSearchParams();
+        
+        // Combine both sources, query params take precedence
+        const requestId = queryParams.get('requestId') || hashParams.get('requestId');
+        const signature = queryParams.get('signature') || hashParams.get('signature');
+        const pubkey = queryParams.get('pubkey') || hashParams.get('pubkey');
+        const error = queryParams.get('error') || hashParams.get('error');
 
-        console.log('📱 NIP-55: Callback params:', { requestId, hasSignature: !!signature, hasPubkey: !!pubkey, error });
+        console.log('📱 NIP-55: Callback params parsed:', { 
+          requestId, 
+          hasSignature: !!signature, 
+          signatureLength: signature?.length,
+          hasPubkey: !!pubkey,
+          pubkeyLength: pubkey?.length,
+          error,
+          allQueryParams: Object.fromEntries(queryParams),
+          allHashParams: Object.fromEntries(hashParams),
+        });
 
         if (requestId) {
           const pending = this.pendingSignatures.get(requestId);
