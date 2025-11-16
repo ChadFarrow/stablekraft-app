@@ -1000,6 +1000,18 @@ export class NIP46Client {
                 }
                 pending.reject(new Error('Response result is undefined - no signature received from signer'));
               } else {
+                // CRITICAL: For get_public_key requests, validate we're not getting Amber's pubkey
+                if (pending.method === 'get_public_key') {
+                  const result = content.result;
+                  // Check if result is Amber's pubkey (the signer)
+                  const amberPubkey = this.connection?.pubkey; // This might be Amber's pubkey from connect response
+                  if (amberPubkey && result === amberPubkey && typeof result === 'string' && result.length === 64) {
+                    console.error(`[NIP46-ERROR] Rejecting get_public_key response - got Amber's pubkey (${result.slice(0, 16)}...) instead of user's pubkey!`);
+                    pending.reject(new Error('Received Amber\'s pubkey instead of user\'s pubkey. This is a bug.'));
+                    return;
+                  }
+                }
+                
                 if ((pending as any).statusInterval) {
                   clearInterval((pending as any).statusInterval);
                 }
