@@ -274,72 +274,82 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }
       
       // Generate nostrconnect URI
-      // NIP-46 format: nostrconnect://<pubkey>?relay=<relay_url>&metadata=<metadata_json>
-      // IMPORTANT: According to NIP-46 spec, <pubkey> should be HEX-ENCODED, not npub (bech32)!
-      // Reference: https://nostr-nips.com/nip-46
+      // NIP-46 format: nostrconnect://<client-pubkey>?relay=<relay_url>&secret=<required>&name=<optional>&url=<optional>
+      // Reference: https://github.com/nostr-protocol/nips/blob/master/46.md
+      // IMPORTANT: 
+      // - <pubkey> should be HEX-ENCODED (not npub/bech32)
+      // - secret is REQUIRED (not optional)
+      // - Use separate query params (name, url) instead of metadata JSON
+      
+      const relayEncoded = encodeURIComponent(relayUrl);
+      const secretEncoded = encodeURIComponent(token);
+      const nameEncoded = encodeURIComponent('Podcast Music Site');
+      const urlEncoded = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '');
+      
+      // Use hex-encoded public key (not npub) as per NIP-46 spec
+      // publicKey is already in hex format from generateKeyPair()
+      const pubkeyHex = publicKey; // Already hex-encoded
+      
+      // Format 1: NIP-46 compliant format (secret is REQUIRED per spec)
+      // nostrconnect://<client-pubkey>?relay=<relay>&secret=<secret>&name=<name>&url=<url>
+      const nostrconnectUri1 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}&name=${nameEncoded}&url=${urlEncoded}`;
+      
+      // Format 2: Minimal format (just relay and secret - required fields)
+      const nostrconnectUri2 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}`;
+      
+      // Format 3: With metadata JSON (non-standard, but some implementations might use it)
       const metadata = {
         name: 'Podcast Music Site',
         url: typeof window !== 'undefined' ? window.location.origin : '',
       };
       const metadataJson = JSON.stringify(metadata);
       const metadataEncoded = encodeURIComponent(metadataJson);
-      const relayEncoded = encodeURIComponent(relayUrl);
-      const tokenEncoded = encodeURIComponent(token);
+      const nostrconnectUri3 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}&metadata=${metadataEncoded}`;
       
-      // Use hex-encoded public key (not npub) as per NIP-46 spec
-      // publicKey is already in hex format from generateKeyPair()
-      const pubkeyHex = publicKey; // Already hex-encoded
-      
-      // Try multiple URI formats - Amber might expect different formats
-      // Format 1: Standard NIP-46 format with hex pubkey (without secret)
-      const nostrconnectUri1 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&metadata=${metadataEncoded}`;
-      
-      // Format 2: With secret parameter (some implementations use this)
-      const nostrconnectUri2 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&metadata=${metadataEncoded}&secret=${tokenEncoded}`;
-      
-      // Format 3: With token parameter
-      const nostrconnectUri3 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&metadata=${metadataEncoded}&token=${tokenEncoded}`;
-      
-      // Also try with npub format (in case Amber supports it)
+      // Format 4: With npub format (non-standard, but kept as fallback)
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
       const npub = publicKeyToNpub(publicKey);
-      const nostrconnectUri4 = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}`;
+      const nostrconnectUri4 = `nostrconnect://${npub}?relay=${relayEncoded}&secret=${secretEncoded}&name=${nameEncoded}&url=${urlEncoded}`;
       
-      // Use format 1 by default (standard NIP-46 with hex pubkey)
-      // This matches the NIP-46 spec: https://nostr-nips.com/nip-46
+      // Use format 1 by default (NIP-46 compliant with all standard parameters)
+      // This matches the NIP-46 spec exactly: https://github.com/nostr-protocol/nips/blob/master/46.md
       const nostrconnectUri = nostrconnectUri1;
       
       console.log('📱 NIP-46: Generated nostrconnect URI options:', {
         pubkeyHex: pubkeyHex.slice(0, 20) + '...',
         npub: npub.slice(0, 20) + '...',
         relayUrl,
-        relayEncoded,
-        metadata,
-        token: token.slice(0, 20) + '...',
-        format1_hex_standard: nostrconnectUri1.substring(0, 150) + '...',
-        format2_hex_with_secret: nostrconnectUri2.substring(0, 150) + '...',
-        format3_hex_with_token: nostrconnectUri3.substring(0, 150) + '...',
-        format4_npub_format: nostrconnectUri4.substring(0, 150) + '...',
-        usingFormat: 'format1_hex_standard (NIP-46 compliant)',
+        secret: token.slice(0, 20) + '...',
+        name: 'Podcast Music Site',
+        url: typeof window !== 'undefined' ? window.location.origin : '',
+        format1_nip46_compliant: nostrconnectUri1.substring(0, 150) + '...',
+        format2_minimal: nostrconnectUri2.substring(0, 150) + '...',
+        format3_with_metadata_json: nostrconnectUri3.substring(0, 150) + '...',
+        format4_with_npub: nostrconnectUri4.substring(0, 150) + '...',
+        usingFormat: 'format1_nip46_compliant (matches NIP-46 spec exactly)',
         fullUri: nostrconnectUri.substring(0, 200) + '...',
         uriLength: nostrconnectUri.length,
-        note: 'Using hex-encoded pubkey as per NIP-46 spec (not npub)',
+        note: 'Using hex-encoded pubkey + required secret parameter as per NIP-46 spec',
+        specReference: 'https://github.com/nostr-protocol/nips/blob/master/46.md',
       });
       
       // Validate URI format
       if (!nostrconnectUri.startsWith('nostrconnect://')) {
         throw new Error('Invalid nostrconnect URI format');
       }
-      if (!pubkeyHex || pubkeyHex.length < 10) {
-        throw new Error('Invalid pubkey format');
+      if (!pubkeyHex || pubkeyHex.length !== 64) {
+        throw new Error('Invalid pubkey format - must be 64 hex characters');
+      }
+      if (!token || token.length === 0) {
+        throw new Error('Secret is required per NIP-46 spec');
       }
       
       // Store all URI formats for manual testing
       (window as any).__NIP46_URI_FORMATS__ = {
-        standard_hex: nostrconnectUri1, // NIP-46 compliant (hex pubkey)
-        withSecret_hex: nostrconnectUri2,
-        withToken_hex: nostrconnectUri3,
-        withNpub: nostrconnectUri4, // Alternative with npub (non-standard)
+        nip46_compliant: nostrconnectUri1, // NIP-46 compliant (hex pubkey + secret + name + url)
+        minimal: nostrconnectUri2, // Minimal (just relay + secret)
+        withMetadataJson: nostrconnectUri3, // Non-standard (with metadata JSON)
+        withNpub: nostrconnectUri4, // Non-standard (with npub instead of hex)
       };
       console.log('💡 NIP-46: Alternative URI formats stored in window.__NIP46_URI_FORMATS__ for testing');
       
