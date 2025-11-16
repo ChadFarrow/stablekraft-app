@@ -274,18 +274,44 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }
       
       // Generate nostrconnect URI
+      // NIP-46 format: nostrconnect://<npub>?relay=<relay_url>&metadata=<metadata_json>
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
       const npub = publicKeyToNpub(publicKey);
-      const metadata = encodeURIComponent(JSON.stringify({
+      const metadata = {
         name: 'Podcast Music Site',
         url: typeof window !== 'undefined' ? window.location.origin : '',
-      }));
-      const nostrconnectUri = `nostrconnect://${npub}?relay=${encodeURIComponent(relayUrl)}&metadata=${metadata}`;
+      };
+      const metadataJson = JSON.stringify(metadata);
+      const metadataEncoded = encodeURIComponent(metadataJson);
+      const relayEncoded = encodeURIComponent(relayUrl);
+      
+      // Build the nostrconnect URI
+      const nostrconnectUri = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}`;
+      
+      console.log('📱 NIP-46: Generated nostrconnect URI:', {
+        npub: npub.slice(0, 20) + '...',
+        relayUrl,
+        relayEncoded,
+        metadata,
+        metadataEncoded: metadataEncoded.substring(0, 100) + '...',
+        fullUri: nostrconnectUri.substring(0, 200) + '...',
+        uriLength: nostrconnectUri.length,
+      });
+      
+      // Validate URI format
+      if (!nostrconnectUri.startsWith('nostrconnect://')) {
+        throw new Error('Invalid nostrconnect URI format');
+      }
+      if (!npub || npub.length < 10) {
+        throw new Error('Invalid npub format');
+      }
       
       setNip46ConnectionToken(nostrconnectUri);
       setNip46SignerUrl(relayUrl);
       setShowNip46Connect(true);
       setIsSubmitting(false);
+      
+      console.log('✅ NIP-46: Connection UI displayed. Waiting for Amber to scan QR code...');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize NIP-46 connection');
       setIsSubmitting(false);

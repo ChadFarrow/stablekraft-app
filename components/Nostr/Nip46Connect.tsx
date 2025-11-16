@@ -175,6 +175,21 @@ export default function Nip46Connect({
           includeMargin={true}
         />
       </div>
+      
+      {/* Debug: Show URI info */}
+      {connectionToken && (
+        <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+          <p className="font-semibold text-yellow-900 mb-1">URI Debug Info:</p>
+          <p className="text-yellow-800">Starts with nostrconnect://: {connectionToken.startsWith('nostrconnect://') ? '✅' : '❌'}</p>
+          <p className="text-yellow-800">Length: {connectionToken.length} characters</p>
+          <p className="text-yellow-800">Has relay param: {connectionToken.includes('relay=') ? '✅' : '❌'}</p>
+          <p className="text-yellow-800">Has metadata param: {connectionToken.includes('metadata=') ? '✅' : '❌'}</p>
+          <details className="mt-1">
+            <summary className="cursor-pointer text-yellow-700 font-semibold">Show URI (first 200 chars)</summary>
+            <p className="font-mono text-xs break-all mt-1">{connectionToken.substring(0, 200)}...</p>
+          </details>
+        </div>
+      )}
 
       {/* Connection URI (for manual entry) */}
       <div className="space-y-2">
