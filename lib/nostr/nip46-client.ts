@@ -786,24 +786,54 @@ export class NIP46Client {
             const parsed = JSON.parse(content.result);
             console.error(`[NIP46-GETPUBKEY] Parsed JSON result:`, JSON.stringify(parsed, null, 2));
             if (typeof parsed === 'object' && parsed !== null) {
-              // Look for pubkey in common fields - prioritize pubkey/publicKey over id
-              // The 'id' field might be a request ID, not the pubkey
-              const possiblePubkey = parsed.pubkey || parsed.publicKey || parsed.key || parsed.id;
-              if (possiblePubkey && 
-                  typeof possiblePubkey === 'string' &&
-                  possiblePubkey.length === 64 && 
-                  /^[a-f0-9]{64}$/i.test(possiblePubkey) &&
-                  possiblePubkey !== this.connection?.token) {
-                // Make sure it's not Amber's pubkey (the signer)
-                // Amber's pubkey is stored in connection.pubkey from the connect response
-                const isAmberPubkey = this.connection?.pubkey && possiblePubkey === this.connection.pubkey;
+              // Amber returns the user's pubkey in the 'id' field, and the signer's pubkey in 'pubkey'
+              // Check 'id' first, then 'pubkey' (but skip if it's Amber's pubkey)
+              let possiblePubkey: string | null = null;
+              let fieldName = '';
+              
+              // Try 'id' field first (this is usually the user's pubkey in Amber responses)
+              if (parsed.id && 
+                  typeof parsed.id === 'string' &&
+                  parsed.id.length === 64 && 
+                  /^[a-f0-9]{64}$/i.test(parsed.id) &&
+                  parsed.id !== this.connection?.token) {
+                const isAmberPubkey = this.connection?.pubkey && parsed.id === this.connection.pubkey;
                 if (!isAmberPubkey) {
-                  looksLikeGetPublicKeyResponse = true;
-                  extractedPubkey = possiblePubkey;
-                  console.error(`[NIP46-GETPUBKEY] Found pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${parsed.pubkey ? 'pubkey' : parsed.publicKey ? 'publicKey' : parsed.key ? 'key' : 'id'})`);
-                } else {
-                  console.error(`[NIP46-GETPUBKEY] Ignoring Amber's own pubkey, looking for user's pubkey`);
+                  possiblePubkey = parsed.id;
+                  fieldName = 'id';
                 }
+              }
+              
+              // If 'id' wasn't valid or was Amber's pubkey, try other fields
+              if (!possiblePubkey) {
+                const candidates = [
+                  { value: parsed.pubkey, name: 'pubkey' },
+                  { value: parsed.publicKey, name: 'publicKey' },
+                  { value: parsed.key, name: 'key' },
+                ];
+                
+                for (const candidate of candidates) {
+                  if (candidate.value && 
+                      typeof candidate.value === 'string' &&
+                      candidate.value.length === 64 && 
+                      /^[a-f0-9]{64}$/i.test(candidate.value) &&
+                      candidate.value !== this.connection?.token) {
+                    const isAmberPubkey = this.connection?.pubkey && candidate.value === this.connection.pubkey;
+                    if (!isAmberPubkey) {
+                      possiblePubkey = candidate.value;
+                      fieldName = candidate.name;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              if (possiblePubkey) {
+                looksLikeGetPublicKeyResponse = true;
+                extractedPubkey = possiblePubkey;
+                console.error(`[NIP46-GETPUBKEY] Found user's pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${fieldName})`);
+              } else {
+                console.error(`[NIP46-GETPUBKEY] No valid user pubkey found in JSON (all candidates were Amber's pubkey or invalid)`);
               }
             }
           } catch (e) {
