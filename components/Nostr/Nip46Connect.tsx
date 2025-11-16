@@ -226,7 +226,7 @@ export default function Nip46Connect({
         </ol>
       </div>
 
-      {/* Manual Check Button */}
+      {/* Manual Check/Continue Buttons */}
       {connectionStatus === 'connecting' && (
         <div className="flex gap-2">
           <button
@@ -252,7 +252,20 @@ export default function Nip46Connect({
             }}
             className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm"
           >
-            Check Connection Status
+            Check Status
+          </button>
+          <button
+            onClick={() => {
+              // Manually trigger connection - this will try to request public key
+              // even if no connection event was received
+              console.log('🔄 Nip46Connect: Manual continue triggered');
+              setConnectionStatus('connected');
+              setIsConnecting(false);
+              setTimeout(() => onConnected(), 500);
+            }}
+            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+          >
+            Continue
           </button>
         </div>
       )}
