@@ -238,12 +238,22 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setError(null);
 
       // Wait a bit to ensure connection is fully established
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Get public key from signer (this should be available from the connection)
+      // The connection callback should have already stored the pubkey
       console.log('🔍 LoginModal: Getting public key from NIP-46 client...');
-      const publicKey = await client.getPublicKey();
-      console.log('✅ LoginModal: Got public key from NIP-46', publicKey.slice(0, 16) + '...');
+      
+      // Check if we already have the pubkey from the connection
+      const connection = client.getConnection();
+      if (connection?.pubkey) {
+        console.log('✅ LoginModal: Using pubkey from connection:', connection.pubkey.slice(0, 16) + '...');
+        var publicKey = connection.pubkey;
+      } else {
+        console.log('⚠️ LoginModal: No pubkey in connection, requesting from signer...');
+        publicKey = await client.getPublicKey();
+        console.log('✅ LoginModal: Got public key from NIP-46', publicKey.slice(0, 16) + '...');
+      }
       
       if (!publicKey || publicKey.length === 0) {
         throw new Error('Failed to get public key from signer. Please try connecting again.');
