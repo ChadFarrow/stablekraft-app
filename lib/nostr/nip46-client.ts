@@ -1000,14 +1000,22 @@ export class NIP46Client {
                 }
                 pending.reject(new Error('Response result is undefined - no signature received from signer'));
               } else {
-                // CRITICAL: For get_public_key requests, validate we're not getting Amber's pubkey
+                // CRITICAL: For get_public_key requests, ONLY resolve if this is actually a get_public_key response
+                // Don't resolve get_public_key promises with connect responses
                 if (pending.method === 'get_public_key') {
+                  // Check if this is a connect response (result is the secret/token)
+                  const isConnectResponseResult = this.connection?.token && content.result === this.connection.token;
+                  if (isConnectResponseResult) {
+                    console.error(`[NIP46-ERROR] Ignoring connect response - this is NOT a get_public_key response!`);
+                    return; // Don't resolve - this is a connect response, not get_public_key
+                  }
+                  
                   const result = content.result;
-                  // Check if result is Amber's pubkey (the signer)
-                  const amberPubkey = this.connection?.pubkey; // This might be Amber's pubkey from connect response
+                  // Check if result is Amber's pubkey (the signer) - reject if so
+                  const amberPubkey = event.pubkey; // This is the signer's (Amber's) pubkey from the event
                   if (amberPubkey && result === amberPubkey && typeof result === 'string' && result.length === 64) {
-                    console.error(`[NIP46-ERROR] Rejecting get_public_key response - got Amber's pubkey (${result.slice(0, 16)}...) instead of user's pubkey!`);
-                    pending.reject(new Error('Received Amber\'s pubkey instead of user\'s pubkey. This is a bug.'));
+                    console.error(`[NIP46-ERROR] Rejecting - got Amber's pubkey (${result.slice(0, 16)}...) instead of user's pubkey!`);
+                    pending.reject(new Error('Received Amber\'s pubkey instead of user\'s pubkey'));
                     return;
                   }
                 }
