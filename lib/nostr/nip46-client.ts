@@ -438,19 +438,48 @@ export class NIP46Client {
             // For connection events, Amber might not tag us - let's check if it's a connection event anyway
             // Try to decrypt and parse the content
             try {
-              // First try NIP-44 decryption
+              // First try NIP-44 decryption with event's pubkey
               let content: any;
+              let decrypted = false;
               try {
                 // Use NIP-44 v2 API: get conversation key first, then decrypt
                 const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
                 const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, event.pubkey);
-                const decrypted = nip44.decrypt(event.content, conversationKey);
-                content = JSON.parse(decrypted);
+                const decryptedContent = nip44.decrypt(event.content, conversationKey);
+                content = JSON.parse(decryptedContent);
+                decrypted = true;
+                console.error(`[NIP46-UNTAGGED-DECRYPT] Event #${this.eventCounter} decrypted with event pubkey ${event.pubkey.slice(0, 16)}...`);
                 console.log('📋 NIP-46: Successfully decrypted untagged event content');
               } catch (decryptErr) {
-                // Try plain JSON
-                content = JSON.parse(event.content);
-                console.log('📋 NIP-46: Parsed untagged event as plain JSON');
+                // If decryption failed and we have Amber's pubkey from connection, try with that
+                if (this.connection?.pubkey && this.connection.pubkey !== event.pubkey) {
+                  try {
+                    console.error(`[NIP46-UNTAGGED-DECRYPT] Trying to decrypt Event #${this.eventCounter} with Amber's pubkey ${this.connection.pubkey.slice(0, 16)}...`);
+                    const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
+                    const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, this.connection.pubkey);
+                    const decryptedContent = nip44.decrypt(event.content, conversationKey);
+                    content = JSON.parse(decryptedContent);
+                    decrypted = true;
+                    console.error(`[NIP46-UNTAGGED-DECRYPT] Successfully decrypted with Amber's pubkey!`);
+                    console.log('📋 NIP-46: Successfully decrypted untagged event content with Amber pubkey');
+                  } catch (amberDecryptErr) {
+                    // Still failed, try plain JSON
+                    try {
+                      content = JSON.parse(event.content);
+                      console.log('📋 NIP-46: Parsed untagged event as plain JSON');
+                    } catch (jsonErr) {
+                      throw decryptErr; // Re-throw original error
+                    }
+                  }
+                } else {
+                  // Try plain JSON
+                  try {
+                    content = JSON.parse(event.content);
+                    console.log('📋 NIP-46: Parsed untagged event as plain JSON');
+                  } catch (jsonErr) {
+                    throw decryptErr; // Re-throw original error
+                  }
+                }
               }
               
               const mightBeConnection = content.method === 'connect' || 
@@ -992,6 +1021,14 @@ export class NIP46Client {
       if (isConnectResponse && !this.connection?.pubkey) {
         console.error(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
+        
+        // CRITICAL: Store Amber's pubkey from the connect response event so we can identify responses from Amber
+        // This is Amber's pubkey (the signer who sent the connect response)
+        if (this.connection) {
+          this.connection.pubkey = event.pubkey; // Store Amber's pubkey temporarily
+          console.error(`[NIP46-CONNECT] Stored Amber's pubkey from connect response: ${event.pubkey.slice(0, 16)}...`);
+        }
+        
         // Request public key asynchronously (don't await, let it complete in background)
         this.sendRequest('get_public_key', []).then((pubkey: string) => {
           console.error(`[NIP46-SUCCESS] Got public key from Amber: ${pubkey.slice(0, 16)}...`);
