@@ -521,7 +521,24 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         throw new Error(loginData.error || 'Login failed');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'NIP-46 login failed');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorDetails = err instanceof Error ? {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+      } : err;
+      
+      console.error('❌ LoginModal: NIP-46 login failed:', {
+        error: errorMessage,
+        errorDetails,
+        connectionState: {
+          hasClient: !!client,
+          hasConnection: !!client?.getConnection(),
+          connectionPubkey: client?.getConnection()?.pubkey?.slice(0, 16) + '...',
+        },
+      });
+      
+      setError(errorMessage || 'Failed to complete NIP-46 login. Please check the error log for details.');
     } finally {
       setIsSubmitting(false);
     }
