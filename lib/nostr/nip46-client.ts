@@ -658,6 +658,19 @@ export class NIP46Client {
           
           // Now parse the decrypted JSON
           content = JSON.parse(decryptedContent);
+          console.error(`[NIP46-DECRYPT] Event #${this.eventCounter} decrypted successfully:`, {
+            hasId: 'id' in content,
+            hasResult: 'result' in content,
+            hasError: 'error' in content,
+            hasMethod: 'method' in content,
+            id: content.id,
+            resultType: typeof content.result,
+            resultValue: typeof content.result === 'string' ? content.result.substring(0, 64) + '...' : content.result,
+            resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+            error: content.error,
+            method: content.method,
+            fullContent: JSON.stringify(content, null, 2),
+          });
           console.log('📋 NIP-46: Parsed decrypted content (JSON):', {
             hasId: 'id' in content,
             hasResult: 'result' in content,
@@ -733,11 +746,15 @@ export class NIP46Client {
         content.result !== this.connection?.token; // Not the secret
       
       if (isAmberCompatible) {
+        console.error(`[NIP46-AMBER] Event #${this.eventCounter} is Amber-compatible response`);
         console.log('🔵 [NIP46Client] Amber-compatible response (no method field), inferring type from context');
         console.log('🔵 [NIP46Client] Handling Amber-compatible response', {
           hasResult: !!content.result,
           resultType: typeof content.result,
           resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+          resultPreview: typeof content.result === 'string' ? content.result.substring(0, 32) + '...' : 'N/A',
+          connectionToken: this.connection?.token ? this.connection.token.substring(0, 32) + '...' : 'N/A',
+          tokenMatches: this.connection?.token && content.result === this.connection.token,
           looksLikeGetPublicKeyResponse,
           hasPendingGetPublicKey: Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key'),
           pendingRequestCount: this.pendingRequests.size,
@@ -747,6 +764,7 @@ export class NIP46Client {
         if (content.result) {
           // Check if this is a connect response (result matches the secret)
           if (this.connection?.token && content.result === this.connection.token) {
+            console.error(`[NIP46-CONNECT] Event #${this.eventCounter} is CONNECT response - secret matches!`);
             console.log('🔵 [NIP46Client] Inferred connect response from secret match');
             // This is a connect response - the result is the secret, which confirms connection
             // We still need to get the public key, so we'll handle this in the connection event section
@@ -972,9 +990,11 @@ export class NIP46Client {
 
       // Handle Amber connect response - automatically request public key
       if (isConnectResponse && !this.connection?.pubkey) {
+        console.error(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
         // Request public key asynchronously (don't await, let it complete in background)
         this.sendRequest('get_public_key', []).then((pubkey: string) => {
+          console.error(`[NIP46-SUCCESS] Got public key from Amber: ${pubkey.slice(0, 16)}...`);
           console.log('🔵 [NIP46Client] Successfully authenticated with Amber pubkey:', pubkey);
           // Store pubkey in connection
           if (this.connection) {
