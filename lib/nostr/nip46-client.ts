@@ -165,7 +165,8 @@ export class NIP46Client {
           pubkey: event.pubkey.slice(0, 16) + '...',
           kind: event.kind,
           tags: event.tags,
-          content: event.content.substring(0, 100),
+          content: event.content.substring(0, 200),
+          contentLength: event.content.length,
         });
         
         // Check if this event is for us (tagged with our pubkey)
@@ -173,14 +174,37 @@ export class NIP46Client {
         // Check if event is from us (our own requests) - we should ignore these
         const isFromUs = event.pubkey === appPubkey;
         
+        console.log('🔍 NIP-46: Event filtering check:', {
+          isForUs,
+          isFromUs,
+          appPubkey: appPubkey.slice(0, 16) + '...',
+          eventPubkey: event.pubkey.slice(0, 16) + '...',
+          tags: event.tags,
+          willProcess: isForUs && !isFromUs,
+        });
+        
         if (isForUs && !isFromUs) {
           // Only process events that are for us AND not from us (responses from signer)
+          console.log('✅ NIP-46: Event passed filter, processing...');
           this.handleRelayEvent(event, connectionInfo);
         } else {
           if (isFromUs) {
             console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
           } else if (!isForUs) {
-            console.log('ℹ️ NIP-46: Event received but not for us, skipping');
+            console.log('ℹ️ NIP-46: Event received but not tagged for us, skipping. Event tags:', event.tags);
+            // For connection events, Amber might not tag us - let's check if it's a connection event anyway
+            try {
+              const content = JSON.parse(event.content);
+              const mightBeConnection = content.method === 'connect' || 
+                                       content.method === 'get_public_key' ||
+                                       (content.result && typeof content.result === 'string' && content.result.length === 64);
+              if (mightBeConnection) {
+                console.log('⚠️ NIP-46: Event looks like a connection event but not tagged for us. Processing anyway...');
+                this.handleRelayEvent(event, connectionInfo);
+              }
+            } catch (e) {
+              // Not JSON, ignore
+            }
           }
         }
       },
@@ -374,6 +398,16 @@ export class NIP46Client {
         content.method === 'get_public_key' ||
         (content.result && typeof content.result === 'string' && content.result.length === 64) ||
         (event.content && event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content));
+
+      console.log('🔍 NIP-46: Checking if event is connection event:', {
+        isConnectionEvent,
+        hasMethod: !!content.method,
+        method: content.method,
+        hasResult: !!content.result,
+        resultType: typeof content.result,
+        resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+        contentIsHex: event.content && /^[a-f0-9]{64}$/i.test(event.content),
+      });
 
       if (isConnectionEvent) {
         // Extract signer's public key
