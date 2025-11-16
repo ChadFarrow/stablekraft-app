@@ -1099,6 +1099,15 @@ export class NIP46Client {
         this.sendRequest('get_public_key', []).then((pubkey: string) => {
           console.error(`[NIP46-SUCCESS] Got public key from Amber: ${pubkey.slice(0, 16)}...`);
           console.log('🔵 [NIP46Client] Successfully authenticated with Amber pubkey:', pubkey);
+          
+          // CRITICAL: Make sure we're using the user's pubkey, not Amber's pubkey
+          // The pubkey should be the user's pubkey from the get_public_key response
+          if (pubkey === this.connection?.pubkey && pubkey === event.pubkey) {
+            console.error(`[NIP46-ERROR] Got Amber's pubkey instead of user's pubkey! This is wrong!`);
+            // Don't proceed with authentication if we got Amber's pubkey
+            return;
+          }
+          
           // Store pubkey in connection
           if (this.connection) {
             this.connection.pubkey = pubkey;
