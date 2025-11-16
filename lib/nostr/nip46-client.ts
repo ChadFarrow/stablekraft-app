@@ -1295,6 +1295,7 @@ export class NIP46Client {
               })),
             });
             clearTimeout(timeout);
+            clearInterval(statusInterval);
             this.pendingRequests.delete(id);
             reject(new Error('Failed to publish request to relay. The relay connection may be closed. Please try connecting again.'));
             return;
