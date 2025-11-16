@@ -807,6 +807,14 @@ export class NIP46Client {
       
       // Publish with retry logic
       const attemptPublish = async (attempt: number = 1): Promise<void> => {
+        // Ensure connection still exists
+        if (!this.connection) {
+          clearTimeout(timeout);
+          this.pendingRequests.delete(id);
+          reject(new Error('Connection lost during publish attempt'));
+          return;
+        }
+        
         try {
           const results = await this.relayClient!.publish(requestEvent, {
             relays: [this.connection.signerUrl],
@@ -837,7 +845,7 @@ export class NIP46Client {
               ))
             );
             
-            if (isConnectionError && attempt < 2) {
+            if (isConnectionError && attempt < 2 && this.connection) {
               // Retry once after reconnecting
               console.log(`🔄 NIP-46: Connection error detected, retrying (attempt ${attempt + 1}/2)...`);
               try {
@@ -868,7 +876,7 @@ export class NIP46Client {
             err.message?.includes('timeout')
           );
           
-          if (isConnectionError && attempt < 2) {
+          if (isConnectionError && attempt < 2 && this.connection) {
             // Retry once after reconnecting
             console.log(`🔄 NIP-46: Connection error caught, retrying (attempt ${attempt + 1}/2)...`);
             try {
