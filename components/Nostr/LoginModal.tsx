@@ -134,6 +134,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   };
 
   const handleNip46Connect = async () => {
+    // Prevent multiple simultaneous connection attempts
+    if (isSubmitting) {
+      console.log('⚠️ NIP-46: Connection already in progress, ignoring duplicate call');
+      return;
+    }
+
+    // Clean up any existing connection first
+    if (nip46ClientRef.current) {
+      console.log('🧹 NIP-46: Cleaning up existing client before creating new connection');
+      try {
+        await nip46ClientRef.current.disconnect();
+      } catch (err) {
+        console.warn('Failed to disconnect existing client:', err);
+      }
+      nip46ClientRef.current = null;
+    }
+
     try {
       setIsSubmitting(true);
       setError(null);
