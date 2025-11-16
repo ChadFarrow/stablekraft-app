@@ -140,6 +140,17 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
+    // Check if we already have a connected client
+    if (nip46ClientRef.current) {
+      const existingConnection = nip46ClientRef.current.getConnection();
+      if (existingConnection?.connected && existingConnection?.pubkey) {
+        console.log('✅ NIP-46: Already connected, using existing connection');
+        // Use existing connection instead of creating a new one
+        await handleNip46ConnectedWithClient(nip46ClientRef.current);
+        return;
+      }
+    }
+
     // Clean up any existing connection first
     if (nip46ClientRef.current) {
       console.log('🧹 NIP-46: Cleaning up existing client before creating new connection');
@@ -185,14 +196,26 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setNip46Client(client);
       
       // Set up connection callback - use ref to access client
-      client.setOnConnection((signerPubkey: string) => {
-        console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
-        // Hide the connection UI first
+      // Only set callback if we don't already have a connection
+      const existingConnection = client.getConnection();
+      if (!existingConnection?.connected || !existingConnection?.pubkey) {
+        client.setOnConnection((signerPubkey: string) => {
+          console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
+          // Hide the connection UI first
+          setShowNip46Connect(false);
+          // Automatically complete login when connection is established
+          // Use the ref to ensure we have the client
+          if (nip46ClientRef.current) {
+            handleNip46ConnectedWithClient(nip46ClientRef.current);
+          }
+        });
+      } else {
+        console.log('✅ NIP-46: Already connected, skipping callback setup');
+        // Already connected, proceed directly
         setShowNip46Connect(false);
-        // Automatically complete login when connection is established
-        // Use the ref to ensure we have the client
-        handleNip46ConnectedWithClient(nip46ClientRef.current!);
-      });
+        await handleNip46ConnectedWithClient(client);
+        return;
+      }
       
       // Start listening on relay for connection
       try {

@@ -475,6 +475,7 @@ export class NIP46Client {
         }
 
         // Call the connection callback if set (pubkey is now guaranteed to be stored)
+        // Only call once - clear the callback after use to prevent duplicate calls
         if (this.onConnectionCallback && signerPubkey) {
           console.log('📞 NIP-46: Calling connection callback with pubkey:', signerPubkey.slice(0, 16) + '...');
           console.log('📞 NIP-46: Connection state before callback:', {
@@ -484,11 +485,15 @@ export class NIP46Client {
             connected: this.connection?.connected,
           });
           
+          // Store callback and clear it immediately to prevent duplicate calls
+          const callback = this.onConnectionCallback;
+          this.onConnectionCallback = null; // Clear immediately to prevent re-triggering
+          
           // Use setTimeout to ensure pubkey is fully stored before callback
           setTimeout(() => {
             if (this.connection?.pubkey) {
               console.log('✅ NIP-46: Pubkey confirmed in connection, invoking callback');
-              this.onConnectionCallback!(signerPubkey);
+              callback(signerPubkey);
             } else {
               console.error('❌ NIP-46: Pubkey not available when calling callback. Connection state:', {
                 hasConnection: !!this.connection,
@@ -496,6 +501,8 @@ export class NIP46Client {
               });
             }
           }, 100); // Increased delay to ensure pubkey is stored
+        } else if (this.connection?.connected && this.connection?.pubkey) {
+          console.log('ℹ️ NIP-46: Connection already established, skipping callback (already connected)');
         }
       } else {
         console.log('ℹ️ NIP-46: Event received but not a connection event:', content);
