@@ -1066,7 +1066,7 @@ export class NIP46Client {
     // properly handle the request/response cycle via relay events
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
-      const pendingRequest: PendingRequest & { startTime?: number; statusInterval?: NodeJS.Timeout } = { 
+      const pendingRequest: { resolve: (value: any) => void; reject: (error: Error) => void; startTime?: number; statusInterval?: NodeJS.Timeout } = { 
         resolve, 
         reject,
         startTime,
