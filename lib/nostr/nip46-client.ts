@@ -777,8 +777,16 @@ export class NIP46Client {
         if (content.result.length === 64 && 
             /^[a-f0-9]{64}$/i.test(content.result) &&
             content.result !== this.connection?.token) {
-          looksLikeGetPublicKeyResponse = true;
-          extractedPubkey = content.result;
+          // CRITICAL: Make sure it's not Amber's pubkey (the signer)
+          // Amber's pubkey is stored in connection.pubkey from the connect response
+          const isAmberPubkey = this.connection?.pubkey && content.result === this.connection.pubkey;
+          if (!isAmberPubkey) {
+            looksLikeGetPublicKeyResponse = true;
+            extractedPubkey = content.result;
+            console.error(`[NIP46-GETPUBKEY] Found direct hex pubkey (not Amber's): ${extractedPubkey.slice(0, 16)}...`);
+          } else {
+            console.error(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it's Amber's pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
+          }
         }
         // Check if it's a JSON string that might contain a pubkey
         else if (content.result.length > 64 && content.result.startsWith('{')) {
