@@ -272,14 +272,21 @@ export class NIP46Client {
 
     // Encrypt the request using NIP-44
     // Encrypt from app's private key to signer's public key
-    // NIP-44 functions accept hex strings for keys and string for message
+    // NIP-44 v2 API requires: getConversationKey(privkeyA: Uint8Array, pubkeyB: string) -> conversationKey
+    // Then: encrypt(plaintext: string, conversationKey: Uint8Array) -> encrypted string
     const requestJson = JSON.stringify(request);
     let encryptedContent: string;
     
     try {
-      // nip44.encrypt(sk: string | Uint8Array, pk: string | Uint8Array, plaintext: string): string
-      // All parameters can be hex strings - the library handles conversion internally
-      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkey, requestJson);
+      // Convert private key from hex string to Uint8Array
+      const appPrivateKeyBytes = hexToBytes(appPrivateKey);
+      
+      // Get conversation key using NIP-44 v2 API
+      const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, signerPubkey);
+      
+      // Encrypt using the conversation key
+      encryptedContent = nip44.encrypt(requestJson, conversationKey);
+      
       console.log('🔐 NIP-46: Encrypted request content with NIP-44:', {
         method,
         requestId,
@@ -345,11 +352,16 @@ export class NIP46Client {
         });
         
         try {
-          // Decrypt using NIP-44
-          // nip44.decrypt(sk: string | Uint8Array, pk: string | Uint8Array, ciphertext: string): string
-          // The encrypted content is already a base64-encoded string from Amber
-          // We need to pass the signer's public key (who encrypted it) and our private key
-          decryptedContent = nip44.decrypt(appPrivateKey, signerPubkey, event.content);
+          // Decrypt using NIP-44 v2 API
+          // Convert private key from hex string to Uint8Array
+          const appPrivateKeyBytes = hexToBytes(appPrivateKey);
+          
+          // Get conversation key using NIP-44 v2 API
+          // The content is encrypted from signer's pubkey to our app's pubkey
+          const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, signerPubkey);
+          
+          // Decrypt using the conversation key
+          decryptedContent = nip44.decrypt(event.content, conversationKey);
           console.log('✅ NIP-46: Successfully decrypted NIP-44 content');
           
           // Now parse the decrypted JSON
