@@ -664,6 +664,23 @@ export class NIP46Client {
     const appPubkey = connectionInfo.publicKey;
     const signerPubkey = this.connection.pubkey;
 
+    // Ensure relay is still connected - reconnect if needed (before creating Promise)
+    try {
+      const relayManager = (this.relayClient as any).relayManager;
+      if (relayManager) {
+        const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
+        if (!isRelayConnected) {
+          console.log('⚠️ NIP-46: Relay appears disconnected, reconnecting...', {
+            relayUrl: this.connection.signerUrl,
+          });
+          await this.startRelayConnection(this.connection.signerUrl);
+        }
+      }
+    } catch (reconnectErr) {
+      console.error('❌ NIP-46: Failed to reconnect to relay:', reconnectErr);
+      throw new Error('Failed to connect to relay. Please try again.');
+    }
+
     // For get_public_key, we can proceed even without the pubkey (we're requesting it)
     // For other methods, we need the pubkey to be available
     if (method !== 'get_public_key' && !signerPubkey) {
@@ -781,31 +798,6 @@ export class NIP46Client {
         this.pendingRequests.delete(id);
         reject(new Error('Relay client not connected. Please try connecting again.'));
         return;
-      }
-
-      // Ensure relay is still connected - reconnect if needed
-      // Note: We can't use await here since this is inside a Promise constructor
-      // Instead, we'll check connection and reconnect synchronously if possible
-      try {
-        // Check if relay manager has the relay connected
-        const relayManager = (this.relayClient as any).relayManager;
-        if (relayManager) {
-          const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
-          if (!isRelayConnected) {
-            console.log('⚠️ NIP-46: Relay appears disconnected, attempting to reconnect...', {
-              relayUrl: this.connection.signerUrl,
-            });
-            // Reconnect asynchronously - don't await, just start it
-            this.startRelayConnection(this.connection.signerUrl).catch(reconnectErr => {
-              console.error('❌ NIP-46: Failed to reconnect to relay:', reconnectErr);
-            });
-            // Give it a moment to reconnect
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      } catch (reconnectErr) {
-        console.error('❌ NIP-46: Error checking relay connection:', reconnectErr);
-        // Continue anyway - might still work
       }
       
       this.relayClient!.publish(requestEvent, {
