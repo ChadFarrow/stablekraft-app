@@ -330,12 +330,15 @@ export class NIP46Client {
       relays: [relayUrl],
       filters,
       onEvent: (event: Event) => {
-        // Increment event counter
-        this.eventCounter++;
-        this.lastEventTime = Date.now();
-        
-        console.log(`🎯 NIP-46: onEvent callback triggered! (Event #${this.eventCounter})`);
-        console.log('📨 NIP-46: Received event from relay:', {
+        try {
+          // Increment event counter
+          this.eventCounter++;
+          this.lastEventTime = Date.now();
+          
+          // CRITICAL: Always log when events are received - use console.error to ensure visibility
+          console.error(`[NIP46-EVENT] Event #${this.eventCounter} received at ${new Date().toISOString()}`);
+          console.log(`🎯 NIP-46: onEvent callback triggered! (Event #${this.eventCounter})`);
+          console.log('📨 NIP-46: Received event from relay:', {
           eventNumber: this.eventCounter,
           id: event.id.slice(0, 16) + '...',
           pubkey: event.pubkey.slice(0, 16) + '...',
@@ -464,6 +467,15 @@ export class NIP46Client {
             }
           }
         }
+        } catch (eventError) {
+          console.error('[NIP46-ERROR] Error in onEvent callback:', eventError);
+          console.error('[NIP46-ERROR] Event that caused error:', {
+            id: event.id,
+            pubkey: event.pubkey,
+            kind: event.kind,
+            contentLength: event.content.length,
+          });
+        }
       },
       onEose: () => {
         console.log('✅ NIP-46: Subscription EOSE (End of Stored Events)');
@@ -568,6 +580,8 @@ export class NIP46Client {
    */
   private handleRelayEvent(event: Event, connectionInfo: any): void {
     try {
+      // CRITICAL: Always log when processing events - use console.error to ensure visibility
+      console.error(`[NIP46-PROCESS] Processing event ${event.id.slice(0, 16)}... at ${new Date().toISOString()}`);
       console.log('🔍 NIP-46: Processing relay event:', {
         id: event.id.slice(0, 16) + '...',
         pubkey: event.pubkey.slice(0, 16) + '...',
