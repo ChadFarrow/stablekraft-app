@@ -1122,4 +1122,3 @@ export class NIP46Client {
   }
 }
 
-// Build fix: relay reconnection check moved outside Promise constructor
