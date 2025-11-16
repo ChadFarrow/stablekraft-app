@@ -1030,13 +1030,8 @@ export class NIP46Client {
         this.connection?.token && 
         content.result === this.connection.token;
       
-      // Check if this is a get_public_key response (result is a 64-char hex pubkey)
-      const isGetPublicKeyResponse = isAmberCompatible &&
-        content.result &&
-        typeof content.result === 'string' &&
-        content.result.length === 64 &&
-        /^[a-f0-9]{64}$/i.test(content.result) &&
-        content.result !== this.connection?.token; // Not the secret
+      // Check if this is a get_public_key response (result is a 64-char hex pubkey OR JSON containing pubkey)
+      const isGetPublicKeyResponse = isAmberCompatible && looksLikeGetPublicKeyResponse && extractedPubkey !== null;
       
       const isConnectionEvent = 
         content.method === 'connect' || 
