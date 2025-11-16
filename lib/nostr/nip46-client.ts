@@ -278,9 +278,10 @@ export class NIP46Client {
     
     try {
       // NIP-44 encrypt expects hex string for private key, not Uint8Array
-      // Public key needs to be converted to Uint8Array
+      // Public key and message need to be converted to Uint8Array
       const signerPubkeyBytes = hexToBytes(signerPubkey);
-      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkeyBytes, requestJson);
+      const requestJsonBytes = new TextEncoder().encode(requestJson);
+      encryptedContent = nip44.encrypt(appPrivateKey, signerPubkeyBytes, requestJsonBytes);
       console.log('🔐 NIP-46: Encrypted request content with NIP-44:', {
         method,
         requestId,
