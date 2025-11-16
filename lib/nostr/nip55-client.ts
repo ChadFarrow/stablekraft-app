@@ -139,7 +139,8 @@ export class NIP55Client {
     const encodedJson = encodeURIComponent(requestJson);
 
     // Create callback URL with request ID
-    const callbackWithId = `${this.callbackUrl}?requestId=${requestId}`;
+    // Note: callbackUrl already has ?nip55-callback=true, so we need to append &requestId=
+    const callbackWithId = `${this.callbackUrl}&requestId=${requestId}`;
 
     // Build NIP-55 URI
     // Format: nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${callbackUrl}
@@ -246,7 +247,8 @@ export class NIP55Client {
     const encodedJson = encodeURIComponent(requestJson);
 
     // Create callback URL with request ID
-    const callbackWithId = `${this.callbackUrl}?requestId=${requestId}`;
+    // Note: callbackUrl already has ?nip55-callback=true, so we need to append &requestId=
+    const callbackWithId = `${this.callbackUrl}&requestId=${requestId}`;
 
     // Build NIP-55 URI
     // Format: nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${callback}
@@ -298,11 +300,25 @@ export class NIP55Client {
 
       // Open intent
       try {
+        console.log('📱 NIP-55: Opening Android intent with URI:', {
+          uri: nip55Uri.substring(0, 300) + '...',
+          uriLength: nip55Uri.length,
+          requestId,
+          pendingRequests: Array.from(this.pendingSignatures.keys()),
+        });
+        
+        // Store that we're about to open the intent
+        console.log('📱 NIP-55: About to switch to Amber app. When you return, the callback will be processed.');
+        
         window.location.href = nip55Uri;
+        
+        // Note: After this line, execution will pause until the callback is received
+        // The callback handler will resolve/reject the promise
       } catch (error) {
         clearTimeout(timeout);
         clearTimeout(warningTimeout);
         this.pendingSignatures.delete(requestId);
+        console.error('❌ NIP-55: Failed to open intent:', error);
         reject(new Error(`Failed to open NIP-55 intent: ${error instanceof Error ? error.message : String(error)}`));
       }
     });
