@@ -240,8 +240,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Wait a bit to ensure connection is fully established
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Get public key from signer (this should be available from the connection)
-      // The connection callback should have already stored the pubkey
+      // Get public key from signer
+      // For relay-based connections, Amber might not send a connection event.
+      // Instead, we need to try requesting the public key and see if we get a response.
       console.log('🔍 LoginModal: Getting public key from NIP-46 client...');
       
       // Check if we already have the pubkey from the connection
@@ -253,27 +254,25 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         pubkeyPreview: connection?.pubkey ? connection.pubkey.slice(0, 16) + '...' : 'N/A',
       });
       
+      let publicKey: string;
+      
       if (connection?.pubkey) {
         console.log('✅ LoginModal: Using pubkey from connection:', connection.pubkey.slice(0, 16) + '...');
-        var publicKey = connection.pubkey;
+        publicKey = connection.pubkey;
       } else {
-        console.log('⚠️ LoginModal: No pubkey in connection yet. For relay-based connections, the pubkey should come from the connection callback.');
-        console.log('⚠️ LoginModal: Waiting a bit longer for connection to complete...');
+        console.log('⚠️ LoginModal: No pubkey in connection yet. For relay-based connections, Amber might not send a connection event.');
+        console.log('⚠️ LoginModal: Attempting to request public key from signer...');
         
-        // Wait a bit more and check again
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const connectionAfterWait = client.getConnection();
-        
-        if (connectionAfterWait?.pubkey) {
-          console.log('✅ LoginModal: Got pubkey after waiting:', connectionAfterWait.pubkey.slice(0, 16) + '...');
-          var publicKey = connectionAfterWait.pubkey;
-        } else {
-          console.error('❌ LoginModal: Still no pubkey after waiting. Connection state:', {
-            hasConnection: !!connectionAfterWait,
-            hasPubkey: !!connectionAfterWait?.pubkey,
-            connected: connectionAfterWait?.connected,
-          });
-          throw new Error('Signer public key not available. The connection may not have been established properly. Please try connecting again.');
+        // Try requesting the public key - this will work if Amber is listening
+        try {
+          // Wait a bit for Amber to be ready
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          publicKey = await client.getPublicKey();
+          console.log('✅ LoginModal: Got public key from signer:', publicKey.slice(0, 16) + '...');
+        } catch (err) {
+          console.error('❌ LoginModal: Failed to get public key:', err);
+          throw new Error('Unable to communicate with signer. Please ensure Amber is connected and try again.');
         }
       }
       
