@@ -246,13 +246,35 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       
       // Check if we already have the pubkey from the connection
       const connection = client.getConnection();
+      console.log('🔍 LoginModal: Checking connection state:', {
+        hasConnection: !!connection,
+        hasPubkey: !!connection?.pubkey,
+        connected: connection?.connected,
+        pubkeyPreview: connection?.pubkey ? connection.pubkey.slice(0, 16) + '...' : 'N/A',
+      });
+      
       if (connection?.pubkey) {
         console.log('✅ LoginModal: Using pubkey from connection:', connection.pubkey.slice(0, 16) + '...');
         var publicKey = connection.pubkey;
       } else {
-        console.log('⚠️ LoginModal: No pubkey in connection, requesting from signer...');
-        publicKey = await client.getPublicKey();
-        console.log('✅ LoginModal: Got public key from NIP-46', publicKey.slice(0, 16) + '...');
+        console.log('⚠️ LoginModal: No pubkey in connection yet. For relay-based connections, the pubkey should come from the connection callback.');
+        console.log('⚠️ LoginModal: Waiting a bit longer for connection to complete...');
+        
+        // Wait a bit more and check again
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const connectionAfterWait = client.getConnection();
+        
+        if (connectionAfterWait?.pubkey) {
+          console.log('✅ LoginModal: Got pubkey after waiting:', connectionAfterWait.pubkey.slice(0, 16) + '...');
+          var publicKey = connectionAfterWait.pubkey;
+        } else {
+          console.error('❌ LoginModal: Still no pubkey after waiting. Connection state:', {
+            hasConnection: !!connectionAfterWait,
+            hasPubkey: !!connectionAfterWait?.pubkey,
+            connected: connectionAfterWait?.connected,
+          });
+          throw new Error('Signer public key not available. The connection may not have been established properly. Please try connecting again.');
+        }
       }
       
       if (!publicKey || publicKey.length === 0) {
