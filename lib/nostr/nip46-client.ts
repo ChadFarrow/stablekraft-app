@@ -434,12 +434,25 @@ export class NIP46Client {
               // Also check if it's a response to one of our pending requests
               const isResponseToPending = content.id && this.pendingRequests.has(content.id);
               
-              if (mightBeConnection || isResponseToPending) {
+              // Check if it looks like a get_public_key response (pubkey) and we have pending get_public_key requests
+              const looksLikeGetPublicKeyResponse = content.result && 
+                typeof content.result === 'string' && 
+                content.result.length === 64 && 
+                /^[a-f0-9]{64}$/i.test(content.result) &&
+                content.result !== this.connection?.token; // Not the secret
+              
+              const hasPendingGetPublicKey = Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key');
+              const mightBeGetPublicKeyResponse = looksLikeGetPublicKeyResponse && hasPendingGetPublicKey;
+              
+              if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse) {
                 console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
                   mightBeConnection,
                   isResponseToPending,
+                  mightBeGetPublicKeyResponse,
                   requestId: content.id,
                   hasPendingRequest: isResponseToPending,
+                  hasPendingGetPublicKey,
+                  looksLikeGetPublicKeyResponse,
                 });
                 this.handleRelayEvent(event, connectionInfo);
               } else {
@@ -663,9 +676,24 @@ export class NIP46Client {
       // 🔵 Amber-compatible response handling
       // Amber sends responses without a 'method' field, so we need to infer the response type
       const isAmberCompatible = !content.method && (content.result !== undefined || content.error !== undefined);
+      
+      // Check if this looks like a get_public_key response (pubkey result)
+      const looksLikeGetPublicKeyResponse = content.result && 
+        typeof content.result === 'string' && 
+        content.result.length === 64 && 
+        /^[a-f0-9]{64}$/i.test(content.result) &&
+        content.result !== this.connection?.token; // Not the secret
+      
       if (isAmberCompatible) {
         console.log('🔵 [NIP46Client] Amber-compatible response (no method field), inferring type from context');
-        console.log('🔵 [NIP46Client] Handling Amber-compatible response');
+        console.log('🔵 [NIP46Client] Handling Amber-compatible response', {
+          hasResult: !!content.result,
+          resultType: typeof content.result,
+          resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+          looksLikeGetPublicKeyResponse,
+          hasPendingGetPublicKey: Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key'),
+          pendingRequestCount: this.pendingRequests.size,
+        });
         
         // Infer response type based on context
         if (content.result) {
@@ -677,10 +705,34 @@ export class NIP46Client {
             // For now, mark that we've received the connect confirmation
           } 
           // Check if this is a get_public_key response (result is a 64-char hex string)
-          else if (typeof content.result === 'string' && content.result.length === 64 && /^[a-f0-9]{64}$/i.test(content.result)) {
+          else if (looksLikeGetPublicKeyResponse) {
             console.log('🔵 [NIP46Client] Inferred get_public_key response from string pubkey (Amber compatibility)');
             // This is a get_public_key response - the result is the pubkey
-            // We'll handle this in the pending request section or connection event section
+            // Try to resolve any pending get_public_key requests immediately
+            const pendingGetPublicKeyRequest = Array.from(this.pendingRequests.entries()).find(([reqId, pending]) => {
+              return pending.method === 'get_public_key';
+            });
+            
+            if (pendingGetPublicKeyRequest) {
+              const [reqId, pending] = pendingGetPublicKeyRequest;
+              console.log('🔵 [NIP46Client] Found pending get_public_key request, resolving immediately:', {
+                requestId: reqId,
+                responseId: content.id || 'no-id',
+                pubkey: content.result.slice(0, 16) + '...',
+              });
+              
+              // Clear timeout and interval if they exist
+              if ((pending as any).statusInterval) {
+                clearInterval((pending as any).statusInterval);
+              }
+              
+              // Remove from pending requests
+              this.pendingRequests.delete(reqId);
+              
+              // Resolve with the pubkey
+              pending.resolve(content.result);
+              return; // Don't process further
+            }
           }
         }
       }
@@ -799,24 +851,16 @@ export class NIP46Client {
           
           // 🔵 Amber fallback: If this is a get_public_key response (pubkey) and we have a pending get_public_key request,
           // resolve it even if the ID doesn't match (Amber might use different ID format)
-          if (isAmberCompatible && 
-              content.result && 
-              typeof content.result === 'string' && 
-              content.result.length === 64 && 
-              /^[a-f0-9]{64}$/i.test(content.result) &&
-              content.result !== this.connection?.token) {
-            
-            // Check if we have any pending get_public_key requests
-            // We'll resolve the first one we find (there should only be one)
+          // This is a secondary check in case the primary check above didn't catch it
+          if (looksLikeGetPublicKeyResponse) {
             const pendingGetPublicKeyRequest = Array.from(this.pendingRequests.entries()).find(([reqId, pending]) => {
-              // Check if this request was for get_public_key by checking the stored method
               return pending.method === 'get_public_key';
             });
             
             if (pendingGetPublicKeyRequest) {
               const [reqId, pending] = pendingGetPublicKeyRequest;
               console.log('🔵 [NIP46Client] Amber fallback: Resolving get_public_key request despite ID mismatch:', {
-                responseId: content.id,
+                responseId: content.id || 'no-id',
                 requestId: reqId,
                 pubkey: content.result.slice(0, 16) + '...',
                 note: 'Amber may use different ID format, but response is valid pubkey',
