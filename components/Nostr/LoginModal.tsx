@@ -610,7 +610,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }}
     >
       <div 
-        className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl relative" 
+        className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl relative max-h-[90vh] overflow-y-auto" 
         style={{ zIndex: 2147483647 }}
         onClick={(e) => e.stopPropagation()}
       >

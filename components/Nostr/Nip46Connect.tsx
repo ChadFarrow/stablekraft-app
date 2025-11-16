@@ -226,8 +226,8 @@ export default function Nip46Connect({
         </ol>
       </div>
 
-      {/* Manual Check/Continue Buttons */}
-      {connectionStatus === 'connecting' && (
+      {/* Manual Check/Continue Buttons - Show when connecting or waiting */}
+      {(connectionStatus === 'connecting' || connectionStatus === 'waiting') && (
         <div className="flex gap-2">
           <button
             onClick={() => {
