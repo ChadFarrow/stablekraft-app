@@ -647,15 +647,35 @@ export class NIP46Client {
 
       // If it's get_public_key and we already have the pubkey, return it immediately
       if (method === 'get_public_key' && signerPubkey) {
+        console.log('✅ NIP-46: Already have signer pubkey, returning immediately:', signerPubkey.slice(0, 16) + '...');
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
         resolve(signerPubkey);
         return;
       }
 
-      // For get_public_key without pubkey, we need to use the app's pubkey as a placeholder
-      // The signer will respond with their actual pubkey
+      // For get_public_key without pubkey, we can't tag the signer (we don't know their pubkey yet)
+      // According to NIP-46, for relay-based connections, the signer should be listening for
+      // events tagged with their own pubkey. But for get_public_key, we don't have it yet.
+      // 
+      // The solution: For get_public_key, we should NOT tag a specific signer.
+      // Instead, we publish the request and the signer should respond based on the connection token.
+      // However, since we're using relay-based communication, we need to tag it somehow.
+      // 
+      // Actually, when Amber connects, they send us their pubkey. So if we're calling get_public_key
+      // after connection, we should have the pubkey. If we're calling it before connection,
+      // we need to wait for the connection first.
+      
+      // For now, if we don't have the signer pubkey, we'll use an empty tag or the app pubkey
+      // The signer should be able to identify the request based on the connection token in the URI
       const pubkeyForRequest = signerPubkey || appPubkey;
+      
+      console.log('📋 NIP-46: Request details:', {
+        method,
+        hasSignerPubkey: !!signerPubkey,
+        usingPubkeyForRequest: pubkeyForRequest === signerPubkey ? 'signer' : 'app (placeholder)',
+        pubkeyForRequest: pubkeyForRequest.slice(0, 16) + '...',
+      });
 
       // For other methods, publish a request event and wait for response
       // 1. Create and publish a kind 24133 event with the request
@@ -665,6 +685,16 @@ export class NIP46Client {
       // Create NIP-46 request event
       // For get_public_key, we use appPubkey as placeholder if signerPubkey isn't available yet
       const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, pubkeyForRequest, connectionInfo.privateKey);
+      
+      console.log('📤 NIP-46: Publishing request event:', {
+        eventId: requestEvent.id.slice(0, 16) + '...',
+        eventPubkey: requestEvent.pubkey.slice(0, 16) + '...',
+        requestId: id,
+        method,
+        tags: requestEvent.tags,
+        contentPreview: requestEvent.content.substring(0, 100),
+        relayUrl: this.connection?.signerUrl,
+      });
       
       // Publish the request event
       if (!this.connection) {
@@ -676,7 +706,26 @@ export class NIP46Client {
       
       this.relayClient!.publish(requestEvent, {
         relays: [this.connection.signerUrl],
-        waitForRelay: false,
+        waitForRelay: true, // Wait for relay confirmation to ensure it's published
+        timeout: 10000, // 10 second timeout for publish confirmation
+      }).then(results => {
+        console.log('✅ NIP-46: Request event published:', {
+          requestId: id,
+          method,
+          publishResults: results.map(r => ({
+            status: r.status,
+            value: r.status === 'fulfilled' ? 'published' : r.reason,
+          })),
+        });
+        
+        // Check if at least one relay accepted the event
+        const hasSuccess = results.some(r => r.status === 'fulfilled');
+        if (!hasSuccess) {
+          console.error('❌ NIP-46: Failed to publish to any relay:', results);
+          clearTimeout(timeout);
+          this.pendingRequests.delete(id);
+          reject(new Error('Failed to publish request to relay'));
+        }
       }).catch(err => {
         console.error('❌ NIP-46: Failed to publish request event:', err);
         clearTimeout(timeout);
