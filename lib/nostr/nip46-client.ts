@@ -838,44 +838,98 @@ export class NIP46Client {
             waitForRelay: true, // Wait for relay confirmation to ensure it's published
             timeout: 15000, // 15 second timeout for publish confirmation (increased from 10s)
           });
-        console.log('✅ NIP-46: Request event published:', {
-          requestId: id,
-          method,
-          publishResults: results.map(r => ({
-            status: r.status,
-            value: r.status === 'fulfilled' ? 'published' : r.reason,
-          })),
-        });
-        
-        // Check if at least one relay accepted the event
-        const hasSuccess = results.some(r => r.status === 'fulfilled');
-        if (!hasSuccess) {
-          console.error('❌ NIP-46: Failed to publish to any relay:', results);
-          console.error('❌ NIP-46: Relay connection may be closed. Error details:', {
-            results: results.map(r => ({
+          
+          console.log('✅ NIP-46: Request event published:', {
+            requestId: id,
+            method,
+            attempt,
+            publishResults: results.map(r => ({
               status: r.status,
-              reason: r.status === 'rejected' ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : 'N/A',
+              value: r.status === 'fulfilled' ? 'published' : (r.reason instanceof Error ? r.reason.message : String(r.reason)),
             })),
+          });
+          
+          // Check if at least one relay accepted the event
+          const hasSuccess = results.some(r => r.status === 'fulfilled');
+          if (!hasSuccess) {
+            // Check if it's a connection issue
+            const isConnectionError = results.some(r => 
+              r.status === 'rejected' && 
+              (r.reason instanceof Error && (
+                r.reason.name === 'SendingOnClosedConnection' ||
+                r.reason.message?.includes('closed') ||
+                r.reason.message?.includes('timeout')
+              ))
+            );
+            
+            if (isConnectionError && attempt < 2) {
+              // Retry once after reconnecting
+              console.log(`🔄 NIP-46: Connection error detected, retrying (attempt ${attempt + 1}/2)...`);
+              try {
+                await this.startRelayConnection(this.connection.signerUrl);
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for reconnection
+                return attemptPublish(attempt + 1);
+              } catch (reconnectErr) {
+                console.error('❌ NIP-46: Failed to reconnect for retry:', reconnectErr);
+              }
+            }
+            
+            console.error('❌ NIP-46: Failed to publish to any relay:', results);
+            console.error('❌ NIP-46: Relay connection may be closed. Error details:', {
+              results: results.map(r => ({
+                status: r.status,
+                reason: r.status === 'rejected' ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : 'N/A',
+              })),
+            });
+            clearTimeout(timeout);
+            this.pendingRequests.delete(id);
+            reject(new Error('Failed to publish request to relay. The relay connection may be closed. Please try connecting again.'));
+            return;
+          }
+        } catch (err) {
+          const isConnectionError = err instanceof Error && (
+            err.name === 'SendingOnClosedConnection' ||
+            err.message?.includes('closed') ||
+            err.message?.includes('timeout')
+          );
+          
+          if (isConnectionError && attempt < 2) {
+            // Retry once after reconnecting
+            console.log(`🔄 NIP-46: Connection error caught, retrying (attempt ${attempt + 1}/2)...`);
+            try {
+              await this.startRelayConnection(this.connection.signerUrl);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for reconnection
+              return attemptPublish(attempt + 1);
+            } catch (reconnectErr) {
+              console.error('❌ NIP-46: Failed to reconnect for retry:', reconnectErr);
+            }
+          }
+          
+          console.error('❌ NIP-46: Failed to publish request event:', err);
+          console.error('❌ NIP-46: Publish error details:', {
+            errorName: err instanceof Error ? err.name : 'Unknown',
+            errorMessage: err instanceof Error ? err.message : String(err),
+            errorStack: err instanceof Error ? err.stack : 'N/A',
+            attempt,
           });
           clearTimeout(timeout);
           this.pendingRequests.delete(id);
-          reject(new Error('Failed to publish request to relay. The relay connection may be closed. Please try connecting again.'));
+          const errorMessage = err instanceof Error 
+            ? (err.name === 'SendingOnClosedConnection' 
+                ? 'Relay connection is closed. Please try connecting again.'
+                : err.message)
+            : 'Unknown error';
+          reject(new Error(`Failed to publish request: ${errorMessage}`));
         }
-      }).catch(err => {
-        console.error('❌ NIP-46: Failed to publish request event:', err);
-        console.error('❌ NIP-46: Publish error details:', {
-          errorName: err instanceof Error ? err.name : 'Unknown',
-          errorMessage: err instanceof Error ? err.message : String(err),
-          errorStack: err instanceof Error ? err.stack : 'N/A',
-        });
+      };
+      
+      // Start the publish attempt
+      attemptPublish().catch(err => {
+        // This should already be handled in attemptPublish, but just in case
+        console.error('❌ NIP-46: Unexpected error in publish attempt:', err);
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
-        const errorMessage = err instanceof Error 
-          ? (err.name === 'SendingOnClosedConnection' 
-              ? 'Relay connection is closed. Please try connecting again.'
-              : err.message)
-          : 'Unknown error';
-        reject(new Error(`Failed to publish request: ${errorMessage}`));
+        reject(err);
       });
 
       // The response will be handled by handleRelayEvent when we receive it
