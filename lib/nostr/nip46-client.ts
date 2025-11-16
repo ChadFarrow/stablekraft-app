@@ -801,34 +801,9 @@ export class NIP46Client {
       }
 
       // Double-check relay connection before publishing
-      try {
-        const relayManager = (this.relayClient as any).relayManager;
-        if (relayManager) {
-          const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
-          if (!isRelayConnected) {
-            console.warn('⚠️ NIP-46: Relay not connected before publish, attempting to reconnect...');
-            // Try to reconnect synchronously (don't await, just start it)
-            this.startRelayConnection(this.connection.signerUrl).catch(err => {
-              console.error('❌ NIP-46: Failed to reconnect before publish:', err);
-            });
-            // Give it a moment to reconnect
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Check again
-            const stillNotConnected = !relayManager.isConnected(this.connection.signerUrl);
-            if (stillNotConnected) {
-              console.error('❌ NIP-46: Relay still not connected after reconnect attempt');
-              clearTimeout(timeout);
-              this.pendingRequests.delete(id);
-              reject(new Error('Relay connection failed. Please try connecting again.'));
-              return;
-            }
-          }
-        }
-      } catch (checkErr) {
-        console.warn('⚠️ NIP-46: Could not verify relay connection:', checkErr);
-        // Continue anyway - might still work
-      }
+      // Note: We can't use await here since we're in a Promise constructor
+      // The connection check was already done before creating this Promise
+      // If connection fails during publish, the retry logic will handle it
       
       // Publish with retry logic
       const attemptPublish = async (attempt: number = 1): Promise<void> => {
