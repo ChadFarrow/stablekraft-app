@@ -275,6 +275,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       
       // Generate nostrconnect URI
       // NIP-46 format: nostrconnect://<npub>?relay=<relay_url>&metadata=<metadata_json>
+      // For relay-based connections, we may also need to include the secret/token
       const { publicKeyToNpub } = await import('@/lib/nostr/keys');
       const npub = publicKeyToNpub(publicKey);
       const metadata = {
@@ -284,16 +285,32 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       const metadataJson = JSON.stringify(metadata);
       const metadataEncoded = encodeURIComponent(metadataJson);
       const relayEncoded = encodeURIComponent(relayUrl);
+      const tokenEncoded = encodeURIComponent(token);
       
-      // Build the nostrconnect URI
-      const nostrconnectUri = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}`;
+      // Try multiple URI formats - Amber might expect different formats
+      // Format 1: Standard NIP-46 format (without secret)
+      const nostrconnectUri1 = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}`;
       
-      console.log('📱 NIP-46: Generated nostrconnect URI:', {
+      // Format 2: With secret parameter (some implementations use this)
+      const nostrconnectUri2 = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}&secret=${tokenEncoded}`;
+      
+      // Format 3: With token parameter
+      const nostrconnectUri3 = `nostrconnect://${npub}?relay=${relayEncoded}&metadata=${metadataEncoded}&token=${tokenEncoded}`;
+      
+      // Use format 1 by default (standard NIP-46)
+      // But log all formats for debugging
+      const nostrconnectUri = nostrconnectUri1;
+      
+      console.log('📱 NIP-46: Generated nostrconnect URI options:', {
         npub: npub.slice(0, 20) + '...',
         relayUrl,
         relayEncoded,
         metadata,
-        metadataEncoded: metadataEncoded.substring(0, 100) + '...',
+        token: token.slice(0, 20) + '...',
+        format1_standard: nostrconnectUri1.substring(0, 150) + '...',
+        format2_with_secret: nostrconnectUri2.substring(0, 150) + '...',
+        format3_with_token: nostrconnectUri3.substring(0, 150) + '...',
+        usingFormat: 'format1_standard',
         fullUri: nostrconnectUri.substring(0, 200) + '...',
         uriLength: nostrconnectUri.length,
       });
@@ -305,6 +322,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       if (!npub || npub.length < 10) {
         throw new Error('Invalid npub format');
       }
+      
+      // Store all URI formats for manual testing
+      (window as any).__NIP46_URI_FORMATS__ = {
+        standard: nostrconnectUri1,
+        withSecret: nostrconnectUri2,
+        withToken: nostrconnectUri3,
+      };
+      console.log('💡 NIP-46: Alternative URI formats stored in window.__NIP46_URI_FORMATS__ for testing');
       
       setNip46ConnectionToken(nostrconnectUri);
       setNip46SignerUrl(relayUrl);

@@ -194,7 +194,7 @@ export default function Nip46Connect({
       {/* Connection URI (for manual entry) */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
-          Connection URI
+          Connection URI (Standard Format)
         </label>
         <div className="flex gap-2">
           <input
@@ -215,6 +215,52 @@ export default function Nip46Connect({
             ? 'You can manually enter this URI in Amber if QR code doesn\'t work'
             : 'Copy this URI and paste it into Amber on your mobile device to connect'}
         </p>
+        
+        {/* Alternative URI Formats for Testing */}
+        {typeof window !== 'undefined' && (window as any).__NIP46_URI_FORMATS__ && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+            <p className="font-semibold text-blue-900 mb-2">Alternative URI Formats (for testing):</p>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-blue-800 font-medium mb-1">Format 2 (with secret):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={(window as any).__NIP46_URI_FORMATS__.withSecret}
+                    readOnly
+                    className="flex-1 px-2 py-1 border border-blue-300 rounded bg-white text-xs font-mono"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText((window as any).__NIP46_URI_FORMATS__.withSecret)}
+                    className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-blue-800 font-medium mb-1">Format 3 (with token):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={(window as any).__NIP46_URI_FORMATS__.withToken}
+                    readOnly
+                    className="flex-1 px-2 py-1 border border-blue-300 rounded bg-white text-xs font-mono"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText((window as any).__NIP46_URI_FORMATS__.withToken)}
+                    className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <p className="text-blue-700 text-xs mt-2">
+                💡 If the standard format doesn't work, try these alternative formats in Amber
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Deep Link Button (Android only) */}
