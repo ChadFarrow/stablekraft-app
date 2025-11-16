@@ -48,6 +48,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="amber" />
             </intent-filter>
+            <!-- NIP-55 Android Signer support -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nostrsigner" />
+            </intent-filter>
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="https://re.podtards.com" />
@@ -59,9 +66,14 @@
                 android:resource="@color/colorPrimary" />
         </activity>
 
-        <!-- Query for Amber package to check if installed -->
+        <!-- Query for Amber package and NIP-55 signer support -->
         <queries>
             <package android:name="com.greenart7c3.amber" />
+            <intent>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nostrsigner" />
+            </intent>
         </queries>
 
     </application>

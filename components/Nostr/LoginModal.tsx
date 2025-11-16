@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNostr } from '@/contexts/NostrContext';
 import { NIP46Client } from '@/lib/nostr/nip46-client';
+import { NIP55Client } from '@/lib/nostr/nip55-client';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
 import { saveNIP46Connection } from '@/lib/nostr/nip46-storage';
 import { isAndroid } from '@/lib/utils/device';
@@ -19,12 +20,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [hasExtension, setHasExtension] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [nip05Identifier, setNip05Identifier] = useState('');
-  const [loginMethod, setLoginMethod] = useState<'extension' | 'nip05' | 'nip46'>('extension');
+  const [loginMethod, setLoginMethod] = useState<'extension' | 'nip05' | 'nip46' | 'nip55'>('extension');
   const [showNip46Connect, setShowNip46Connect] = useState(false);
   const [nip46ConnectionToken, setNip46ConnectionToken] = useState<string>('');
   const [nip46SignerUrl, setNip46SignerUrl] = useState<string>('');
   const [nip46Client, setNip46Client] = useState<NIP46Client | null>(null);
   const nip46ClientRef = useRef<NIP46Client | null>(null);
+  const [nip55Client, setNip55Client] = useState<NIP55Client | null>(null);
+  const [isNip55Available, setIsNip55Available] = useState(false);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -70,10 +73,18 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   }, []);
 
-  // Auto-select NIP-46 on Android if no extension
+  // Check NIP-55 availability on Android
   useEffect(() => {
-    if (isAndroid() && !hasExtension && loginMethod === 'extension') {
-      setLoginMethod('nip46');
+    if (isAndroid()) {
+      const available = NIP55Client.isAvailable();
+      setIsNip55Available(available);
+      // Auto-select NIP-55 on Android if available and no extension
+      if (available && !hasExtension && loginMethod === 'extension') {
+        setLoginMethod('nip55');
+      } else if (!available && !hasExtension && loginMethod === 'extension') {
+        // Fall back to NIP-46 if NIP-55 not available
+        setLoginMethod('nip46');
+      }
     }
   }, [hasExtension, loginMethod]);
 
@@ -688,6 +699,109 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   };
 
+  const handleNip55Login = async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      if (!NIP55Client.isAvailable()) {
+        throw new Error('NIP-55 is only available on Android devices');
+      }
+
+      console.log('📱 NIP-55: Starting login with Android signer...');
+
+      // Create NIP-55 client
+      const client = new NIP55Client();
+      setNip55Client(client);
+
+      // Connect and get public key
+      const publicKey = await client.getPublicKey();
+      console.log('✅ NIP-55: Got public key:', publicKey.slice(0, 16) + '...');
+
+      // Generate challenge for authentication
+      const challengeResponse = await fetch('/api/nostr/auth/challenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!challengeResponse.ok) {
+        throw new Error('Failed to get challenge');
+      }
+
+      const challengeData = await challengeResponse.json();
+      const challenge = challengeData.challenge;
+
+      // Create challenge event template
+      const challengeEventTemplate = {
+        kind: 22242,
+        tags: [['challenge', challenge]],
+        content: '',
+        created_at: Math.floor(Date.now() / 1000),
+      };
+
+      // Sign challenge event using NIP-55
+      const signedEvent = await client.signEvent(challengeEventTemplate);
+      console.log('✅ NIP-55: Signed challenge event');
+
+      // Send login request
+      const { publicKeyToNpub } = await import('@/lib/nostr/keys');
+      const npub = publicKeyToNpub(publicKey);
+
+      const loginResponse = await fetch('/api/nostr/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          publicKey,
+          npub,
+          challenge,
+          signature: signedEvent.sig,
+          eventId: signedEvent.id,
+          createdAt: signedEvent.created_at,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        throw new Error(errorData.error || 'Login failed');
+      }
+
+      const loginData = await loginResponse.json();
+      if (loginData.success && loginData.user) {
+        console.log('✅ NIP-55: Login successful!');
+
+        // Save connection info
+        try {
+          localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
+          localStorage.setItem('nostr_login_type', 'nip55');
+          
+          // Store NIP-55 client reference (we'll need to recreate it on reload)
+          // For now, just mark that we're using NIP-55
+          console.log('💾 NIP-55: Saved user to localStorage');
+        } catch (storageError) {
+          console.error('❌ NIP-55: Failed to save to localStorage:', storageError);
+        }
+
+        // Update signer in context
+        const signer = getUnifiedSigner();
+        await signer.setNIP55Signer(client);
+
+        onClose();
+        window.location.reload();
+      } else {
+        throw new Error(loginData.error || 'Login failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'NIP-55 login failed');
+      console.error('❌ NIP-55: Login error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleExtensionLogin = async () => {
     try {
       setIsSubmitting(true);
@@ -854,7 +968,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         )}
 
         {/* Login Method Tabs */}
-        <div className="mb-4 flex gap-2 border-b border-gray-200">
+        <div className="mb-4 flex gap-2 border-b border-gray-200 flex-wrap">
           <button
             onClick={() => setLoginMethod('extension')}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
@@ -865,6 +979,18 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           >
             Extension
           </button>
+          {isNip55Available && (
+            <button
+              onClick={() => setLoginMethod('nip55')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                loginMethod === 'nip55'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Amber (NIP-55)
+            </button>
+          )}
           <button
             onClick={() => setLoginMethod('nip46')}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
@@ -873,7 +999,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Amber
+            Amber (NIP-46)
           </button>
           <button
             onClick={() => setLoginMethod('nip05')}
@@ -911,6 +1037,30 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               </div>
             )}
           </>
+        )}
+
+        {/* NIP-55 Login */}
+        {loginMethod === 'nip55' && (
+          <div className="mb-4">
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800 mb-2">
+                📱 <strong>Amber Signer (NIP-55):</strong> Direct Android app-to-app communication for faster and more reliable signing.
+              </p>
+              <p className="text-xs text-blue-600">
+                This method uses Android Intents for direct communication with Amber, no relay required.
+              </p>
+            </div>
+            <button
+              onClick={handleNip55Login}
+              disabled={isSubmitting}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {isSubmitting ? 'Connecting...' : '📱 Connect with Amber (NIP-55)'}
+            </button>
+            <p className="mt-2 text-xs text-gray-500 text-center">
+              Make sure Amber is installed on your Android device
+            </p>
+          </div>
         )}
 
         {/* NIP-46 Login */}

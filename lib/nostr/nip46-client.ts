@@ -1269,9 +1269,9 @@ export class NIP46Client {
     }
 
     // Reject all pending requests
-    for (const [id, { reject }] of this.pendingRequests.entries()) {
+    Array.from(this.pendingRequests.entries()).forEach(([id, { reject }]) => {
       reject(new Error('Connection closed'));
-    }
+    });
     this.pendingRequests.clear();
 
     if (this.connection) {

@@ -1,5 +1,9 @@
 import { finalizeEvent, Event, EventTemplate as NostrEventTemplate } from 'nostr-tools';
-import { ShortTextNote, Contacts, Metadata } from 'nostr-tools/kinds';
+
+// Use numeric constants instead of importing from kinds to avoid module resolution issues
+const ShortTextNote = 1;
+const Contacts = 3;
+const Metadata = 0;
 
 /**
  * Event creation and signing utilities
