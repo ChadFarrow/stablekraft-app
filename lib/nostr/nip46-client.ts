@@ -819,15 +819,31 @@ export class NIP46Client {
         const hasSuccess = results.some(r => r.status === 'fulfilled');
         if (!hasSuccess) {
           console.error('❌ NIP-46: Failed to publish to any relay:', results);
+          console.error('❌ NIP-46: Relay connection may be closed. Error details:', {
+            results: results.map(r => ({
+              status: r.status,
+              reason: r.status === 'rejected' ? (r.reason instanceof Error ? r.reason.message : String(r.reason)) : 'N/A',
+            })),
+          });
           clearTimeout(timeout);
           this.pendingRequests.delete(id);
-          reject(new Error('Failed to publish request to relay'));
+          reject(new Error('Failed to publish request to relay. The relay connection may be closed. Please try connecting again.'));
         }
       }).catch(err => {
         console.error('❌ NIP-46: Failed to publish request event:', err);
+        console.error('❌ NIP-46: Publish error details:', {
+          errorName: err instanceof Error ? err.name : 'Unknown',
+          errorMessage: err instanceof Error ? err.message : String(err),
+          errorStack: err instanceof Error ? err.stack : 'N/A',
+        });
         clearTimeout(timeout);
         this.pendingRequests.delete(id);
-        reject(new Error(`Failed to publish request: ${err instanceof Error ? err.message : 'Unknown error'}`));
+        const errorMessage = err instanceof Error 
+          ? (err.name === 'SendingOnClosedConnection' 
+              ? 'Relay connection is closed. Please try connecting again.'
+              : err.message)
+          : 'Unknown error';
+        reject(new Error(`Failed to publish request: ${errorMessage}`));
       });
 
       // The response will be handled by handleRelayEvent when we receive it
