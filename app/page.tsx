@@ -1440,10 +1440,14 @@ function HomePageContent() {
             </div>
             
             {/* Version Display - Moved to top for better visibility */}
-            <div className="mt-auto pt-2 border-t border-gray-700">
+            <div className="mt-auto pt-2 border-t border-gray-700 pb-20">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">Version</span>
                 <span className="text-xs text-gray-400 font-mono">{getVersionString()}</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-gray-500">Build</span>
+                <span className="text-xs text-gray-400 font-mono">1.2a587df</span>
               </div>
             </div>
           </div>

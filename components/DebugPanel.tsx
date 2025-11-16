@@ -149,7 +149,7 @@ export function DebugPanel() {
           position: 'fixed',
           bottom: 20,
           right: 20,
-          zIndex: 99999,
+          zIndex: 9999, // Lower z-index so it doesn't cover sidebar
           padding: '12px 16px',
           backgroundColor: '#007bff',
           color: 'white',
