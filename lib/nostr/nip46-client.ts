@@ -1105,7 +1105,10 @@ export class NIP46Client {
       });
 
       // Handle Amber connect response - automatically request public key
-      if (isConnectResponse && !this.connection?.pubkey) {
+      // CRITICAL: Only process connect response if we don't already have a user's pubkey
+      // We temporarily store Amber's pubkey, but that's not the user's pubkey
+      const hasUserPubkey = this.connection?.pubkey && this.connection.pubkey !== event.pubkey;
+      if (isConnectResponse && !hasUserPubkey) {
         console.error(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
         
