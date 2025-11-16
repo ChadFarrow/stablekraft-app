@@ -227,6 +227,18 @@ export default function Nip46Connect({
           <p className="text-xs text-blue-600 text-center">
             Make sure you've scanned the QR code or opened the app, and approved the connection in Amber.
           </p>
+          {debugInfo.connectionCheckCount && debugInfo.connectionCheckCount > 30 && (
+            <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+              ⚠️ Still waiting... ({debugInfo.connectionCheckCount} checks). 
+              <br />
+              Make sure you've:
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                <li>Scanned the QR code with Amber</li>
+                <li>Approved the connection request in Amber</li>
+                <li>Amber is connected to the same relay: <span className="font-mono text-xs">{debugInfo.relayUrl}</span></li>
+              </ul>
+            </div>
+          )}
           <div className="mt-3 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           </div>

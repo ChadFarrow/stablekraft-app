@@ -295,10 +295,26 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         
         // Try requesting the public key - this will work if Amber is listening
         try {
+          console.log('⏳ LoginModal: Waiting 2 seconds for Amber to be ready...');
           // Wait a bit for Amber to be ready
           await new Promise(resolve => setTimeout(resolve, 2000));
           
+          console.log('📤 LoginModal: Requesting public key from Amber via relay...');
+          console.log('📋 LoginModal: Connection details:', {
+            relayUrl: connection?.signerUrl,
+            hasRelayClient: !!client,
+          });
+          
+          // Set a timeout warning
+          const timeoutWarning = setTimeout(() => {
+            console.warn('⚠️ LoginModal: Still waiting for public key response (30s elapsed). This might indicate:');
+            console.warn('  1. Amber hasn\'t approved the connection yet');
+            console.warn('  2. Amber is not connected to the same relay');
+            console.warn('  3. Network/relay connectivity issues');
+          }, 30000);
+          
           publicKey = await client.getPublicKey();
+          clearTimeout(timeoutWarning);
           console.log('✅ LoginModal: Got public key from signer:', publicKey.slice(0, 16) + '...');
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err);
@@ -315,10 +331,24 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               hasConnection: !!connection,
               hasPubkey: !!connection?.pubkey,
               connected: connection?.connected,
+              relayUrl: connection?.signerUrl,
             },
           });
           
-          throw new Error(`Unable to communicate with signer: ${errorMessage}. Please ensure Amber is connected and try again.`);
+          // Provide more helpful error message
+          let helpfulMessage = `Unable to communicate with signer: ${errorMessage}`;
+          if (errorMessage.includes('timeout')) {
+            helpfulMessage += '\n\nPossible causes:\n';
+            helpfulMessage += '1. Amber hasn\'t approved the connection yet - check your phone\n';
+            helpfulMessage += '2. Amber is not connected to the same relay\n';
+            helpfulMessage += '3. Network connectivity issues\n';
+            helpfulMessage += '\nTry:\n';
+            helpfulMessage += '- Make sure you scanned the QR code and approved in Amber\n';
+            helpfulMessage += '- Check that Amber is using the relay: ' + (connection?.signerUrl || 'unknown') + '\n';
+            helpfulMessage += '- Try clicking "Continue" button to retry';
+          }
+          
+          throw new Error(helpfulMessage);
         }
       }
       
