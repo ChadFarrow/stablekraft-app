@@ -382,6 +382,21 @@ export class NIP46Client {
           eventContentType = event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content) ? 'signature' : 'plain text';
         }
         
+        // CRITICAL: Log filtering decision with console.error for visibility
+        const filterDecision = isForUs && !isFromUs ? 'WILL PROCESS' : (isFromUs ? 'IGNORED (from us)' : 'IGNORED (not tagged for us)');
+        console.error(`[NIP46-FILTER] Event #${this.eventCounter} ${filterDecision}:`, {
+          eventId: event.id.slice(0, 16) + '...',
+          eventPubkey: event.pubkey.slice(0, 16) + '...',
+          allPTags: allPTags.map(p => p.slice(0, 16) + '...'),
+          appPubkey: appPubkey.slice(0, 16) + '...',
+          isForUs,
+          isFromUs,
+          willProcess: isForUs && !isFromUs,
+          reason: isFromUs ? 'Event is from us (our own request)' : !isForUs ? 'Event not tagged for us' : 'Event is for us and not from us - will process',
+          eventContentType,
+          contentLength: event.content.length,
+        });
+        
         console.log('🔍 NIP-46: Event filtering check:', {
           eventId: event.id.slice(0, 16) + '...',
           eventPubkey: event.pubkey.slice(0, 16) + '...',
@@ -462,7 +477,14 @@ export class NIP46Client {
                 console.log('ℹ️ NIP-46: Event is not for us and not a connection/response event, ignoring');
               }
             } catch (e) {
-              // Not JSON or can't decrypt, ignore
+              // Not JSON or can't decrypt, but might still be a response we need
+              console.error(`[NIP46-UNTAGGED] Event #${this.eventCounter} not parseable, but checking if it's a response anyway:`, {
+                eventId: event.id.slice(0, 16) + '...',
+                error: e instanceof Error ? e.message : String(e),
+                contentLength: event.content.length,
+                contentPreview: event.content.substring(0, 100),
+                hasPendingGetPublicKey: Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key'),
+              });
               console.log('ℹ️ NIP-46: Event content is not parseable, ignoring:', e instanceof Error ? e.message : String(e));
             }
           }
