@@ -348,10 +348,11 @@ export class NIP46Client {
         
         try {
           // Decrypt using NIP-44
-          // Private key should be Uint8Array, public key should be hex string
+          // Private key should be Uint8Array, encrypted message is a string
+          // The public key information is embedded in the encrypted message
           const appPrivateKeyBytes = hexToBytes(appPrivateKey);
           
-          decryptedContent = nip44.decrypt(appPrivateKeyBytes, signerPubkey, event.content);
+          decryptedContent = nip44.decrypt(appPrivateKeyBytes, event.content);
           console.log('✅ NIP-46: Successfully decrypted NIP-44 content');
           
           // Now parse the decrypted JSON
