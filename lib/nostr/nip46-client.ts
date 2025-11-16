@@ -411,15 +411,23 @@ export class NIP46Client {
           contentLength: event.content.length,
         });
         
+        // AGGRESSIVE FIX: If we have pending requests, try to process ANY event that's not from us
+        // This handles cases where Amber doesn't tag events correctly
+        const hasPendingRequests = this.pendingRequests.size > 0;
+        const hasPendingGetPublicKey = Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key');
+        
         if (isForUs && !isFromUs) {
           // Only process events that are for us AND not from us (responses from signer)
           console.log('✅ NIP-46: Event passed filter, processing...');
           this.handleRelayEvent(event, connectionInfo);
-        } else {
-          if (isFromUs) {
-            console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
-          } else if (!isForUs) {
-            console.log('ℹ️ NIP-46: Event received but not tagged for us. Event details:', {
+        } else if (isFromUs) {
+          console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
+        } else if (!isForUs) {
+          // Event not tagged for us - but if we have pending requests, try to process it anyway
+          if (hasPendingRequests) {
+            console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} not tagged for us, but we have ${this.pendingRequests.size} pending requests. Attempting to process...`);
+          }
+          console.log('ℹ️ NIP-46: Event received but not tagged for us. Event details:', {
               eventId: event.id.slice(0, 16) + '...',
               eventPubkey: event.pubkey.slice(0, 16) + '...',
               allPTags: allPTags.map(p => p.slice(0, 16) + '...'),
@@ -463,6 +471,7 @@ export class NIP46Client {
               const mightBeGetPublicKeyResponse = looksLikeGetPublicKeyResponse && hasPendingGetPublicKey;
               
               if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse) {
+                console.error(`[NIP46-AGGRESSIVE] Processing untagged event #${this.eventCounter} that looks like a response`);
                 console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
                   mightBeConnection,
                   isResponseToPending,
@@ -472,6 +481,10 @@ export class NIP46Client {
                   hasPendingGetPublicKey,
                   looksLikeGetPublicKeyResponse,
                 });
+                this.handleRelayEvent(event, connectionInfo);
+              } else if (hasPendingGetPublicKey && content.result) {
+                // AGGRESSIVE: If we have pending get_public_key and this has ANY result, try processing it
+                console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} has result field and we have pending get_public_key. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
               } else {
                 console.log('ℹ️ NIP-46: Event is not for us and not a connection/response event, ignoring');
@@ -488,7 +501,6 @@ export class NIP46Client {
               console.log('ℹ️ NIP-46: Event content is not parseable, ignoring:', e instanceof Error ? e.message : String(e));
             }
           }
-        }
         } catch (eventError) {
           console.error('[NIP46-ERROR] Error in onEvent callback:', eventError);
           console.error('[NIP46-ERROR] Event that caused error:', {
