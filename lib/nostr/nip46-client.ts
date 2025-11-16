@@ -1077,10 +1077,15 @@ export class NIP46Client {
     console.log('📤 NIP-46: Creating relay request:', {
       method,
       requestId: id,
+      requestIdType: typeof id,
+      requestIdLength: id.length,
+      requestIdPreview: id.substring(0, 50) + '...',
       hasSignerPubkey: !!signerPubkey,
       signerPubkey: signerPubkey ? signerPubkey.slice(0, 16) + '...' : 'N/A',
       appPubkey: appPubkey.slice(0, 16) + '...',
       pendingRequestsCount: this.pendingRequests.size,
+      fullRequest: JSON.stringify(request, null, 2),
+      note: 'This ID will be used to match the response. Make sure response.id matches exactly.',
     });
 
     // For relay-based requests, we need to wait for the response event
