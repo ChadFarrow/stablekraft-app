@@ -773,6 +773,33 @@ export class NIP46Client {
         reject(new Error('Connection not initialized'));
         return;
       }
+
+      // Check if relay client exists
+      if (!this.relayClient) {
+        console.error('❌ NIP-46: Relay client is null, cannot publish');
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        reject(new Error('Relay client not connected. Please try connecting again.'));
+        return;
+      }
+
+      // Ensure relay is still connected - reconnect if needed
+      try {
+        // Check if relay manager has the relay connected
+        const relayManager = (this.relayClient as any).relayManager;
+        if (relayManager) {
+          const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
+          if (!isRelayConnected) {
+            console.log('⚠️ NIP-46: Relay appears disconnected, reconnecting...', {
+              relayUrl: this.connection.signerUrl,
+            });
+            await this.startRelayConnection(this.connection.signerUrl);
+          }
+        }
+      } catch (reconnectErr) {
+        console.error('❌ NIP-46: Failed to reconnect to relay:', reconnectErr);
+        // Continue anyway - might still work
+      }
       
       this.relayClient!.publish(requestEvent, {
         relays: [this.connection.signerUrl],
