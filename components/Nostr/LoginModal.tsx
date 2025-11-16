@@ -270,6 +270,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }
       
       // Start listening on relay for connection
+      // For now, we only support relay-based connections (nostrconnect://)
+      // bunker:// URIs would be handled separately if provided by the user
       try {
         await client.connect(relayUrl, token, false);
       } catch (err) {

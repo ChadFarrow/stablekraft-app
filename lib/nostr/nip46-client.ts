@@ -21,6 +21,70 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Parse bunker:// URI to extract connection information
+ * Format: bunker://<pubkey>?relay=<relay_url>&relay=<relay_url2>&secret=<secret>
+ * @param uri - The bunker:// URI string
+ * @returns Parsed connection info with pubkey, relay URLs, and secret
+ */
+export interface BunkerConnectionInfo {
+  pubkey: string;
+  relays: string[];
+  secret: string;
+}
+
+export function parseBunkerUri(uri: string): BunkerConnectionInfo {
+  if (!uri.startsWith('bunker://')) {
+    throw new Error('Invalid bunker:// URI format - must start with bunker://');
+  }
+
+  // Remove bunker:// prefix
+  const withoutScheme = uri.substring(9);
+  
+  // Split on ? to separate pubkey from query params
+  const [pubkeyPart, queryString] = withoutScheme.split('?');
+  
+  if (!pubkeyPart || pubkeyPart.length !== 64) {
+    throw new Error('Invalid bunker:// URI - pubkey must be 64 hex characters');
+  }
+
+  const pubkey = pubkeyPart;
+  const relays: string[] = [];
+  let secret = '';
+
+  // Parse query parameters
+  if (queryString) {
+    const params = new URLSearchParams(queryString);
+    
+    // Get all relay parameters (can be multiple)
+    params.getAll('relay').forEach(relay => {
+      if (relay) {
+        relays.push(decodeURIComponent(relay));
+      }
+    });
+    
+    // Get secret parameter (required)
+    const secretParam = params.get('secret');
+    if (secretParam) {
+      secret = decodeURIComponent(secretParam);
+    } else {
+      throw new Error('Invalid bunker:// URI - secret parameter is required');
+    }
+  } else {
+    throw new Error('Invalid bunker:// URI - query parameters are required');
+  }
+
+  if (relays.length === 0) {
+    throw new Error('Invalid bunker:// URI - at least one relay URL is required');
+  }
+
+  return {
+    pubkey,
+    relays,
+    secret,
+  };
+}
+
 export interface NIP46Connection {
   signerUrl: string;
   token: string;
@@ -58,18 +122,103 @@ export class NIP46Client {
 
   /**
    * Connect to a NIP-46 signer
-   * @param signerUrl - WebSocket URL of the signer (e.g., wss://signer.example.com) or relay URL
-   * @param token - Connection token (nsecBunker token)
+   * @param signerUrl - WebSocket URL of the signer, relay URL, or bunker:// URI
+   * @param token - Connection token (nsecBunker token or secret)
    * @param connectImmediately - Whether to connect immediately (default: false, wait for signer to initiate)
+   * @param signerPubkey - Optional signer pubkey (for bunker:// connections, extracted from URI)
    */
-  async connect(signerUrl: string, token: string, connectImmediately: boolean = false): Promise<void> {
+  async connect(signerUrl: string, token: string, connectImmediately: boolean = false, signerPubkey?: string): Promise<void> {
     if (this.connection && this.connection.connected) {
       await this.disconnect();
     }
 
+    // Detect URI scheme: bunker:// vs nostrconnect:// vs direct URL
+    if (signerUrl.startsWith('bunker://')) {
+      console.log('🔌 NIP-46: Detected bunker:// URI, parsing for nsecbunker connection');
+      return this.connectBunker(signerUrl);
+    } else if (signerUrl.startsWith('nostrconnect://')) {
+      console.log('🔌 NIP-46: Detected nostrconnect:// URI, using relay-based connection');
+      // Extract relay URL from nostrconnect:// URI if needed
+      // For now, assume signerUrl is already the relay URL
+      return this.connectNostrConnect(signerUrl, token);
+    } else {
+      // Direct URL connection (existing logic)
+      return this.connectDirect(signerUrl, token, connectImmediately, signerPubkey);
+    }
+  }
+
+  /**
+   * Connect using bunker:// URI (nsecbunker WebSocket)
+   */
+  private async connectBunker(bunkerUri: string): Promise<void> {
+    try {
+      const bunkerInfo = parseBunkerUri(bunkerUri);
+      console.log('🔌 NIP-46: Parsed bunker:// URI:', {
+        pubkey: bunkerInfo.pubkey.slice(0, 16) + '...',
+        relayCount: bunkerInfo.relays.length,
+        relays: bunkerInfo.relays,
+        hasSecret: !!bunkerInfo.secret,
+      });
+
+      // Use the first relay URL as the WebSocket endpoint
+      const wsUrl = bunkerInfo.relays[0];
+      
+      // Store connection info with signer pubkey from URI
+      this.connection = {
+        signerUrl: wsUrl,
+        token: bunkerInfo.secret,
+        pubkey: bunkerInfo.pubkey, // Pubkey is known from URI
+        connected: false,
+      };
+
+      // Connect immediately via WebSocket for nsecbunker
+      console.log('🔌 NIP-46: Connecting to nsecbunker via WebSocket:', wsUrl);
+      return this.establishConnection();
+    } catch (error) {
+      console.error('❌ NIP-46: Failed to parse bunker:// URI:', error);
+      throw new Error(`Failed to parse bunker:// URI: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Connect using nostrconnect:// URI (relay-based)
+   */
+  private async connectNostrConnect(nostrConnectUri: string, token: string): Promise<void> {
+    // For nostrconnect://, we need to extract the relay URL
+    // The URI format is: nostrconnect://<pubkey>?relay=<relay_url>&secret=<secret>
+    // For now, we'll use the existing relay-based connection logic
+    // The signerUrl parameter should already be the relay URL
+    this.connection = {
+      signerUrl: nostrConnectUri, // Will be parsed in startRelayConnection if needed
+      token,
+      connected: false,
+    };
+
+    // Extract relay URL from URI if it's a full nostrconnect:// URI
+    let relayUrl = nostrConnectUri;
+    if (nostrConnectUri.startsWith('nostrconnect://')) {
+      try {
+        const url = new URL(nostrConnectUri.replace('nostrconnect://', 'http://'));
+        const relayParam = url.searchParams.get('relay');
+        if (relayParam) {
+          relayUrl = decodeURIComponent(relayParam);
+        }
+      } catch (err) {
+        console.warn('⚠️ NIP-46: Failed to parse nostrconnect:// URI, using as-is:', err);
+      }
+    }
+
+    return this.startRelayConnection(relayUrl);
+  }
+
+  /**
+   * Connect using direct URL (existing logic)
+   */
+  private async connectDirect(signerUrl: string, token: string, connectImmediately: boolean, signerPubkey?: string): Promise<void> {
     this.connection = {
       signerUrl,
       token,
+      pubkey: signerPubkey,
       connected: false,
     };
 
@@ -81,7 +230,7 @@ export class NIP46Client {
     
     // For relay-based connections, we'll wait for the signer to connect
     // The connection will be established when we receive a connection request
-    if (signerUrl.includes('relay') || signerUrl.startsWith('wss://') && signerUrl.includes('relay')) {
+    if (signerUrl.includes('relay') || (signerUrl.startsWith('wss://') && signerUrl.includes('relay'))) {
       // Start listening for connection events on the relay
       return this.startRelayConnection(signerUrl);
     }
@@ -619,6 +768,9 @@ export class NIP46Client {
       throw new Error('No connection configured');
     }
 
+    // Check if this is a nsecbunker connection (pubkey already known from bunker:// URI)
+    const isNsecbunker = !!this.connection.pubkey && this.connection.signerUrl.startsWith('wss://');
+
     return new Promise((resolve, reject) => {
       try {
         const ws = new WebSocket(this.connection!.signerUrl);
@@ -628,6 +780,41 @@ export class NIP46Client {
           this.ws = ws;
           this.reconnectAttempts = 0;
           this.startHeartbeat();
+          
+          // For nsecbunker, pubkey is already known from URI
+          // Mark as connected and trigger callback immediately
+          if (isNsecbunker && this.connection?.pubkey) {
+            console.log('🔌 NIP-46: nsecbunker connection - pubkey already known from URI:', this.connection.pubkey.slice(0, 16) + '...');
+            this.connection.connected = true;
+            this.connection.connectedAt = Date.now();
+            
+            // Save connection to localStorage
+            if (typeof window !== 'undefined') {
+              try {
+                const { saveNIP46Connection } = require('./nip46-storage');
+                saveNIP46Connection({
+                  token: this.connection.token,
+                  pubkey: this.connection.pubkey,
+                  signerUrl: this.connection.signerUrl,
+                  connectedAt: Date.now(),
+                });
+                console.log('💾 NIP-46: Saved nsecbunker connection to localStorage');
+              } catch (err) {
+                console.error('❌ NIP-46: Failed to save connection:', err);
+              }
+            }
+            
+            // Trigger connection callback if set
+            if (this.onConnectionCallback && this.connection.pubkey) {
+              console.log('📞 NIP-46: Calling nsecbunker connection callback with pubkey:', this.connection.pubkey.slice(0, 16) + '...');
+              const callback = this.onConnectionCallback;
+              this.onConnectionCallback = null; // Clear to prevent duplicate calls
+              setTimeout(() => {
+                callback(this.connection!.pubkey!);
+              }, 100);
+            }
+          }
+          
           resolve();
         };
 
