@@ -289,60 +289,77 @@ export class NIP46Client {
       }
 
       // Check if this is a response to a pending request
-      if (content.id && this.pendingRequests.has(content.id)) {
-        const pending = this.pendingRequests.get(content.id);
-        if (pending) {
-          this.pendingRequests.delete(content.id);
-          if (content.error) {
-            console.error('❌ NIP-46: Error in response:', content.error);
-            pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
-          } else {
-            console.log('✅ NIP-46: Resolving pending request:', {
-              id: content.id,
-              resultType: typeof content.result,
-              resultIsString: typeof content.result === 'string',
-              resultIsUndefined: content.result === undefined,
-              resultIsNull: content.result === null,
-              resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
-              resultPreview: typeof content.result === 'string' 
-                ? content.result.slice(0, 32) + '...' 
-                : content.result === undefined 
-                  ? 'UNDEFINED' 
-                  : content.result === null 
-                    ? 'NULL'
-                    : JSON.stringify(content.result).slice(0, 200),
-              fullContent: JSON.stringify(content, null, 2),
-            });
+      if (content.id) {
+        console.log('🔍 NIP-46: Checking if response matches pending request:', {
+          responseId: content.id,
+          pendingRequestIds: Array.from(this.pendingRequests.keys()),
+          hasMatch: this.pendingRequests.has(content.id),
+        });
+
+        if (this.pendingRequests.has(content.id)) {
+          const pending = this.pendingRequests.get(content.id);
+          if (pending) {
+            this.pendingRequests.delete(content.id);
+            console.log('✅ NIP-46: Found matching pending request, processing response');
             
-            // Handle case where result might be undefined
-            if (content.result === undefined) {
-              console.error('❌ NIP-46: Response result is undefined! Full content:', JSON.stringify(content, null, 2));
-              console.error('❌ NIP-46: Event content:', event.content);
-              console.error('❌ NIP-46: Parsed content:', content);
-              // Try to extract result from different possible locations
-              if (event.content && typeof event.content === 'string') {
-                try {
-                  const parsedContent = JSON.parse(event.content);
-                  if (parsedContent.result !== undefined) {
-                    console.log('✅ NIP-46: Found result in parsed event.content:', parsedContent.result);
-                    pending.resolve(parsedContent.result);
-                    return;
-                  }
-                } catch (e) {
-                  // Not JSON, might be plain text
-                  if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
-                    console.log('✅ NIP-46: Event content appears to be a signature:', event.content.slice(0, 16) + '...');
-                    pending.resolve(event.content);
-                    return;
+            if (content.error) {
+              console.error('❌ NIP-46: Error in response:', content.error);
+              pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
+            } else {
+              console.log('✅ NIP-46: Resolving pending request:', {
+                id: content.id,
+                resultType: typeof content.result,
+                resultIsString: typeof content.result === 'string',
+                resultIsUndefined: content.result === undefined,
+                resultIsNull: content.result === null,
+                resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+                resultPreview: typeof content.result === 'string' 
+                  ? content.result.slice(0, 32) + '...' 
+                  : content.result === undefined 
+                    ? 'UNDEFINED' 
+                    : content.result === null 
+                      ? 'NULL'
+                      : JSON.stringify(content.result).slice(0, 200),
+                fullContent: JSON.stringify(content, null, 2),
+              });
+              
+              // Handle case where result might be undefined
+              if (content.result === undefined) {
+                console.error('❌ NIP-46: Response result is undefined! Full content:', JSON.stringify(content, null, 2));
+                console.error('❌ NIP-46: Event content:', event.content);
+                console.error('❌ NIP-46: Parsed content:', content);
+                // Try to extract result from different possible locations
+                if (event.content && typeof event.content === 'string') {
+                  try {
+                    const parsedContent = JSON.parse(event.content);
+                    if (parsedContent.result !== undefined) {
+                      console.log('✅ NIP-46: Found result in parsed event.content:', parsedContent.result);
+                      pending.resolve(parsedContent.result);
+                      return;
+                    }
+                  } catch (e) {
+                    // Not JSON, might be plain text
+                    if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
+                      console.log('✅ NIP-46: Event content appears to be a signature:', event.content.slice(0, 16) + '...');
+                      pending.resolve(event.content);
+                      return;
+                    }
                   }
                 }
+                pending.reject(new Error('Response result is undefined - no signature received from signer'));
+              } else {
+                pending.resolve(content.result);
               }
-              pending.reject(new Error('Response result is undefined - no signature received from signer'));
-            } else {
-              pending.resolve(content.result);
             }
+            return;
           }
-          return;
+        } else {
+          console.log('⚠️ NIP-46: Response ID does not match any pending request:', {
+            responseId: content.id,
+            pendingRequestIds: Array.from(this.pendingRequests.keys()),
+            hasResult: 'result' in content,
+            hasError: 'error' in content,
+          });
         }
       }
 
@@ -591,19 +608,42 @@ export class NIP46Client {
       params,
     };
 
+    console.log('📤 NIP-46: Creating relay request:', {
+      method,
+      requestId: id,
+      hasSignerPubkey: !!signerPubkey,
+      signerPubkey: signerPubkey ? signerPubkey.slice(0, 16) + '...' : 'N/A',
+      appPubkey: appPubkey.slice(0, 16) + '...',
+      pendingRequestsCount: this.pendingRequests.size,
+    });
+
     // For relay-based requests, we need to wait for the response event
     // This is a simplified implementation - in production, you'd want to
     // properly handle the request/response cycle via relay events
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
 
-      // Timeout after 60 seconds for relay requests (longer than WebSocket)
+      console.log('⏳ NIP-46: Waiting for response to request:', {
+        requestId: id,
+        method,
+        totalPendingRequests: this.pendingRequests.size,
+      });
+
+      // Timeout after 90 seconds for relay requests (longer than WebSocket)
+      // Relay-based communication can be slower
       const timeout = setTimeout(() => {
         if (this.pendingRequests.has(id)) {
+          console.error('❌ NIP-46: Request timeout:', {
+            requestId: id,
+            method,
+            timeoutMs: 90000,
+            pendingRequestsCount: this.pendingRequests.size,
+            allPendingIds: Array.from(this.pendingRequests.keys()),
+          });
           this.pendingRequests.delete(id);
-          reject(new Error(`Request timeout: ${method} - Relay requests may take longer. Please ensure Amber is connected and try again.`));
+          reject(new Error(`Request timeout: ${method} - No response received from signer after 90 seconds. Please ensure Amber is connected and try again.`));
         }
-      }, 60000);
+      }, 90000);
 
       // If it's get_public_key and we already have the pubkey, return it immediately
       if (method === 'get_public_key' && signerPubkey) {
