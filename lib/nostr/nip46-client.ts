@@ -194,12 +194,19 @@ export class NIP46Client {
         const isFromUs = event.pubkey === appPubkey;
         
         console.log('🔍 NIP-46: Event filtering check:', {
-          isForUs,
-          isFromUs,
-          appPubkey: appPubkey.slice(0, 16) + '...',
+          eventId: event.id.slice(0, 16) + '...',
           eventPubkey: event.pubkey.slice(0, 16) + '...',
           tags: event.tags,
+          tagsDetail: event.tags.map(tag => ({
+            type: tag[0],
+            value: tag[1]?.slice(0, 16) + '...',
+            fullTag: tag,
+          })),
+          appPubkey: appPubkey.slice(0, 16) + '...',
+          isForUs,
+          isFromUs,
           willProcess: isForUs && !isFromUs,
+          reason: isFromUs ? 'Event is from us (our own request)' : !isForUs ? 'Event not tagged for us' : 'Event is for us and not from us - will process',
         });
         
         if (isForUs && !isFromUs) {
