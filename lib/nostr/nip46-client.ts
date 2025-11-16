@@ -731,8 +731,17 @@ export class NIP46Client {
         } else {
           console.log('⚠️ NIP-46: Response ID does not match any pending request:', {
             responseId: content.id,
+            responseIdType: typeof content.id,
+            responseIdLength: typeof content.id === 'string' ? content.id.length : 'N/A',
             pendingRequestIds: Array.from(this.pendingRequests.keys()),
+            pendingRequestIdsTypes: Array.from(this.pendingRequests.keys()).map(id => typeof id),
+            pendingRequestIdsLengths: Array.from(this.pendingRequests.keys()).map(id => typeof id === 'string' ? id.length : 'N/A'),
             hasResult: 'result' in content,
+            hasError: 'error' in content,
+            hasMethod: 'method' in content,
+            contentKeys: Object.keys(content),
+            contentPreview: JSON.stringify(content).substring(0, 300),
+            note: 'This might be a response to an old request, or the request ID format is different. Check if IDs match exactly (including type and length).',
             hasError: 'error' in content,
           });
         }
