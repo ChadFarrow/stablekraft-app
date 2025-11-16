@@ -643,10 +643,24 @@ export class NIP46Client {
         });
 
         if (this.pendingRequests.has(content.id)) {
+          // Log all pending request IDs for debugging
+          const pendingRequestIds = Array.from(this.pendingRequests.keys());
+          console.log('🔍 NIP-46: Checking for matching pending request:', {
+            responseId: content.id,
+            pendingRequestIds,
+            hasMatchingRequest: this.pendingRequests.has(content.id),
+            allPendingIds: pendingRequestIds,
+          });
+          
           const pending = this.pendingRequests.get(content.id);
           if (pending) {
             this.pendingRequests.delete(content.id);
-            console.log('✅ NIP-46: Found matching pending request, processing response');
+            console.log('✅ NIP-46: Found matching pending request, processing response:', {
+              requestId: content.id,
+              method: content.method,
+              hasResult: 'result' in content,
+              hasError: 'error' in content,
+            });
             
             if (content.error) {
               console.error('❌ NIP-46: Error in response:', content.error);
