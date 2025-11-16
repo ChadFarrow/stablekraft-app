@@ -119,6 +119,8 @@ export class NIP46Client {
   private relayClient: NostrClient | null = null;
   private relaySubscription: (() => void) | null = null;
   private onConnectionCallback: ((pubkey: string) => void) | null = null;
+  private eventCounter: number = 0; // Track total events received
+  private lastEventTime: number = 0; // Track when last event was received
 
   /**
    * Connect to a NIP-46 signer
@@ -328,8 +330,13 @@ export class NIP46Client {
       relays: [relayUrl],
       filters,
       onEvent: (event: Event) => {
-        console.log('🎯 NIP-46: onEvent callback triggered!');
+        // Increment event counter
+        this.eventCounter++;
+        this.lastEventTime = Date.now();
+        
+        console.log(`🎯 NIP-46: onEvent callback triggered! (Event #${this.eventCounter})`);
         console.log('📨 NIP-46: Received event from relay:', {
+          eventNumber: this.eventCounter,
           id: event.id.slice(0, 16) + '...',
           pubkey: event.pubkey.slice(0, 16) + '...',
           kind: event.kind,
@@ -338,6 +345,7 @@ export class NIP46Client {
           contentLength: event.content.length,
           contentPreview: event.content.substring(0, 200),
           timestamp: new Date(event.created_at * 1000).toISOString(),
+          timeSinceLastEvent: this.eventCounter > 1 ? `${Date.now() - this.lastEventTime}ms` : 'first event',
         });
         
         // Check if this event is for us (tagged with our pubkey)
@@ -419,9 +427,23 @@ export class NIP46Client {
       },
       onEose: () => {
         console.log('✅ NIP-46: Subscription EOSE (End of Stored Events)');
+        console.log('📊 NIP-46: Subscription statistics:', {
+          pendingRequests: this.pendingRequests.size,
+          pendingRequestIds: Array.from(this.pendingRequests.keys()),
+          hasConnection: !!this.connection,
+          connectionPubkey: this.connection?.pubkey?.slice(0, 16) + '...',
+          connected: this.connection?.connected,
+        });
       },
       onError: (error) => {
         console.error('❌ NIP-46: Relay subscription error:', error);
+        console.error('❌ NIP-46: Subscription error details:', {
+          errorName: error instanceof Error ? error.name : 'Unknown',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : 'N/A',
+          relayUrl,
+          hasSubscription: !!this.relaySubscription,
+        });
       },
     });
 
@@ -627,6 +649,9 @@ export class NIP46Client {
             
             if (content.error) {
               console.error('❌ NIP-46: Error in response:', content.error);
+              if ((pending as any).statusInterval) {
+                clearInterval((pending as any).statusInterval);
+              }
               pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
             } else {
               console.log('✅ NIP-46: Resolving pending request:', {
@@ -657,6 +682,9 @@ export class NIP46Client {
                     const parsedContent = JSON.parse(event.content);
                     if (parsedContent.result !== undefined) {
                       console.log('✅ NIP-46: Found result in parsed event.content:', parsedContent.result);
+                      if ((pending as any).statusInterval) {
+                        clearInterval((pending as any).statusInterval);
+                      }
                       pending.resolve(parsedContent.result);
                       return;
                     }
@@ -664,13 +692,22 @@ export class NIP46Client {
                     // Not JSON, might be plain text
                     if (event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content)) {
                       console.log('✅ NIP-46: Event content appears to be a signature:', event.content.slice(0, 16) + '...');
+                      if ((pending as any).statusInterval) {
+                        clearInterval((pending as any).statusInterval);
+                      }
                       pending.resolve(event.content);
                       return;
                     }
                   }
                 }
+                if ((pending as any).statusInterval) {
+                  clearInterval((pending as any).statusInterval);
+                }
                 pending.reject(new Error('Response result is undefined - no signature received from signer'));
               } else {
+                if ((pending as any).statusInterval) {
+                  clearInterval((pending as any).statusInterval);
+                }
                 pending.resolve(content.result);
               }
             }
@@ -1027,17 +1064,51 @@ export class NIP46Client {
     // This is a simplified implementation - in production, you'd want to
     // properly handle the request/response cycle via relay events
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      const startTime = Date.now();
+      const pendingRequest: PendingRequest & { startTime?: number; statusInterval?: NodeJS.Timeout } = { 
+        resolve, 
+        reject,
+        startTime,
+      };
+      this.pendingRequests.set(id, pendingRequest);
 
       console.log('⏳ NIP-46: Waiting for response to request:', {
         requestId: id,
         method,
         totalPendingRequests: this.pendingRequests.size,
+        eventsReceivedSoFar: this.eventCounter,
+        lastEventReceived: this.lastEventTime > 0 ? `${Math.floor((Date.now() - this.lastEventTime) / 1000)}s ago` : 'never',
       });
+
+      // Set up periodic status logging while waiting
+      const statusInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 10000 && elapsed % 30000 < 1000) { // Log every 30 seconds after 10 seconds
+          console.log('⏳ NIP-46: Still waiting for response...', {
+            requestId: id,
+            method,
+            elapsedSeconds: Math.floor(elapsed / 1000),
+            eventsReceivedTotal: this.eventCounter,
+            lastEventReceived: this.lastEventTime > 0 ? `${Math.floor((Date.now() - this.lastEventTime) / 1000)}s ago` : 'never',
+            pendingRequestsCount: this.pendingRequests.size,
+            subscriptionActive: !!this.relaySubscription,
+            relayUrl: this.connection?.signerUrl,
+            warning: this.eventCounter === 0 
+              ? '⚠️ No events received at all - subscription might not be working'
+              : this.lastEventTime > 0 && Date.now() - this.lastEventTime > 60000
+              ? '⚠️ No events received in last 60s - relay might be disconnected'
+              : undefined,
+          });
+        }
+      }, 1000);
+      
+      // Store interval for cleanup
+      pendingRequest.statusInterval = statusInterval;
 
       // Timeout after 90 seconds for relay requests (longer than WebSocket)
       // Relay-based communication can be slower
       const timeout = setTimeout(() => {
+        clearInterval(statusInterval);
         if (this.pendingRequests.has(id)) {
           console.error('❌ NIP-46: Request timeout:', {
             requestId: id,
@@ -1045,6 +1116,9 @@ export class NIP46Client {
             timeoutMs: 90000,
             pendingRequestsCount: this.pendingRequests.size,
             allPendingIds: Array.from(this.pendingRequests.keys()),
+            eventsReceivedTotal: this.eventCounter,
+            lastEventReceived: this.lastEventTime > 0 ? `${Math.floor((Date.now() - this.lastEventTime) / 1000)}s ago` : 'never',
+            subscriptionActive: !!this.relaySubscription,
           });
           this.pendingRequests.delete(id);
           reject(new Error(`Request timeout: ${method} - No response received from signer after 90 seconds. Please ensure Amber is connected and try again.`));
@@ -1055,6 +1129,7 @@ export class NIP46Client {
       if (method === 'get_public_key' && signerPubkey) {
         console.log('✅ NIP-46: Already have signer pubkey, returning immediately:', signerPubkey.slice(0, 16) + '...');
         clearTimeout(timeout);
+        clearInterval(statusInterval);
         this.pendingRequests.delete(id);
         resolve(signerPubkey);
         return;
@@ -1140,6 +1215,7 @@ export class NIP46Client {
         // Ensure connection still exists
         if (!this.connection) {
           clearTimeout(timeout);
+          clearInterval(statusInterval);
           this.pendingRequests.delete(id);
           reject(new Error('Connection lost during publish attempt'));
           return;
@@ -1162,10 +1238,28 @@ export class NIP46Client {
             })),
             eventId: requestEvent.id.slice(0, 16) + '...',
             eventTags: requestEvent.tags,
+            eventTagsDetail: requestEvent.tags.map(tag => ({
+              type: tag[0],
+              value: tag[1]?.slice(0, 16) + '...',
+              fullTag: tag,
+            })),
             relayUrl: this.connection?.signerUrl,
+            eventPubkey: requestEvent.pubkey.slice(0, 16) + '...',
             note: !signerPubkey && method === 'get_public_key'
               ? '⚠️ Request tagged with app pubkey - ensure Amber is subscribed to events from this app pubkey'
               : 'Request tagged with signer pubkey',
+            subscriptionActive: !!this.relaySubscription,
+            pendingRequestsCount: this.pendingRequests.size,
+            waitingForResponse: true,
+          });
+          
+          // Log a reminder about what we're waiting for
+          console.log('⏳ NIP-46: Now waiting for response event with matching request ID:', {
+            requestId: id,
+            method,
+            expectedResponseFormat: 'Event with kind 24133, content containing { id: "' + id + '", result: "..." }',
+            subscriptionFilters: 'Listening for kind 24133 events',
+            note: 'If no response is received, check: 1) Amber is connected to the same relay, 2) Amber has approved the connection, 3) Relay is working correctly',
           });
           
           // Check if at least one relay accepted the event
