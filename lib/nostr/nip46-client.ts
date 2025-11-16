@@ -799,12 +799,45 @@ export class NIP46Client {
         reject(new Error('Relay client not connected. Please try connecting again.'));
         return;
       }
+
+      // Double-check relay connection before publishing
+      try {
+        const relayManager = (this.relayClient as any).relayManager;
+        if (relayManager) {
+          const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
+          if (!isRelayConnected) {
+            console.warn('⚠️ NIP-46: Relay not connected before publish, attempting to reconnect...');
+            // Try to reconnect synchronously (don't await, just start it)
+            this.startRelayConnection(this.connection.signerUrl).catch(err => {
+              console.error('❌ NIP-46: Failed to reconnect before publish:', err);
+            });
+            // Give it a moment to reconnect
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Check again
+            const stillNotConnected = !relayManager.isConnected(this.connection.signerUrl);
+            if (stillNotConnected) {
+              console.error('❌ NIP-46: Relay still not connected after reconnect attempt');
+              clearTimeout(timeout);
+              this.pendingRequests.delete(id);
+              reject(new Error('Relay connection failed. Please try connecting again.'));
+              return;
+            }
+          }
+        }
+      } catch (checkErr) {
+        console.warn('⚠️ NIP-46: Could not verify relay connection:', checkErr);
+        // Continue anyway - might still work
+      }
       
-      this.relayClient!.publish(requestEvent, {
-        relays: [this.connection.signerUrl],
-        waitForRelay: true, // Wait for relay confirmation to ensure it's published
-        timeout: 10000, // 10 second timeout for publish confirmation
-      }).then(results => {
+      // Publish with retry logic
+      const attemptPublish = async (attempt: number = 1): Promise<void> => {
+        try {
+          const results = await this.relayClient!.publish(requestEvent, {
+            relays: [this.connection.signerUrl],
+            waitForRelay: true, // Wait for relay confirmation to ensure it's published
+            timeout: 15000, // 15 second timeout for publish confirmation (increased from 10s)
+          });
         console.log('✅ NIP-46: Request event published:', {
           requestId: id,
           method,

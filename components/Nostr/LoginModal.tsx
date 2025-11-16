@@ -642,18 +642,16 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           >
             Extension
           </button>
-          {isAndroid() && (
-            <button
-              onClick={() => setLoginMethod('nip46')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                loginMethod === 'nip46'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Amber
-            </button>
-          )}
+          <button
+            onClick={() => setLoginMethod('nip46')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              loginMethod === 'nip46'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Amber
+          </button>
           <button
             onClick={() => setLoginMethod('nip05')}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${

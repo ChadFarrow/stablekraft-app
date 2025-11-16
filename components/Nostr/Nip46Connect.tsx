@@ -116,7 +116,9 @@ export default function Nip46Connect({
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">Connect with Amber</h3>
         <p className="text-sm text-gray-600 mb-4">
-          Scan the QR code or use the deep link to connect your Amber app
+          {isAndroid() 
+            ? 'Scan the QR code or use the deep link to connect your Amber app'
+            : 'Scan the QR code with Amber on your phone, or copy the connection URI and paste it into Amber'}
         </p>
       </div>
 
@@ -150,7 +152,9 @@ export default function Nip46Connect({
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          You can manually enter this URI in Amber if QR code doesn't work
+          {isAndroid() 
+            ? 'You can manually enter this URI in Amber if QR code doesn\'t work'
+            : 'Copy this URI and paste it into Amber on your mobile device to connect'}
         </p>
       </div>
 
@@ -218,9 +222,18 @@ export default function Nip46Connect({
       <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
         <h4 className="text-sm font-semibold mb-2">How to connect:</h4>
         <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
-          <li>Open the Amber app on your Android device</li>
+          <li>Open the Amber app on your mobile device</li>
           <li>Go to Settings → Remote Signing (NIP-46) or use the "Connect" option</li>
-          <li>Scan the QR code above or tap "Open in Amber App" button</li>
+          {isAndroid() ? (
+            <>
+              <li>Scan the QR code above or tap "Open in Amber App" button</li>
+            </>
+          ) : (
+            <>
+              <li>Scan the QR code above with your phone's camera, or</li>
+              <li>Copy the connection URI above and paste it into Amber's connection field</li>
+            </>
+          )}
           <li>Approve the connection request in Amber</li>
           <li>Wait for the connection to be established</li>
         </ol>
