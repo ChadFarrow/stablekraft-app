@@ -742,7 +742,6 @@ export class NIP46Client {
             contentKeys: Object.keys(content),
             contentPreview: JSON.stringify(content).substring(0, 300),
             note: 'This might be a response to an old request, or the request ID format is different. Check if IDs match exactly (including type and length).',
-            hasError: 'error' in content,
           });
         }
       }
