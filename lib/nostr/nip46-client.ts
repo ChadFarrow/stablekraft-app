@@ -356,6 +356,29 @@ export class NIP46Client {
         // Also check all 'p' tags to see what pubkeys are tagged
         const allPTags = event.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
         
+        // Try to decrypt and parse content to see what this event is
+        let eventContentPreview = 'N/A';
+        let eventContentType = 'unknown';
+        try {
+          // Try NIP-44 decryption
+          try {
+            const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
+            const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, event.pubkey);
+            const decrypted = nip44.decrypt(event.content, conversationKey);
+            const parsed = JSON.parse(decrypted);
+            eventContentPreview = JSON.stringify(parsed).substring(0, 200);
+            eventContentType = parsed.method ? 'request' : (parsed.result || parsed.error ? 'response' : 'unknown');
+          } catch {
+            // Try plain JSON
+            const parsed = JSON.parse(event.content);
+            eventContentPreview = JSON.stringify(parsed).substring(0, 200);
+            eventContentType = parsed.method ? 'request' : (parsed.result || parsed.error ? 'response' : 'unknown');
+          }
+        } catch {
+          eventContentPreview = event.content.substring(0, 200);
+          eventContentType = event.content.length === 64 && /^[a-f0-9]{64}$/i.test(event.content) ? 'signature' : 'plain text';
+        }
+        
         console.log('🔍 NIP-46: Event filtering check:', {
           eventId: event.id.slice(0, 16) + '...',
           eventPubkey: event.pubkey.slice(0, 16) + '...',
@@ -365,6 +388,9 @@ export class NIP46Client {
           isFromUs,
           willProcess: isForUs && !isFromUs,
           reason: isFromUs ? 'Event is from us (our own request)' : !isForUs ? 'Event not tagged for us' : 'Event is for us and not from us - will process',
+          eventContentType,
+          eventContentPreview,
+          contentLength: event.content.length,
         });
         
         if (isForUs && !isFromUs) {
