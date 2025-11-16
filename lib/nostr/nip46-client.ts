@@ -97,6 +97,27 @@ export class NIP46Client {
       throw new Error('No connection configured');
     }
 
+    // Clean up any existing relay subscription first
+    if (this.relaySubscription) {
+      console.log('🧹 NIP-46: Cleaning up existing relay subscription');
+      try {
+        this.relaySubscription();
+        this.relaySubscription = null;
+      } catch (err) {
+        console.warn('Failed to cleanup existing subscription:', err);
+      }
+    }
+
+    // Clean up existing relay client if any
+    if (this.relayClient) {
+      console.log('🧹 NIP-46: Disconnecting existing relay client');
+      try {
+        await this.relayClient.disconnect();
+      } catch (err) {
+        console.warn('Failed to disconnect existing relay client:', err);
+      }
+    }
+
     // Initialize relay client
     this.relayClient = new NostrClient([relayUrl]);
     await this.relayClient.connectToRelays([relayUrl]);
