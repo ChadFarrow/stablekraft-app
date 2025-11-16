@@ -768,11 +768,40 @@ export class NIP46Client {
       const isAmberCompatible = !content.method && (content.result !== undefined || content.error !== undefined);
       
       // Check if this looks like a get_public_key response (pubkey result)
-      const looksLikeGetPublicKeyResponse = content.result && 
-        typeof content.result === 'string' && 
-        content.result.length === 64 && 
-        /^[a-f0-9]{64}$/i.test(content.result) &&
-        content.result !== this.connection?.token; // Not the secret
+      // Could be: 1) Direct 64-char hex string, or 2) JSON string containing pubkey
+      let looksLikeGetPublicKeyResponse = false;
+      let extractedPubkey: string | null = null;
+      
+      if (content.result && typeof content.result === 'string') {
+        // Check if it's a direct 64-char hex pubkey
+        if (content.result.length === 64 && 
+            /^[a-f0-9]{64}$/i.test(content.result) &&
+            content.result !== this.connection?.token) {
+          looksLikeGetPublicKeyResponse = true;
+          extractedPubkey = content.result;
+        }
+        // Check if it's a JSON string that might contain a pubkey
+        else if (content.result.length > 64 && content.result.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(content.result);
+            if (typeof parsed === 'object' && parsed !== null) {
+              // Look for pubkey in common fields
+              const possiblePubkey = parsed.pubkey || parsed.publicKey || parsed.key || parsed.id;
+              if (possiblePubkey && 
+                  typeof possiblePubkey === 'string' &&
+                  possiblePubkey.length === 64 && 
+                  /^[a-f0-9]{64}$/i.test(possiblePubkey) &&
+                  possiblePubkey !== this.connection?.token) {
+                looksLikeGetPublicKeyResponse = true;
+                extractedPubkey = possiblePubkey;
+                console.error(`[NIP46-GETPUBKEY] Found pubkey in JSON result: ${extractedPubkey.slice(0, 16)}...`);
+              }
+            }
+          } catch {
+            // Not valid JSON, ignore
+          }
+        }
+      }
       
       if (isAmberCompatible) {
         console.error(`[NIP46-AMBER] Event #${this.eventCounter} is Amber-compatible response`);
@@ -799,7 +828,7 @@ export class NIP46Client {
             // We still need to get the public key, so we'll handle this in the connection event section
             // For now, mark that we've received the connect confirmation
           } 
-          // Check if this is a get_public_key response (result is a 64-char hex string)
+          // Check if this is a get_public_key response (result is a 64-char hex string OR a JSON string containing the pubkey)
           else if (looksLikeGetPublicKeyResponse) {
             console.log('🔵 [NIP46Client] Inferred get_public_key response from string pubkey (Amber compatibility)');
             // This is a get_public_key response - the result is the pubkey
@@ -808,12 +837,14 @@ export class NIP46Client {
               return pending.method === 'get_public_key';
             });
             
-            if (pendingGetPublicKeyRequest) {
+            if (pendingGetPublicKeyRequest && extractedPubkey) {
               const [reqId, pending] = pendingGetPublicKeyRequest;
+              
+              console.error(`[NIP46-GETPUBKEY] Resolving get_public_key with pubkey: ${extractedPubkey.slice(0, 16)}...`);
               console.log('🔵 [NIP46Client] Found pending get_public_key request, resolving immediately:', {
                 requestId: reqId,
                 responseId: content.id || 'no-id',
-                pubkey: content.result.slice(0, 16) + '...',
+                pubkey: extractedPubkey.slice(0, 16) + '...',
               });
               
               // Clear timeout and interval if they exist
@@ -825,7 +856,7 @@ export class NIP46Client {
               this.pendingRequests.delete(reqId);
               
               // Resolve with the pubkey
-              pending.resolve(content.result);
+              pending.resolve(extractedPubkey);
               return; // Don't process further
             }
           }
