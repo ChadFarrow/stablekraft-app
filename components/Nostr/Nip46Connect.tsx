@@ -344,15 +344,15 @@ export default function Nip46Connect({
         <h4 className="text-sm font-semibold mb-2">How to connect:</h4>
         <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
           <li>Open the Amber app on your mobile device</li>
-          <li>Go to Settings → Remote Signing (NIP-46) or use the "Connect" option</li>
+          <li>Go to Settings → Remote Signing (NIP-46) or use the &quot;Connect&quot; option</li>
           {isAndroid() ? (
             <>
-              <li>Scan the QR code above or tap "Open in Amber App" button</li>
+              <li>Scan the QR code above or tap &quot;Open in Amber App&quot; button</li>
             </>
           ) : (
             <>
-              <li>Scan the QR code above with your phone's camera, or</li>
-              <li>Copy the connection URI above and paste it into Amber's connection field</li>
+              <li>Scan the QR code above with your phone&apos;s camera, or</li>
+              <li>Copy the connection URI above and paste it into Amber&apos;s connection field</li>
             </>
           )}
           <li>Approve the connection request in Amber</li>

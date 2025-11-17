@@ -702,12 +702,32 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         const signer = getUnifiedSigner();
         await signer.setNIP46Signer(client);
 
+        // Sync favorites to Nostr (fire and forget - don't block login)
+        try {
+          console.log('🔄 Syncing favorites to Nostr...');
+          // Import dynamically to avoid issues with server-side rendering
+          import('@/lib/nostr/sync-favorites').then(({ syncFavoritesToNostr }) => {
+            syncFavoritesToNostr(loginData.user.id).then((results) => {
+              console.log('✅ Favorites synced to Nostr:', results);
+            }).catch((err) => {
+              console.error('❌ Error syncing favorites:', err);
+            });
+          }).catch((err) => {
+            console.error('❌ Error importing sync module:', err);
+          });
+        } catch (syncError) {
+          // Don't fail login if sync fails
+          console.error('❌ Error initiating favorites sync:', syncError);
+        }
+
         // Hide NIP-46 connect UI if still showing
         setShowNip46Connect(false);
-        
-        // Close modal and reload
+
+        // Close modal and reload (delay to let sync messages show)
         onClose();
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000); // 2 second delay to see sync messages
       } else {
         throw new Error(loginData.error || 'Login failed');
       }
@@ -1204,7 +1224,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                         🔄 Reset NIP-46 Connection
                       </button>
                       <p className="mt-1 text-xs text-gray-500 text-center">
-                        Use this if Amber shows "invalid MAC" or pubkey mismatch errors
+                        Use this if Amber shows &quot;invalid MAC&quot; or pubkey mismatch errors
                       </p>
                     </>
                   )}
@@ -1245,7 +1265,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             </button>
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-xs text-blue-800">
-                <strong>Read-only mode:</strong> NIP-05 login allows you to view your favorites. To add or remove favorites, you'll need to use the extension login method.
+                <strong>Read-only mode:</strong> NIP-05 login allows you to view your favorites. To add or remove favorites, you&apos;ll need to use the extension login method.
               </p>
             </div>
           </div>
