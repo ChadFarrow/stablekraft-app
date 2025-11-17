@@ -321,8 +321,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
   // Unified Amber login - picks best NIP for device
   const handleAmberLogin = async () => {
-    // If user wants to paste their own URI, use that
-    if (showPasteUri && pastedConnectionUri.trim()) {
+    // If user wants to paste their own URI, validate and use that
+    const trimmedUri = pastedConnectionUri.trim();
+    if (showPasteUri && trimmedUri) {
+      // Validate URI format
+      if (!trimmedUri.startsWith('bunker://') && !trimmedUri.startsWith('nostrconnect://')) {
+        setError('Invalid connection URI. Must start with bunker:// or nostrconnect://');
+        return;
+      }
       await handlePastedUriConnect();
       return;
     }
@@ -1289,7 +1295,16 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 </div>
 
                 {/* Toggle for pasting existing connection URI */}
-                <details className="group mb-3">
+                <details
+                  className="group mb-3"
+                  onToggle={(e) => {
+                    // Reset paste mode when closing the details
+                    if (!(e.target as HTMLDetailsElement).open) {
+                      setShowPasteUri(false);
+                      setPastedConnectionUri('');
+                    }
+                  }}
+                >
                   <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800 list-none flex items-center gap-2">
                     <span className="transition-transform group-open:rotate-90">▶</span>
                     <span>Or paste existing connection URI</span>
@@ -1303,6 +1318,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                       value={pastedConnectionUri}
                       onChange={(e) => {
                         setPastedConnectionUri(e.target.value);
+                        // Only enable paste mode if there's actual content
+                        setShowPasteUri(e.target.value.trim().length > 0);
+                      }}
+                      onPaste={() => {
+                        // User is pasting, enable paste mode
                         setShowPasteUri(true);
                       }}
                       placeholder="bunker://... or nostrconnect://..."
