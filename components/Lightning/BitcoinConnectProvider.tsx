@@ -54,10 +54,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     console.log('BitcoinConnectProvider useEffect - initializing Bitcoin Connect...');
 
-    // CRITICAL: Check login type FIRST - skip WebLN initialization if user logged in with NIP-46
+    // CRITICAL: Check login type FIRST - skip WebLN initialization if user logged in with Amber (NIP-46/NIP-55)
     const loginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
-    if (loginType === 'nip46') {
-      console.log('ℹ️ NIP-46 login detected - skipping WebLN initialization to prevent Alby popups');
+    if (loginType === 'nip46' || loginType === 'nip55' || loginType === 'amber') {
+      console.log(`ℹ️ Amber login detected (${loginType}) - skipping WebLN initialization to prevent Alby popups`);
       setIsLoading(false);
       return;
     }
@@ -104,25 +104,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
                 }
 
                 // Check if webln is already available (browser extension)
+                // Don't auto-enable it to prevent popup on page load - wait for user action
                 if ((window as any).webln) {
-                  console.log('Found existing WebLN provider');
+                  console.log('Found existing WebLN provider (will enable on user action)');
                   const existingProvider = (window as any).webln;
-                  // Try to enable it if needed
-                  if (existingProvider.enable && typeof existingProvider.enable === 'function') {
-                    existingProvider.enable().then(() => {
-                      console.log('✅ WebLN provider enabled');
-                      setProvider(existingProvider);
-                      setIsConnected(true);
-                    }).catch((error: any) => {
-                      console.warn('⚠️ Failed to enable WebLN provider:', error);
-                      // Still set provider, enable will be called when needed
-                      setProvider(existingProvider);
-                      setIsConnected(true);
-                    });
-                  } else {
-                    setProvider(existingProvider);
-                    setIsConnected(true);
-                  }
+                  // Just detect it, don't enable yet - enable will happen when user clicks
+                  setProvider(existingProvider);
+                  setIsConnected(true);
                 }
               } catch (err) {
                 console.log('No WebLN provider available');
@@ -201,38 +189,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       return;
     }
 
-    // If Nostr user is authenticated with extension, switch to Alby's WebLN (same wallet as Nostr)
+    // If Nostr user is authenticated with extension, detect WebLN (same wallet as Nostr)
+    // Don't auto-enable to prevent popup - wait for user to click wallet button
     if (isNostrAuthenticated && typeof window !== 'undefined') {
       // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
       if ((window as any).webln) {
         const weblnProvider = (window as any).webln;
-        
+
         // Only switch if we're not already using this provider
         if (provider !== weblnProvider) {
-          console.log('🔗 Nostr user authenticated with extension - switching to WebLN from Alby extension');
-          try {
-            // Enable WebLN if needed
-            if (weblnProvider.enable) {
-              weblnProvider.enable().then(() => {
-                console.log('✅ WebLN enabled for Nostr user - switched to Alby wallet');
-                setProvider(weblnProvider);
-                setIsConnected(true);
-                setIsLoading(false);
-              }).catch((error: any) => {
-                console.warn('⚠️ Failed to enable WebLN for Nostr user:', error);
-                // Continue without switching - keep existing wallet
-              });
-            } else {
-              // WebLN is already available, use it directly
-              console.log('✅ WebLN already available for Nostr user - switched to Alby wallet');
-              setProvider(weblnProvider);
-              setIsConnected(true);
-              setIsLoading(false);
-            }
-          } catch (error) {
-            console.warn('⚠️ Error switching to Alby WebLN for Nostr user:', error);
-            // Continue without switching - keep existing wallet
-          }
+          console.log('🔗 Nostr user authenticated with extension - WebLN detected (will enable on user action)');
+          // Just set the provider, don't enable yet - enable will happen when user clicks
+          setProvider(weblnProvider);
+          setIsConnected(true);
+          setIsLoading(false);
         }
       }
     }
