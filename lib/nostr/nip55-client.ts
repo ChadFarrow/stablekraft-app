@@ -156,6 +156,13 @@ export class NIP55Client {
       eventTemplate: JSON.stringify(eventTemplate),
     });
 
+    // Store pending request in sessionStorage to survive page navigation
+    sessionStorage.setItem(`nip55_pending_${requestId}`, JSON.stringify({
+      eventTemplate,
+      type: 'initial_connection',
+      timestamp: Date.now(),
+    }));
+
     // Create promise for signature
     return new Promise<Event>((resolve, reject) => {
       // Store promise resolvers - use resolveEvent for initial connection
@@ -174,6 +181,7 @@ export class NIP55Client {
       const timeout = setTimeout(() => {
         clearTimeout(warningTimeout);
         this.pendingSignatures.delete(requestId);
+        sessionStorage.removeItem(`nip55_pending_${requestId}`);
         reject(new Error('NIP-55 signature request timed out after 90 seconds. Please ensure your Android signer app is open and try again.'));
       }, 90000); // Increased to 90 seconds to match NIP-46
 
@@ -191,6 +199,7 @@ export class NIP55Client {
         clearTimeout(timeout);
         clearTimeout(warningTimeout);
         this.pendingSignatures.delete(requestId);
+        sessionStorage.removeItem(`nip55_pending_${requestId}`);
         reject(new Error(`Failed to open NIP-55 intent: ${error instanceof Error ? error.message : String(error)}`));
       }
     });
@@ -378,7 +387,52 @@ export class NIP55Client {
 
         if (requestId) {
           const pending = this.pendingSignatures.get(requestId);
-          if (pending) {
+
+          // If no pending promise (page reloaded), check sessionStorage
+          if (!pending) {
+            const stored = sessionStorage.getItem(`nip55_pending_${requestId}`);
+            if (stored) {
+              try {
+                const { eventTemplate, type } = JSON.parse(stored);
+
+                if (error) {
+                  console.error('❌ NIP-55: Callback error from sessionStorage request:', error);
+                  sessionStorage.removeItem(`nip55_pending_${requestId}`);
+                } else if (signature && pubkey) {
+                  // Store pubkey
+                  this.connection = {
+                    pubkey,
+                    connected: true,
+                    connectedAt: Date.now(),
+                  };
+
+                  // For initial connection, store the result and signal completion
+                  if (type === 'initial_connection') {
+                    // Store connection result for LoginModal to pick up
+                    sessionStorage.setItem('nip55_connection_result', JSON.stringify({
+                      pubkey,
+                      signature,
+                      eventTemplate,
+                      timestamp: Date.now(),
+                    }));
+
+                    console.log('✅ NIP-55: Initial connection completed (from sessionStorage), pubkey:', pubkey.slice(0, 16) + '...');
+                  }
+
+                  sessionStorage.removeItem(`nip55_pending_${requestId}`);
+                } else {
+                  console.error('❌ NIP-55: Callback from sessionStorage missing signature or pubkey');
+                  sessionStorage.removeItem(`nip55_pending_${requestId}`);
+                }
+              } catch (err) {
+                console.error('❌ NIP-55: Failed to parse sessionStorage request:', err);
+                sessionStorage.removeItem(`nip55_pending_${requestId}`);
+              }
+            } else {
+              console.warn('⚠️ NIP-55: Callback received but no pending request found (not in memory or sessionStorage):', { requestId, pendingRequests: Array.from(this.pendingSignatures.keys()) });
+            }
+          } else {
+            // Normal path - promise still in memory
             // Clear timeouts
             if ((pending as any).timeout) {
               clearTimeout((pending as any).timeout);
@@ -389,6 +443,7 @@ export class NIP55Client {
 
             if (error) {
               pending.reject(new Error(`NIP-55 error: ${error}`));
+              sessionStorage.removeItem(`nip55_pending_${requestId}`);
             } else if (signature) {
               // Store pubkey if provided
               if (pubkey && !this.connection?.pubkey) {
@@ -398,7 +453,7 @@ export class NIP55Client {
                   connectedAt: Date.now(),
                 };
               }
-              
+
               // If this is an initial connection request (has resolveEvent), resolve with full event
               if (pending.resolveEvent && pubkey && pending.eventTemplate) {
                 // Reconstruct the event from the stored template
@@ -416,14 +471,15 @@ export class NIP55Client {
                 // Normal signature request
                 pending.resolve(signature);
               }
+
+              sessionStorage.removeItem(`nip55_pending_${requestId}`);
             } else {
               console.error('❌ NIP-55: Callback missing signature and error:', { requestId, signature, error });
               pending.reject(new Error('No signature or error in NIP-55 callback'));
+              sessionStorage.removeItem(`nip55_pending_${requestId}`);
             }
 
             this.pendingSignatures.delete(requestId);
-          } else {
-            console.warn('⚠️ NIP-55: Callback received but no pending request found:', { requestId, pendingRequests: Array.from(this.pendingSignatures.keys()) });
           }
 
           // Clean up URL

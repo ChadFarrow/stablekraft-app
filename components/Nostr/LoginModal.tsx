@@ -96,6 +96,127 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   }, [hasExtension, loginMethod]);
 
+  // Check for NIP-55 connection result (after page reload from Amber callback)
+  useEffect(() => {
+    const connectionResult = sessionStorage.getItem('nip55_connection_result');
+    if (connectionResult) {
+      console.log('📱 NIP-55: Found connection result from callback, completing login...');
+
+      // Complete the login flow
+      (async () => {
+        try {
+          const { pubkey, signature, eventTemplate } = JSON.parse(connectionResult);
+
+          // Clear the result
+          sessionStorage.removeItem('nip55_connection_result');
+
+          setIsSubmitting(true);
+
+          // Get challenge for authentication
+          const challengeResponse = await fetch('/api/nostr/auth/challenge', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!challengeResponse.ok) {
+            throw new Error('Failed to get challenge');
+          }
+
+          const challengeData = await challengeResponse.json();
+          const challenge = challengeData.challenge;
+
+          // Create challenge event template
+          const challengeEventTemplate = {
+            kind: 22242,
+            tags: [['challenge', challenge]],
+            content: '',
+            created_at: Math.floor(Date.now() / 1000),
+          };
+
+          // Create NIP-55 client and sign the challenge
+          const client = new NIP55Client();
+          setNip55Client(client);
+
+          // Set connection with the pubkey we got
+          (client as any).connection = {
+            pubkey,
+            connected: true,
+            connectedAt: Date.now(),
+          };
+
+          const signedEvent = await client.signEvent(challengeEventTemplate);
+
+          // Send login request
+          const { publicKeyToNpub } = await import('@/lib/nostr/keys');
+          const npub = publicKeyToNpub(pubkey);
+
+          const loginResponse = await fetch('/api/nostr/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              publicKey: pubkey,
+              npub,
+              challenge,
+              signature: signedEvent.sig,
+              eventId: signedEvent.id,
+              createdAt: signedEvent.created_at,
+            }),
+          });
+
+          if (!loginResponse.ok) {
+            const errorData = await loginResponse.json();
+            throw new Error(errorData.error || 'Login failed');
+          }
+
+          const loginData = await loginResponse.json();
+          if (loginData.success && loginData.user) {
+            console.log('✅ NIP-55: Login successful (after callback)!');
+
+            // Save connection info
+            localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
+            localStorage.setItem('nostr_login_type', 'nip55');
+
+            // Update signer in context
+            const signer = getUnifiedSigner();
+            await signer.setNIP55Signer(client);
+
+            // Sync favorites to Nostr (fire and forget - don't block login)
+            try {
+              console.log('🔄 Syncing favorites to Nostr...');
+              import('@/lib/nostr/sync-favorites').then(({ syncFavoritesToNostr }) => {
+                syncFavoritesToNostr(loginData.user.id).then((results) => {
+                  console.log('✅ Favorites synced to Nostr:', results);
+                }).catch((err) => {
+                  console.error('❌ Error syncing favorites:', err);
+                });
+              }).catch((err) => {
+                console.error('❌ Error importing sync module:', err);
+              });
+            } catch (syncError) {
+              console.error('❌ Error initiating favorites sync:', syncError);
+            }
+
+            // Close modal and reload
+            onClose();
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          } else {
+            throw new Error(loginData.error || 'Login failed');
+          }
+        } catch (err) {
+          console.error('❌ NIP-55: Error completing login after callback:', err);
+          setError(err instanceof Error ? err.message : 'NIP-55 login failed');
+          setIsSubmitting(false);
+        }
+      })();
+    }
+  }, [onClose]);
+
   const handleNip05Login = async () => {
     try {
       setIsSubmitting(true);
