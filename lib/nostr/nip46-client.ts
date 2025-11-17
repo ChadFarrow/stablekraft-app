@@ -2272,7 +2272,7 @@ export class NIP46Client {
           
           const failedRelays = results
             .map((result, index) => ({ result, relay: publishRelays[index] }))
-            .filter(({ result }) => result.status === 'rejected')
+            .filter(({ result }): result is { result: PromiseRejectedResult; relay: string } => result.status === 'rejected')
             .map(({ relay, result }) => ({ relay, error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
           
           if (successfulRelays.length > 0) {
