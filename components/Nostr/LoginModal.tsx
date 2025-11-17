@@ -28,6 +28,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const nip46ClientRef = useRef<NIP46Client | null>(null);
   const [nip55Client, setNip55Client] = useState<NIP55Client | null>(null);
   const [isNip55Available, setIsNip55Available] = useState(false);
+  const [pastedConnectionUri, setPastedConnectionUri] = useState<string>('');
+  const [showPasteUri, setShowPasteUri] = useState(false);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -273,8 +275,46 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   };
 
+  // Connect using pasted bunker:// or nostrconnect:// URI
+  const handlePastedUriConnect = async () => {
+    if (!pastedConnectionUri.trim()) {
+      setError('Please enter a connection URI');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      const { NIP46Client } = await import('@/lib/nostr/nip46-client');
+
+      // The NIP46Client.connect() method auto-detects bunker:// vs nostrconnect://
+      console.log('🔌 Connecting with pasted URI:', pastedConnectionUri.substring(0, 30) + '...');
+
+      const client = new NIP46Client();
+      await client.connect(pastedConnectionUri);
+
+      setNip46Client(client);
+      nip46ClientRef.current = client;
+
+      // Show the connection UI to wait for approval
+      setNip46ConnectionToken(pastedConnectionUri);
+      setNip46SignerUrl(pastedConnectionUri);
+      setShowNip46Connect(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect with URI');
+      setIsSubmitting(false);
+    }
+  };
+
   // Unified Amber login - picks best NIP for device
   const handleAmberLogin = async () => {
+    // If user wants to paste their own URI, use that
+    if (showPasteUri && pastedConnectionUri.trim()) {
+      await handlePastedUriConnect();
+      return;
+    }
+
     // On Android with NIP-55 support, use NIP-55 (direct app-to-app)
     // Otherwise use NIP-46 (QR code/relay)
     if (isAndroid() && isNip55Available) {
@@ -1235,15 +1275,42 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                       : 'Scan QR code with Amber on your phone (NIP-46)'}
                   </p>
                 </div>
+
+                {/* Toggle for pasting existing connection URI */}
+                <details className="group mb-3">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800 list-none flex items-center gap-2">
+                    <span className="transition-transform group-open:rotate-90">▶</span>
+                    <span>Or paste existing connection URI</span>
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-gray-500">
+                      If you already have a bunker:// or nostrconnect:// URI from Amber, paste it here
+                    </p>
+                    <input
+                      type="text"
+                      value={pastedConnectionUri}
+                      onChange={(e) => {
+                        setPastedConnectionUri(e.target.value);
+                        setShowPasteUri(true);
+                      }}
+                      placeholder="bunker://... or nostrconnect://..."
+                      disabled={isSubmitting}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed font-mono text-xs"
+                    />
+                  </div>
+                </details>
+
                 <button
                   onClick={handleAmberLogin}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (showPasteUri && !pastedConnectionUri.trim())}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {isSubmitting ? 'Connecting...' : '🔐 Connect with Amber'}
                 </button>
                 <p className="mt-2 text-xs text-gray-500 text-center">
-                  {isAndroid()
+                  {showPasteUri && pastedConnectionUri.trim()
+                    ? 'Click to connect with your pasted URI'
+                    : isAndroid()
                     ? 'Make sure Amber is installed on your device'
                     : 'Scan QR code with Amber on your phone'}
                 </p>
