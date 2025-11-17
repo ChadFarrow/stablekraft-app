@@ -125,12 +125,15 @@ export default function AmberTestPage() {
         // Access pending requests from client (if exposed)
         const clientAny = nip46Client as any;
         const pendingReqs = clientAny.pendingRequests ? 
-          Array.from(clientAny.pendingRequests.entries()).map(([id, req]: [string, any]) => ({
-            id,
-            method: req.method,
-            startTime: req.startTime,
-            elapsed: req.startTime ? Date.now() - req.startTime : 0,
-          })) : [];
+          Array.from(clientAny.pendingRequests.entries()).map((entry: [string, any]) => {
+            const [id, req] = entry;
+            return {
+              id,
+              method: req.method,
+              startTime: req.startTime,
+              elapsed: req.startTime ? Date.now() - req.startTime : 0,
+            };
+          }) : [];
         
         setPendingRequests(new Map(pendingReqs.map((req: any) => [req.id, req])));
         
