@@ -710,8 +710,12 @@ export class NIP46Client {
                 const pTags = event.tags.filter(t => t[0] === 'p');
                 if (pTags.length > 0) {
                   const pTagPubkey = pTags[0][1];
+                  // Get current app pubkey from storage
+                  const { getOrCreateAppKeyPair } = require('./nip46-storage');
+                  const keyPair = getOrCreateAppKeyPair();
+                  const currentAppPubkey = keyPair.publicKey;
                   console.error('❌ [NIP46-OLD-CONNECTION] Amber is responding to an OLD connection!', {
-                    currentAppPubkey: this.connection?.appPubkey?.slice(0, 16) + '...',
+                    currentAppPubkey: currentAppPubkey?.slice(0, 16) + '...',
                     oldAppPubkey: pTagPubkey?.slice(0, 16) + '...',
                     eventPubkey: event.pubkey.slice(0, 16) + '...',
                     contentLength: event.content.length,
