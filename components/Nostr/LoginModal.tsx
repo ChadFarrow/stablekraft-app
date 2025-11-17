@@ -290,8 +290,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Reference: https://github.com/nostr-protocol/nips/blob/master/46.md
       const relayEncoded = encodeURIComponent(relayUrl);
       const secretEncoded = encodeURIComponent(token);
-      const appName = encodeURIComponent('Wavlake');
-      const appUrl = encodeURIComponent('https://wavlake.com');
+      const appName = encodeURIComponent('StableKraft');
+      const appUrl = encodeURIComponent('https://stablekraft.app/');
       const nostrconnectUri = `nostrconnect://${publicKey}?relay=${relayEncoded}&secret=${secretEncoded}&name=${appName}&url=${appUrl}`;
       
       console.log('NIP-46: Generated connection URI for relay:', relayUrl);
