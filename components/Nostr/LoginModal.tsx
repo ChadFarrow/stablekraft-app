@@ -20,7 +20,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [hasExtension, setHasExtension] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [nip05Identifier, setNip05Identifier] = useState('');
-  const [loginMethod, setLoginMethod] = useState<'extension' | 'nip05' | 'nip46' | 'nip55'>('extension');
+  const [loginMethod, setLoginMethod] = useState<'extension' | 'nip05' | 'amber'>('extension');
   const [showNip46Connect, setShowNip46Connect] = useState(false);
   const [nip46ConnectionToken, setNip46ConnectionToken] = useState<string>('');
   const [nip46SignerUrl, setNip46SignerUrl] = useState<string>('');
@@ -86,12 +86,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     if (isAndroid()) {
       const available = NIP55Client.isAvailable();
       setIsNip55Available(available);
-      // Auto-select NIP-55 on Android if available and no extension
+      // Auto-select Amber on Android if NIP-55 available and no extension
       if (available && !hasExtension && loginMethod === 'extension') {
-        setLoginMethod('nip55');
+        setLoginMethod('amber');
       } else if (!available && !hasExtension && loginMethod === 'extension') {
-        // Fall back to NIP-46 if NIP-55 not available
-        setLoginMethod('nip46');
+        // Fall back to Amber (will use NIP-46) if NIP-55 not available
+        setLoginMethod('amber');
       }
     }
   }, [hasExtension, loginMethod]);
@@ -270,6 +270,19 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setError(err instanceof Error ? err.message : 'NIP-05 login failed');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Unified Amber login - picks best NIP for device
+  const handleAmberLogin = async () => {
+    // On Android with NIP-55 support, use NIP-55 (direct app-to-app)
+    // Otherwise use NIP-46 (QR code/relay)
+    if (isAndroid() && isNip55Available) {
+      console.log('📱 Amber: Using NIP-55 (Android direct)');
+      await handleNip55Login();
+    } else {
+      console.log('🔐 Amber: Using NIP-46 (QR code)');
+      await handleNip46Connect();
     }
   };
 
@@ -1146,27 +1159,15 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           >
             Extension
           </button>
-          {isNip55Available && (
-            <button
-              onClick={() => setLoginMethod('nip55')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                loginMethod === 'nip55'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Amber (NIP-55)
-            </button>
-          )}
           <button
-            onClick={() => setLoginMethod('nip46')}
+            onClick={() => setLoginMethod('amber')}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              loginMethod === 'nip46'
+              loginMethod === 'amber'
                 ? 'border-b-2 border-blue-600 text-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Amber (NIP-46)
+            Amber
           </button>
           <button
             onClick={() => setLoginMethod('nip05')}
@@ -1181,57 +1182,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         </div>
 
         {/* Extension Login */}
-        {loginMethod === 'extension' && (
-          <>
-            {hasExtension ? (
-              <div className="mb-4">
-                <button
-                  onClick={handleExtensionLogin}
-                  disabled={isSubmitting}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {isSubmitting ? 'Connecting...' : '🔌 Connect with Alby Extension'}
-                </button>
-                <p className="mt-2 text-xs text-gray-500 text-center">
-                  Click to connect with your Alby extension
-                </p>
-              </div>
-            ) : (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm text-yellow-800">
-                  💡 <strong>Extension Required:</strong> Please install the <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="underline">Alby extension</a> to sign in with Nostr.
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* NIP-55 Login */}
-        {loginMethod === 'nip55' && (
+        {loginMethod === 'extension' && hasExtension && (
           <div className="mb-4">
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800 mb-2">
-                📱 <strong>Amber Signer (NIP-55):</strong> Direct Android app-to-app communication for faster and more reliable signing.
-              </p>
-              <p className="text-xs text-blue-600">
-                This method uses Android Intents for direct communication with Amber, no relay required.
-              </p>
-            </div>
             <button
-              onClick={handleNip55Login}
+              onClick={handleExtensionLogin}
               disabled={isSubmitting}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isSubmitting ? 'Connecting...' : '📱 Connect with Amber (NIP-55)'}
+              {isSubmitting ? 'Connecting...' : '🔌 Connect with Extension'}
             </button>
             <p className="mt-2 text-xs text-gray-500 text-center">
-              Make sure Amber is installed on your Android device
+              Click to connect with your Nostr extension
             </p>
           </div>
         )}
 
-        {/* NIP-46 Login */}
-        {loginMethod === 'nip46' && (
+        {/* Unified Amber Login */}
+        {loginMethod === 'amber' && (
           <>
             {showNip46Connect ? (
               <Nip46Connect
@@ -1260,18 +1227,25 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               <div className="mb-4">
                 <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-sm text-blue-800">
-                    📱 <strong>Amber Signer:</strong> Connect your Amber app to sign Nostr events securely on Android.
+                    📱 <strong>Amber Signer:</strong> Connect your Amber app to sign Nostr events securely.
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {isAndroid() && isNip55Available
+                      ? 'Using direct app connection (NIP-55) for faster signing'
+                      : 'Scan QR code with Amber on your phone (NIP-46)'}
                   </p>
                 </div>
                 <button
-                  onClick={handleNip46Connect}
+                  onClick={handleAmberLogin}
                   disabled={isSubmitting}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {isSubmitting ? 'Connecting...' : '🔐 Connect with Amber'}
                 </button>
                 <p className="mt-2 text-xs text-gray-500 text-center">
-                  Make sure Amber is installed on your Android device
+                  {isAndroid()
+                    ? 'Make sure Amber is installed on your device'
+                    : 'Scan QR code with Amber on your phone'}
                 </p>
               </div>
             )}
