@@ -125,7 +125,7 @@ export default function AmberTestPage() {
         // Access pending requests from client (if exposed)
         const clientAny = nip46Client as any;
         const pendingReqs = clientAny.pendingRequests ? 
-          Array.from(clientAny.pendingRequests.entries()).map((entry: [string, any]) => {
+          Array.from(clientAny.pendingRequests.entries() as Iterable<[string, any]>).map((entry) => {
             const [id, req] = entry;
             return {
               id,
