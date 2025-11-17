@@ -725,7 +725,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
         <div className="container mx-auto px-6 pt-16 md:pt-12 pb-40">
         {/* Back button */}
         <div className="mb-6">
-          <BackButton href="/" label="Back to Albums" />
+          <BackButton label="Back" />
         </div>
 
         {/* Two-column layout on desktop, single column on mobile */}

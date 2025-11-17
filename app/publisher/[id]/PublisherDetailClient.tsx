@@ -949,7 +949,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         {/* Navigation */}
         <div className="container mx-auto px-4 pt-8">
           <div className="mb-6">
-            <BackButton href="/" label="Back to Home" />
+            <BackButton label="Back" />
           </div>
         </div>
 
