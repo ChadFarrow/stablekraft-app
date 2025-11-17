@@ -66,6 +66,13 @@ export class NostrClient {
   }
 
   /**
+   * Get list of connected relay URLs
+   */
+  getConnectedRelays(): string[] {
+    return this.relayManager.getConnectedRelays();
+  }
+
+  /**
    * Publish an event to relays
    * @param event - Event to publish
    * @param options - Publish options
@@ -129,6 +136,7 @@ export class NostrClient {
       console.error('Failed to connect to relays for subscription:', err);
     });
 
+    // Pass the specific relays to subscribe to (not all read relays)
     return this.relayManager.subscribe(options.filters, (event: Event) => {
       try {
         options.onEvent(event);
@@ -137,7 +145,7 @@ export class NostrClient {
           options.onError(error instanceof Error ? error : new Error(String(error)));
         }
       }
-    });
+    }, relays); // Pass the specific relays to subscribe to
   }
 
   /**

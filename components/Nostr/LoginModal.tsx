@@ -28,6 +28,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const nip46ClientRef = useRef<NIP46Client | null>(null);
   const [nip55Client, setNip55Client] = useState<NIP55Client | null>(null);
   const [isNip55Available, setIsNip55Available] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -223,9 +224,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       const { getDefaultRelays } = await import('@/lib/nostr/relay');
       const relays = getDefaultRelays();
       // Skip Damus relay if it's first (it's often rate-limited)
-      // Prefer relay.nsec.app or nos.lol which are more reliable
-      const preferredRelays = relays.filter(r => !r.includes('relay.damus.io'));
-      const relayUrl = preferredRelays[0] || relays[0] || 'wss://relay.nsec.app';
+      // Try nos.lol instead to bypass potential relay-side caching
+      const preferredRelays = relays.filter(r => !r.includes('relay.damus.io') && !r.includes('relay.nsec.app'));
+      const relayUrl = preferredRelays[0] || 'wss://nos.lol';
       
       // Generate connection token (secret for this session)
       const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -249,32 +250,22 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setNip46Client(client);
       
       // Set up connection callback - use ref to access client
-      // Only set callback if we don't already have a connection
-      const existingConnection = client.getConnection();
-      if (!existingConnection?.connected || !existingConnection?.pubkey) {
-        client.setOnConnection((signerPubkey: string) => {
-          console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
-          // Hide the connection UI first
-          setShowNip46Connect(false);
-          // Automatically complete login when connection is established
-          // Use the ref to ensure we have the client
-          if (nip46ClientRef.current) {
-            handleNip46ConnectedWithClient(nip46ClientRef.current);
-          }
-        });
-      } else {
-        console.log('✅ NIP-46: Already connected, skipping callback setup');
-        // Already connected, proceed directly
+      client.setOnConnection((signerPubkey: string) => {
+        console.log('✅ NIP-46: Connection established with signer:', signerPubkey);
+        // Hide the connection UI first
         setShowNip46Connect(false);
-        await handleNip46ConnectedWithClient(client);
-        return;
-      }
+        // Automatically complete login when connection is established
+        // Use the ref to ensure we have the client
+        if (nip46ClientRef.current) {
+          handleNip46ConnectedWithClient(nip46ClientRef.current);
+        }
+      });
       
       // Start listening on relay for connection
-      // For now, we only support relay-based connections (nostrconnect://)
-      // bunker:// URIs would be handled separately if provided by the user
+      // For client-initiated flow (nostrconnect://), we need to connect to the relay immediately
+      // to listen for Amber's connection response
       try {
-        await client.connect(relayUrl, token, false);
+        await client.connect(relayUrl, token, true);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error('❌ LoginModal: Failed to start relay connection:', {
@@ -295,115 +286,82 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // - secret is REQUIRED (not optional)
       // - Use separate query params (name, url) instead of metadata JSON
       
+      // NIP-46 compliant format: hex pubkey with minimal required params (relay and secret)
+      // According to NIP-46 spec, pubkey MUST be hex-encoded (not npub/bech32)
+      // Reference: https://github.com/nostr-protocol/nips/blob/master/46.md
       const relayEncoded = encodeURIComponent(relayUrl);
       const secretEncoded = encodeURIComponent(token);
-      const nameEncoded = encodeURIComponent('Podcast Music Site');
-      const urlEncoded = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '');
+      const nostrconnectUri = `nostrconnect://${publicKey}?relay=${relayEncoded}&secret=${secretEncoded}`;
       
-      // Use hex-encoded public key (not npub) as per NIP-46 spec
-      // publicKey is already in hex format from generateKeyPair()
-      const pubkeyHex = publicKey; // Already hex-encoded
-      
-      // Format 1: NIP-46 compliant format (secret is REQUIRED per spec)
-      // nostrconnect://<client-pubkey>?relay=<relay>&secret=<secret>&name=<name>&url=<url>
-      const nostrconnectUri1 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}&name=${nameEncoded}&url=${urlEncoded}`;
-      
-      // Format 2: Minimal format (just relay and secret - required fields)
-      const nostrconnectUri2 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}`;
-      
-      // Format 3: With metadata JSON (non-standard, but some implementations might use it)
-      const metadata = {
-        name: 'Podcast Music Site',
-        url: typeof window !== 'undefined' ? window.location.origin : '',
-      };
-      const metadataJson = JSON.stringify(metadata);
-      const metadataEncoded = encodeURIComponent(metadataJson);
-      const nostrconnectUri3 = `nostrconnect://${pubkeyHex}?relay=${relayEncoded}&secret=${secretEncoded}&metadata=${metadataEncoded}`;
-      
-      // Format 4: With npub format (non-standard, but kept as fallback)
-      const { publicKeyToNpub } = await import('@/lib/nostr/keys');
-      const npub = publicKeyToNpub(publicKey);
-      const nostrconnectUri4 = `nostrconnect://${npub}?relay=${relayEncoded}&secret=${secretEncoded}&name=${nameEncoded}&url=${urlEncoded}`;
-      
-      // Use format 1 by default (NIP-46 compliant with all standard parameters)
-      // This matches the NIP-46 spec exactly: https://github.com/nostr-protocol/nips/blob/master/46.md
-      const nostrconnectUri = nostrconnectUri1;
-      
-      console.log('📱 NIP-46: Generated nostrconnect URI options:', {
-        pubkeyHex: pubkeyHex.slice(0, 20) + '...',
-        npub: npub.slice(0, 20) + '...',
-        relayUrl,
-        secret: token.slice(0, 20) + '...',
-        name: 'Podcast Music Site',
-        url: typeof window !== 'undefined' ? window.location.origin : '',
-        format1_nip46_compliant: nostrconnectUri1.substring(0, 150) + '...',
-        format2_minimal: nostrconnectUri2.substring(0, 150) + '...',
-        format3_with_metadata_json: nostrconnectUri3.substring(0, 150) + '...',
-        format4_with_npub: nostrconnectUri4.substring(0, 150) + '...',
-        usingFormat: 'format1_nip46_compliant (matches NIP-46 spec exactly)',
-        fullUri: nostrconnectUri.substring(0, 200) + '...',
-        uriLength: nostrconnectUri.length,
-        note: 'Using hex-encoded pubkey + required secret parameter as per NIP-46 spec',
-        specReference: 'https://github.com/nostr-protocol/nips/blob/master/46.md',
-      });
+      console.log('NIP-46: Generated connection URI for relay:', relayUrl);
       
       // Validate URI format
       if (!nostrconnectUri.startsWith('nostrconnect://')) {
         throw new Error('Invalid nostrconnect URI format');
       }
-      if (!pubkeyHex || pubkeyHex.length !== 64) {
+      if (!publicKey || publicKey.length !== 64) {
         throw new Error('Invalid pubkey format - must be 64 hex characters');
       }
       if (!token || token.length === 0) {
         throw new Error('Secret is required per NIP-46 spec');
       }
       
-      // Store all URI formats for manual testing
-      (window as any).__NIP46_URI_FORMATS__ = {
-        nip46_compliant: nostrconnectUri1, // NIP-46 compliant (hex pubkey + secret + name + url)
-        minimal: nostrconnectUri2, // Minimal (just relay + secret)
-        withMetadataJson: nostrconnectUri3, // Non-standard (with metadata JSON)
-        withNpub: nostrconnectUri4, // Non-standard (with npub instead of hex)
-      };
-      console.log('💡 NIP-46: Alternative URI formats stored in window.__NIP46_URI_FORMATS__ for testing');
-      
       setNip46ConnectionToken(nostrconnectUri);
       setNip46SignerUrl(relayUrl);
       setShowNip46Connect(true);
       setIsSubmitting(false);
+
+      console.log('NIP-46: Connection UI displayed. Waiting for Amber to scan QR code...');
       
-      console.log('✅ NIP-46: Connection UI displayed. Waiting for Amber to scan QR code...');
+      // According to NIP-46 spec, when client initiates via nostrconnect://:
+      // 1. Client generates QR code with nostrconnect:// URI (done above)
+      // 2. User scans QR code with Amber (remote-signer)
+      // 3. Amber sends a connect RESPONSE event to the client-pubkey via the specified relays
+      // 4. Client receives the response and learns remote-signer-pubkey from event author
+      // 5. Client validates the secret returned in the connect response
+      // 
+      // The client should NOT send connect requests - it should passively wait for Amber's response.
+      // The connection callback (set above) will be triggered when we receive the connect response event.
+      // No retry loop needed - just wait for Amber to send the response.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize NIP-46 connection');
       setIsSubmitting(false);
     }
   };
 
-  const handleResetNip46 = async () => {
-    if (!confirm('This will completely reset your NIP-46 connection and generate a new app keypair. You will need to reconnect Amber with a fresh QR code.\n\nIMPORTANT: You must also clear the connection in Amber app (Settings → Connected Apps → Remove this app).\n\nContinue?')) {
-      return;
-    }
+  const handleResetNip46Confirm = async () => {
+    console.log('🔄 NIP-46 Reset: Confirmed, starting reset process...');
 
     try {
+      setIsSubmitting(true);
+      setError(null);
+      setShowResetConfirmation(false);
+
       const { clearNIP46Connection, clearAppKeyPair } = await import('@/lib/nostr/nip46-storage');
       const { getUnifiedSigner } = await import('@/lib/nostr/signer');
 
+      console.log('🔄 NIP-46 Reset: Disconnecting active signer...');
       // Disconnect active signer
       const signer = getUnifiedSigner();
       try {
         await signer.disconnectNIP46();
+        console.log('✅ NIP-46 Reset: Disconnected active signer');
       } catch (err) {
         console.log('ℹ️ NIP-46 Reset: No active connection to disconnect');
       }
 
+      console.log('🔄 NIP-46 Reset: Clearing stored connection and keypair...');
       // Clear stored connection AND app keypair
       clearNIP46Connection();
       clearAppKeyPair();
+      console.log('✅ NIP-46 Reset: Cleared localStorage data');
 
       // Clear client
       if (nip46ClientRef.current) {
+        console.log('🔄 NIP-46 Reset: Disconnecting client...');
         try {
           await nip46ClientRef.current.disconnect();
+          console.log('✅ NIP-46 Reset: Disconnected client');
         } catch (err) {
           console.warn('Failed to disconnect existing client:', err);
         }
@@ -412,12 +370,15 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       setNip46Client(null);
       setShowNip46Connect(false);
 
+      console.log('✅ NIP-46 Reset: Complete! Showing success message...');
       alert('✅ NIP-46 connection reset successfully!\n\nNext steps:\n1. In Amber app, go to Settings → Connected Apps\n2. Remove/delete this app\'s connection\n3. Click "Connect with Amber" again to generate a fresh QR code\n4. Scan the new QR code with Amber');
 
       console.log('✅ NIP-46 Reset: Cleared app keypair and connection. A fresh keypair will be generated on next connection.');
     } catch (err) {
       console.error('❌ NIP-46 Reset failed:', err);
       setError('Failed to reset NIP-46 connection: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1202,15 +1163,51 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                   Make sure Amber is installed on your Android device
                 </p>
                 <div className="mt-3 pt-3 border-t border-gray-200">
-                  <button
-                    onClick={handleResetNip46}
-                    className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300"
-                  >
-                    🔄 Reset NIP-46 Connection
-                  </button>
-                  <p className="mt-1 text-xs text-gray-500 text-center">
-                    Use this if Amber shows pubkey mismatch errors
-                  </p>
+                  {showResetConfirmation ? (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                        <p className="text-sm font-semibold text-yellow-900 mb-2">⚠️ Confirm Reset</p>
+                        <p className="text-xs text-yellow-800 mb-2">
+                          This will completely reset your NIP-46 connection and generate a new app keypair. You will need to reconnect Amber with a fresh QR code.
+                        </p>
+                        <p className="text-xs text-yellow-800 font-semibold">
+                          IMPORTANT: You must also clear the connection in Amber app (Settings → Connected Apps → Remove this app).
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowResetConfirmation(false)}
+                          disabled={isSubmitting}
+                          className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleResetNip46Confirm}
+                          disabled={isSubmitting}
+                          className="flex-1 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                        >
+                          {isSubmitting ? 'Resetting...' : 'Yes, Reset Now'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          console.log('🔄 NIP-46 Reset: Button clicked, showing confirmation');
+                          setShowResetConfirmation(true);
+                        }}
+                        disabled={isSubmitting}
+                        className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        🔄 Reset NIP-46 Connection
+                      </button>
+                      <p className="mt-1 text-xs text-gray-500 text-center">
+                        Use this if Amber shows "invalid MAC" or pubkey mismatch errors
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1232,7 +1229,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 placeholder="user@domain.com"
                 disabled={isSubmitting}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && !isSubmitting && nip05Identifier.trim()) {
                     handleNip05Login();
                   }

@@ -1,23 +1,40 @@
 /**
  * NIP-46 Connection Storage
  * Handles persistence of NIP-46 connections in localStorage
+ * 
+ * IMPORTANT: Connections are tied to the user's Nostr account (pubkey from Amber),
+ * not the connection token. Multiple connections with the same user pubkey = same account.
  */
 
-import { NIP46Connection } from './nip46-client';
+import { generateKeyPair } from './keys';
+
+/**
+ * NIP-46 Connection interface
+ * Represents a connection to a remote signer (like Amber)
+ */
+export interface NIP46Connection {
+  signerUrl: string;
+  token: string;
+  pubkey?: string;
+  connected: boolean;
+  connectedAt?: number;
+}
 
 const STORAGE_KEY = 'nostr_nip46_connection';
+const STORAGE_KEY_BY_PUBKEY = 'nostr_nip46_connections_by_pubkey'; // Store multiple connections per user
 const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export interface StoredConnection {
   signerUrl: string;
   token: string;
-  pubkey?: string;
+  pubkey?: string; // User's Nostr account pubkey (from Amber)
   connectedAt?: number;
   expiresAt: number;
 }
 
 /**
  * Save NIP-46 connection to localStorage
+ * Connections are stored by user pubkey (Nostr account), allowing multiple connections per account
  */
 export function saveNIP46Connection(connection: NIP46Connection): void {
   if (typeof window === 'undefined') {
@@ -28,12 +45,48 @@ export function saveNIP46Connection(connection: NIP46Connection): void {
     const stored: StoredConnection = {
       signerUrl: connection.signerUrl,
       token: connection.token,
-      pubkey: connection.pubkey,
+      pubkey: connection.pubkey, // User's Nostr account pubkey (from Amber)
       connectedAt: connection.connectedAt || Date.now(),
       expiresAt: Date.now() + TOKEN_EXPIRY_MS,
     };
 
+    // Store the most recent connection (for backward compatibility)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    
+    // Also store by user pubkey if available (allows multiple connections per account)
+    if (connection.pubkey) {
+      try {
+        const byPubkey = JSON.parse(localStorage.getItem(STORAGE_KEY_BY_PUBKEY) || '{}');
+        if (!byPubkey[connection.pubkey]) {
+          byPubkey[connection.pubkey] = [];
+        }
+        // Add or update this connection
+        const existingIndex = byPubkey[connection.pubkey].findIndex(
+          (c: StoredConnection) => c.token === connection.token
+        );
+        if (existingIndex >= 0) {
+          byPubkey[connection.pubkey][existingIndex] = stored;
+        } else {
+          byPubkey[connection.pubkey].push(stored);
+        }
+        // Keep only the most recent 5 connections per pubkey
+        byPubkey[connection.pubkey] = byPubkey[connection.pubkey]
+          .sort((a: StoredConnection, b: StoredConnection) => 
+            (b.connectedAt || 0) - (a.connectedAt || 0)
+          )
+          .slice(0, 5);
+        localStorage.setItem(STORAGE_KEY_BY_PUBKEY, JSON.stringify(byPubkey));
+        console.log(`💾 NIP-46: Saved connection for user pubkey ${connection.pubkey.slice(0, 16)}... (total connections for this account: ${byPubkey[connection.pubkey].length})`);
+      } catch (err) {
+        console.warn('⚠️ Failed to save connection by pubkey:', err);
+      }
+    }
+    
+    console.log('💾 NIP-46: Saved connection to localStorage:', {
+      userPubkey: connection.pubkey ? connection.pubkey.slice(0, 16) + '...' : 'N/A',
+      relayUrl: connection.signerUrl,
+      note: 'Connection tied to user\'s Nostr account (pubkey), not connection token',
+    });
   } catch (error) {
     console.error('❌ Failed to save NIP-46 connection:', error);
   }
@@ -41,13 +94,45 @@ export function saveNIP46Connection(connection: NIP46Connection): void {
 
 /**
  * Load NIP-46 connection from localStorage
+ * If userPubkey is provided, loads the most recent connection for that user account
+ * Otherwise, loads the most recent connection (backward compatibility)
  */
-export function loadNIP46Connection(): NIP46Connection | null {
+export function loadNIP46Connection(userPubkey?: string): NIP46Connection | null {
   if (typeof window === 'undefined') {
     return null;
   }
 
   try {
+    // If userPubkey is provided, try to load from pubkey-indexed storage first
+    if (userPubkey) {
+      try {
+        const byPubkey = JSON.parse(localStorage.getItem(STORAGE_KEY_BY_PUBKEY) || '{}');
+        const userConnections = byPubkey[userPubkey] || [];
+        if (userConnections.length > 0) {
+          // Get the most recent connection for this user
+          const mostRecent = userConnections
+            .filter((c: StoredConnection) => !c.expiresAt || Date.now() < c.expiresAt)
+            .sort((a: StoredConnection, b: StoredConnection) => 
+              (b.connectedAt || 0) - (a.connectedAt || 0)
+            )[0];
+          
+          if (mostRecent) {
+            console.log(`✅ NIP-46: Loaded connection for user pubkey ${userPubkey.slice(0, 16)}... (found ${userConnections.length} connection(s) for this account)`);
+            return {
+              signerUrl: mostRecent.signerUrl,
+              token: mostRecent.token,
+              pubkey: mostRecent.pubkey,
+              connected: false, // Always start disconnected, need to reconnect
+              connectedAt: mostRecent.connectedAt,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to load connection by pubkey, falling back to default:', err);
+      }
+    }
+    
+    // Fall back to default storage (backward compatibility)
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
       return null;
@@ -59,6 +144,13 @@ export function loadNIP46Connection(): NIP46Connection | null {
     if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
       console.log('⚠️ NIP-46 connection expired, removing');
       clearNIP46Connection();
+      return null;
+    }
+
+    // If userPubkey was provided but doesn't match, return null
+    // This ensures we only use connections for the correct user account
+    if (userPubkey && parsed.pubkey && parsed.pubkey !== userPubkey) {
+      console.log(`⚠️ NIP-46: Stored connection is for different user pubkey (stored: ${parsed.pubkey.slice(0, 16)}..., requested: ${userPubkey.slice(0, 16)}...). Returning null.`);
       return null;
     }
 
@@ -91,22 +183,93 @@ export function clearNIP46Connection(): void {
 }
 
 /**
- * Update connection pubkey
+ * Update connection pubkey (user's Nostr account pubkey from Amber)
+ * This is called when we receive the user's pubkey from Amber
  */
 export function updateNIP46Pubkey(pubkey: string): void {
   const connection = loadNIP46Connection();
   if (connection) {
-    connection.pubkey = pubkey;
+    const oldPubkey = connection.pubkey;
+    connection.pubkey = pubkey; // User's Nostr account pubkey
     saveNIP46Connection(connection);
+    
+    if (oldPubkey && oldPubkey !== pubkey) {
+      console.log(`🔄 NIP-46: Updated connection pubkey from ${oldPubkey.slice(0, 16)}... to ${pubkey.slice(0, 16)}...`);
+      console.log(`📋 NIP-46: This is the user's Nostr account pubkey. Multiple connections with same pubkey = same account.`);
+    }
   }
 }
 
+/**
+ * Load connection by user pubkey (Nostr account)
+ * Returns the most recent connection for the given user account
+ */
+export function loadNIP46ConnectionByPubkey(userPubkey: string): NIP46Connection | null {
+  return loadNIP46Connection(userPubkey);
+}
+
 const APP_KEY_PAIR_STORAGE_KEY = 'nostr_nip46_app_keypair';
+const APP_KEY_PAIR_HISTORY_KEY = 'nostr_nip46_app_keypair_history';
+const MAX_KEYPAIR_HISTORY = 10; // Keep last 10 keypairs to handle Amber's cache issues
 
 export interface AppKeyPair {
   privateKey: string;
   publicKey: string;
   createdAt: number;
+}
+
+/**
+ * Get all historical app keypairs (for handling Amber's cache)
+ * Returns an array of all stored keypairs, newest first
+ */
+export function getAppKeyPairHistory(): AppKeyPair[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem(APP_KEY_PAIR_HISTORY_KEY);
+    if (stored) {
+      const history: AppKeyPair[] = JSON.parse(stored);
+      return history.sort((a, b) => b.createdAt - a.createdAt); // Newest first
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to load app keypair history:', error);
+  }
+
+  return [];
+}
+
+/**
+ * Add a keypair to the history
+ * Keeps only the MAX_KEYPAIR_HISTORY most recent keypairs
+ */
+function addToKeyPairHistory(keyPair: AppKeyPair): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const history = getAppKeyPairHistory();
+
+    // Check if this pubkey already exists in history
+    const existingIndex = history.findIndex(kp => kp.publicKey === keyPair.publicKey);
+    if (existingIndex >= 0) {
+      // Update existing entry
+      history[existingIndex] = keyPair;
+    } else {
+      // Add new entry
+      history.unshift(keyPair);
+    }
+
+    // Keep only MAX_KEYPAIR_HISTORY most recent
+    const trimmed = history.slice(0, MAX_KEYPAIR_HISTORY);
+
+    localStorage.setItem(APP_KEY_PAIR_HISTORY_KEY, JSON.stringify(trimmed));
+    console.log(`📚 NIP-46: Stored keypair in history (total: ${trimmed.length}, pubkey: ${keyPair.publicKey.slice(0, 16)}...)`);
+  } catch (error) {
+    console.error('❌ Failed to store keypair history:', error);
+  }
 }
 
 /**
@@ -126,6 +289,8 @@ export function getOrCreateAppKeyPair(): AppKeyPair {
       // Validate the key pair has required fields
       if (keyPair.privateKey && keyPair.publicKey) {
         console.log('✅ NIP-46: Using existing app key pair (pubkey:', keyPair.publicKey.slice(0, 16) + '...)');
+        // Make sure it's in history
+        addToKeyPairHistory(keyPair);
         return keyPair;
       }
     }
@@ -134,9 +299,8 @@ export function getOrCreateAppKeyPair(): AppKeyPair {
   }
 
   // Generate new key pair if none exists or if loading failed
-  const { generateKeyPair } = require('./keys');
   const { privateKey, publicKey } = generateKeyPair();
-  
+
   const keyPair: AppKeyPair = {
     privateKey,
     publicKey,
@@ -146,6 +310,7 @@ export function getOrCreateAppKeyPair(): AppKeyPair {
   // Store in localStorage for persistence
   try {
     localStorage.setItem(APP_KEY_PAIR_STORAGE_KEY, JSON.stringify(keyPair));
+    addToKeyPairHistory(keyPair);
     console.log('✅ NIP-46: Generated and stored new app key pair (pubkey:', publicKey.slice(0, 16) + '...)');
   } catch (error) {
     console.error('❌ Failed to store app key pair:', error);

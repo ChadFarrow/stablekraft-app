@@ -13,6 +13,7 @@ import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
 import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
+import GlobalErrorHandler from '@/components/GlobalErrorHandler'
 
 
 
@@ -94,35 +95,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://www.doerfelverse.com" />
         {/* Removed albums preload to avoid unused resource warning */}
         {/* Removed logo.webp preload as it's not immediately needed */}
-        
-        {/* Global Error Handler Script - Client-side only */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                'use strict';
-                if (typeof window === 'undefined') return;
-                
-                try {
-                  window.addEventListener('error', function(event) {
-                    console.error('🔍 Layout error caught:', event.error);
-                    if (event.error && event.error.stack) {
-                      console.error('Stack trace:', event.error.stack);
-                    }
-                  });
-
-                  window.addEventListener('unhandledrejection', function(event) {
-                    console.error('🔍 Layout promise rejection caught:', event.reason);
-                  });
-                } catch (e) {
-                  // Silently fail if there's an error setting up handlers
-                }
-              })();
-            `
-          }}
-        />
       </head>
       <body className={inter.className}>
+        <GlobalErrorHandler />
         <ClientErrorBoundary>
           <ErrorBoundary>
             <NostrProvider>

@@ -106,19 +106,39 @@ export class RelayManager {
   }
 
   /**
-   * Subscribe to events from all connected read relays
+   * Subscribe to events from connected read relays
    * @param filters - Array of filters
    * @param onEvent - Callback for each event
+   * @param specificRelays - Optional array of specific relay URLs to subscribe to. If not provided, subscribes to all read relays.
    * @returns Function to unsubscribe
    */
   subscribe(
     filters: any[],
-    onEvent: (event: any) => void
+    onEvent: (event: any) => void,
+    specificRelays?: string[]
   ): () => void {
-    const readRelays = Array.from(this.configs.entries())
-      .filter(([_, config]) => config.read)
-      .map(([url]) => this.relays.get(url))
-      .filter((relay): relay is Relay => relay !== undefined);
+    // If specific relays are provided, only subscribe to those (if they're configured for reading)
+    // Otherwise, subscribe to all read relays
+    let readRelays: Relay[];
+    
+    if (specificRelays && specificRelays.length > 0) {
+      // Filter to only the specified relays that are configured for reading
+      readRelays = specificRelays
+        .map(url => {
+          const config = this.configs.get(url);
+          if (config && config.read) {
+            return this.relays.get(url);
+          }
+          return undefined;
+        })
+        .filter((relay): relay is Relay => relay !== undefined);
+    } else {
+      // Subscribe to all read relays (original behavior)
+      readRelays = Array.from(this.configs.entries())
+        .filter(([_, config]) => config.read)
+        .map(([url]) => this.relays.get(url))
+        .filter((relay): relay is Relay => relay !== undefined);
+    }
 
     const subs = readRelays.map(relay => {
       const sub = relay.subscribe(filters, {
@@ -147,11 +167,15 @@ export function getDefaultRelays(): string[] {
   }
 
   // Default relays (commonly used public relays)
+  // Note: relay.damus.io is often rate-limited, so we prioritize other relays
   return [
-    'wss://relay.damus.io',
-    'wss://nos.lol',
-    'wss://relay.snort.social',
-    'wss://primal.net',
+    'wss://relay.nsec.app',      // More reliable, less rate-limited
+    'wss://nos.lol',              // Popular and stable
+    'wss://relay.snort.social',   // Snort's relay
+    'wss://nostr.oxtr.dev',       // Alternative relay
+    'wss://relay.primal.net',     // Primal relay
+    'wss://theforest.nostr1.com', // Forest relay
+    'wss://relay.damus.io',       // Damus relay (moved to end due to frequent rate limiting)
   ];
 }
 
