@@ -845,8 +845,29 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         const signer = getUnifiedSigner();
         await signer.setNIP55Signer(client);
 
+        // Sync favorites to Nostr (fire and forget - don't block login)
+        try {
+          console.log('🔄 Syncing favorites to Nostr...');
+          // Import dynamically to avoid issues with server-side rendering
+          import('@/lib/nostr/sync-favorites').then(({ syncFavoritesToNostr }) => {
+            syncFavoritesToNostr(loginData.user.id).then((results) => {
+              console.log('✅ Favorites synced to Nostr:', results);
+            }).catch((err) => {
+              console.error('❌ Error syncing favorites:', err);
+            });
+          }).catch((err) => {
+            console.error('❌ Error importing sync module:', err);
+          });
+        } catch (syncError) {
+          // Don't fail login if sync fails
+          console.error('❌ Error initiating favorites sync:', syncError);
+        }
+
+        // Close modal and reload (delay to let sync messages show)
         onClose();
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000); // 2 second delay to see sync messages
       } else {
         throw new Error(loginData.error || 'Login failed');
       }
