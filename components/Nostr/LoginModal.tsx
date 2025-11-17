@@ -28,7 +28,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const nip46ClientRef = useRef<NIP46Client | null>(null);
   const [nip55Client, setNip55Client] = useState<NIP55Client | null>(null);
   const [isNip55Available, setIsNip55Available] = useState(false);
-  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -329,58 +328,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   };
 
-  const handleResetNip46Confirm = async () => {
-    console.log('🔄 NIP-46 Reset: Confirmed, starting reset process...');
-
-    try {
-      setIsSubmitting(true);
-      setError(null);
-      setShowResetConfirmation(false);
-
-      const { clearNIP46Connection, clearAppKeyPair } = await import('@/lib/nostr/nip46-storage');
-      const { getUnifiedSigner } = await import('@/lib/nostr/signer');
-
-      console.log('🔄 NIP-46 Reset: Disconnecting active signer...');
-      // Disconnect active signer
-      const signer = getUnifiedSigner();
-      try {
-        await signer.disconnectNIP46();
-        console.log('✅ NIP-46 Reset: Disconnected active signer');
-      } catch (err) {
-        console.log('ℹ️ NIP-46 Reset: No active connection to disconnect');
-      }
-
-      console.log('🔄 NIP-46 Reset: Clearing stored connection and keypair...');
-      // Clear stored connection AND app keypair
-      clearNIP46Connection();
-      clearAppKeyPair();
-      console.log('✅ NIP-46 Reset: Cleared localStorage data');
-
-      // Clear client
-      if (nip46ClientRef.current) {
-        console.log('🔄 NIP-46 Reset: Disconnecting client...');
-        try {
-          await nip46ClientRef.current.disconnect();
-          console.log('✅ NIP-46 Reset: Disconnected client');
-        } catch (err) {
-          console.warn('Failed to disconnect existing client:', err);
-        }
-        nip46ClientRef.current = null;
-      }
-      setNip46Client(null);
-      setShowNip46Connect(false);
-
-      console.log('✅ NIP-46 Reset: Complete! Showing success message...');
-      alert('✅ NIP-46 connection reset successfully!\n\nNext steps:\n1. In Amber app, go to Settings → Connected Apps\n2. Remove/delete this app\'s connection\n3. Click "Connect with Amber" again to generate a fresh QR code\n4. Scan the new QR code with Amber');
-
-      console.log('✅ NIP-46 Reset: Cleared app keypair and connection. A fresh keypair will be generated on next connection.');
-    } catch (err) {
-      console.error('❌ NIP-46 Reset failed:', err);
-      setError('Failed to reset NIP-46 connection: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleNip46Connected = async () => {
     // Use the ref to get the client
@@ -1203,53 +1150,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 <p className="mt-2 text-xs text-gray-500 text-center">
                   Make sure Amber is installed on your Android device
                 </p>
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  {showResetConfirmation ? (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-                        <p className="text-sm font-semibold text-yellow-900 mb-2">⚠️ Confirm Reset</p>
-                        <p className="text-xs text-yellow-800 mb-2">
-                          This will completely reset your NIP-46 connection and generate a new app keypair. You will need to reconnect Amber with a fresh QR code.
-                        </p>
-                        <p className="text-xs text-yellow-800 font-semibold">
-                          IMPORTANT: You must also clear the connection in Amber app (Settings → Connected Apps → Remove this app).
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowResetConfirmation(false)}
-                          disabled={isSubmitting}
-                          className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300 disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleResetNip46Confirm}
-                          disabled={isSubmitting}
-                          className="flex-1 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                        >
-                          {isSubmitting ? 'Resetting...' : 'Yes, Reset Now'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          console.log('🔄 NIP-46 Reset: Button clicked, showing confirmation');
-                          setShowResetConfirmation(true);
-                        }}
-                        disabled={isSubmitting}
-                        className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        🔄 Reset NIP-46 Connection
-                      </button>
-                      <p className="mt-1 text-xs text-gray-500 text-center">
-                        Use this if Amber shows &quot;invalid MAC&quot; or pubkey mismatch errors
-                      </p>
-                    </>
-                  )}
-                </div>
               </div>
             )}
           </>
