@@ -1132,6 +1132,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           signature: signedEvent.sig,
           eventId: signedEvent.id,
           createdAt: signedEvent.created_at,
+          kind: signedEvent.kind, // Include kind so API can verify correctly
+          content: signedEvent.content, // Include content so API can verify correctly
         }),
       });
 

@@ -12,7 +12,7 @@ import { getSessionIdFromRequest } from '@/lib/session-utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { publicKey, npub, challenge, signature, eventId, createdAt } = body;
+    const { publicKey, npub, challenge, signature, eventId, createdAt, kind, content } = body;
 
     // Validate required fields
     if (!publicKey || !challenge || !signature || !eventId || !createdAt) {
@@ -44,14 +44,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the signature
-    // Reconstruct the event that was signed using the client's timestamp
-    // Accept both kind 1 (note) and kind 22242 (challenge) for compatibility
-    // Kind 1 is preferred for Amber compatibility (kind 22242 causes crashes)
-    // The challenge is in the tags, which is sufficient for authentication
+    // Reconstruct the event that was signed using the client's properties
+    // Support both kind 1 (note, used by Amber) and kind 22242 (auth, used by extensions)
+    // Use the kind and content that the client actually signed
     const eventTemplate = {
-      kind: 1, // Use kind 1 for Amber compatibility
+      kind: kind ?? 1, // Use client's kind, default to 1 for backward compatibility
       tags: [['challenge', challenge]],
-      content: 'Authentication challenge', // Kind 1 requires non-empty content
+      content: content ?? '', // Use client's content, default to empty string
       created_at: createdAt,
       pubkey: publicKey,
     };
