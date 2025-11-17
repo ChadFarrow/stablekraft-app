@@ -54,6 +54,14 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     console.log('BitcoinConnectProvider useEffect - initializing Bitcoin Connect...');
 
+    // CRITICAL: Check login type FIRST - skip WebLN initialization if user logged in with NIP-46
+    const loginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
+    if (loginType === 'nip46') {
+      console.log('ℹ️ NIP-46 login detected - skipping WebLN initialization to prevent Alby popups');
+      setIsLoading(false);
+      return;
+    }
+
     // Initialize Bitcoin Connect on component mount (client-side only)
     if (typeof window !== 'undefined') {
       import('@getalby/bitcoin-connect').then(({ init, onConnected, onDisconnected }) => {
@@ -87,6 +95,14 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           try {
             const checkProvider = async () => {
               try {
+                // Double-check login type before enabling WebLN (in case it changed)
+                const currentLoginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
+                if (currentLoginType === 'nip46') {
+                  console.log('ℹ️ NIP-46 login detected during provider check - skipping WebLN enable');
+                  setIsLoading(false);
+                  return;
+                }
+
                 // Check if webln is already available (browser extension)
                 if ((window as any).webln) {
                   console.log('Found existing WebLN provider');
@@ -162,7 +178,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   // Auto-connect WebLN when Nostr user is authenticated (Alby extension)
   // This will override any existing wallet connection to use the same Alby wallet for Lightning
-  // Skip auto-connect for NIP-05 logins (read-only mode)
+  // Skip auto-connect for NIP-05 and NIP-46 logins (they don't use Alby extension)
   useEffect(() => {
     // Skip if user logged in with NIP-05 (read-only mode, no extension)
     const isNip05Login = nostrUser?.loginType === 'nip05';
@@ -171,7 +187,21 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       return;
     }
 
-    // If Nostr user is authenticated, switch to Alby's WebLN (same wallet as Nostr)
+    // Skip if user logged in with NIP-46 (Amber) - they're not using Alby extension
+    const isNip46Login = nostrUser?.loginType === 'nip46';
+    if (isNip46Login) {
+      console.log('ℹ️ NIP-46 login detected - skipping WebLN auto-connect (user chose Amber, not Alby)');
+      return;
+    }
+
+    // Only auto-connect if user logged in with extension (NIP-07/Alby)
+    const isExtensionLogin = nostrUser?.loginType === 'extension';
+    if (!isExtensionLogin) {
+      console.log('ℹ️ Not an extension login - skipping WebLN auto-connect');
+      return;
+    }
+
+    // If Nostr user is authenticated with extension, switch to Alby's WebLN (same wallet as Nostr)
     if (isNostrAuthenticated && typeof window !== 'undefined') {
       // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
       if ((window as any).webln) {
@@ -179,7 +209,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         
         // Only switch if we're not already using this provider
         if (provider !== weblnProvider) {
-          console.log('🔗 Nostr user authenticated - switching to WebLN from Alby extension');
+          console.log('🔗 Nostr user authenticated with extension - switching to WebLN from Alby extension');
           try {
             // Enable WebLN if needed
             if (weblnProvider.enable) {

@@ -101,3 +101,72 @@ export function updateNIP46Pubkey(pubkey: string): void {
   }
 }
 
+const APP_KEY_PAIR_STORAGE_KEY = 'nostr_nip46_app_keypair';
+
+export interface AppKeyPair {
+  privateKey: string;
+  publicKey: string;
+  createdAt: number;
+}
+
+/**
+ * Get or generate a persistent app key pair for NIP-46
+ * This ensures the same key pair is used across sessions, preventing pubkey mismatches
+ */
+export function getOrCreateAppKeyPair(): AppKeyPair {
+  if (typeof window === 'undefined') {
+    throw new Error('Cannot access localStorage on server');
+  }
+
+  try {
+    // Try to load existing key pair
+    const stored = localStorage.getItem(APP_KEY_PAIR_STORAGE_KEY);
+    if (stored) {
+      const keyPair: AppKeyPair = JSON.parse(stored);
+      // Validate the key pair has required fields
+      if (keyPair.privateKey && keyPair.publicKey) {
+        console.log('✅ NIP-46: Using existing app key pair (pubkey:', keyPair.publicKey.slice(0, 16) + '...)');
+        return keyPair;
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to load app key pair, generating new one:', error);
+  }
+
+  // Generate new key pair if none exists or if loading failed
+  const { generateKeyPair } = require('./keys');
+  const { privateKey, publicKey } = generateKeyPair();
+  
+  const keyPair: AppKeyPair = {
+    privateKey,
+    publicKey,
+    createdAt: Date.now(),
+  };
+
+  // Store in localStorage for persistence
+  try {
+    localStorage.setItem(APP_KEY_PAIR_STORAGE_KEY, JSON.stringify(keyPair));
+    console.log('✅ NIP-46: Generated and stored new app key pair (pubkey:', publicKey.slice(0, 16) + '...)');
+  } catch (error) {
+    console.error('❌ Failed to store app key pair:', error);
+  }
+
+  return keyPair;
+}
+
+/**
+ * Clear the app key pair (useful for testing or resetting)
+ */
+export function clearAppKeyPair(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(APP_KEY_PAIR_STORAGE_KEY);
+    console.log('✅ NIP-46: Cleared app key pair');
+  } catch (error) {
+    console.error('❌ Failed to clear app key pair:', error);
+  }
+}
+

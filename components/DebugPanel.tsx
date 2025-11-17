@@ -66,9 +66,17 @@ export function DebugPanel() {
   const [filter, setFilter] = useState<string>('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  // Only set mounted on client side to avoid hydration issues
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
     const interval = setInterval(() => {
       if (logs.length > 0) {
         setLogEntries([...logs]);
@@ -76,7 +84,7 @@ export function DebugPanel() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     if (autoScroll && isOpen && logEndRef.current) {
@@ -141,6 +149,11 @@ export function DebugPanel() {
     }
   };
 
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return null;
+  }
+
   if (!isOpen) {
     return (
       <button
@@ -161,7 +174,7 @@ export function DebugPanel() {
           boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
         }}
       >
-        🐛 Debug ({logs.length})
+        🐛 Debug ({mounted ? logs.length : 0})
       </button>
     );
   }

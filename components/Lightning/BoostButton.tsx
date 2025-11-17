@@ -252,18 +252,20 @@ export function BoostButton({
         // Support both track boosts (trackId) and album boosts (feedId)
         if (LIGHTNING_CONFIG.features.nostrIntegration && (trackId || feedId) && isNostrAuthenticated && nostrUser) {
           try {
-            // Check if NIP-07 extension is available for signing
-            const hasNip07 = typeof window !== 'undefined' && (window as any).nostr;
+            // Check if unified signer is available (supports NIP-07, NIP-46, and NIP-55)
+            const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+            const signer = getUnifiedSigner();
             
-            if (!hasNip07) {
+            if (!signer.isAvailable()) {
               if (process.env.NODE_ENV === 'development') {
-                console.log('ℹ️ Boost not posted to Nostr: NIP-07 extension required');
+                console.log('ℹ️ Boost not posted to Nostr: No signer available (NIP-07 extension, NIP-46, or NIP-55 required)');
               }
               return;
             }
             
-            // Extension-based login: sign event on client side using NIP-07
-            console.log('🔗 Signing boost event with NIP-07 extension...');
+            // Sign event using unified signer (works with NIP-07, NIP-46, and NIP-55)
+            const signerType = signer.getSignerType();
+            console.log(`🔗 Signing boost event with ${signerType || 'unified'} signer...`);
             
             let trackData: any = null;
             let finalTrackTitle = trackTitle || albumName || 'track';
@@ -378,9 +380,7 @@ export function BoostButton({
             const { createNoteTemplate } = await import('@/lib/nostr/events');
             const noteTemplate = createNoteTemplate(content, tags);
             
-            // Sign with unified signer
-            const { getUnifiedSigner } = await import('@/lib/nostr/signer');
-            const signer = getUnifiedSigner();
+            // Sign with unified signer (already obtained above)
             const signedEvent = await signer.signEvent(noteTemplate as any);
             
             console.log('✅ Boost event signed:', signedEvent.id.slice(0, 16) + '...');

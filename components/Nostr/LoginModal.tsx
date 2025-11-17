@@ -41,8 +41,16 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   }, []);
 
   // Check for NIP-07 extension (Alby, nos2x, etc.)
+  // BUT: Skip this check if user is already logged in with NIP-46 to prevent Alby popups
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Check if user is already logged in with NIP-46 - if so, skip extension check
+      const loginType = localStorage.getItem('nostr_login_type');
+      if (loginType === 'nip46') {
+        console.log('ℹ️ LoginModal: User logged in with NIP-46, skipping extension check to prevent Alby popups');
+        return;
+      }
+
       // Check for standard NIP-07 interface
       if ((window as any).nostr) {
         setHasExtension(true);
@@ -151,59 +159,26 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
-    // First, check if there's an existing valid connection in localStorage
-    const { loadNIP46Connection } = await import('@/lib/nostr/nip46-storage');
-    const existingStoredConnection = loadNIP46Connection();
+    // Clear any existing connections to start fresh
+    // This ensures we always create a new connection when user explicitly clicks NIP-46
+    const { clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+    const { getUnifiedSigner } = await import('@/lib/nostr/signer');
     
-    if (existingStoredConnection && existingStoredConnection.pubkey) {
-      console.log('✅ NIP-46: Found existing connection in storage, reusing it:', {
-        pubkey: existingStoredConnection.pubkey.slice(0, 16) + '...',
-        signerUrl: existingStoredConnection.signerUrl,
-      });
-      
-      // Try to reuse the existing connection
-      try {
-        // Create or get client
-        if (!nip46ClientRef.current) {
-          const { NIP46Client } = await import('@/lib/nostr/nip46-client');
-          nip46ClientRef.current = new NIP46Client();
-        }
-        
-        // Restore the connection
-        const client = nip46ClientRef.current;
-        await client.connect(existingStoredConnection.signerUrl, existingStoredConnection.token, false);
-        
-        // Set the pubkey from stored connection
-        const connection = client.getConnection();
-        if (connection && !connection.pubkey) {
-          // Manually set the pubkey from storage
-          (connection as any).pubkey = existingStoredConnection.pubkey;
-          (connection as any).connected = true;
-        }
-        
-        // Proceed with login using existing connection
-        await handleNip46ConnectedWithClient(client);
-        return;
-      } catch (err) {
-        console.warn('⚠️ NIP-46: Failed to reuse existing connection, creating new one:', err);
-        // Clear the invalid connection and continue with new connection
-        const { clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
-        clearNIP46Connection();
-      }
+    // Clear stored connection
+    clearNIP46Connection();
+    
+    // Disconnect any active NIP-46 signer in UnifiedSigner
+    const signer = getUnifiedSigner();
+    try {
+      await signer.disconnectNIP46();
+    } catch (err) {
+      // Ignore errors if not connected
+      console.log('ℹ️ NIP-46: No active connection to disconnect');
     }
+    
+    console.log('🔄 NIP-46: Cleared old connections, starting fresh login flow');
 
-    // Check if we already have a connected client in memory
-    if (nip46ClientRef.current) {
-      const existingConnection = nip46ClientRef.current.getConnection();
-      if (existingConnection?.connected && existingConnection?.pubkey) {
-        console.log('✅ NIP-46: Already connected, using existing connection');
-        // Use existing connection instead of creating a new one
-        await handleNip46ConnectedWithClient(nip46ClientRef.current);
-        return;
-      }
-    }
-
-    // Clean up any existing connection first
+    // Clean up any existing client connection
     if (nip46ClientRef.current) {
       console.log('🧹 NIP-46: Cleaning up existing client before creating new connection');
       try {
@@ -213,14 +188,19 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }
       nip46ClientRef.current = null;
     }
+    
+    // Also clear the state
+    setNip46Client(null);
 
     try {
       setIsSubmitting(true);
       setError(null);
 
-      // Generate a temporary key pair for this connection session
-      const { generateKeyPair } = await import('@/lib/nostr/keys');
-      const { privateKey, publicKey } = generateKeyPair();
+      // Get or create a persistent app key pair (reused across sessions)
+      // This ensures the same pubkey is used, preventing Amber connection mismatches
+      const { getOrCreateAppKeyPair } = await import('@/lib/nostr/nip46-storage');
+      const keyPair = getOrCreateAppKeyPair();
+      const { privateKey, publicKey } = keyPair;
       
       // Get default relay for connection
       const { getDefaultRelays } = await import('@/lib/nostr/relay');
@@ -230,10 +210,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Generate connection token (secret for this session)
       const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
       
-      // Store connection info temporarily (will be used when Amber connects back)
+      // Store connection info temporarily in sessionStorage (for backward compatibility)
+      // The key pair itself is stored persistently in localStorage
       const connectionInfo = {
         token,
-        privateKey, // Temporary key for this connection
+        privateKey, // Persistent key pair (reused across sessions)
         publicKey,
         relayUrl,
         createdAt: Date.now(),
@@ -402,23 +383,38 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Instead, we need to try requesting the public key and see if we get a response.
       console.log('🔍 LoginModal: Getting public key from NIP-46 client...');
       
-      // Check if we already have the pubkey from the connection
+      // Check connection status explicitly (matching test page pattern)
       const connection = client.getConnection();
-      console.log('🔍 LoginModal: Checking connection state:', {
+      const isConnected = client.isConnected();
+      const pubkey = client.getPubkey();
+      
+      console.log('🔍 LoginModal: Pre-sign connection check:', {
+        hasClient: !!client,
+        isConnected,
         hasConnection: !!connection,
-        hasPubkey: !!connection?.pubkey,
-        connected: connection?.connected,
-        pubkeyPreview: connection?.pubkey ? connection.pubkey.slice(0, 16) + '...' : 'N/A',
+        hasPubkey: !!pubkey,
+        pubkey: pubkey ? pubkey.slice(0, 16) + '...' : 'N/A',
+        connectionPubkey: connection?.pubkey ? connection.pubkey.slice(0, 16) + '...' : 'N/A',
+        signerUrl: connection?.signerUrl || 'N/A',
       });
       
       let publicKey: string;
       
-      if (connection?.pubkey) {
+      // If we already have the pubkey, use it
+      if (pubkey) {
+        console.log('✅ LoginModal: Using pubkey from client:', pubkey.slice(0, 16) + '...');
+        publicKey = pubkey;
+      } else if (connection?.pubkey) {
         console.log('✅ LoginModal: Using pubkey from connection:', connection.pubkey.slice(0, 16) + '...');
         publicKey = connection.pubkey;
       } else {
-        console.log('⚠️ LoginModal: No pubkey in connection yet. For relay-based connections, Amber might not send a connection event.');
-        console.log('⚠️ LoginModal: Attempting to request public key from signer...');
+        // Verify connection is established before requesting pubkey
+        if (!isConnected || !connection) {
+          throw new Error(`Not connected to Amber. Connection status: connected=${isConnected}, hasConnection=${!!connection}. Please wait for the connection to be established.`);
+        }
+        
+        console.log('⚠️ LoginModal: No pubkey available yet. Requesting from signer...');
+        console.log('📱 IMPORTANT: Watch your phone - Amber should show a notification or prompt');
         
         // Try requesting the public key - this will work if Amber is listening
         try {
@@ -430,6 +426,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           console.log('📋 LoginModal: Connection details:', {
             relayUrl: connection?.signerUrl,
             hasRelayClient: !!client,
+            isConnected,
           });
           
           // Set a timeout warning
@@ -459,6 +456,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               hasPubkey: !!connection?.pubkey,
               connected: connection?.connected,
               relayUrl: connection?.signerUrl,
+              isConnected,
             },
           });
           
@@ -482,6 +480,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       if (!publicKey || publicKey.length === 0) {
         throw new Error('Failed to get public key from signer. Please try connecting again.');
       }
+      
+      // Verify connection is ready before signing
+      console.log('✅ LoginModal: Connection verified, proceeding with challenge signing');
 
       // Request signature for challenge
       const challengeResponse = await fetch('/api/nostr/auth/challenge', {
@@ -507,11 +508,20 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         throw new Error('Invalid challenge received from server');
       }
 
+      // Verify connection is still valid before signing
+      const finalConnectionCheck = client.getConnection();
+      const finalIsConnected = client.isConnected();
+      if (!finalIsConnected || !finalConnectionCheck) {
+        throw new Error('Connection lost before signing. Please reconnect and try again.');
+      }
+      
       // Sign challenge with NIP-46
+      // Use Kind 1 (note) instead of Kind 22242 - Kind 22242 causes Amber to crash
+      // The challenge is still in the tags, which is sufficient for authentication
       const event = {
-        kind: 22242,
+        kind: 1,
         tags: [['challenge', challenge]],
-        content: '',
+        content: 'Authentication challenge',
         created_at: Math.floor(Date.now() / 1000),
       };
 
@@ -522,6 +532,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         created_at: event.created_at,
         challenge: challenge.slice(0, 16) + '...',
       });
+      console.log('📱 IMPORTANT: Watch your phone - Amber should show a notification or prompt to approve the signature');
 
       let signedEvent: any;
       try {

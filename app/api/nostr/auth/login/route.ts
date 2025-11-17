@@ -45,10 +45,13 @@ export async function POST(request: NextRequest) {
 
     // Verify the signature
     // Reconstruct the event that was signed using the client's timestamp
+    // Accept both kind 1 (note) and kind 22242 (challenge) for compatibility
+    // Kind 1 is preferred for Amber compatibility (kind 22242 causes crashes)
+    // The challenge is in the tags, which is sufficient for authentication
     const eventTemplate = {
-      kind: 22242,
+      kind: 1, // Use kind 1 for Amber compatibility
       tags: [['challenge', challenge]],
-      content: '',
+      content: 'Authentication challenge', // Kind 1 requires non-empty content
       created_at: createdAt,
       pubkey: publicKey,
     };

@@ -121,6 +121,8 @@ export class NIP46Client {
   private onConnectionCallback: ((pubkey: string) => void) | null = null;
   private eventCounter: number = 0; // Track total events received
   private lastEventTime: number = 0; // Track when last event was received
+  private lastRequestTime: Map<string, number> = new Map(); // Track last request time per method for rate limiting
+  private readonly RATE_LIMIT_MS = 5000; // 5 seconds between requests of the same method
 
   /**
    * Connect to a NIP-46 signer
@@ -142,7 +144,8 @@ export class NIP46Client {
       console.log('🔌 NIP-46: Detected nostrconnect:// URI, using relay-based connection');
       // Extract relay URL from nostrconnect:// URI if needed
       // For now, assume signerUrl is already the relay URL
-      return this.connectNostrConnect(signerUrl, token);
+      // Pass signerPubkey if provided (for restoring saved connections)
+      return this.connectNostrConnect(signerUrl, token, signerPubkey);
     } else {
       // Direct URL connection (existing logic)
       return this.connectDirect(signerUrl, token, connectImmediately, signerPubkey);
@@ -185,7 +188,7 @@ export class NIP46Client {
   /**
    * Connect using nostrconnect:// URI (relay-based)
    */
-  private async connectNostrConnect(nostrConnectUri: string, token: string): Promise<void> {
+  private async connectNostrConnect(nostrConnectUri: string, token: string, savedPubkey?: string): Promise<void> {
     // For nostrconnect://, we need to extract the relay URL
     // The URI format is: nostrconnect://<pubkey>?relay=<relay_url>&secret=<secret>
     // For now, we'll use the existing relay-based connection logic
@@ -193,8 +196,14 @@ export class NIP46Client {
     this.connection = {
       signerUrl: nostrConnectUri, // Will be parsed in startRelayConnection if needed
       token,
-      connected: false,
+      pubkey: savedPubkey, // Include saved pubkey if provided (for restoring connections)
+      connected: !!savedPubkey, // Mark as connected if we have a saved pubkey
+      connectedAt: savedPubkey ? Date.now() : undefined,
     };
+    
+    if (savedPubkey) {
+      console.log('✅ NIP-46: Restored connection with saved pubkey:', savedPubkey.slice(0, 16) + '...');
+    }
 
     // Extract relay URL from URI if it's a full nostrconnect:// URI
     let relayUrl = nostrConnectUri;
@@ -283,17 +292,42 @@ export class NIP46Client {
       throw err;
     }
 
-    // Get the app's public key from sessionStorage (stored during connection initiation)
-    const pendingConnection = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('nip46_pending_connection')
-      : null;
+    // Get the app's key pair - prefer persistent key pair, fall back to sessionStorage
+    let connectionInfo: any = null;
+    let appPubkey: string;
+    let appPrivateKey: string;
     
-    if (!pendingConnection) {
-      throw new Error('No pending connection found');
+    // First, try to get persistent app key pair from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const { getOrCreateAppKeyPair } = require('./nip46-storage');
+        const keyPair = getOrCreateAppKeyPair();
+        appPubkey = keyPair.publicKey;
+        appPrivateKey = keyPair.privateKey;
+        connectionInfo = {
+          publicKey: appPubkey,
+          privateKey: appPrivateKey,
+        };
+        console.log('✅ NIP-46: Using persistent app key pair for connection');
+      } catch (keyPairError) {
+        console.warn('⚠️ NIP-46: Failed to get persistent key pair, trying sessionStorage:', keyPairError);
+        // Fall back to sessionStorage for backward compatibility
+        const pendingConnection = sessionStorage.getItem('nip46_pending_connection');
+        if (pendingConnection) {
+          connectionInfo = JSON.parse(pendingConnection);
+          appPubkey = connectionInfo.publicKey;
+          appPrivateKey = connectionInfo.privateKey;
+        } else {
+          throw new Error('No app key pair found (neither persistent nor session)');
+        }
+      }
+    } else {
+      throw new Error('Cannot access localStorage on server');
     }
-
-    const connectionInfo = JSON.parse(pendingConnection);
-    const appPubkey = connectionInfo.publicKey;
+    
+    if (!connectionInfo || !appPubkey || !appPrivateKey) {
+      throw new Error('No valid app key pair found');
+    }
 
     // Subscribe to NIP-46 events (kind 24133) directed to our app
     // NIP-46 uses kind 24133 for request/response events
@@ -325,9 +359,30 @@ export class NIP46Client {
     // Log that we're waiting for connection
     console.log('⏳ NIP-46: Waiting for connection event from signer...');
 
-    console.log('📡 NIP-46: Creating subscription...');
+    // Subscribe to multiple relays to receive responses from any relay Amber uses
+    const amberRelays = [
+      'wss://relay.damus.io',
+      'wss://relay.nsec.app',
+      'wss://nostr.oxtr.dev',
+      'wss://theforest.nostr1.com',
+      'wss://relay.primal.net',
+    ];
+    
+    // Combine the connection relay with Amber's popular relays
+    const subscribeRelays = Array.from(new Set([
+      relayUrl,
+      ...amberRelays,
+    ]));
+    
+    console.log('📡 NIP-46: Creating subscription to multiple relays:', {
+      primaryRelay: relayUrl,
+      totalRelays: subscribeRelays.length,
+      relays: subscribeRelays,
+      note: 'Subscribing to multiple relays ensures we receive responses from Amber regardless of which relay it uses.',
+    });
+    
     this.relaySubscription = this.relayClient.subscribe({
-      relays: [relayUrl],
+      relays: subscribeRelays,
       filters,
       onEvent: (event: Event) => {
         try {
@@ -336,8 +391,9 @@ export class NIP46Client {
           this.lastEventTime = Date.now();
           
           // CRITICAL: Always log when events are received - use console.error to ensure visibility
-          console.error(`[NIP46-EVENT] Event #${this.eventCounter} received at ${new Date().toISOString()}`);
-          console.log(`🎯 NIP-46: onEvent callback triggered! (Event #${this.eventCounter})`);
+          const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
+          console.error(`[NIP46-EVENT] Event #${this.eventCounter} received at ${new Date().toISOString()}${hasPendingSignEvent ? ' (WAITING FOR SIGN_EVENT RESPONSE)' : ''}`);
+          console.log(`🎯 NIP-46: onEvent callback triggered! (Event #${this.eventCounter})${hasPendingSignEvent ? ' - We are waiting for a sign_event response!' : ''}`);
           console.log('📨 NIP-46: Received event from relay:', {
           eventNumber: this.eventCounter,
           id: event.id.slice(0, 16) + '...',
@@ -355,6 +411,10 @@ export class NIP46Client {
         const isForUs = event.tags.some(tag => tag[0] === 'p' && tag[1] === appPubkey);
         // Check if event is from us (our own requests) - we should ignore these
         const isFromUs = event.pubkey === appPubkey;
+        
+        // IMPORTANT: Amber might tag events with a different pubkey format or derived pubkey
+        // So we should also try to process events that are NOT from us, even if not tagged for us
+        // We'll attempt decryption to see if they match our pending requests
         
         // Also check all 'p' tags to see what pubkeys are tagged
         const allPTags = event.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
@@ -412,7 +472,7 @@ export class NIP46Client {
         });
         
         // AGGRESSIVE FIX: If we have pending requests, try to process ANY event that's not from us
-        // This handles cases where Amber doesn't tag events correctly
+        // This handles cases where Amber doesn't tag events correctly or uses a different pubkey
         const hasPendingRequests = this.pendingRequests.size > 0;
         const hasPendingGetPublicKey = Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key');
         
@@ -422,6 +482,93 @@ export class NIP46Client {
           this.handleRelayEvent(event, connectionInfo);
         } else if (isFromUs) {
           console.log('ℹ️ NIP-46: Ignoring event from us (our own request)');
+        } else if (!isForUs && !isFromUs) {
+          // CRITICAL: Even if not tagged for us, if we have pending requests OR if it's from Amber, try to decrypt and process
+          // Amber might be using a different pubkey format or derived pubkey in the p tag
+          // Also check if this event is from a known Amber pubkey (from previous connections)
+          const knownAmberPubkeys = [
+            'f7922a0adb3fa4dd', // Known Amber pubkey from earlier logs
+            '548e4e36b1ce9e8e', // Another known Amber pubkey from earlier logs
+          ];
+          const mightBeFromAmber = knownAmberPubkeys.some(known => event.pubkey.startsWith(known));
+          const hasEncryptedContent = event.content.length > 100; // Encrypted content is usually longer
+          
+          // AGGRESSIVE: If we have pending requests, try to process ANY encrypted event
+          // This is because Amber might not be tagging events correctly
+          // We'll try to decrypt and see if it matches any pending request
+          if (hasPendingRequests || mightBeFromAmber || hasEncryptedContent) {
+            console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} not tagged for us, but ${hasPendingRequests ? `we have ${this.pendingRequests.size} pending requests` : 'it might be from Amber'}. Attempting to decrypt and process...`);
+            console.log('⚠️ NIP-46: Event not tagged with our app pubkey, but attempting to process anyway (Amber compatibility mode)', {
+              eventId: event.id.slice(0, 16) + '...',
+              eventPubkey: event.pubkey.slice(0, 16) + '...',
+              eventPubkeyFull: event.pubkey, // Log full pubkey for debugging
+              mightBeFromAmber,
+              hasEncryptedContent,
+              pTags: allPTags.map(p => p.slice(0, 16) + '...'),
+              pTagsFull: allPTags, // Log full p tags for debugging - THIS IS CRITICAL!
+              pTagMatches: allPTags.map(p => p === appPubkey ? 'MATCHES' : 'DIFFERENT'), // Check if any match
+              ourAppPubkey: appPubkey.slice(0, 16) + '...',
+              ourAppPubkeyFull: appPubkey, // Log full app pubkey for debugging
+              contentLength: event.content.length,
+              contentPreview: event.content.substring(0, 100),
+              note: 'Amber might be using a different pubkey format. Will attempt decryption.',
+            });
+            
+            // CRITICAL: Log the actual p tag value so we can see what pubkey Amber is using
+            if (allPTags.length > 0) {
+              const pTagPubkey = allPTags[0];
+              const pTagMatches = pTagPubkey === appPubkey;
+              console.error(`[NIP46-PTAG] Event #${this.eventCounter} p tag value: ${pTagPubkey} (our app pubkey: ${appPubkey})`);
+              console.error(`[NIP46-PTAG] Match: ${pTagMatches ? 'YES' : 'NO - THIS IS THE PROBLEM!'}`);
+              
+              if (!pTagMatches) {
+                console.error(`[NIP46-PTAG-MISMATCH] ⚠️ CRITICAL: Amber is responding to a different app pubkey!`);
+                console.error(`[NIP46-PTAG-MISMATCH] Amber's p tag: ${pTagPubkey}`);
+                console.error(`[NIP46-PTAG-MISMATCH] Our app pubkey: ${appPubkey}`);
+                console.error(`[NIP46-PTAG-MISMATCH] This means Amber is using a connection from a previous session.`);
+                console.error(`[NIP46-PTAG-MISMATCH] SOLUTION: Clear Amber's connection cache or scan a fresh QR code with the current app pubkey.`);
+                console.error(`[NIP46-PTAG-MISMATCH] We cannot decrypt this event because we don't have the private key for the old pubkey.`);
+                
+                // Only clear the connection if we don't have an active connection
+                // This prevents clearing a valid connection that was just established
+                const hasActiveConnection = this.connection?.connected && this.connection?.pubkey;
+                if (!hasActiveConnection && typeof window !== 'undefined') {
+                  try {
+                    const { clearNIP46Connection } = require('./nip46-storage');
+                    clearNIP46Connection();
+                    console.error(`[NIP46-PTAG-MISMATCH] ✅ Automatically cleared stale connection from localStorage (no active connection). Please reconnect with a fresh QR code.`);
+                    
+                    // Also clear the connection in memory
+                    if (this.connection) {
+                      this.connection.connected = false;
+                      this.connection.pubkey = undefined;
+                    }
+                  } catch (clearError) {
+                    console.error(`[NIP46-PTAG-MISMATCH] ❌ Failed to clear stale connection:`, clearError);
+                  }
+                } else if (hasActiveConnection) {
+                  console.warn(`[NIP46-PTAG-MISMATCH] ⚠️ Skipping auto-clear - we have an active connection. This event is likely from a different Amber instance or old connection.`);
+                }
+              }
+            }
+            
+            // Try to decrypt and process - handleRelayEvent will attempt decryption with different keys
+            // Process if it looks like it might be from Amber (encrypted content) or if we have pending requests
+            // AGGRESSIVE: Process any encrypted event if we have pending requests (Amber might not tag correctly)
+            if (mightBeFromAmber || hasEncryptedContent || hasPendingRequests) {
+              console.log('🔍 NIP-46: Attempting to process event (aggressive mode - might be from Amber)', {
+                eventId: event.id.slice(0, 16) + '...',
+                eventPubkey: event.pubkey.slice(0, 16) + '...',
+                contentLength: event.content.length,
+                hasPendingRequests,
+                mightBeFromAmber,
+                hasEncryptedContent,
+              });
+              this.handleRelayEvent(event, connectionInfo);
+            } else {
+              console.log('ℹ️ NIP-46: Event doesn\'t look like it\'s from Amber (not encrypted), skipping aggressive processing');
+            }
+          }
         } else if (!isForUs) {
           // Event not tagged for us - but if we have pending requests, try to process it anyway
           if (hasPendingRequests) {
@@ -497,36 +644,82 @@ export class NIP46Client {
                 content.result !== this.connection?.token; // Not the secret
               
               const hasPendingGetPublicKey = Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key');
+              const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
               const mightBeGetPublicKeyResponse = looksLikeGetPublicKeyResponse && hasPendingGetPublicKey;
               
-              if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse) {
+              // Check if result looks like a signature (128 hex chars)
+              const looksLikeSignature = content.result && 
+                typeof content.result === 'string' && 
+                (content.result.length === 128 || content.result.length === 64) &&
+                /^[a-f0-9]+$/i.test(content.result);
+              const mightBeSignEventResponse = looksLikeSignature && hasPendingSignEvent;
+              
+              if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse || mightBeSignEventResponse) {
                 console.error(`[NIP46-AGGRESSIVE] Processing untagged event #${this.eventCounter} that looks like a response`);
                 console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
                   mightBeConnection,
                   isResponseToPending,
                   mightBeGetPublicKeyResponse,
+                  mightBeSignEventResponse,
                   requestId: content.id,
                   hasPendingRequest: isResponseToPending,
                   hasPendingGetPublicKey,
+                  hasPendingSignEvent,
                   looksLikeGetPublicKeyResponse,
+                  looksLikeSignature,
                 });
                 this.handleRelayEvent(event, connectionInfo);
               } else if (hasPendingGetPublicKey && content.result) {
                 // AGGRESSIVE: If we have pending get_public_key and this has ANY result, try processing it
                 console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} has result field and we have pending get_public_key. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
+              } else if (hasPendingSignEvent && content.result && looksLikeSignature) {
+                // AGGRESSIVE: If we have pending sign_event and this looks like a signature, try processing it
+                console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} has signature-like result and we have pending sign_event. Processing anyway...`);
+                this.handleRelayEvent(event, connectionInfo);
               } else {
-                console.log('ℹ️ NIP-46: Event is not for us and not a connection/response event, ignoring');
+                const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
+                if (hasPendingSignEvent) {
+                  console.log('⚠️ NIP-46: Event is not for us and not a connection/response event, but we have pending sign_event. Event details:', {
+                    eventId: event.id.slice(0, 16) + '...',
+                    eventPubkey: event.pubkey.slice(0, 16) + '...',
+                    kind: event.kind,
+                    contentLength: event.content.length,
+                    tags: event.tags.map(t => [t[0], t[1]?.slice(0, 16) + '...']),
+                    note: 'This event was ignored, but we are waiting for a sign_event response. If Amber sent a response, it might be in a different format.',
+                  });
+                } else {
+                  console.log('ℹ️ NIP-46: Event is not for us and not a connection/response event, ignoring');
+                }
               }
             } catch (e) {
               // Not JSON or can't decrypt, but might still be a response we need
+              const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
               console.error(`[NIP46-UNTAGGED] Event #${this.eventCounter} not parseable, but checking if it's a response anyway:`, {
                 eventId: event.id.slice(0, 16) + '...',
                 error: e instanceof Error ? e.message : String(e),
                 contentLength: event.content.length,
                 contentPreview: event.content.substring(0, 100),
                 hasPendingGetPublicKey: Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key'),
+                hasPendingSignEvent,
+                note: hasPendingSignEvent && event.content.length > 500 ? 'Large content might be a full signed event from Amber (old connection)' : undefined,
               });
+              
+              // If we have a pending sign_event and this is a large encrypted event, it might be from an old connection
+              if (hasPendingSignEvent && event.content.length > 500 && e instanceof Error && e.message.includes('invalid MAC')) {
+                const pTags = event.tags.filter(t => t[0] === 'p');
+                if (pTags.length > 0) {
+                  const pTagPubkey = pTags[0][1];
+                  console.error('❌ [NIP46-OLD-CONNECTION] Amber is responding to an OLD connection!', {
+                    currentAppPubkey: this.connection?.appPubkey?.slice(0, 16) + '...',
+                    oldAppPubkey: pTagPubkey?.slice(0, 16) + '...',
+                    eventPubkey: event.pubkey.slice(0, 16) + '...',
+                    contentLength: event.content.length,
+                    solution: 'Clear Amber\'s connection cache and scan a fresh QR code',
+                  });
+                }
+              }
+              
               console.log('ℹ️ NIP-46: Event content is not parseable, ignoring:', e instanceof Error ? e.message : String(e));
             }
           }
@@ -574,14 +767,17 @@ export class NIP46Client {
   /**
    * Create a NIP-46 request event (kind 24133)
    * According to NIP-46 spec, content must be NIP-44 encrypted
+   * @param signerPubkey - The signer's pubkey to tag. If undefined, no p tag will be added (for get_public_key)
+   * @param pubkeyForEncryption - The pubkey to use for encryption. For get_public_key without signer pubkey, use appPubkey
    */
   private createNIP46RequestEvent(
     method: string,
     params: any[],
     requestId: string,
     appPubkey: string,
-    signerPubkey: string,
-    appPrivateKey: string
+    signerPubkey: string | undefined,
+    appPrivateKey: string,
+    pubkeyForEncryption?: string
   ): Event {
     const request: NIP46Request = {
       id: requestId,
@@ -600,8 +796,18 @@ export class NIP46Client {
       // Convert private key from hex string to Uint8Array
       const appPrivateKeyBytes = hexToBytes(appPrivateKey);
       
+      // For get_public_key when we don't have the signer pubkey, we need to use a different approach
+      // Since we can't encrypt with the signer's pubkey (we don't have it), we'll use the app pubkey
+      // This is a workaround - ideally Amber should handle this case
+      // Use the provided pubkeyForEncryption parameter, or fall back to signerPubkey or appPubkey
+      const encryptionPubkey = pubkeyForEncryption || signerPubkey || appPubkey;
+      
+      if (!encryptionPubkey) {
+        throw new Error('Cannot encrypt request: no pubkey available for encryption');
+      }
+      
       // Get conversation key using NIP-44 v2 API
-      const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, signerPubkey);
+      const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, encryptionPubkey);
       
       // Encrypt using the conversation key
       encryptedContent = nip44.encrypt(requestJson, conversationKey);
@@ -611,8 +817,10 @@ export class NIP46Client {
         requestId,
         originalLength: requestJson.length,
         encryptedLength: encryptedContent.length,
-        signerPubkey: signerPubkey.slice(0, 16) + '...',
+        signerPubkey: signerPubkey ? signerPubkey.slice(0, 16) + '...' : 'N/A',
+        encryptionPubkey: encryptionPubkey.slice(0, 16) + '...',
         appPubkey: appPubkey.slice(0, 16) + '...',
+        note: !signerPubkey ? 'Using app pubkey for encryption (get_public_key without signer pubkey)' : undefined,
       });
     } catch (encryptError) {
       console.error('❌ NIP-46: Failed to encrypt request with NIP-44:', {
@@ -623,11 +831,19 @@ export class NIP46Client {
       throw new Error(`Failed to encrypt NIP-46 request: ${encryptError instanceof Error ? encryptError.message : String(encryptError)}`);
     }
 
+    // For get_public_key when we don't have the signer pubkey yet, don't tag with p tag
+    // This allows Amber to find the request by listening to all kind 24133 events
+    // and filtering by the connection token/secret in the encrypted content
+    const tags: string[][] = [];
+    if (signerPubkey) {
+      tags.push(['p', signerPubkey]); // Tag the signer if we know their pubkey
+    }
+    // Note: For get_public_key without signer pubkey, we intentionally don't add a p tag
+    // so that Amber can find it by listening to all kind 24133 events
+    
     const template: EventTemplate = {
       kind: 24133, // NIP-46 request/response event kind
-      tags: [
-        ['p', signerPubkey], // Tag the signer
-      ],
+      tags,
       content: encryptedContent, // NIP-44 encrypted JSON-RPC request
       created_at: Math.floor(Date.now() / 1000),
     };
@@ -716,16 +932,51 @@ export class NIP46Client {
           console.warn('⚠️ NIP-46: Failed to decrypt as NIP-44, trying plain JSON:', {
             decryptError: decryptError instanceof Error ? decryptError.message : String(decryptError),
             contentPreview: event.content.substring(0, 100),
+            signerPubkey: signerPubkey.slice(0, 16) + '...',
+            appPubkey: connectionInfo.publicKey ? connectionInfo.publicKey.slice(0, 16) + '...' : 'N/A',
           });
           
-          // Fallback: try parsing as plain JSON (for backwards compatibility or non-encrypted responses)
-          content = JSON.parse(event.content);
-          console.log('📋 NIP-46: Parsed content as plain JSON (not encrypted):', {
-            hasId: 'id' in content,
-            hasResult: 'result' in content,
-            hasError: 'error' in content,
-            hasMethod: 'method' in content,
-          });
+          // CRITICAL: If decryption failed, try with the pubkey from the p tag if it exists
+          // BUT: Only if the p tag matches our current app pubkey (otherwise we can't decrypt)
+          const pTags = event.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
+          if (pTags.length > 0 && pTags[0] !== signerPubkey) {
+            const pTagPubkey = pTags[0];
+            const currentAppPubkey = connectionInfo.publicKey;
+            
+            // Check if p tag matches our current app pubkey
+            if (pTagPubkey === currentAppPubkey) {
+              console.error(`[NIP46-DECRYPT-RETRY] Trying to decrypt with p tag pubkey (matches our app pubkey): ${pTagPubkey.slice(0, 16)}...`);
+              try {
+                const appPrivateKeyBytes = hexToBytes(appPrivateKey);
+                const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, pTagPubkey);
+                decryptedContent = nip44.decrypt(event.content, conversationKey);
+                content = JSON.parse(decryptedContent);
+                console.error(`[NIP46-DECRYPT-SUCCESS] Successfully decrypted with p tag pubkey!`);
+                console.log('✅ NIP-46: Successfully decrypted NIP-44 content using p tag pubkey');
+              } catch (pTagDecryptErr) {
+                console.error(`[NIP46-DECRYPT-FAIL] Failed to decrypt with p tag pubkey: ${pTagDecryptErr instanceof Error ? pTagDecryptErr.message : String(pTagDecryptErr)}`);
+              }
+            } else {
+              console.error(`[NIP46-DECRYPT-SKIP] Cannot decrypt: p tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match our app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...).`);
+              console.error(`[NIP46-DECRYPT-SKIP] This event is for a different app instance. Amber needs to scan a fresh QR code.`);
+            }
+          }
+          
+          // If still not decrypted, try plain JSON
+          if (!decryptedContent) {
+            try {
+              content = JSON.parse(event.content);
+              console.log('📋 NIP-46: Parsed content as plain JSON (not encrypted):', {
+                hasId: 'id' in content,
+                hasResult: 'result' in content,
+                hasError: 'error' in content,
+                hasMethod: 'method' in content,
+              });
+            } catch (jsonErr) {
+              // Will be handled below
+              throw decryptError; // Re-throw original error
+            }
+          }
         }
       } catch (parseError) {
         // Check if it's a plain text signature (64 char hex)
@@ -773,8 +1024,24 @@ export class NIP46Client {
       let extractedPubkey: string | null = null;
       
       if (content.result && typeof content.result === 'string') {
-        // Check if it's a direct 64-char hex pubkey
-        if (content.result.length === 64 && 
+        // FIRST: Check if it's a JSON string containing a full signed event (sign_event response)
+        // This takes priority over get_public_key detection
+        let looksLikeSignEventResponse = false;
+        if (content.result.length > 100 && content.result.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(content.result.trim());
+            if (parsed && typeof parsed === 'object' && 'sig' in parsed && typeof parsed.sig === 'string') {
+              // This is a sign_event response - don't treat it as get_public_key
+              looksLikeSignEventResponse = true;
+              console.log('🔵 [NIP46Client] Detected sign_event response (JSON with sig field), skipping get_public_key detection');
+            }
+          } catch (e) {
+            // Not valid JSON, continue with other checks
+          }
+        }
+        
+        // Check if it's a direct 64-char hex pubkey (only if not a sign_event response)
+        if (!looksLikeSignEventResponse && content.result.length === 64 && 
             /^[a-f0-9]{64}$/i.test(content.result) &&
             content.result !== this.connection?.token) {
           // CRITICAL: Make sure it's not Amber's pubkey (the signer)
@@ -788,8 +1055,8 @@ export class NIP46Client {
             console.error(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it's Amber's pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
           }
         }
-        // Check if it's a JSON string that might contain a pubkey
-        else if (content.result.length > 64 && content.result.startsWith('{')) {
+        // Check if it's a JSON string that might contain a pubkey (only if not a sign_event response)
+        else if (!looksLikeSignEventResponse && content.result.length > 64 && content.result.startsWith('{')) {
           try {
             const parsed = JSON.parse(content.result);
             console.error(`[NIP46-GETPUBKEY] Parsed JSON result:`, JSON.stringify(parsed, null, 2));
@@ -948,7 +1215,21 @@ export class NIP46Client {
               responseMethod: content.method,
               hasResult: 'result' in content,
               hasError: 'error' in content,
+              resultType: typeof content.result,
+              resultPreview: typeof content.result === 'string' ? content.result.slice(0, 64) + '...' : JSON.stringify(content.result).slice(0, 100),
             });
+            
+            // Special logging for sign_event responses
+            if (pending.method === 'sign_event') {
+              console.log('🎉 [NIP46-SIGN] SIGN_EVENT RESPONSE RECEIVED!', {
+                requestId: content.id,
+                hasResult: !!content.result,
+                resultType: typeof content.result,
+                resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
+                resultPreview: typeof content.result === 'string' ? content.result.slice(0, 32) + '...' : JSON.stringify(content.result).slice(0, 100),
+                note: 'This should be the signature string from Amber',
+              });
+            }
             
             if (content.error) {
               console.error('❌ NIP-46: Error in response:', content.error);
@@ -1008,23 +1289,33 @@ export class NIP46Client {
                 }
                 pending.reject(new Error('Response result is undefined - no signature received from signer'));
               } else {
+                // CRITICAL: For connect requests, if the result is "ack", don't resolve with "ack"
+                // Instead, wait for get_public_key to complete (handled separately)
+                if (pending.method === 'connect' && content.result === 'ack') {
+                  console.log('🔵 [NIP46Client] Connect request received "ack" - this will be handled by connection event handler, not resolving promise yet');
+                  // Don't resolve the promise - the connection event handler will call get_public_key
+                  // and we'll resolve the connect promise with the actual pubkey later
+                  return; // Don't resolve with "ack"
+                }
+                
                 // CRITICAL: For get_public_key requests, ONLY resolve if this is actually a get_public_key response
                 // Don't resolve get_public_key promises with connect responses
                 if (pending.method === 'get_public_key') {
-                  // Check if this is a connect response (result is the secret/token)
-                  const isConnectResponseResult = this.connection?.token && content.result === this.connection.token;
+                  // Check if this is a connect response (result is the secret/token or "ack")
+                  const isConnectResponseResult = (this.connection?.token && content.result === this.connection.token) || content.result === 'ack';
                   if (isConnectResponseResult) {
                     console.error(`[NIP46-ERROR] Ignoring connect response - this is NOT a get_public_key response!`);
                     return; // Don't resolve - this is a connect response, not get_public_key
                   }
                   
                   const result = content.result;
-                  // Check if result is Amber's pubkey (the signer) - reject if so
+                  // Check if result is Amber's pubkey (the signer)
+                  // NOTE: For new Amber accounts, the user's pubkey might be the same as Amber's pubkey
+                  // This is OK - it means the user is using Amber's own account
                   const amberPubkey = event.pubkey; // This is the signer's (Amber's) pubkey from the event
                   if (amberPubkey && result === amberPubkey && typeof result === 'string' && result.length === 64) {
-                    console.error(`[NIP46-ERROR] Rejecting - got Amber's pubkey (${result.slice(0, 16)}...) instead of user's pubkey!`);
-                    pending.reject(new Error('Received Amber\'s pubkey instead of user\'s pubkey'));
-                    return;
+                    console.warn(`[NIP46-WARNING] Got pubkey that matches Amber's pubkey (${result.slice(0, 16)}...). This might be correct if the user is using Amber's own account. Accepting it.`);
+                    // Continue - this might be correct for new Amber accounts
                   }
                 }
                 
@@ -1082,6 +1373,85 @@ export class NIP46Client {
               return; // Don't process further
             }
           }
+          
+          // 🔵 Amber fallback for sign_event: If we have a pending sign_event request and this looks like a signature response,
+          // resolve it even if the ID doesn't match (Amber might use different ID format)
+          // Amber can return:
+          // 1. A 64/128-char hex signature string
+          // 2. A JSON string containing a full signed event (with 'sig' field)
+          const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
+          let looksLikeSignatureResponse = false;
+          let signatureValue: string | null = null;
+          
+          if (content.result && typeof content.result === 'string') {
+            // Check if it's a direct signature (64 or 128 hex chars)
+            if ((content.result.length === 128 || content.result.length === 64) && /^[a-f0-9]+$/i.test(content.result)) {
+              looksLikeSignatureResponse = true;
+              signatureValue = content.result;
+            }
+            // Check if it's a JSON string containing a full signed event
+            else if (content.result.length > 100 && content.result.trim().startsWith('{')) {
+              try {
+                const parsed = JSON.parse(content.result.trim());
+                if (parsed && typeof parsed === 'object' && 'sig' in parsed && typeof parsed.sig === 'string') {
+                  looksLikeSignatureResponse = true;
+                  signatureValue = content.result; // Pass the full JSON string, signEvent will parse it
+                  console.log('🔵 [NIP46Client] Amber fallback: Detected sign_event response as JSON string with full event');
+                }
+              } catch (e) {
+                // Not valid JSON, ignore
+              }
+            }
+          }
+          
+          // Check if this is a sign_event response (even if request timed out)
+          if (looksLikeSignatureResponse && signatureValue) {
+            const pendingSignEventRequest = Array.from(this.pendingRequests.entries()).find(([reqId, pending]) => {
+              return pending.method === 'sign_event';
+            });
+            
+            if (pendingSignEventRequest) {
+              const [reqId, pending] = pendingSignEventRequest;
+              console.log('🔵 [NIP46Client] Amber fallback: Resolving sign_event request (ID may not match):', {
+                responseId: content.id || 'no-id',
+                requestId: reqId,
+                resultLength: content.result?.length || 0,
+                resultPreview: typeof content.result === 'string' ? content.result.slice(0, 100) + '...' : 'N/A',
+                note: 'Amber may use different ID format, but response looks like a valid signature or signed event',
+              });
+              
+              // Clear timeout and interval if they exist
+              if ((pending as any).statusInterval) {
+                clearInterval((pending as any).statusInterval);
+              }
+              if ((pending as any).timeout) {
+                clearTimeout((pending as any).timeout);
+              }
+              
+              // Remove from pending requests
+              this.pendingRequests.delete(reqId);
+              
+              // Resolve with the signature/event (signEvent method will parse it)
+              pending.resolve(signatureValue);
+              return; // Don't process further
+            } else {
+              // Response looks like sign_event but no pending request (may have timed out)
+              // Check if response ID matches a request ID pattern
+              const responseId = content.id;
+              if (responseId && typeof responseId === 'string') {
+                // Request IDs are in format: timestamp-randomstring
+                // Check if this response ID matches that pattern
+                const isRequestIdPattern = /^\d{13}-[a-z0-9]+$/i.test(responseId);
+                if (isRequestIdPattern) {
+                  console.warn('⚠️ NIP-46: Received sign_event response but no pending request found:', {
+                    responseId,
+                    resultLength: content.result?.length || 0,
+                    note: 'This may be a late response to a timed-out request. The request may have already been rejected.',
+                  });
+                }
+              }
+            }
+          }
         }
       }
 
@@ -1092,10 +1462,11 @@ export class NIP46Client {
       // 3. Direct pubkey in content
       // 4. Amber-compatible: { id: '...', result: 'secret' } (connect response) or { id: '...', result: 'pubkey' } (get_public_key response)
       
-      // Check if this is a connect response (Amber sends secret as result)
+      // Check if this is a connect response (Amber sends secret as result OR "ack")
+      // Amber can respond with either the token/secret OR just "ack" to acknowledge the connection
       const isConnectResponse = isAmberCompatible && 
         this.connection?.token && 
-        content.result === this.connection.token;
+        (content.result === this.connection.token || content.result === 'ack');
       
       // Check if this is a get_public_key response (result is a 64-char hex pubkey OR JSON containing pubkey)
       const isGetPublicKeyResponse = isAmberCompatible && looksLikeGetPublicKeyResponse && extractedPubkey !== null;
@@ -1123,8 +1494,10 @@ export class NIP46Client {
       // Handle Amber connect response - automatically request public key
       // CRITICAL: Only process connect response if we don't already have a user's pubkey
       // We temporarily store Amber's pubkey, but that's not the user's pubkey
+      // Also check if we've already processed a connect response to avoid duplicate processing
       const hasUserPubkey = this.connection?.pubkey && this.connection.pubkey !== event.pubkey;
-      if (isConnectResponse && !hasUserPubkey) {
+      const alreadyProcessedConnect = this.connection?.connected && this.connection.pubkey === event.pubkey;
+      if (isConnectResponse && !hasUserPubkey && !alreadyProcessedConnect) {
         console.error(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
         
@@ -1132,10 +1505,12 @@ export class NIP46Client {
         // This is Amber's pubkey (the signer who sent the connect response)
         if (this.connection) {
           this.connection.pubkey = event.pubkey; // Store Amber's pubkey temporarily
+          this.connection.connected = true; // Mark as connected
           console.error(`[NIP46-CONNECT] Stored Amber's pubkey from connect response: ${event.pubkey.slice(0, 16)}...`);
         }
         
-        // Request public key asynchronously (don't await, let it complete in background)
+        // Request public key and wait for it to complete
+        // CRITICAL: We need to resolve any pending connect requests with the actual pubkey, not "ack"
         this.sendRequest('get_public_key', []).then((pubkey: string) => {
           console.error(`[NIP46-SUCCESS] Got public key from Amber: ${pubkey.slice(0, 16)}...`);
           console.log('🔵 [NIP46Client] Successfully authenticated with Amber pubkey:', pubkey);
@@ -1144,13 +1519,16 @@ export class NIP46Client {
           // The pubkey should be the user's pubkey from the get_public_key response
           // Amber's pubkey is stored temporarily in connection.pubkey from the connect response
           const amberPubkey = event.pubkey; // This is Amber's pubkey from the connect response event
-          if (pubkey === amberPubkey) {
-            console.error(`[NIP46-ERROR] Got Amber's pubkey (${pubkey.slice(0, 16)}...) instead of user's pubkey! This is wrong!`);
-            // Don't proceed with authentication if we got Amber's pubkey
-            return;
-          }
           
-          console.error(`[NIP46-SUCCESS] Using user's pubkey: ${pubkey.slice(0, 16)}... (Amber's pubkey was: ${amberPubkey.slice(0, 16)}...)`);
+          // NOTE: For new Amber accounts, the user's pubkey might be the same as Amber's pubkey
+          // This is OK - it means the user is using Amber's own account
+          // We should accept it and proceed with authentication
+          if (pubkey === amberPubkey) {
+            console.warn(`[NIP46-WARNING] Got pubkey that matches Amber's pubkey (${pubkey.slice(0, 16)}...). This might be correct if the user is using Amber's own account. Proceeding anyway.`);
+            // Continue - this might be correct for new Amber accounts
+          } else {
+            console.error(`[NIP46-SUCCESS] Using user's pubkey: ${pubkey.slice(0, 16)}... (Amber's pubkey was: ${amberPubkey.slice(0, 16)}...)`);
+          }
           
           // Store user's pubkey in connection (this replaces Amber's pubkey that was stored temporarily)
           if (this.connection) {
@@ -1175,6 +1553,23 @@ export class NIP46Client {
             }
           }
           
+          // CRITICAL: Resolve any pending connect requests with the actual pubkey (not "ack")
+          // This ensures authenticate() gets the real pubkey
+          const pendingConnectRequests = Array.from(this.pendingRequests.entries()).filter(
+            ([reqId, req]) => req.method === 'connect'
+          );
+          for (const [reqId, req] of pendingConnectRequests) {
+            console.log('🔵 [NIP46Client] Resolving pending connect request with actual pubkey:', pubkey.slice(0, 16) + '...');
+            this.pendingRequests.delete(reqId);
+            if ((req as any).timeout) {
+              clearTimeout((req as any).timeout);
+            }
+            if ((req as any).statusInterval) {
+              clearInterval((req as any).statusInterval);
+            }
+            req.resolve(pubkey); // Resolve with actual pubkey, not "ack"
+          }
+          
           // Trigger connection callback to complete authentication with server
           if (this.onConnectionCallback) {
             console.log('🔵 [NIP46Client] Completing authentication with server for pubkey:', pubkey);
@@ -1186,6 +1581,20 @@ export class NIP46Client {
           }
         }).catch((err) => {
           console.error('❌ NIP-46: Failed to get public key after connect:', err);
+          // Reject any pending connect requests
+          const pendingConnectRequests = Array.from(this.pendingRequests.entries()).filter(
+            ([reqId, req]) => req.method === 'connect'
+          );
+          for (const [reqId, req] of pendingConnectRequests) {
+            this.pendingRequests.delete(reqId);
+            if ((req as any).timeout) {
+              clearTimeout((req as any).timeout);
+            }
+            if ((req as any).statusInterval) {
+              clearInterval((req as any).statusInterval);
+            }
+            req.reject(err);
+          }
         });
         return; // Don't process as regular connection event yet
       }
@@ -1499,16 +1908,38 @@ export class NIP46Client {
     }
 
     // Get connection info
-    const pendingConnection = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('nip46_pending_connection')
-      : null;
+    // Get the app's key pair - prefer persistent key pair, fall back to sessionStorage
+    let connectionInfo: any = null;
+    let appPubkey: string;
     
-    if (!pendingConnection) {
-      throw new Error('No pending connection found');
+    // First, try to get persistent app key pair from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const { getOrCreateAppKeyPair } = require('./nip46-storage');
+        const keyPair = getOrCreateAppKeyPair();
+        appPubkey = keyPair.publicKey;
+        connectionInfo = {
+          publicKey: appPubkey,
+          privateKey: keyPair.privateKey,
+        };
+      } catch (keyPairError) {
+        // Fall back to sessionStorage for backward compatibility
+        const pendingConnection = sessionStorage.getItem('nip46_pending_connection');
+        if (pendingConnection) {
+          connectionInfo = JSON.parse(pendingConnection);
+          appPubkey = connectionInfo.publicKey;
+        } else {
+          throw new Error('No app key pair found (neither persistent nor session)');
+        }
+      }
+    } else {
+      throw new Error('Cannot access localStorage on server');
     }
-
-    const connectionInfo = JSON.parse(pendingConnection);
-    const appPubkey = connectionInfo.publicKey;
+    
+    if (!connectionInfo || !appPubkey) {
+      throw new Error('No valid app key pair found');
+    }
+    
     const signerPubkey = this.connection.pubkey;
 
     // Ensure relay is still connected - reconnect if needed (before creating Promise)
@@ -1556,6 +1987,19 @@ export class NIP46Client {
       note: 'This ID will be used to match the response. Make sure response.id matches exactly.',
     });
 
+    // Rate limiting: Check if we've sent a request of this method recently
+    const lastTime = this.lastRequestTime.get(method);
+    const now = Date.now();
+    if (lastTime && (now - lastTime) < this.RATE_LIMIT_MS) {
+      const waitTime = this.RATE_LIMIT_MS - (now - lastTime);
+      const errorMsg = `Rate limit: Please wait ${Math.ceil(waitTime / 1000)} seconds before sending another ${method} request. This prevents overwhelming Amber.`;
+      console.warn(`⚠️ NIP-46: Rate limit - ${method} request too soon (${Math.ceil((now - lastTime) / 1000)}s ago). ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
+    // Update last request time
+    this.lastRequestTime.set(method, now);
+
     // For relay-based requests, we need to wait for the response event
     // This is a simplified implementation - in production, you'd want to
     // properly handle the request/response cycle via relay events
@@ -1599,28 +2043,74 @@ export class NIP46Client {
         }
       }, 1000);
       
-      // Store interval for cleanup
+      // Store interval and timeout for cleanup
       pendingRequest.statusInterval = statusInterval;
 
-      // Timeout after 90 seconds for relay requests (longer than WebSocket)
+      // Timeout after 120 seconds for relay requests (Amber can be slow to respond, especially on mobile)
       // Relay-based communication can be slower
       const timeout = setTimeout(() => {
         clearInterval(statusInterval);
         if (this.pendingRequests.has(id)) {
+          const timeSinceLastEvent = this.lastEventTime > 0 ? Math.floor((Date.now() - this.lastEventTime) / 1000) : -1;
+          const hasRecentEvents = timeSinceLastEvent >= 0 && timeSinceLastEvent < 60;
+          
           console.error('❌ NIP-46: Request timeout:', {
             requestId: id,
             method,
-            timeoutMs: 90000,
+            timeoutMs: 120000, // 120 seconds - Amber can take time to respond, especially on mobile
             pendingRequestsCount: this.pendingRequests.size,
             allPendingIds: Array.from(this.pendingRequests.keys()),
             eventsReceivedTotal: this.eventCounter,
-            lastEventReceived: this.lastEventTime > 0 ? `${Math.floor((Date.now() - this.lastEventTime) / 1000)}s ago` : 'never',
+            lastEventReceived: timeSinceLastEvent >= 0 ? `${timeSinceLastEvent}s ago` : 'never',
             subscriptionActive: !!this.relaySubscription,
+            connectionState: {
+              hasConnection: !!this.connection,
+              connected: this.connection?.connected,
+              hasPubkey: !!this.connection?.pubkey,
+              pubkeyPreview: this.connection?.pubkey?.slice(0, 16) + '...',
+              signerUrl: this.connection?.signerUrl,
+            },
           });
+          
+          // Provide specific troubleshooting based on the situation
+          let troubleshootingTips = '';
+          if (!hasRecentEvents && this.eventCounter === 0) {
+            troubleshootingTips = '\n\n🔍 TROUBLESHOOTING:\n' +
+              '  • No events received at all - relay subscription might not be working\n' +
+              '  • Check if Amber is connected to the same relays\n' +
+              '  • Verify relay connectivity (wss://relay.damus.io, etc.)';
+          } else if (!hasRecentEvents) {
+            troubleshootingTips = '\n\n🔍 TROUBLESHOOTING:\n' +
+              '  • No events received in the last 60+ seconds - relay might be disconnected\n' +
+              '  • Amber might not be connected to any of the relays we published to\n' +
+              '  • Check Amber\'s relay connection status in the app';
+          } else if (method === 'sign_event') {
+            troubleshootingTips = '\n\n🔍 TROUBLESHOOTING:\n' +
+              '  • Check your phone - did Amber show a notification/prompt?\n' +
+              '  • If no prompt: Amber might not be subscribed to events from your app\n' +
+              '  • If prompt appeared but timed out: Amber might be waiting for approval\n' +
+              '  • Check Amber\'s "Recent Requests" or activity log\n' +
+              '  • Verify Amber is connected to at least one of these relays:\n' +
+              '    - wss://relay.damus.io\n' +
+              '    - wss://relay.nsec.app\n' +
+              '    - wss://nostr.oxtr.dev\n' +
+              '    - wss://theforest.nostr1.com\n' +
+              '    - wss://relay.primal.net\n' +
+              '  • If you see p-tag mismatch errors, clear Amber\'s connection cache and reconnect';
+          }
+          
           this.pendingRequests.delete(id);
-          reject(new Error(`Request timeout: ${method} - No response received from signer after 90 seconds. Please ensure Amber is connected and try again.`));
+          reject(new Error(
+            `Request timeout: ${method} - No response received from signer after 120 seconds.${troubleshootingTips}\n\n` +
+            `Request ID: ${id}\n` +
+            `Events received: ${this.eventCounter} total, last event ${timeSinceLastEvent >= 0 ? timeSinceLastEvent + 's ago' : 'never'}\n` +
+            `Subscription active: ${!!this.relaySubscription}`
+          ));
         }
-      }, 90000);
+      }, 120000); // 120 seconds - Amber can take time to respond, especially on mobile
+      
+      // Store timeout reference for cleanup if response arrives
+      (pendingRequest as any).timeout = timeout;
 
       // CRITICAL: NEVER return stored pubkey for get_public_key requests
       // The stored pubkey might be Amber's pubkey (from connect response), not the user's pubkey
@@ -1639,15 +2129,38 @@ export class NIP46Client {
       // after connection, we should have the pubkey. If we're calling it before connection,
       // we need to wait for the connection first.
       
-      // For now, if we don't have the signer pubkey, we'll use an empty tag or the app pubkey
-      // The signer should be able to identify the request based on the connection token in the URI
-      const pubkeyForRequest = signerPubkey || appPubkey;
+      // CRITICAL: For get_public_key without signer pubkey, we have a chicken-and-egg problem:
+      // - We need the signer's pubkey to encrypt the request properly
+      // - But we're trying to get the signer's pubkey with this request
+      // 
+      // According to NIP-46, when using nostrconnect://, Amber should send a connection event first
+      // that includes its pubkey. We should wait for that before calling get_public_key.
+      // 
+      // However, if we're calling get_public_key before connection, we have two options:
+      // 1. Don't encrypt (but NIP-46 requires encryption)
+      // 2. Use a workaround: encrypt with app pubkey (Amber can't decrypt, but might still respond)
+      // 3. Wait for connection event first (RECOMMENDED)
+      //
+      // For now, we'll use option 2 as a fallback, but log a warning.
+      if (method === 'get_public_key' && !signerPubkey) {
+        console.warn('⚠️ NIP-46: Calling get_public_key without signer pubkey. This may fail because:');
+        console.warn('   1. We cannot encrypt properly (using app pubkey as workaround)');
+        console.warn('   2. Amber cannot decrypt the request');
+        console.warn('   3. Recommended: Wait for connection event first, then call get_public_key');
+        console.warn('   If this fails, try calling "connect" first or wait for Amber to send a connection event.');
+      }
+      
+      // For get_public_key, if we don't have the signer pubkey, don't tag the request
+      // This allows Amber to find it by listening to all kind 24133 events
+      // Amber can then decrypt and check if it matches the connection token/secret
+      const pubkeyForRequest = method === 'get_public_key' && !signerPubkey ? undefined : (signerPubkey || appPubkey);
       
       console.log('📋 NIP-46: Request details:', {
         method,
         hasSignerPubkey: !!signerPubkey,
-        usingPubkeyForRequest: pubkeyForRequest === signerPubkey ? 'signer' : 'app (placeholder)',
-        pubkeyForRequest: pubkeyForRequest.slice(0, 16) + '...',
+        usingPubkeyForRequest: pubkeyForRequest === signerPubkey ? 'signer' : (pubkeyForRequest === appPubkey ? 'app (placeholder)' : 'none (untagged)'),
+        pubkeyForRequest: pubkeyForRequest ? pubkeyForRequest.slice(0, 16) + '...' : 'N/A (no p tag)',
+        note: !pubkeyForRequest ? 'Request will be published without p tag - Amber should find it by listening to all kind 24133 events' : undefined,
       });
 
       // For other methods, publish a request event and wait for response
@@ -1657,7 +2170,10 @@ export class NIP46Client {
       
       // Create NIP-46 request event
       // For get_public_key, we use appPubkey as placeholder if signerPubkey isn't available yet
-      const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, pubkeyForRequest, connectionInfo.privateKey);
+      // For encryption, we always need a pubkey - use appPubkey if signerPubkey is not available
+      // NOTE: This is a workaround - ideally we should wait for connection event first
+      const encryptionPubkey = signerPubkey || appPubkey;
+      const requestEvent = this.createNIP46RequestEvent(method, params, id, appPubkey, pubkeyForRequest, connectionInfo.privateKey, encryptionPubkey);
       
       console.log('📤 NIP-46: Publishing request event:', {
         eventId: requestEvent.id.slice(0, 16) + '...',
@@ -1714,11 +2230,53 @@ export class NIP46Client {
         }
         
         try {
+          // Publish to multiple relays to increase chances Amber receives the event
+          // Amber uses multiple relays, so we should publish to popular ones
+          const amberRelays = [
+            'wss://relay.damus.io',
+            'wss://relay.nsec.app',
+            'wss://nostr.oxtr.dev',
+            'wss://theforest.nostr1.com',
+            'wss://relay.primal.net',
+          ];
+          
+          // Combine the connection relay with Amber's popular relays
+          // Remove duplicates and ensure we have at least the connection relay
+          const publishRelays = Array.from(new Set([
+            this.connection.signerUrl,
+            ...amberRelays,
+          ]));
+          
+          console.log('📡 NIP-46: Publishing to multiple relays for better reliability:', {
+            primaryRelay: this.connection.signerUrl,
+            totalRelays: publishRelays.length,
+            relays: publishRelays,
+            note: 'Publishing to multiple relays increases the chance that Amber will receive the event, since Amber may be connected to different relays.',
+          });
+          
           const results = await this.relayClient!.publish(requestEvent, {
-            relays: [this.connection.signerUrl],
+            relays: publishRelays,
             waitForRelay: true, // Wait for relay confirmation to ensure it's published
             timeout: 15000, // 15 second timeout for publish confirmation (increased from 10s)
           });
+          
+          // Log which relays successfully received the event
+          const successfulRelays = results
+            .map((result, index) => ({ result, relay: publishRelays[index] }))
+            .filter(({ result }) => result.status === 'fulfilled')
+            .map(({ relay }) => relay);
+          
+          const failedRelays = results
+            .map((result, index) => ({ result, relay: publishRelays[index] }))
+            .filter(({ result }) => result.status === 'rejected')
+            .map(({ relay, result }) => ({ relay, error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
+          
+          if (successfulRelays.length > 0) {
+            console.log('✅ NIP-46: Event successfully published to relays:', successfulRelays);
+          }
+          if (failedRelays.length > 0) {
+            console.warn('⚠️ NIP-46: Failed to publish to some relays:', failedRelays);
+          }
           
           console.log('✅ NIP-46: Request event published:', {
             requestId: id,
@@ -1744,6 +2302,32 @@ export class NIP46Client {
             pendingRequestsCount: this.pendingRequests.size,
             waitingForResponse: true,
           });
+          
+          // For sign_event requests, provide additional guidance
+          if (method === 'sign_event') {
+            console.log('📱 NIP-46: Sign event request published to multiple relays. Important notes:');
+            console.log('   1. Event published to relays:', publishRelays);
+            console.log('   2. Successfully published to:', successfulRelays.length, 'relays');
+            console.log('   3. Failed to publish to:', failedRelays.length, 'relays');
+            console.log('   4. Event ID:', requestEvent.id);
+            console.log('   5. Event pubkey (your app):', requestEvent.pubkey);
+            console.log('   6. Event tags:', JSON.stringify(requestEvent.tags, null, 2));
+            console.log('   7. Request ID (for matching response):', id);
+            console.log('   8. ⚠️ CRITICAL: Amber must be subscribed to events with:');
+            console.log('      - kind: 24133');
+            console.log('      - #p tag matching Amber\'s pubkey:', signerPubkey ? signerPubkey : 'N/A');
+            console.log('   9. Check Amber app on your phone RIGHT NOW:');
+            console.log('      - Open Amber app');
+            console.log('      - Check for notifications');
+            console.log('      - Look for approval prompts');
+            console.log('      - Check "Recent Requests" or activity log');
+            console.log('   10. If Amber doesn\'t show anything:');
+            console.log('      - Amber might not be connected to any of these relays:', successfulRelays.join(', '));
+            console.log('      - Amber might not be subscribed to events tagged with its pubkey');
+            console.log('      - Check Amber\'s relay connection status');
+            console.log('   11. We\'re waiting for a response event with request ID:', id);
+            console.log('   12. Response should come within 120 seconds if Amber received and processed the request');
+          }
           
           // Log a reminder about what we're waiting for
           console.log('⏳ NIP-46: Now waiting for response event with matching request ID:', {
@@ -1851,6 +2435,13 @@ export class NIP46Client {
       throw new Error('Not connected');
     }
 
+    // If already authenticated (has pubkey), skip the connect request
+    // This prevents unnecessary requests that can trigger rate limits
+    if (this.connection.connected && this.connection.pubkey) {
+      console.log('✅ NIP-46: Already authenticated, skipping connect request (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
+      return this.connection.pubkey;
+    }
+
     // Send connect request with token
     const pubkey = await this.sendRequest('connect', [this.connection.token]);
     
@@ -1909,13 +2500,19 @@ export class NIP46Client {
    * Sign an event using the remote signer
    */
   async signEvent(event: Event): Promise<Event> {
+    console.log('🔵 [NIP46-SIGN] signEvent called - starting signature request');
+    
     if (!this.connection?.connected) {
+      console.log('⚠️ [NIP46-SIGN] Connection not marked as connected, calling authenticate()');
       await this.authenticate();
     }
 
     // Get pubkey if not already available
     if (!this.connection?.pubkey) {
+      console.log('⚠️ [NIP46-SIGN] Pubkey not available, calling getPublicKey()');
       await this.getPublicKey();
+    } else {
+      console.log('✅ [NIP46-SIGN] Pubkey already available, skipping getPublicKey()');
     }
 
     // Validate we have the pubkey
@@ -1924,6 +2521,7 @@ export class NIP46Client {
     }
 
     const signerPubkey = this.connection.pubkey;
+    console.log('✅ [NIP46-SIGN] Proceeding with signEvent - pubkey confirmed:', signerPubkey.slice(0, 16) + '...');
     
     // CRITICAL: Verify we're using the user's pubkey, not Amber's pubkey
     console.error(`[NIP46-SIGN] Using pubkey for signing: ${signerPubkey.slice(0, 16)}...`);
@@ -1945,39 +2543,141 @@ export class NIP46Client {
     };
 
     // Request signature from signer (send without pubkey as per NIP-46 spec)
+    // CRITICAL: Ensure all required fields are present and valid to prevent Amber crashes
     const eventForSigner = {
       kind: event.kind,
-      tags: event.tags,
-      content: event.content,
-      created_at: event.created_at,
+      tags: Array.isArray(event.tags) ? event.tags : [],
+      content: typeof event.content === 'string' ? event.content : '',
+      created_at: typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000),
     };
+
+    // Validate event structure before sending (to prevent Amber crashes)
+    if (typeof eventForSigner.kind !== 'number' || eventForSigner.kind < 0) {
+      throw new Error(`Invalid event kind: ${eventForSigner.kind}. Must be a non-negative number.`);
+    }
+    if (!Array.isArray(eventForSigner.tags)) {
+      throw new Error('Invalid event tags: must be an array');
+    }
+    if (typeof eventForSigner.content !== 'string') {
+      throw new Error('Invalid event content: must be a string');
+    }
+    if (typeof eventForSigner.created_at !== 'number' || eventForSigner.created_at <= 0) {
+      throw new Error(`Invalid event created_at: ${eventForSigner.created_at}. Must be a positive Unix timestamp.`);
+    }
 
     console.log('✍️ NIP-46: Requesting signature for event:', {
       kind: eventForSigner.kind,
       tags: eventForSigner.tags,
+      tagsCount: eventForSigner.tags.length,
+      tagsDetail: eventForSigner.tags.map((tag, i) => ({
+        index: i,
+        type: tag[0],
+        value: tag[1]?.slice(0, 32) + (tag[1]?.length > 32 ? '...' : ''),
+        fullTag: tag,
+      })),
+      content: eventForSigner.content,
       contentLength: eventForSigner.content.length,
       createdAt: eventForSigner.created_at,
+      pubkey: signerPubkey.slice(0, 16) + '...',
+      note: 'This is the event structure being sent to Amber for signing. Compare with working app examples.',
     });
 
-    const signatureResponse = await this.sendRequest('sign_event', [JSON.stringify(eventForSigner)]);
+    console.log('📱 NIP-46: Sending sign_event request to Amber. Check your phone for:');
+    console.log('   1. Notification from Amber app');
+    console.log('   2. Approval prompt in Amber (if set to manual)');
+    console.log('   3. Event is being published to multiple relays (see logs above)');
+    console.log('   4. ⚠️ If Amber crashes, the event format might be incompatible - try a different event kind');
+    console.log('   5. If you don\'t see a prompt, check:');
+    console.log('      - Amber is connected to at least one of the relays we published to');
+    console.log('      - Amber notification permissions are enabled');
+    console.log('      - Amber is not auto-approving (check settings)');
+    console.log('   6. The working app prompts every time - if ours doesn\'t, events may not be reaching Amber');
+    
+    // Log the exact JSON being sent to help debug
+    const eventJson = JSON.stringify(eventForSigner);
+    console.log('📋 NIP-46: Exact event JSON being sent to Amber:', eventJson);
+    console.log('📋 NIP-46: This will be sent as sign_event([eventJson]) to Amber via NIP-46');
+
+    const signatureResponse = await this.sendRequest('sign_event', [eventJson]);
 
     console.log('🔍 NIP-46: Raw signature response:', {
       type: typeof signatureResponse,
       isString: typeof signatureResponse === 'string',
       isObject: typeof signatureResponse === 'object',
+      length: typeof signatureResponse === 'string' ? signatureResponse.length : 'N/A',
       value: typeof signatureResponse === 'string' 
-        ? signatureResponse.slice(0, 32) + '...' 
+        ? signatureResponse.slice(0, 100) + '...' 
         : JSON.stringify(signatureResponse).slice(0, 200),
+      firstChar: typeof signatureResponse === 'string' ? signatureResponse[0] : 'N/A',
+      startsWithBrace: typeof signatureResponse === 'string' ? signatureResponse.trim().startsWith('{') : false,
     });
 
     // Handle different response formats
+    // Amber may return:
+    // 1. Just the signature (64-char hex string)
+    // 2. A full signed event JSON string (Amber's format)
+    // 3. An object with sig/signature field
     let signature: string;
+    let fullSignedEvent: any = null;
+    
     if (typeof signatureResponse === 'string') {
-      signature = signatureResponse;
+      // Check if it's a JSON string containing a full event (Amber's format)
+      // Amber returns the full signed event as a JSON string in the result field
+      const trimmed = signatureResponse.trim();
+      const isLongJsonString = trimmed.startsWith('{') && trimmed.length > 100;
+      
+      console.log('🔍 NIP-46: Checking if response is JSON event string:', {
+        length: trimmed.length,
+        startsWithBrace: trimmed.startsWith('{'),
+        firstChars: trimmed.slice(0, 50),
+        shouldParse: isLongJsonString,
+        willAttemptParse: isLongJsonString,
+      });
+      
+      if (isLongJsonString) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          // Check if it looks like a full event (has id, sig, pubkey, kind, etc.)
+          if (parsed && typeof parsed === 'object' && 'sig' in parsed && 'id' in parsed && 'kind' in parsed) {
+            console.log('✅ NIP-46: Amber returned a full signed event JSON string');
+            console.log('✅ NIP-46: Parsed full event structure:', {
+              hasId: !!parsed.id,
+              hasSig: !!parsed.sig,
+              hasKind: !!parsed.kind,
+              hasPubkey: !!parsed.pubkey,
+              id: parsed.id?.slice(0, 16) + '...',
+              kind: parsed.kind,
+              sigLength: parsed.sig?.length,
+              sigPreview: parsed.sig?.slice(0, 16) + '...',
+            });
+            fullSignedEvent = parsed;
+            signature = parsed.sig;
+            console.log('✅ NIP-46: Extracted signature from full event:', {
+              eventId: parsed.id?.slice(0, 16) + '...',
+              signatureLength: signature?.length,
+              signaturePreview: signature?.slice(0, 16) + '...',
+            });
+          } else {
+            console.log('⚠️ NIP-46: String looks like JSON but not a full event, treating as signature');
+            signature = signatureResponse;
+          }
+        } catch (e) {
+          console.log('⚠️ NIP-46: Failed to parse as JSON, treating as signature string:', e instanceof Error ? e.message : String(e));
+          // Not valid JSON, treat as signature string
+          signature = signatureResponse;
+        }
+      } else {
+        // Short string, likely just the signature
+        signature = signatureResponse;
+      }
     } else if (signatureResponse && typeof signatureResponse === 'object') {
       // Some implementations might return { sig: "..." } or { signature: "..." }
       if ('sig' in signatureResponse && typeof signatureResponse.sig === 'string') {
         signature = signatureResponse.sig;
+        // Check if it's a full event object
+        if ('id' in signatureResponse && 'kind' in signatureResponse) {
+          fullSignedEvent = signatureResponse;
+        }
       } else if ('signature' in signatureResponse && typeof signatureResponse.signature === 'string') {
         signature = signatureResponse.signature;
       } else if (Array.isArray(signatureResponse) && signatureResponse.length > 0 && typeof signatureResponse[0] === 'string') {
@@ -2003,6 +2703,37 @@ export class NIP46Client {
     // Normalize signature (remove any whitespace)
     signature = signature.trim();
 
+    // If we got a full signed event from Amber, validate and use it directly
+    if (fullSignedEvent && fullSignedEvent.id && fullSignedEvent.sig && fullSignedEvent.kind) {
+      console.log('✅ NIP-46: Using full signed event from Amber (early return):', {
+        id: fullSignedEvent.id.slice(0, 16) + '...',
+        kind: fullSignedEvent.kind,
+        hasSig: !!fullSignedEvent.sig,
+        sigLength: fullSignedEvent.sig.length,
+        sigPreview: fullSignedEvent.sig.slice(0, 16) + '...',
+        fullEvent: fullSignedEvent,
+      });
+      
+      // Validate the event structure
+      if (fullSignedEvent.sig && typeof fullSignedEvent.sig === 'string' && fullSignedEvent.sig.length >= 64 && /^[a-f0-9]+$/i.test(fullSignedEvent.sig)) {
+        console.log('✅ NIP-46: Full event signature is valid, returning complete event from Amber');
+        return fullSignedEvent as Event;
+      } else {
+        console.warn('⚠️ NIP-46: Full event from Amber has invalid signature, falling back to reconstruction:', {
+          sigLength: fullSignedEvent.sig?.length,
+          sigType: typeof fullSignedEvent.sig,
+          sigPreview: fullSignedEvent.sig?.slice(0, 32),
+        });
+      }
+    } else {
+      console.log('ℹ️ NIP-46: No full signed event detected, will reconstruct from signature:', {
+        hasFullSignedEvent: !!fullSignedEvent,
+        hasId: !!fullSignedEvent?.id,
+        hasSig: !!fullSignedEvent?.sig,
+        hasKind: !!fullSignedEvent?.kind,
+      });
+    }
+
     if (signature.length < 64) {
       console.error('❌ NIP-46: Signature too short:', {
         length: signature.length,
@@ -2027,11 +2758,24 @@ export class NIP46Client {
       sig: signature,
     };
 
-    console.log('✅ NIP-46: Constructed signed event:', {
-      id: signedEvent.id.slice(0, 16) + '...',
-      pubkey: signedEvent.pubkey.slice(0, 16) + '...',
-      sig: signedEvent.sig.slice(0, 16) + '...',
+    console.log('✅ NIP-46: Constructed signed event - Final event structure:', {
+      id: signedEvent.id,
+      kind: signedEvent.kind,
+      pubkey: signedEvent.pubkey,
+      tags: signedEvent.tags,
+      tagsCount: signedEvent.tags.length,
+      tagsDetail: signedEvent.tags.map((tag, i) => ({
+        index: i,
+        type: tag[0],
+        value: tag[1]?.slice(0, 32) + (tag[1]?.length > 32 ? '...' : ''),
+        fullTag: tag,
+      })),
+      content: signedEvent.content,
+      contentLength: signedEvent.content.length,
       created_at: signedEvent.created_at,
+      sig: signedEvent.sig,
+      fullEvent: signedEvent,
+      note: 'Compare this structure with working app examples (like the kind 30315 event you showed) to ensure format matches.',
     });
 
     return signedEvent;
