@@ -159,14 +159,30 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
+    // Check if localStorage is available and persistent
+    try {
+      const testKey = '_nip46_storage_test';
+      localStorage.setItem(testKey, 'test');
+      const retrieved = localStorage.getItem(testKey);
+      localStorage.removeItem(testKey);
+
+      if (retrieved !== 'test') {
+        setError('⚠️ localStorage is not working properly. You may be in incognito/private mode. NIP-46 connections require persistent storage to work across sessions.');
+        return;
+      }
+    } catch (err) {
+      setError('⚠️ localStorage is blocked. You may be in incognito/private mode. NIP-46 connections require persistent storage to work across sessions.');
+      return;
+    }
+
     // Clear any existing connections to start fresh
     // This ensures we always create a new connection when user explicitly clicks NIP-46
     const { clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
     const { getUnifiedSigner } = await import('@/lib/nostr/signer');
-    
+
     // Clear stored connection
     clearNIP46Connection();
-    
+
     // Disconnect any active NIP-46 signer in UnifiedSigner
     const signer = getUnifiedSigner();
     try {
@@ -175,7 +191,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Ignore errors if not connected
       console.log('ℹ️ NIP-46: No active connection to disconnect');
     }
-    
+
     console.log('🔄 NIP-46: Cleared old connections, starting fresh login flow');
 
     // Clean up any existing client connection
@@ -203,9 +219,13 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       const { privateKey, publicKey } = keyPair;
       
       // Get default relay for connection
+      // Prefer relays that are less likely to be rate-limited
       const { getDefaultRelays } = await import('@/lib/nostr/relay');
       const relays = getDefaultRelays();
-      const relayUrl = relays[0] || 'wss://relay.damus.io';
+      // Skip Damus relay if it's first (it's often rate-limited)
+      // Prefer relay.nsec.app or nos.lol which are more reliable
+      const preferredRelays = relays.filter(r => !r.includes('relay.damus.io'));
+      const relayUrl = preferredRelays[0] || relays[0] || 'wss://relay.nsec.app';
       
       // Generate connection token (secret for this session)
       const token = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -356,6 +376,48 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize NIP-46 connection');
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResetNip46 = async () => {
+    if (!confirm('This will completely reset your NIP-46 connection and generate a new app keypair. You will need to reconnect Amber with a fresh QR code.\n\nIMPORTANT: You must also clear the connection in Amber app (Settings → Connected Apps → Remove this app).\n\nContinue?')) {
+      return;
+    }
+
+    try {
+      const { clearNIP46Connection, clearAppKeyPair } = await import('@/lib/nostr/nip46-storage');
+      const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+
+      // Disconnect active signer
+      const signer = getUnifiedSigner();
+      try {
+        await signer.disconnectNIP46();
+      } catch (err) {
+        console.log('ℹ️ NIP-46 Reset: No active connection to disconnect');
+      }
+
+      // Clear stored connection AND app keypair
+      clearNIP46Connection();
+      clearAppKeyPair();
+
+      // Clear client
+      if (nip46ClientRef.current) {
+        try {
+          await nip46ClientRef.current.disconnect();
+        } catch (err) {
+          console.warn('Failed to disconnect existing client:', err);
+        }
+        nip46ClientRef.current = null;
+      }
+      setNip46Client(null);
+      setShowNip46Connect(false);
+
+      alert('✅ NIP-46 connection reset successfully!\n\nNext steps:\n1. In Amber app, go to Settings → Connected Apps\n2. Remove/delete this app\'s connection\n3. Click "Connect with Amber" again to generate a fresh QR code\n4. Scan the new QR code with Amber');
+
+      console.log('✅ NIP-46 Reset: Cleared app keypair and connection. A fresh keypair will be generated on next connection.');
+    } catch (err) {
+      console.error('❌ NIP-46 Reset failed:', err);
+      setError('Failed to reset NIP-46 connection: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -1139,6 +1201,17 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 <p className="mt-2 text-xs text-gray-500 text-center">
                   Make sure Amber is installed on your Android device
                 </p>
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <button
+                    onClick={handleResetNip46}
+                    className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300"
+                  >
+                    🔄 Reset NIP-46 Connection
+                  </button>
+                  <p className="mt-1 text-xs text-gray-500 text-center">
+                    Use this if Amber shows pubkey mismatch errors
+                  </p>
+                </div>
               </div>
             )}
           </>

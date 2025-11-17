@@ -95,9 +95,17 @@ export default function Nip46Connect({
       let checkCount = 0;
       const interval = setInterval(() => {
         checkCount++;
+        
+        // Try to get event count from console logs (if available in window)
+        let eventsReceived = 0;
+        if (typeof window !== 'undefined' && (window as any).__NIP46_EVENT_COUNT__) {
+          eventsReceived = (window as any).__NIP46_EVENT_COUNT__;
+        }
+        
         setDebugInfo(prev => ({
           ...prev,
           connectionCheckCount: checkCount,
+          eventsReceived: eventsReceived || prev.eventsReceived || 0,
         }));
 
         // Check if connection was established (stored in localStorage)
@@ -191,6 +199,20 @@ export default function Nip46Connect({
         </div>
       )}
 
+      {/* App Pubkey Display for Debugging */}
+      {debugInfo.appPubkey && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+          <p className="text-xs font-semibold text-green-900 mb-1">✅ Your App Public Key (for debugging):</p>
+          <p className="text-xs font-mono text-green-800 break-all bg-white p-2 rounded border border-green-300">
+            {debugInfo.appPubkey.replace('...', '')}
+            {connectionToken.match(/nostrconnect:\/\/([a-f0-9]{64})/)?.[1] || ''}
+          </p>
+          <p className="text-xs text-green-700 mt-2">
+            ⚠️ Amber must be responding to THIS pubkey. If you see pubkey mismatch errors, use the "Reset NIP-46 Connection" button in the login modal.
+          </p>
+        </div>
+      )}
+
       {/* Connection URI (for manual entry) */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
@@ -211,7 +233,7 @@ export default function Nip46Connect({
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          {isAndroid() 
+          {isAndroid()
             ? 'You can manually enter this URI in Amber if QR code doesn\'t work'
             : 'Copy this URI and paste it into Amber on your mobile device to connect'}
         </p>
@@ -288,16 +310,36 @@ export default function Nip46Connect({
           <p className="text-xs text-blue-600 text-center">
             Make sure you've scanned the QR code or opened the app, and approved the connection in Amber.
           </p>
-          {debugInfo.connectionCheckCount && debugInfo.connectionCheckCount > 30 && (
+          {debugInfo.connectionCheckCount && debugInfo.connectionCheckCount > 10 && (
             <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
               ⚠️ Still waiting... ({debugInfo.connectionCheckCount} checks). 
               <br />
-              Make sure you've:
+              <strong>Troubleshooting steps:</strong>
               <ul className="list-disc list-inside mt-1 space-y-0.5">
-                <li>Scanned the QR code with Amber</li>
-                <li>Approved the connection request in Amber</li>
-                <li>Amber is connected to the same relay: <span className="font-mono text-xs">{debugInfo.relayUrl}</span></li>
+                <li>✅ Scanned the QR code with Amber</li>
+                <li>✅ Approved the connection request in Amber</li>
+                <li>⚠️ <strong>IMPORTANT:</strong> Make sure Amber is connected to one of these relays:
+                  <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                    <li className="font-mono text-xs">{debugInfo.relayUrl || 'wss://relay.nsec.app'}</li>
+                    <li className="font-mono text-xs">wss://relay.damus.io</li>
+                    <li className="font-mono text-xs">wss://nos.lol</li>
+                    <li className="font-mono text-xs">wss://nostr.oxtr.dev</li>
+                    <li className="font-mono text-xs">wss://relay.primal.net</li>
+                  </ul>
+                </li>
+                <li>🔍 <strong>Check browser console</strong> (F12) for event logs - you should see "[NIP46-EVENT]" messages when Amber responds</li>
+                <li>🔄 Try disconnecting and reconnecting in Amber, then scan the QR code again</li>
               </ul>
+              {debugInfo.eventsReceived === 0 && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-800">
+                  ⚠️ <strong>No events received yet.</strong> This usually means:
+                  <ul className="list-disc list-inside mt-1 ml-2">
+                    <li>Amber is not connected to any of the relays we're listening on</li>
+                    <li>The relay connection might be broken - try refreshing the page</li>
+                    <li>Check the browser console (F12) for connection errors</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
           <div className="mt-3 flex justify-center">
@@ -308,11 +350,15 @@ export default function Nip46Connect({
           <div className="mt-3 pt-3 border-t border-blue-200">
             <p className="text-xs text-blue-700 font-semibold mb-1">Connection Status:</p>
             <div className="text-xs text-blue-600 space-y-1">
-              <div>Relay: {debugInfo.relayUrl || 'Not set'}</div>
-              <div>App Key: {debugInfo.appPubkey || 'Not set'}</div>
+              <div>Primary Relay: <span className="font-mono">{debugInfo.relayUrl || 'Not set'}</span></div>
+              <div>App Key: <span className="font-mono text-xs">{debugInfo.appPubkey ? debugInfo.appPubkey.slice(0, 16) + '...' : 'Not set'}</span></div>
               <div>Checks: {debugInfo.connectionCheckCount || 0}</div>
+              <div>Events Received: {debugInfo.eventsReceived || 0}</div>
               {debugInfo.lastEventTime && (
-                <div className="text-green-600">Last event: {debugInfo.lastEventTime}</div>
+                <div className="text-green-600">✅ Last event: {debugInfo.lastEventTime}</div>
+              )}
+              {(!debugInfo.lastEventTime && (debugInfo.connectionCheckCount || 0) > 5) && (
+                <div className="text-yellow-600">⚠️ No events received yet - check relay connection</div>
               )}
             </div>
           </div>
