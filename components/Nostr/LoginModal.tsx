@@ -288,11 +288,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       const { NIP46Client } = await import('@/lib/nostr/nip46-client');
 
-      // The NIP46Client.connect() method auto-detects bunker:// vs nostrconnect://
       console.log('🔌 Connecting with pasted URI:', pastedConnectionUri.substring(0, 30) + '...');
 
+      // Parse token from URI (both bunker:// and nostrconnect:// have secret param)
+      let token = '';
+      try {
+        const url = new URL(pastedConnectionUri.replace(/^(bunker|nostrconnect):\/\//, 'http://'));
+        const secretParam = url.searchParams.get('secret');
+        if (secretParam) {
+          token = decodeURIComponent(secretParam);
+        }
+      } catch (parseErr) {
+        console.warn('⚠️ Failed to parse token from URI, using empty token:', parseErr);
+      }
+
       const client = new NIP46Client();
-      await client.connect(pastedConnectionUri);
+      // connect() signature: (signerUrl, token, connectImmediately?, signerPubkey?)
+      await client.connect(pastedConnectionUri, token, false);
 
       setNip46Client(client);
       nip46ClientRef.current = client;
