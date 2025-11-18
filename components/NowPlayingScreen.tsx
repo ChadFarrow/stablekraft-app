@@ -380,26 +380,9 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <h1 className="text-2xl font-bold mb-2 truncate">
             {currentTrack.title || 'Unknown Track'}
           </h1>
-          <div className="flex items-center justify-center gap-3">
-            <p className="text-lg opacity-80 truncate">
-              {currentPlayingAlbum.artist || 'Unknown Artist'}
-            </p>
-            {currentTrack?.guid && (
-              <div
-                className="flex-shrink-0"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                <FavoriteButton
-                  trackId={currentTrack.guid}
-                  size={24}
-                  className="opacity-80 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            )}
-          </div>
+          <p className="text-lg opacity-80 truncate">
+            {currentPlayingAlbum.artist || 'Unknown Artist'}
+          </p>
         </div>
 
         {/* Progress Bar */}
