@@ -14,9 +14,11 @@ export default function TestNip55CallbackPage() {
 
     // Parse all query params
     const allParams: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      allParams[key] = value;
-    });
+    if (searchParams) {
+      searchParams.forEach((value, key) => {
+        allParams[key] = value;
+      });
+    }
 
     // Parse hash params too
     const hashParams: Record<string, string> = {};
