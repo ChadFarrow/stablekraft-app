@@ -350,14 +350,15 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 }}
               >
                 <div
-                  className="bg-black/60 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors shadow-lg"
+                  className="backdrop-blur-md rounded-full w-12 h-12 flex items-center justify-center pointer-events-auto touch-manipulation hover:scale-110 transition-all shadow-xl"
                   style={{
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
                   }}
                 >
                   <FavoriteButton
                     trackId={currentTrack.guid}
-                    size={22}
+                    size={26}
                     className="text-white"
                   />
                 </div>
@@ -379,9 +380,26 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           <h1 className="text-2xl font-bold mb-2 truncate">
             {currentTrack.title || 'Unknown Track'}
           </h1>
-          <p className="text-lg opacity-80 truncate">
-            {currentPlayingAlbum.artist || 'Unknown Artist'}
-          </p>
+          <div className="flex items-center justify-center gap-3">
+            <p className="text-lg opacity-80 truncate">
+              {currentPlayingAlbum.artist || 'Unknown Artist'}
+            </p>
+            {currentTrack?.guid && (
+              <div
+                className="flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                <FavoriteButton
+                  trackId={currentTrack.guid}
+                  size={24}
+                  className="opacity-80 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Progress Bar */}
