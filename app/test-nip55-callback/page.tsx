@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function TestNip55CallbackPage() {
+function TestNip55CallbackContent() {
   const [debugInfo, setDebugInfo] = useState<any>({});
   const searchParams = useSearchParams();
 
@@ -92,5 +92,18 @@ export default function TestNip55CallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TestNip55CallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white p-4">
+        <h1 className="text-2xl font-bold mb-4">NIP-55 Callback Test</h1>
+        <p>Loading...</p>
+      </div>
+    }>
+      <TestNip55CallbackContent />
+    </Suspense>
   );
 }
