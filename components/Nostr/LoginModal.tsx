@@ -83,11 +83,20 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     }
   }, []);
 
-  // Check NIP-55 availability on Android
+  // Check NIP-55 availability on Android and set up callback handler early
   useEffect(() => {
     if (isAndroid()) {
       const available = NIP55Client.isAvailable();
       setIsNip55Available(available);
+
+      // IMPORTANT: Create NIP55Client instance early to set up callback handler
+      // This ensures the callback handler is ready when Amber redirects back after approval
+      if (available && !nip55Client) {
+        console.log('📱 NIP-55: Creating client instance early to set up callback handler');
+        const client = new NIP55Client();
+        setNip55Client(client);
+      }
+
       // Auto-select Amber on Android if NIP-55 available and no extension
       if (available && !hasExtension && loginMethod === 'extension') {
         setLoginMethod('amber');
@@ -96,13 +105,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         setLoginMethod('amber');
       }
     }
-  }, [hasExtension, loginMethod]);
+  }, [hasExtension, loginMethod, nip55Client]);
 
   // Check for NIP-55 connection result (after page reload from Amber callback)
   useEffect(() => {
     const connectionResult = sessionStorage.getItem('nip55_connection_result');
     if (connectionResult) {
-      console.log('📱 NIP-55: Found connection result from callback, completing login...');
+      console.log('🎯🎯🎯 NIP-55: Found connection result from callback, completing login...');
+      alert('🎯 Found NIP-55 connection result! Completing login...');
 
       // Complete the login flow
       (async () => {
@@ -333,15 +343,20 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
+    // TEMPORARY: Force NIP-46 (QR code) on Android for testing
+    // NIP-55 callbacks don't seem to work reliably on Android
+    console.log('🔐 Amber: Using NIP-46 (QR code) - NIP-55 disabled for testing');
+    await handleNip46Connect();
+
     // On Android with NIP-55 support, use NIP-55 (direct app-to-app)
     // Otherwise use NIP-46 (QR code/relay)
-    if (isAndroid() && isNip55Available) {
-      console.log('📱 Amber: Using NIP-55 (Android direct)');
-      await handleNip55Login();
-    } else {
-      console.log('🔐 Amber: Using NIP-46 (QR code)');
-      await handleNip46Connect();
-    }
+    // if (isAndroid() && isNip55Available) {
+    //   console.log('📱 Amber: Using NIP-55 (Android direct)');
+    //   await handleNip55Login();
+    // } else {
+    //   console.log('🔐 Amber: Using NIP-46 (QR code)');
+    //   await handleNip46Connect();
+    // }
   };
 
   const handleNip46Connect = async () => {
@@ -726,7 +741,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         pubkey: signedEvent.pubkey?.slice(0, 16) + '...',
         sig: signedEvent.sig?.slice(0, 16) + '...',
         created_at: signedEvent.created_at,
+        kind: signedEvent.kind,
+        content: signedEvent.content,
+        hasAllFields: !!(signedEvent.id && signedEvent.pubkey && signedEvent.sig && signedEvent.created_at),
       });
+
+      console.log('🔍 FULL SIGNED EVENT:', JSON.stringify(signedEvent, null, 2));
 
       // Validate signed event has all required fields
       if (!signedEvent) {
@@ -779,13 +799,16 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       }
 
       // Prepare login payload with explicit validation
+      // Use defensive checks to avoid .trim() errors on undefined/null values
       const loginPayload = {
-        publicKey: signedEvent.pubkey.trim(),
-        npub: npub.trim(),
-        challenge: challenge.trim(),
-        signature: signedEvent.sig.trim(),
-        eventId: signedEvent.id.trim(),
+        publicKey: (signedEvent.pubkey || '').trim(),
+        npub: (npub || '').trim(),
+        challenge: (challenge || '').trim(),
+        signature: (signedEvent.sig || '').trim(),
+        eventId: (signedEvent.id || '').trim(),
         createdAt: signedEvent.created_at,
+        kind: signedEvent.kind, // Include kind so API can reconstruct event
+        content: signedEvent.content || '', // Include content so API can reconstruct event
       };
 
       // Final validation of payload before sending
@@ -811,19 +834,39 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         signature: loginPayload.signature.slice(0, 16) + '...',
         eventId: loginPayload.eventId.slice(0, 16) + '...',
         createdAt: loginPayload.createdAt,
+        kind: loginPayload.kind,
+        content: loginPayload.content,
       });
+
+      console.log('🌐 LOGIN REQUEST - FULL PAYLOAD:', JSON.stringify(loginPayload, null, 2));
 
       // Login with signed event
-      const loginResponse = await fetch('/api/nostr/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginPayload),
-      });
+      console.log('📡 About to fetch /api/nostr/auth/login...');
+      let loginResponse;
+      try {
+        loginResponse = await fetch('/api/nostr/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(loginPayload),
+        });
+        console.log('📡 Login response received:', loginResponse.status, loginResponse.statusText);
+      } catch (fetchError) {
+        console.error('❌ LoginModal: Fetch request failed:', fetchError);
+        const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        throw new Error(`Network request failed: ${errorMsg}`);
+      }
 
       if (!loginResponse.ok) {
-        const errorData = await loginResponse.json().catch(() => ({}));
+        let errorData;
+        try {
+          errorData = await loginResponse.json();
+        } catch (jsonError) {
+          console.error('❌ LoginModal: Failed to parse error response JSON:', jsonError);
+          throw new Error(`Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+        }
+        console.error('❌ LoginModal: Login request returned error:', errorData);
         throw new Error(errorData.error || `Login failed: ${loginResponse.status}`);
       }
 
@@ -879,7 +922,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         message: err.message,
         stack: err.stack,
       } : err;
-      
+
       console.error('❌ LoginModal: NIP-46 login failed:', {
         error: errorMessage,
         errorDetails,
@@ -889,7 +932,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           connectionPubkey: client?.getConnection()?.pubkey?.slice(0, 16) + '...',
         },
       });
-      
+
       setError(errorMessage || 'Failed to complete NIP-46 login. Please check the error log for details.');
     } finally {
       setIsSubmitting(false);
@@ -907,9 +950,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       console.log('📱 NIP-55: Starting login with Android signer...');
 
-      // Create NIP-55 client
-      const client = new NIP55Client();
-      setNip55Client(client);
+      // Use existing client or create new one
+      // If client was created early in useEffect, reuse it to preserve callback handler
+      const client = nip55Client || new NIP55Client();
+      if (!nip55Client) {
+        setNip55Client(client);
+      }
 
       // Connect and get public key
       const publicKey = await client.getPublicKey();
