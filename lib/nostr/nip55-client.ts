@@ -146,7 +146,7 @@ export class NIP55Client {
     // Format: nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${callbackUrl}
     const nip55Uri = `nostrsigner:${encodedJson}?compressionType=none&returnType=signature&type=sign_event&callbackUrl=${encodeURIComponent(callbackWithId)}`;
 
-    console.log('📱 NIP-55: Requesting signature (initial connection, no pubkey yet):', {
+    console.log('🚀🚀🚀 NIP-55: Requesting signature (initial connection, no pubkey yet):', {
       requestId,
       eventKind: eventTemplate.kind,
       callbackUrl: callbackWithId,
@@ -155,6 +155,11 @@ export class NIP55Client {
       uriLength: nip55Uri.length,
       eventTemplate: JSON.stringify(eventTemplate),
     });
+
+    // Alert to show callback URL (for debugging)
+    if (typeof alert !== 'undefined') {
+      alert(`🚀 About to open Amber!\n\nCallback URL: ${callbackWithId}\n\nAfter approving in Amber, manually switch back to this browser tab.`);
+    }
 
     // Store pending request in sessionStorage to survive page navigation
     sessionStorage.setItem(`nip55_pending_${requestId}`, JSON.stringify({
@@ -346,11 +351,13 @@ export class NIP55Client {
       const hash = window.location.hash;
       const search = window.location.search;
       const fullUrl = window.location.href;
-      console.log('📱 NIP-55: Checking callback:', { 
-        hash, 
-        search, 
+      console.log('📱 NIP-55: Checking callback (ENHANCED DEBUG):', {
+        hash,
+        search,
         fullUrl,
         pathname: window.location.pathname,
+        hasNip55Callback: search.includes('nip55-callback') || hash.includes('nip55-callback'),
+        timestamp: new Date().toISOString(),
       });
       
       // Check both query params and hash for callback indicator
@@ -359,7 +366,11 @@ export class NIP55Client {
                         fullUrl.includes('nip55-callback');
       
       if (isCallback) {
-        console.log('📱 NIP-55: Callback detected, parsing parameters...');
+        console.log('🎯🎯🎯 NIP-55: CALLBACK DETECTED! Parsing parameters...');
+        // Alert to make it very obvious (for debugging)
+        if (typeof alert !== 'undefined') {
+          alert('🎯 NIP-55 callback detected! Check console for details.');
+        }
         
         // Parse query parameters (primary)
         const queryParams = new URLSearchParams(search);
