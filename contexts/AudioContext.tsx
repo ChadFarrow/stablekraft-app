@@ -92,6 +92,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const albumsLoadedRef = useRef(false);
   const isRetryingRef = useRef(false);
   const playNextTrackRef = useRef<() => Promise<void>>();
+  const playPreviousTrackRef = useRef<() => Promise<void>>();
 
   // AudioContext state version - increment when structure changes to invalidate old cache
   const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
@@ -164,6 +165,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       try {
         // Register action handlers immediately on mount (before any playback)
         // This is required for iOS 26 PWA mode to recognize media capabilities
+        // Using refs to ensure we always call the latest versions of the functions
         navigator.mediaSession.setActionHandler('play', () => {
           console.log('📱 Media session: Play from early init');
           resume();
@@ -174,11 +176,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
           console.log('📱 Media session: Previous track from early init');
-          playPreviousTrack();
+          if (playPreviousTrackRef.current) {
+            playPreviousTrackRef.current();
+          }
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
           console.log('📱 Media session: Next track from early init');
-          playNextTrack();
+          if (playNextTrackRef.current) {
+            playNextTrackRef.current();
+          }
         });
 
         // Set initial playback state to 'none' - will be updated when playback starts
@@ -931,7 +937,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             document.body.appendChild(msg);
             setTimeout(() => msg.remove(), 2000);
           }
-          playPreviousTrack();
+          if (playPreviousTrackRef.current) {
+            playPreviousTrackRef.current();
+          }
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
           console.log('📱 Media session: Next track button pressed');
@@ -943,7 +951,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             document.body.appendChild(msg);
             setTimeout(() => msg.remove(), 2000);
           }
-          playNextTrack();
+          if (playNextTrackRef.current) {
+            playNextTrackRef.current();
+          }
         });
         
         // Explicitly disable seek handlers to show track navigation buttons instead
@@ -1303,6 +1313,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       await playAlbum(currentPlayingAlbum, prevIndex);
     }
   };
+
+  // Update the ref whenever playPreviousTrack changes
+  useEffect(() => {
+    playPreviousTrackRef.current = playPreviousTrack;
+  }, [playPreviousTrack]);
 
   // Play individual track function
   const playTrack = async (audioUrl: string, startTime: number = 0, endTime?: number): Promise<boolean> => {
