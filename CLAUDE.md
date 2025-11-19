@@ -1,0 +1,2 @@
+- you should always use the podcastindex API to look up and parse RSS feeds
+- the podcastindex API keys and in the .env file so always check there

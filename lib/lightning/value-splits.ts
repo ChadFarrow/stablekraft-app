@@ -78,19 +78,16 @@ export class ValueSplitsService {
     const failedPayments: ValueSplitPayment[] = [];
     const errors: string[] = [];
 
-    console.log(`⚡ Sending multi-recipient payment: ${totalAmount} sats to ${splitAmounts.length} recipients`);
-    console.log(`📋 Recipients: ${splitAmounts.map(s => `${s.recipient.name || 'Unknown'} (${s.amount} sats)`).join(', ')}`);
+    console.log(`⚡ Sending ${totalAmount} sats to ${splitAmounts.length} recipients`);
 
     // Process each recipient
     for (let i = 0; i < splitAmounts.length; i++) {
       const { recipient, amount } = splitAmounts[i];
-      console.log(`💸 [${i + 1}/${splitAmounts.length}] Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%) to ${recipient.address.slice(0, 20)}...`);
 
       // Add delay between payments to prevent overwhelming custodial wallets
       // Custodial services like Alby need time to process each payment on their backend
       if (i > 0) {
         const delay = 1500; // 1.5 seconds - gives custodial wallets time to process
-        console.log(`⏳ Waiting ${delay}ms before next payment to avoid overwhelming wallet backend...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
@@ -127,11 +124,10 @@ export class ValueSplitsService {
 
         if (result.success) {
           successfulPayments.push(payment);
-          console.log(`✅ Successfully sent ${amount} sats to ${recipient.name || recipient.address.slice(0, 20)}...`);
         } else {
           failedPayments.push(payment);
           errors.push(`${recipient.name || recipient.address}: ${result.error}`);
-          console.error(`❌ Failed to send ${amount} sats to ${recipient.name || recipient.address}: ${result.error}`);
+          console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${result.error}`);
         }
       } catch (error) {
         // Extract the actual Lightning error message
@@ -162,7 +158,7 @@ export class ValueSplitsService {
 
         failedPayments.push(payment);
         errors.push(`${recipient.name || recipient.address}: ${errorMessage}`);
-        console.error(`❌ Exception sending to ${recipient.name || recipient.address}:`, error);
+        console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${errorMessage}`);
       }
     }
 
@@ -199,21 +195,13 @@ export class ValueSplitsService {
     sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>
   ): Promise<PaymentResult> {
     try {
-      console.log(`📧 Resolving Lightning Address: ${recipient.address}`);
       const { invoice } = await LNURLService.payLightningAddress(
         recipient.address,
         amount,
         message
       );
 
-      console.log(`💰 Invoice received for ${recipient.address}, paying ${amount} sats...`);
       const result = await sendPayment(invoice);
-
-      if (result.error) {
-        console.error(`❌ Invoice payment failed for ${recipient.address}:`, result.error);
-      } else {
-        console.log(`✅ Successfully paid ${amount} sats to ${recipient.address}`);
-      }
 
       return {
         success: !result.error,
@@ -223,7 +211,6 @@ export class ValueSplitsService {
         amount
       };
     } catch (error) {
-      console.error(`❌ Lightning Address resolution failed for ${recipient.address}:`, error);
       // Extract the actual Lightning error message
       let errorMessage = 'Lightning Address payment failed';
       if (error instanceof Error) {

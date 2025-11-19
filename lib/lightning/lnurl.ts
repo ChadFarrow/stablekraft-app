@@ -306,7 +306,6 @@ export class LNURLService {
         successAction: invoiceResponse.successAction,
       };
     } catch (error) {
-      console.error('❌ Lightning Address payment failed:', error);
       throw error;
     }
   }
@@ -321,10 +320,8 @@ export class LNURLService {
     payerData?: any
   ): Promise<{ invoice: string; successAction?: any }> {
     try {
-
       // Resolve LNURL to LNURL-pay params
       const params = await this.resolveLNURL(lnurl);
-      console.log('✅ LNURL resolved:', params);
 
       // Convert sats to millisats
       const amountMsat = amountSats * 1000;
@@ -337,7 +334,6 @@ export class LNURLService {
         successAction: invoiceResponse.successAction,
       };
     } catch (error) {
-      console.error('❌ LNURL payment failed:', error);
       throw error;
     }
   }

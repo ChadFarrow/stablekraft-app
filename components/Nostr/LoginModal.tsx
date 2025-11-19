@@ -137,28 +137,24 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           }
 
           const challengeData = await challengeResponse.json();
-          const challenge = challengeData.challenge;
+      const challenge = challengeData.challenge;
 
-          // Create challenge event template
-          const challengeEventTemplate = {
-            kind: 22242,
-            tags: [['challenge', challenge]],
-            content: '',
-            created_at: Math.floor(Date.now() / 1000),
-          };
+      // Create standardized login event template
+      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
+      const challengeEventTemplate = createLoginEventTemplate(challenge);
 
-          // Create NIP-55 client and sign the challenge
-          const client = new NIP55Client();
-          setNip55Client(client);
+      // Create NIP-55 client and sign the challenge
+      const client = new NIP55Client();
+      setNip55Client(client);
 
-          // Set connection with the pubkey we got
-          (client as any).connection = {
-            pubkey,
-            connected: true,
-            connectedAt: Date.now(),
-          };
+      // Set connection with the pubkey we got
+      (client as any).connection = {
+        pubkey,
+        connected: true,
+        connectedAt: Date.now(),
+      };
 
-          const signedEvent = await client.signEvent(challengeEventTemplate);
+      const signedEvent = await client.signEvent(challengeEventTemplate);
 
           // Send login request
           const { publicKeyToNpub } = await import('@/lib/nostr/keys');
@@ -176,6 +172,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               signature: signedEvent.sig,
               eventId: signedEvent.id,
               createdAt: signedEvent.created_at,
+              kind: signedEvent.kind, // Include kind so API can verify correctly
+              content: signedEvent.content, // Include content so API can verify correctly
             }),
           });
 
@@ -694,15 +692,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         throw new Error('Connection lost before signing. Please reconnect and try again.');
       }
       
-      // Sign challenge with NIP-46
-      // Use Kind 1 (note) instead of Kind 22242 - Kind 22242 causes Amber to crash
-      // The challenge is still in the tags, which is sufficient for authentication
-      const event = {
-        kind: 1,
-        tags: [['challenge', challenge]],
-        content: 'Authentication challenge',
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      // Create standardized login event template
+      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
+      const event = createLoginEventTemplate(challenge);
 
       console.log('✍️ LoginModal: Requesting signature from NIP-46 signer...', {
         kind: event.kind,
@@ -976,13 +968,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       const challengeData = await challengeResponse.json();
       const challenge = challengeData.challenge;
 
-      // Create challenge event template
-      const challengeEventTemplate = {
-        kind: 22242,
-        tags: [['challenge', challenge]],
-        content: '',
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      // Create standardized login event template
+      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
+      const challengeEventTemplate = createLoginEventTemplate(challenge);
 
       // Sign challenge event using NIP-55
       const signedEvent = await client.signEvent(challengeEventTemplate);
@@ -1004,6 +992,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           signature: signedEvent.sig,
           eventId: signedEvent.id,
           createdAt: signedEvent.created_at,
+          kind: signedEvent.kind, // Include kind so API can verify correctly
+          content: signedEvent.content, // Include content so API can verify correctly
         }),
       });
 
@@ -1143,18 +1133,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       const challenge = challengeData.challenge;
 
-      // Sign challenge with extension
-      const event = {
-        kind: 22242,
-        tags: [['challenge', challenge]],
-        content: '',
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      // Create standardized login event template
+      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
+      const eventTemplate = createLoginEventTemplate(challenge);
 
       console.log('✍️ LoginModal: Requesting signature from extension...');
       // Use unified signer for consistency
       const signer = getUnifiedSigner();
-      const signedEvent = await signer.signEvent(event as any);
+      const signedEvent = await signer.signEvent(eventTemplate as any);
       console.log('✅ LoginModal: Got signed event', {
         id: signedEvent.id.slice(0, 16) + '...',
         pubkey: signedEvent.pubkey.slice(0, 16) + '...',

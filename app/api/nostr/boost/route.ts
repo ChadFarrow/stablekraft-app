@@ -93,24 +93,24 @@ export async function POST(request: NextRequest) {
     // Use user's relays or default relays
     const relays = user.relays.length > 0 ? user.relays : getDefaultRelays();
 
-    // Use signed note from client (extension-based only)
+    // Use signed note from client (signed by user's signer: NIP-07, NIP-46, or NIP-55)
     if (!signedEvent) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Signed event is required (NIP-07 extension)',
+          error: 'Signed event is required. Please ensure you have a signer connected (NIP-07 extension, NIP-46, or NIP-55).',
         },
         { status: 400 }
       );
     }
     
-    // Verify the event is signed by the user
+    // Verify the event structure and signature
     const { verifyEvent } = await import('nostr-tools');
     if (!verifyEvent(signedEvent)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid signed event',
+          error: 'Invalid signed event - signature verification failed',
         },
         { status: 400 }
       );

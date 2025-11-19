@@ -93,24 +93,24 @@ export async function POST(request: NextRequest) {
       content = `${content}\n\n💿 ${feed.title}${feed.artist ? ` by ${feed.artist}` : ''}\n${albumUrl}`;
     }
 
-    // Use signed event from client (extension-based only)
+    // Use signed event from client (signed by user's signer: NIP-07, NIP-46, or NIP-55)
     if (!signedEvent) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Signed event is required (NIP-07 extension)',
+          error: 'Signed event is required. Please ensure you have a signer connected (NIP-07 extension, NIP-46, or NIP-55).',
         },
         { status: 400 }
       );
     }
     
-    // Verify the event is signed by the user
+    // Verify the event structure and signature
     const { verifyEvent } = await import('nostr-tools');
     if (!verifyEvent(signedEvent)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid signed event',
+          error: 'Invalid signed event - signature verification failed',
         },
         { status: 400 }
       );
@@ -122,6 +122,17 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Signed event does not match user public key',
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Verify it's a kind 1 note
+    if (signedEvent.kind !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Event must be a kind 1 note',
         },
         { status: 400 }
       );

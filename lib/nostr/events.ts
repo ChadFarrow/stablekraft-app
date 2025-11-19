@@ -377,3 +377,36 @@ export function isValidEvent(event: any): event is Event {
   );
 }
 
+/**
+ * Create a standardized login event template for authentication
+ * Uses kind 1 (note) for compatibility with all signers (especially NIP-46/Amber)
+ * @param challenge - Authentication challenge string from server
+ * @returns Unsigned event template for login
+ */
+export function createLoginEventTemplate(challenge: string): EventTemplate {
+  return {
+    kind: ShortTextNote, // Use kind 1 for compatibility (Amber crashes with kind 22242)
+    tags: [['challenge', challenge]],
+    content: 'Authentication challenge', // Consistent content for all login methods
+    created_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+/**
+ * Validate a signed event matches expected user public key
+ * @param event - Signed event to validate
+ * @param expectedPubkey - Expected public key (hex)
+ * @returns true if valid, throws error if invalid
+ */
+export function validateSignedEvent(event: Event, expectedPubkey: string): boolean {
+  if (!isValidEvent(event)) {
+    throw new Error('Invalid event structure');
+  }
+  
+  if (event.pubkey !== expectedPubkey) {
+    throw new Error(`Event pubkey ${event.pubkey.slice(0, 16)}... does not match expected ${expectedPubkey.slice(0, 16)}...`);
+  }
+  
+  return true;
+}
+

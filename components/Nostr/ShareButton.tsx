@@ -34,12 +34,13 @@ export default function ShareButton({
       return;
     }
 
-    // Check if signer is available
-    const { getUnifiedSigner } = await import('@/lib/nostr/signer');
-    const signer = getUnifiedSigner();
+    // Check if user is NIP-05 (read-only) - they can't post
+    const loginType = typeof window !== 'undefined'
+      ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null
+      : null;
     
-    if (!signer.isAvailable()) {
-      setError('No signer available. Please connect a Nostr extension or NIP-46 signer.');
+    if (loginType === 'nip05') {
+      setError('NIP-05 login is read-only. To share to Nostr, please log in with a Nostr extension or Amber signer.');
       return;
     }
 
@@ -47,9 +48,37 @@ export default function ShareButton({
     setError(null);
 
     try {
+      // Check if signer is available
+      const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+      const signer = getUnifiedSigner();
+      
+      if (!signer.isAvailable()) {
+        // Check if user logged in with NIP-55 (Amber) - if so, try to reconnect
+        if (loginType === 'nip55') {
+          console.log('🔄 NIP-55 signer not available, attempting to reconnect...');
+          try {
+            const { NIP55Client } = await import('@/lib/nostr/nip55-client');
+            const nip55Client = new NIP55Client();
+            await nip55Client.connect();
+            await signer.setNIP55Signer(nip55Client);
+            console.log('✅ NIP-55 reconnected successfully!');
+            // Continue to sign the event
+          } catch (reconnectError) {
+            console.warn('⚠️ Failed to reconnect NIP-55:', reconnectError);
+            setError('Unable to connect to signer. Please ensure Amber is available and try again.');
+            setIsSharing(false);
+            return;
+          }
+        } else {
+          setError('No signer available. Please connect a Nostr extension, NIP-46 signer, or NIP-55 signer.');
+          setIsSharing(false);
+          return;
+        }
+      }
+
       const content = message.trim() || `Check out this ${trackId ? 'track' : 'album'}!`;
       
-      // Create note template
+      // Create note template using helper
       const tags: string[][] = [];
       if (trackId) {
         tags.push(['t', 'track']);
@@ -60,12 +89,8 @@ export default function ShareButton({
         tags.push(['feedId', feedId]);
       }
       
-      const noteTemplate = {
-        kind: 1,
-        tags,
-        content,
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      const { createNoteTemplate } = await import('@/lib/nostr/events');
+      const noteTemplate = createNoteTemplate(content, tags);
       
       // Sign with unified signer
       const signedEvent = await signer.signEvent(noteTemplate as any);

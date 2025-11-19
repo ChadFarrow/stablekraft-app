@@ -45,23 +45,44 @@ export async function POST(request: NextRequest) {
 
     // Verify the signature
     // Reconstruct the event that was signed using the client's properties
-    // Support both kind 1 (note, used by Amber) and kind 22242 (auth, used by extensions)
-    // Use the kind and content that the client actually signed
+    // All login methods now use kind 1 with consistent content "Authentication challenge"
+    // Default to kind 1 for backward compatibility, but prefer explicit kind from client
+    const eventKind = kind ?? 1;
+    const eventContent = content ?? 'Authentication challenge';
+    
     const eventTemplate = {
-      kind: kind ?? 1, // Use client's kind, default to 1 for backward compatibility
+      kind: eventKind,
       tags: [['challenge', challenge]],
-      content: content ?? '', // Use client's content, default to empty string
+      content: eventContent,
       created_at: createdAt,
       pubkey: publicKey,
     };
+    
+    // Log event reconstruction for debugging
+    console.log('🔍 Login API: Reconstructing event for verification:', {
+      kind: eventKind,
+      content: eventContent,
+      challenge: challenge.slice(0, 16) + '...',
+      pubkey: publicKey.slice(0, 16) + '...',
+    });
 
     // Verify event ID matches
     const calculatedEventId = getEventHash(eventTemplate);
     if (calculatedEventId !== eventId) {
+      console.error('❌ Login API: Event ID mismatch:', {
+        calculated: calculatedEventId,
+        received: eventId,
+        template: {
+          kind: eventTemplate.kind,
+          content: eventTemplate.content,
+          tags: eventTemplate.tags,
+          created_at: eventTemplate.created_at,
+        },
+      });
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid event ID',
+          error: 'Invalid event ID - event reconstruction mismatch. Please ensure you are using the latest client version.',
         },
         { status: 401 }
       );
@@ -78,14 +99,21 @@ export async function POST(request: NextRequest) {
     const isValid = verifyEvent(event);
 
     if (!isValid) {
+      console.error('❌ Login API: Invalid event signature:', {
+        eventId: event.id,
+        pubkey: event.pubkey.slice(0, 16) + '...',
+        kind: event.kind,
+      });
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid signature',
+          error: 'Invalid signature - event signature verification failed',
         },
         { status: 401 }
       );
     }
+    
+    console.log('✅ Login API: Event signature verified successfully');
 
     // Fetch user's profile metadata from Nostr relays FIRST (kind 0)
     // Nostr profile data takes precedence over database data

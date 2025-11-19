@@ -48,16 +48,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
   const { isAuthenticated: isNostrAuthenticated, user: nostrUser } = useNostr();
 
-  // Debug logging
-  console.log('BitcoinConnectProvider render:', { isConnected, isLoading, isNostrAuthenticated });
-
   useEffect(() => {
-    console.log('BitcoinConnectProvider useEffect - initializing Bitcoin Connect...');
-
     // CRITICAL: Check login type FIRST - skip WebLN initialization if user logged in with Amber (NIP-46/NIP-55)
     const loginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
     if (loginType === 'nip46' || loginType === 'nip55' || loginType === 'amber') {
-      console.log(`ℹ️ Amber login detected (${loginType}) - skipping WebLN initialization to prevent Alby popups`);
       setIsLoading(false);
       return;
     }
@@ -65,24 +59,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // Initialize Bitcoin Connect on component mount (client-side only)
     if (typeof window !== 'undefined') {
       import('@getalby/bitcoin-connect').then(({ init, onConnected, onDisconnected }) => {
-        console.log('Initializing Bitcoin Connect early for browser extension detection');
         init({
           appName: 'StableKraft',
           showBalance: true, // Show balance in the modal
           // Don't specify filters to allow all connection methods including browser extensions
         });
-        console.log('Bitcoin Connect initialized');
 
         // Listen for connection events
         onConnected((provider) => {
-          console.log('Bitcoin Connect: Wallet connected event received');
           setProvider(provider);
           setIsConnected(true);
           setIsLoading(false);
         });
 
         onDisconnected(() => {
-          console.log('Bitcoin Connect: Wallet disconnected event received');
           setProvider(null);
           setIsConnected(false);
         });
@@ -98,7 +88,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
                 // Double-check login type before enabling WebLN (in case it changed)
                 const currentLoginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
                 if (currentLoginType === 'nip46') {
-                  console.log('ℹ️ NIP-46 login detected during provider check - skipping WebLN enable');
                   setIsLoading(false);
                   return;
                 }
@@ -106,21 +95,19 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
                 // Check if webln is already available (browser extension)
                 // Don't auto-enable it to prevent popup on page load - wait for user action
                 if ((window as any).webln) {
-                  console.log('Found existing WebLN provider (will enable on user action)');
                   const existingProvider = (window as any).webln;
                   // Just detect it, don't enable yet - enable will happen when user clicks
                   setProvider(existingProvider);
                   setIsConnected(true);
                 }
               } catch (err) {
-                console.log('No WebLN provider available');
+                // No WebLN provider available
               } finally {
                 setIsLoading(false);
               }
             };
             checkProvider();
           } catch (error) {
-            console.log('Error checking for provider:', error);
             setIsLoading(false);
           }
         });
@@ -171,21 +158,18 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // Skip if user logged in with NIP-05 (read-only mode, no extension)
     const isNip05Login = nostrUser?.loginType === 'nip05';
     if (isNip05Login) {
-      console.log('ℹ️ NIP-05 login detected - skipping WebLN auto-connect (read-only mode)');
       return;
     }
 
     // Skip if user logged in with NIP-46 (Amber) - they're not using Alby extension
     const isNip46Login = nostrUser?.loginType === 'nip46';
     if (isNip46Login) {
-      console.log('ℹ️ NIP-46 login detected - skipping WebLN auto-connect (user chose Amber, not Alby)');
       return;
     }
 
     // Only auto-connect if user logged in with extension (NIP-07/Alby)
     const isExtensionLogin = nostrUser?.loginType === 'extension';
     if (!isExtensionLogin) {
-      console.log('ℹ️ Not an extension login - skipping WebLN auto-connect');
       return;
     }
 
@@ -198,7 +182,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
         // Only switch if we're not already using this provider
         if (provider !== weblnProvider) {
-          console.log('🔗 Nostr user authenticated with extension - WebLN detected (will enable on user action)');
           // Just set the provider, don't enable yet - enable will happen when user clicks
           setProvider(weblnProvider);
           setIsConnected(true);
@@ -210,29 +193,25 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const connect = async () => {
     try {
-      console.log('Attempting to connect wallet...');
       setIsLoading(true);
 
       // If Nostr user is authenticated, check for WebLN first (Alby extension)
       // Skip if user logged in with NIP-05 (read-only mode)
       const isNip05Login = nostrUser?.loginType === 'nip05';
       if (isNostrAuthenticated && !isNip05Login && typeof window !== 'undefined' && (window as any).webln) {
-        console.log('🔗 Nostr user authenticated - using WebLN from Alby extension');
         try {
           const weblnProvider = (window as any).webln;
-          
+
           // Enable WebLN if needed
           if (weblnProvider.enable) {
             await weblnProvider.enable();
           }
-          
-          console.log('✅ WebLN connected for Nostr user');
+
           setProvider(weblnProvider);
           setIsConnected(true);
           setIsLoading(false);
           return;
         } catch (weblnError) {
-          console.warn('⚠️ Failed to connect WebLN for Nostr user:', weblnError);
           // Fall through to standard Bitcoin Connect flow
         }
       }
@@ -240,29 +219,23 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Use requestProvider() which automatically shows modal if no provider exists
       // This is the recommended approach per Bitcoin Connect docs
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
-      console.log('Bitcoin Connect imported, requesting provider...');
 
       try {
         // requestProvider will automatically launch modal if needed
         // If already connected, it returns existing provider
         const newProvider = await bitcoinConnect.requestProvider();
-        console.log('Provider request result:', newProvider);
 
         if (newProvider) {
-          console.log('Wallet connected successfully');
           setProvider(newProvider);
           setIsConnected(true);
-        } else {
-          console.log('No provider returned - user may have cancelled');
         }
       } catch (providerError) {
-        console.error('Provider request error:', providerError);
         // User may have cancelled or there was an error
         throw providerError;
       }
 
     } catch (error) {
-      console.error('Failed to connect:', error);
+      console.error('Failed to connect wallet:', error);
     } finally {
       setIsLoading(false);
     }
@@ -280,17 +253,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   };
 
   const sendPayment = async (invoice: string, retryCount = 0): Promise<{ preimage?: string; error?: string }> => {
-    console.log(`🔄 Starting invoice payment (attempt ${retryCount + 1}/3): ${invoice.slice(0, 50)}...`);
-
     try {
       let currentProvider = provider;
 
       if (!currentProvider) {
-        console.log('🔐 No provider, attempting to connect...');
         await connect();
         currentProvider = provider;
         if (!currentProvider) {
-          console.error('❌ Failed to connect wallet for payment');
           return { error: 'No wallet connected - please connect your Lightning wallet' };
         }
       }
@@ -299,33 +268,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if (currentProvider.enable && typeof currentProvider.enable === 'function') {
         try {
           await currentProvider.enable();
-          console.log('✅ Provider enabled for payment');
         } catch (enableError) {
-          console.warn('⚠️ Failed to enable provider:', enableError);
           return { error: 'Wallet must be unlocked - please check your Lightning wallet' };
         }
       }
 
-      console.log('⚡ Executing invoice payment');
       const result = await currentProvider.sendPayment(invoice);
-
-      console.log('✅ Invoice payment successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
-      console.error('❌ Invoice payment failed with error:', error);
-      console.error('Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      });
-
       const errorMessage = error instanceof Error ? error.message : 'Payment failed';
 
       // Parse common Lightning errors and provide helpful feedback
       if (errorMessage.includes('FAILURE_REASON_NO_ROUTE') || errorMessage.includes('no route')) {
         // Retry once for routing failures (routes can be temporarily unavailable)
         if (retryCount < 2) {
-          console.log(`⚠️ No route found, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendPayment(invoice, retryCount + 1);
         }
@@ -336,7 +292,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return { error: 'Insufficient balance in your Lightning wallet' };
       } else if (errorMessage.includes('FAILURE_REASON_TIMEOUT') || errorMessage.includes('timeout')) {
         if (retryCount < 1) {
-          console.log(`⚠️ Payment timeout, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendPayment(invoice, retryCount + 1);
         }
@@ -378,17 +333,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     },
     retryCount = 0
   ): Promise<{ preimage?: string; error?: string }> => {
-    console.log(`🔄 Starting keysend (attempt ${retryCount + 1}/3): ${amount} sats to ${pubkey.slice(0, 20)}...`);
-
     try {
       let currentProvider = provider;
 
       if (!currentProvider) {
-        console.log('🔐 No provider, attempting to connect...');
         await connect();
         currentProvider = provider;
         if (!currentProvider) {
-          console.error('❌ Failed to connect wallet for keysend');
           return { error: 'No wallet connected - please connect your Lightning wallet' };
         }
       }
@@ -399,7 +350,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if (message) {
         // TLV record 34349334 is used for boostagram messages
         customRecords['34349334'] = Buffer.from(message).toString('hex');
-        console.log('📝 Added boostagram message TLV');
       }
 
       // Add Helipad metadata if provided
@@ -414,10 +364,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           const helipadJson = JSON.stringify(cleanMetadata);
           // Try sending as raw JSON string instead of hex-encoded
           customRecords['7629169'] = helipadJson;
-
-          console.log('📋 Helipad metadata TLV:', helipadJson);
         } catch (jsonError) {
-          console.error('Failed to stringify Helipad metadata:', jsonError, helipadMetadata);
           // Continue without Helipad metadata if JSON fails
         }
       }
@@ -425,11 +372,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Ensure provider is enabled before using it
       if (currentProvider.enable && typeof currentProvider.enable === 'function') {
         try {
-          console.log('🔓 Enabling WebLN provider for keysend...');
           await currentProvider.enable();
-          console.log('✅ Provider enabled for keysend');
         } catch (enableError) {
-          console.warn('⚠️ Failed to enable provider:', enableError);
           // Check if Alby extension is being used by Nostr at the same time
           const loginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
           if (loginType === 'extension') {
@@ -440,11 +384,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       if (!currentProvider.keysend) {
-        console.error('❌ Wallet does not support keysend');
         return { error: 'Keysend not supported by wallet - try connecting a different wallet' };
       }
-
-      console.log(`⚡ Executing keysend with ${Object.keys(customRecords).length} TLV records`);
 
       const keysendPayload = {
         destination: pubkey,
@@ -452,31 +393,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         customRecords,
       };
 
-      console.log('📤 Keysend payload:', {
-        destination: pubkey,
-        amount: amount.toString(),
-        recordCount: Object.keys(customRecords).length
-      });
-
       const result = await currentProvider.keysend(keysendPayload);
-
-      console.log('✅ Keysend successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
-      console.error('❌ Keysend failed with error:', error);
-      console.error('Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      });
-
       const errorMessage = error instanceof Error ? error.message : 'Keysend failed';
 
       // Parse common Lightning errors and provide helpful feedback
       if (errorMessage.includes('FAILURE_REASON_NO_ROUTE') || errorMessage.includes('no route')) {
         // Retry once for routing failures (routes can be temporarily unavailable)
         if (retryCount < 2) {
-          console.log(`⚠️ No route found, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
         }
@@ -487,7 +412,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return { error: 'Insufficient balance in your Lightning wallet' };
       } else if (errorMessage.includes('FAILURE_REASON_TIMEOUT') || errorMessage.includes('timeout')) {
         if (retryCount < 1) {
-          console.log(`⚠️ Payment timeout, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
         }
