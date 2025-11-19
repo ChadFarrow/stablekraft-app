@@ -12,7 +12,7 @@ import { generateAlbumSlug } from '@/lib/url-utils';
 // Generate metadata for each album
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  
+
   // Handle both URL-encoded and slug formats
   let albumTitle: string;
   try {
@@ -22,17 +22,53 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     // If decoding fails, use the original id
     albumTitle = id;
   }
-  
+
   // Convert hyphens to spaces for slug format (e.g., "stay-awhile" -> "stay awhile")
   albumTitle = albumTitle.replace(/-/g, ' ');
-  
+
+  // Try to fetch album data to get the image for Open Graph
+  let albumImage: string | undefined;
+  let albumArtist: string | undefined;
+
+  try {
+    // Fetch from database API using the feed ID (slug)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app';
+    const response = await fetch(`${baseUrl}/api/feeds/${id}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.data) {
+        albumImage = data.data.image;
+        albumArtist = data.data.artist;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch album metadata:', error);
+  }
+
+  // Build description with artist if available
+  const description = albumArtist
+    ? `Listen to ${albumTitle} by ${albumArtist} on DoerfelVerse`
+    : `Listen to ${albumTitle} on DoerfelVerse`;
+
   // Use fallback metadata to prevent server-side rendering issues
   return {
     title: `${albumTitle} | DoerfelVerse`,
-    description: `Listen to ${albumTitle} on DoerfelVerse`,
+    description,
     openGraph: {
       title: albumTitle,
-      description: `Listen to ${albumTitle} on DoerfelVerse`,
+      description,
+      images: albumImage ? [{ url: albumImage }] : [],
+      type: 'music.album',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: albumTitle,
+      description,
+      images: albumImage ? [albumImage] : [],
     },
   };
 }
