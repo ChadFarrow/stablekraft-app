@@ -850,7 +850,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   trackTitle={album.title}
                   artistName={album.artist}
                   lightningAddress={album.v4vRecipient}
-                  valueSplits={album.v4vValue?.recipients ? album.v4vValue.recipients.map((recipient: any) => ({
+                  valueSplits={(album.v4vValue?.recipients || album.v4vValue?.destinations) ? (album.v4vValue.recipients || album.v4vValue.destinations).map((recipient: any) => ({
                     name: recipient.name || album.artist,
                     address: recipient.address || '',
                     split: parseInt(recipient.split) || 100,
@@ -1049,7 +1049,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           feedId={album.feedId}
                           trackTitle={track.title}
                           artistName={album.artist}
-                          valueSplits={track.v4vValue?.recipients ? track.v4vValue.recipients.map((recipient: any) => ({
+                          valueSplits={(track.v4vValue?.recipients || track.v4vValue?.destinations) ? (track.v4vValue.recipients || track.v4vValue.destinations).map((recipient: any) => ({
                             name: recipient.name || album.artist,
                             address: recipient.address || '',
                             split: parseInt(recipient.split) || 100,

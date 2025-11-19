@@ -530,7 +530,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           trackTitle={currentTrack.title}
           artistName={currentPlayingAlbum.artist || 'Unknown Artist'}
           lightningAddress={currentTrack.v4vRecipient}
-          valueSplits={currentTrack.v4vValue?.recipients}
+          valueSplits={currentTrack.v4vValue?.recipients || currentTrack.v4vValue?.destinations || []}
           autoOpen={true}
           onClose={() => setShowBoostModal(false)}
           feedUrl={currentPlayingAlbum.feedUrl || currentPlayingAlbum.link}

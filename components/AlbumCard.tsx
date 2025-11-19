@@ -356,7 +356,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         trackTitle={album.title}
         artistName={album.artist}
         lightningAddress={(album as any).v4vRecipient}
-        valueSplits={(album as any).v4vValue?.recipients}
+        valueSplits={(album as any).v4vValue?.recipients || (album as any).v4vValue?.destinations || []}
         autoOpen={true}
         onClose={() => setShowBoostModal(false)}
         feedUrl={(album as any).feedUrl || album.link}
