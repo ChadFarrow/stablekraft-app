@@ -1,53 +1,138 @@
 /**
- * Populate GUIDs for all feeds and tracks
- * Extracts podcast:guid from RSS feeds and updates database
+ * Populate GUIDs for all feeds and tracks using Podcast Index API
+ * Much faster than fetching RSS feeds directly - avoids rate limits
  */
 
 import { prisma } from '../lib/prisma';
-import { parsePodcastGuidFromXML } from '../lib/rss-parser-db';
+import crypto from 'crypto';
 
-interface ItemGuid {
+interface PodcastIndexFeed {
+  id: number;
   title: string;
-  guid: string;
+  url: string;
+  originalUrl: string;
+  podcastGuid?: string; // podcast:guid field
+  // ... other fields
 }
 
-/**
- * Extract item GUIDs from RSS feed XML
- */
-function extractItemGuidsFromXML(xmlText: string): ItemGuid[] {
-  const itemGuids: ItemGuid[] = [];
+interface PodcastIndexEpisode {
+  id: number;
+  title: string;
+  guid: string;
+  // ... other fields
+}
 
-  try {
-    // Match all <item> blocks
-    const itemRegex = /<item>(.*?)<\/item>/gs;
-    let itemMatch;
+class PodcastIndexAPI {
+  private apiKey: string;
+  private apiSecret: string;
+  private baseUrl = 'https://api.podcastindex.org/api/1.0';
 
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
-      const itemContent = itemMatch[1];
+  constructor() {
+    this.apiKey = process.env.PODCAST_INDEX_API_KEY || '';
+    this.apiSecret = process.env.PODCAST_INDEX_API_SECRET || '';
 
-      // Extract title
-      const titleMatch = itemContent.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/s);
-      const title = titleMatch ? titleMatch[1].trim() : '';
-
-      // Extract guid
-      const guidMatch = itemContent.match(/<guid[^>]*>([^<]+)<\/guid>/);
-      const guid = guidMatch ? guidMatch[1].trim() : '';
-
-      if (title && guid) {
-        itemGuids.push({ title, guid });
-      }
+    if (!this.apiKey || !this.apiSecret) {
+      throw new Error('Podcast Index API credentials not found in environment variables');
     }
+  }
 
-    console.log(`   Found ${itemGuids.length} item GUIDs`);
-    return itemGuids;
-  } catch (error) {
-    console.error('   Error extracting item GUIDs:', error);
-    return [];
+  private getAuthHeaders(): { [key: string]: string } {
+    const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
+    const hash = crypto
+      .createHash('sha1')
+      .update(this.apiKey + this.apiSecret + apiHeaderTime)
+      .digest('hex');
+
+    return {
+      'X-Auth-Date': apiHeaderTime,
+      'X-Auth-Key': this.apiKey,
+      'Authorization': hash,
+      'User-Agent': 'StableKraft/1.0'
+    };
+  }
+
+  async getFeedByGuid(guid: string): Promise<PodcastIndexFeed | null> {
+    try {
+      const url = `${this.baseUrl}/podcasts/byguid?guid=${encodeURIComponent(guid)}`;
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'true' && data.feed) {
+        return data.feed as PodcastIndexFeed;
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getFeedByUrl(feedUrl: string): Promise<PodcastIndexFeed | null> {
+    try {
+      const url = `${this.baseUrl}/podcasts/byfeedurl?url=${encodeURIComponent(feedUrl)}`;
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // Feed not found in index
+        }
+        console.error(`   ⚠️  API error (${response.status})`);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'true' && data.feed) {
+        return data.feed as PodcastIndexFeed;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`   ❌ Error:`, error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  async getEpisodesByFeedId(feedId: number): Promise<PodcastIndexEpisode[]> {
+    try {
+      const url = `${this.baseUrl}/episodes/byfeedid?id=${feedId}&max=1000`;
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'true' && data.items) {
+        return data.items as PodcastIndexEpisode[];
+      }
+
+      return [];
+    } catch (error) {
+      return [];
+    }
   }
 }
 
 async function populateAllGuids() {
-  console.log('🔍 Starting GUID population for all feeds and tracks...\n');
+  console.log('🔍 Starting GUID population using Podcast Index API...\n');
+
+  const api = new PodcastIndexAPI();
 
   // Get all feeds
   const feeds = await prisma.feed.findMany({
@@ -79,25 +164,27 @@ async function populateAllGuids() {
   let feedsFailed = 0;
   let tracksUpdated = 0;
   let tracksSkipped = 0;
+  let apiNotFound = 0;
 
-  for (const feed of feeds) {
-    console.log(`\n📻 Processing: ${feed.title}`);
+  for (let i = 0; i < feeds.length; i++) {
+    const feed = feeds[i];
+    console.log(`\n[${i + 1}/${feeds.length}] 📻 Processing: ${feed.title}`);
     console.log(`   Feed ID: ${feed.id}`);
     console.log(`   URL: ${feed.originalUrl}`);
 
     try {
-      // Fetch RSS feed
-      const response = await fetch(feed.originalUrl);
-      if (!response.ok) {
-        console.log(`   ⚠️  Failed to fetch RSS (${response.status})`);
-        feedsFailed++;
+      // Look up feed in Podcast Index by URL
+      const indexFeed = await api.getFeedByUrl(feed.originalUrl);
+
+      if (!indexFeed) {
+        console.log(`   ℹ️  Not found in Podcast Index`);
+        apiNotFound++;
+        feedsSkipped++;
         continue;
       }
 
-      const xmlText = await response.text();
-
-      // Extract feed GUID
-      const feedGuid = parsePodcastGuidFromXML(xmlText);
+      // Check if feed has a podcast:guid
+      const feedGuid = indexFeed.podcastGuid;
 
       if (feedGuid && feedGuid !== feed.guid) {
         await prisma.feed.update({
@@ -110,46 +197,48 @@ async function populateAllGuids() {
         console.log(`   ℹ️  Feed GUID already set: ${feedGuid}`);
         feedsSkipped++;
       } else {
-        console.log(`   ⚠️  No podcast:guid found in RSS feed`);
+        console.log(`   ⚠️  No podcast:guid in Podcast Index`);
         feedsSkipped++;
+
+        // Still try to get episodes even without feed GUID
       }
 
-      // Extract item GUIDs
-      const itemGuids = extractItemGuidsFromXML(xmlText);
+      // Get episodes for track GUID matching
+      if (feed.Track.length > 0) {
+        const episodes = await api.getEpisodesByFeedId(indexFeed.id);
+        console.log(`   Found ${episodes.length} episodes in index`);
 
-      if (itemGuids.length > 0) {
-        // Match items to tracks by title
-        for (const track of feed.Track) {
-          if (track.guid) {
-            console.log(`   ℹ️  Track "${track.title}" already has GUID`);
-            tracksSkipped++;
-            continue;
-          }
+        if (episodes.length > 0) {
+          for (const track of feed.Track) {
+            if (track.guid) {
+              tracksSkipped++;
+              continue;
+            }
 
-          // Find matching item by title (case-insensitive)
-          const matchingItem = itemGuids.find(
-            item => item.title.toLowerCase().trim() === track.title.toLowerCase().trim()
-          );
+            // Find matching episode by title (case-insensitive)
+            const matchingEpisode = episodes.find(
+              ep => ep.title.toLowerCase().trim() === track.title.toLowerCase().trim()
+            );
 
-          if (matchingItem) {
-            await prisma.track.update({
-              where: { id: track.id },
-              data: { guid: matchingItem.guid }
-            });
-            console.log(`   ✅ Updated track GUID: "${track.title}" -> ${matchingItem.guid.substring(0, 40)}...`);
-            tracksUpdated++;
-          } else {
-            console.log(`   ⚠️  No matching GUID found for track: "${track.title}"`);
-            tracksSkipped++;
+            if (matchingEpisode) {
+              await prisma.track.update({
+                where: { id: track.id },
+                data: { guid: matchingEpisode.guid }
+              });
+              console.log(`   ✅ Updated track: "${track.title}"`);
+              tracksUpdated++;
+            } else {
+              tracksSkipped++;
+            }
           }
         }
       }
 
-      // Rate limiting to avoid overwhelming servers
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Small delay to be respectful to the API
+      await new Promise(resolve => setTimeout(resolve, 100));
 
     } catch (error) {
-      console.log(`   ❌ Error processing feed:`, error instanceof Error ? error.message : error);
+      console.log(`   ❌ Error:`, error instanceof Error ? error.message : error);
       feedsFailed++;
     }
   }
@@ -161,6 +250,7 @@ async function populateAllGuids() {
   console.log(`  ✅ Updated: ${feedsUpdated}`);
   console.log(`  ℹ️  Skipped: ${feedsSkipped}`);
   console.log(`  ❌ Failed: ${feedsFailed}`);
+  console.log(`  🔍 Not in Podcast Index: ${apiNotFound}`);
   console.log(`\nTracks:`);
   console.log(`  ✅ Updated: ${tracksUpdated}`);
   console.log(`  ℹ️  Skipped: ${tracksSkipped}`);
