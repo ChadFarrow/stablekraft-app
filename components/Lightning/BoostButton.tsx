@@ -805,13 +805,34 @@ export function BoostButton({
                           <ChevronDown className="w-4 h-4 text-yellow-400 flex-shrink-0" />
                         )}
                       </button>
-                      {showSplitDetails && (
-                        <div className="flex flex-col gap-1">
-                          {[...valueSplits].sort((a, b) => b.split - a.split).map((split, index) => {
-                            const amount = customAmount && parseInt(customAmount) > 0
-                              ? Math.max(1, Math.floor((split.split / valueSplits.reduce((sum, s) => sum + s.split, 0)) * parseInt(customAmount)))
-                              : 0;
-                            const status = paymentStatuses.get(split.address);
+                      {showSplitDetails && (() => {
+                        // Pre-calculate split amounts using the same service that handles payments
+                        const totalAmount = customAmount && parseInt(customAmount) > 0 ? parseInt(customAmount) : 0;
+
+                        // Merge the original splits with calculated amounts BEFORE sorting
+                        // This ensures each split is paired with its correct calculated amount
+                        const splitsWithAmounts = totalAmount > 0
+                          ? ValueSplitsService.calculateSplitAmounts(
+                              valueSplits.map(s => ({ ...s, fee: false })),
+                              totalAmount
+                            ).map(calculated => ({
+                              // Use data from the calculated result's recipient (which has the original split data)
+                              name: calculated.recipient.name,
+                              type: calculated.recipient.type,
+                              address: calculated.recipient.address,
+                              split: calculated.recipient.split,
+                              calculatedAmount: calculated.amount
+                            }))
+                          : valueSplits.map(s => ({ ...s, calculatedAmount: 0 }));
+
+                        // NOW sort by split percentage (largest first)
+                        const sortedSplits = splitsWithAmounts.sort((a, b) => b.split - a.split);
+
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {sortedSplits.map((split, index) => {
+                              const amount = split.calculatedAmount;
+                              const status = paymentStatuses.get(split.address);
 
                             return (
                               <div
@@ -881,8 +902,9 @@ export function BoostButton({
                               </div>
                             );
                           })}
-                        </div>
-                      )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <>
