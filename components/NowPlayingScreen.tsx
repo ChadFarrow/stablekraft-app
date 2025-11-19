@@ -357,7 +357,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                   }}
                 >
                   <FavoriteButton
-                    trackId={currentTrack.guid}
+                    trackId={currentTrack.id}
                     size={26}
                     className="text-white"
                   />
@@ -525,7 +525,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       {/* Boost Modal */}
       {showBoostModal && currentTrack && (
         <BoostButton
-          trackId={currentTrack.guid}
+          trackId={currentTrack.id}
           feedId={currentPlayingAlbum.feedId || currentPlayingAlbum.id}
           trackTitle={currentTrack.title}
           artistName={currentPlayingAlbum.artist || 'Unknown Artist'}
