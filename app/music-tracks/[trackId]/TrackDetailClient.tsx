@@ -28,35 +28,77 @@ export default function TrackDetailClient() {
     setError(null);
 
     try {
-      // Since we don't have a dedicated track API endpoint yet,
-      // we'll load all tracks and find the specific one
-      // In a production app, you'd want a dedicated /api/music-tracks/[id] endpoint
-      
-      const feedUrls = [
-        'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml'
-      ];
-
       let foundTrack: MusicTrack | null = null;
       const allTracks: MusicTrack[] = [];
 
-      for (const feedUrl of feedUrls) {
-        try {
-          const response = await fetch(`/api/music-tracks?feedUrl=${encodeURIComponent(feedUrl)}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            if (data.success && data.data.tracks) {
-              allTracks.push(...data.data.tracks);
-              
-              // Look for our specific track
-              if (!foundTrack) {
-                foundTrack = data.data.tracks.find((t: MusicTrack) => t.id === trackId);
+      // First, try to fetch the track from the database API
+      try {
+        const response = await fetch(`/api/music-tracks/${encodeURIComponent(trackId)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.success && data.data) {
+            // Transform database track to MusicTrack format
+            // Map database source types to valid MusicTrack source types
+            let trackSource: 'chapter' | 'value-split' | 'description' | 'external-feed' = 'external-feed';
+            if (data.data.source === 'chapter' || data.data.source === 'value-split' ||
+                data.data.source === 'description' || data.data.source === 'external-feed') {
+              trackSource = data.data.source;
+            }
+
+            foundTrack = {
+              id: data.data.id,
+              title: data.data.title,
+              artist: data.data.artist || 'Unknown Artist',
+              episodeId: data.data.feedGuid || data.data.feedId || '',
+              episodeTitle: data.data.episodeTitle || '',
+              episodeDate: data.data.episodeDate ? new Date(data.data.episodeDate) : new Date(),
+              startTime: data.data.startTime || 0,
+              endTime: data.data.endTime || 0,
+              duration: data.data.duration || 0,
+              audioUrl: data.data.audioUrl,
+              image: data.data.image || '',
+              description: data.data.description || '',
+              source: trackSource,
+              feedUrl: data.data.feedUrl || '',
+              discoveredAt: data.data.discoveredAt ? new Date(data.data.discoveredAt) : new Date(),
+              valueForValue: data.data.valueForValue,
+            };
+
+            console.log('✅ Found track in database:', foundTrack.title);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch track from database:', err);
+        // Continue to RSS feed fallback
+      }
+
+      // If not found in database, search RSS feeds
+      if (!foundTrack) {
+        const feedUrls = [
+          'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml'
+        ];
+
+        for (const feedUrl of feedUrls) {
+          try {
+            const response = await fetch(`/api/music-tracks?feedUrl=${encodeURIComponent(feedUrl)}`);
+
+            if (response.ok) {
+              const data = await response.json();
+
+              if (data.success && data.data.tracks) {
+                allTracks.push(...data.data.tracks);
+
+                // Look for our specific track
+                if (!foundTrack) {
+                  foundTrack = data.data.tracks.find((t: MusicTrack) => t.id === trackId);
+                }
               }
             }
+          } catch (err) {
+            console.warn(`Failed to load tracks from ${feedUrl}:`, err);
           }
-        } catch (err) {
-          console.warn(`Failed to load tracks from ${feedUrl}:`, err);
         }
       }
 
@@ -67,8 +109,9 @@ export default function TrackDetailClient() {
       setTrack(foundTrack);
 
       // Find related tracks (same artist or same episode)
+      // TODO: Could fetch related tracks from database as well
       const related = allTracks
-        .filter(t => 
+        .filter(t =>
           t.id !== foundTrack!.id && (
             t.artist.toLowerCase() === foundTrack!.artist.toLowerCase() ||
             t.episodeId === foundTrack!.episodeId
