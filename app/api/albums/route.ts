@@ -403,6 +403,7 @@ export async function GET(request: Request) {
         funding: null, // Can be enhanced with V4V data from tracks
         feedId: feed.id,
         feedUrl: feed.originalUrl,
+        feedGuid: feed.guid, // podcast:guid from RSS feed
         lastUpdated: feed.updatedAt,
         explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
         // V4V data for boosts
