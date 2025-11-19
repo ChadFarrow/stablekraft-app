@@ -256,10 +256,10 @@ export default function PlaylistAlbumProgressive({
               
               <div className="flex items-center gap-3">
                 {/* Favorite Button */}
-                {(track.valueForValue?.itemGuid || track.id) && (
+                {(track.id || track.valueForValue?.itemGuid) && (
                   <div onClick={(e) => e.stopPropagation()}>
                     <FavoriteButton
-                      trackId={track.valueForValue?.itemGuid || track.id}
+                      trackId={track.id || track.valueForValue?.itemGuid}
                       size={18}
                       className="text-white"
                     />
@@ -268,7 +268,7 @@ export default function PlaylistAlbumProgressive({
 
                 <div onClick={(e) => e.stopPropagation()}>
                   <BoostButton
-                    trackId={track.valueForValue?.itemGuid || track.id}
+                    trackId={track.id || track.valueForValue?.itemGuid}
                     feedId={track.valueForValue?.feedGuid}
                     trackTitle={displayTitle}
                     artistName={displayArtist}

@@ -393,7 +393,7 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
             </div>
             <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
               <BoostButton
-                trackId={track.valueForValue?.itemGuid || track.id}
+                trackId={track.id || track.valueForValue?.itemGuid}
                 feedId={track.valueForValue?.feedGuid}
                 trackTitle={displayTitle}
                 artistName={displayArtist}

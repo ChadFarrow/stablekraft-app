@@ -3,6 +3,7 @@
  */
 
 export interface RSSTrack {
+  id?: string; // Database primary key or track identifier
   title: string;
   duration: string;
   url?: string;
@@ -21,7 +22,7 @@ export interface RSSTrack {
   publishedAt?: string; // ISO string date for publication date
   source?: string;
   artist?: string;
-  guid?: string;
+  guid?: string; // Item GUID for Nostr (different from database ID)
   v4vRecipient?: string;
   v4vValue?: any;
   // RSS parser custom fields
