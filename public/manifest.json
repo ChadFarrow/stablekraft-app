@@ -10,6 +10,8 @@
   "scope": "/",
   "lang": "en",
   "categories": ["music", "entertainment", "lifestyle"],
+  "capabilities": ["audio-playback"],
+  "display_override": ["standalone", "fullscreen"],
   "prefer_related_applications": false,
   "edge_side_panel": {
     "preferred_width": 400

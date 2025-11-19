@@ -158,6 +158,39 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     return () => {};
   }, []); // Run only once on mount
 
+  // Initialize Media Session API early for iOS 26 lockscreen controls
+  useEffect(() => {
+    if ('mediaSession' in navigator && navigator.mediaSession) {
+      try {
+        // Register action handlers immediately on mount (before any playback)
+        // This is required for iOS 26 PWA mode to recognize media capabilities
+        navigator.mediaSession.setActionHandler('play', () => {
+          console.log('📱 Media session: Play from early init');
+          resume();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          console.log('📱 Media session: Pause from early init');
+          pause();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          console.log('📱 Media session: Previous track from early init');
+          playPreviousTrack();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          console.log('📱 Media session: Next track from early init');
+          playNextTrack();
+        });
+
+        // Set initial playback state to 'none' - will be updated when playback starts
+        navigator.mediaSession.playbackState = 'none';
+
+        console.log('📱 Media Session initialized on mount for iOS 26');
+      } catch (error) {
+        console.warn('Failed to initialize Media Session early:', error);
+      }
+    }
+  }, []); // Run only once on mount
+
   // Save state to IndexedDB when it changes - with debouncing
   useEffect(() => {
     if (typeof window !== 'undefined' && currentPlayingAlbum) {
@@ -1399,9 +1432,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         webkit-playsinline="true"
         x-webkit-airplay="allow"
         autoPlay={false}
-        controls={false}
+        controls={true}
         muted={false}
-        style={{ display: 'none' }}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          opacity: 0,
+          zIndex: -1,
+          pointerEvents: 'none'
+        }}
       />
       {/* Hidden video element */}
       <video
@@ -1412,9 +1454,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         webkit-playsinline="true"
         x-webkit-airplay="allow"
         autoPlay={false}
-        controls={false}
+        controls={true}
         muted={false}
-        style={{ display: 'none' }}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          opacity: 0,
+          zIndex: -1,
+          pointerEvents: 'none'
+        }}
       />
     </AudioContext.Provider>
   );
