@@ -88,6 +88,7 @@ export interface ParsedFeed {
   language?: string;
   category?: string;
   explicit: boolean;
+  podcastGuid?: string;
   items: ParsedItem[];
   v4vRecipient?: string;
   v4vValue?: any;
@@ -187,6 +188,35 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
   } catch (error) {
     console.error('Error parsing V4V from XML:', error);
     return { recipient: null, value: null };
+  }
+}
+
+// Helper function to extract podcast:guid from channel level
+export function parsePodcastGuidFromXML(xmlText: string): string | null {
+  try {
+    // Extract channel section from XML
+    const channelMatch = xmlText.match(/<channel[^>]*>(.*?)<\/channel>/s);
+    if (!channelMatch) {
+      return null;
+    }
+
+    const channelContent = channelMatch[1];
+
+    // Look for podcast:guid tag at channel level (not in items)
+    // We need to extract it before the first <item> tag
+    const beforeItems = channelContent.split(/<item[\s>]/)[0];
+    const guidRegex = /<podcast:guid>([^<]+)<\/podcast:guid>/;
+    const guidMatch = beforeItems.match(guidRegex);
+
+    if (guidMatch && guidMatch[1]) {
+      console.log('✅ Found podcast:guid:', guidMatch[1]);
+      return guidMatch[1].trim();
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting podcast:guid from XML:', error);
+    return null;
   }
 }
 
@@ -350,7 +380,10 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
     // Parse V4V data directly from XML
     const v4vData = parseV4VFromXML(xmlText);
     console.log('🔍 DEBUG: Direct XML V4V parsing result:', v4vData);
-    
+
+    // Extract podcast:guid from channel level
+    const podcastGuid = parsePodcastGuidFromXML(xmlText);
+
     // Now parse with the RSS parser
     // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
     // The XML typo fix above helps, but parseURL will fetch again
@@ -579,6 +612,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       language: feed.language,
       category: feedCategories[0], // Take first category as primary
       explicit: feedExplicit,
+      podcastGuid: podcastGuid || undefined,
       items,
       v4vRecipient: feedV4vRecipient,
       v4vValue: feedV4vValue

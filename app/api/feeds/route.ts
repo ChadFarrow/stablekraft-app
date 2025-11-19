@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
       const feed = await prisma.feed.create({
         data: {
           id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          guid: parsedFeed.podcastGuid || null,
           originalUrl,
           cdnUrl: cdnUrl || originalUrl,
           type,

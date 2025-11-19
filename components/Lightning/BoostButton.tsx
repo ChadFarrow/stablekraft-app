@@ -298,9 +298,10 @@ export function BoostButton({
                     }
                   }
                   
-                  // Extract feedGuid from track's v4vValue (for podcast:guid tag)
-                  if (!finalFeedGuid && trackData.v4vValue?.feedGuid) {
-                    finalFeedGuid = trackData.v4vValue.feedGuid;
+                  // Extract feedGuid from track's Feed (for podcast:guid tag)
+                  // Try Feed.guid first (the real RSS podcast:guid), then fall back to v4vValue.feedGuid
+                  if (!finalFeedGuid) {
+                    finalFeedGuid = trackData.feedGuid || trackData.v4vValue?.feedGuid || null;
                   }
                 }
               }
@@ -313,15 +314,10 @@ export function BoostButton({
                   if (feedResult.success && feedResult.data) {
                     const feedData = feedResult.data;
                     trackImage = feedData.image || null;
-                    
-                    // Extract feed GUID from feed data
-                    // The feed.id might be the GUID, or we might need to extract it from the originalUrl
-                    if (!finalFeedGuid) {
-                      // Try to extract GUID from feed.id if it looks like a GUID
-                      // Or use feed.id if it's a full GUID format
-                      if (feedData.id && feedData.id.includes('-')) {
-                        finalFeedGuid = feedData.id;
-                      }
+
+                    // Extract feed GUID from feed data (the real RSS podcast:guid)
+                    if (!finalFeedGuid && feedData.guid) {
+                      finalFeedGuid = feedData.guid;
                     }
                   }
                 }

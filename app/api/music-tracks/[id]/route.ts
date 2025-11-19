@@ -28,6 +28,7 @@ export async function GET(
         Feed: {
           select: {
             id: true,
+            guid: true,
             title: true,
             artist: true,
             type: true,
@@ -61,6 +62,7 @@ export async function GET(
       source: track.Feed.type || 'album', // Derive source from Feed.type
       feedUrl: track.Feed.originalUrl || null,
       feedId: track.feedId,
+      feedGuid: track.Feed.guid || null,
       guid: track.guid || null,
       valueForValue: track.v4vValue ? {
         lightningAddress: (track.v4vValue as any).lightningAddress || '',
