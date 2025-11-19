@@ -421,9 +421,19 @@ export default function FeedManager() {
               <div className="flex items-start gap-4">
                 {feed.image && (
                   <img 
-                    src={feed.image} 
+                    src={
+                      feed.image.startsWith('http') && !feed.image.includes('re.podtards.com') && !feed.image.startsWith('data:')
+                        ? `/api/proxy-image?url=${encodeURIComponent(feed.image)}`
+                        : feed.image
+                    }
                     alt={feed.title}
                     className="w-16 h-16 rounded-lg object-cover"
+                    onError={(e) => {
+                      // Fallback to original URL if proxy fails
+                      if (e.currentTarget.src.includes('/api/proxy-image')) {
+                        e.currentTarget.src = feed.image;
+                      }
+                    }}
                   />
                 )}
                 
