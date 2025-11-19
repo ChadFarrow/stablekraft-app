@@ -5,6 +5,7 @@ import { RSSAlbum } from '@/lib/rss-parser';
 import { toast } from '@/components/Toast';
 import Hls from 'hls.js';
 import { monitoring } from '@/lib/monitoring';
+import { storage } from '@/lib/indexed-db-storage';
 
 interface AudioContextType {
   // Audio state
@@ -95,49 +96,52 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // AudioContext state version - increment when structure changes to invalidate old cache
   const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
 
-  // Load state from localStorage on mount
+  // Load state from IndexedDB on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedState = localStorage.getItem('audioPlayerState');
-      if (savedState) {
-        try {
-          const state = JSON.parse(savedState);
+      storage.getItem('audioPlayerState').then((savedState) => {
+        if (savedState) {
+          try {
+            const state = typeof savedState === 'string' ? JSON.parse(savedState) : savedState;
 
-          // Check cache version - invalidate if version mismatch
-          if (state.version !== AUDIO_STATE_VERSION) {
-            console.log(`🔄 AudioContext cache version mismatch (${state.version} !== ${AUDIO_STATE_VERSION}), clearing old cache`);
-            localStorage.removeItem('audioPlayerState');
-            return;
+            // Check cache version - invalidate if version mismatch
+            if (state.version !== AUDIO_STATE_VERSION) {
+              console.log(`🔄 AudioContext cache version mismatch (${state.version} !== ${AUDIO_STATE_VERSION}), clearing old cache`);
+              storage.removeItem('audioPlayerState');
+              return;
+            }
+
+            // Restore shuffle state
+            if (state.isShuffleMode !== undefined) {
+              setIsShuffleMode(state.isShuffleMode);
+            }
+            if (state.currentShuffleIndex !== undefined) {
+              setCurrentShuffleIndex(state.currentShuffleIndex);
+            }
+
+            // Restore track index and timing info
+            setCurrentTrackIndex(state.currentTrackIndex || 0);
+            setCurrentTime(state.currentTime || 0);
+            setDuration(state.duration || 0);
+
+            // Note: isPlaying is not restored to prevent autoplay issues
+            // Note: currentPlayingAlbum will be restored when needed by playNextTrack
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 Restored audio state from IndexedDB:', {
+                version: state.version,
+                trackIndex: state.currentTrackIndex,
+                shuffleMode: state.isShuffleMode,
+                hasAlbumData: !!state.currentPlayingAlbum
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to restore audio state:', error);
           }
-
-          // Restore shuffle state
-          if (state.isShuffleMode !== undefined) {
-            setIsShuffleMode(state.isShuffleMode);
-          }
-          if (state.currentShuffleIndex !== undefined) {
-            setCurrentShuffleIndex(state.currentShuffleIndex);
-          }
-
-          // Restore track index and timing info
-          setCurrentTrackIndex(state.currentTrackIndex || 0);
-          setCurrentTime(state.currentTime || 0);
-          setDuration(state.duration || 0);
-
-          // Note: isPlaying is not restored to prevent autoplay issues
-          // Note: currentPlayingAlbum will be restored when needed by playNextTrack
-
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔄 Restored audio state from localStorage:', {
-              version: state.version,
-              trackIndex: state.currentTrackIndex,
-              shuffleMode: state.isShuffleMode,
-              hasAlbumData: !!state.currentPlayingAlbum
-            });
-          }
-        } catch (error) {
-          console.warn('Failed to restore audio state:', error);
         }
-      }
+      }).catch((error) => {
+        console.error('IndexedDB getItem error:', error);
+      });
     }
   }, []);
 
@@ -154,10 +158,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     return () => {};
   }, []); // Run only once on mount
 
-  // Save state to localStorage when it changes - with debouncing
+  // Save state to IndexedDB when it changes - with debouncing
   useEffect(() => {
     if (typeof window !== 'undefined' && currentPlayingAlbum) {
-      const timeoutId = setTimeout(() => {
+      const timeoutId = setTimeout(async () => {
         const state = {
           version: AUDIO_STATE_VERSION, // Include version for cache invalidation
           currentPlayingAlbum: {
@@ -191,7 +195,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           currentShuffleIndex,
           timestamp: Date.now()
         };
-        localStorage.setItem('audioPlayerState', JSON.stringify(state));
+        await storage.setItem('audioPlayerState', state);
       }, 100); // Debounce to prevent excessive writes
 
       return () => clearTimeout(timeoutId);
@@ -1111,12 +1115,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         });
       }
       
-      // Try to recover from localStorage if available
+      // Try to recover from IndexedDB if available
       if (typeof window !== 'undefined') {
         try {
-          const savedState = localStorage.getItem('audioPlayerState');
+          const savedState = await storage.getItem('audioPlayerState');
           if (savedState) {
-            const parsedState = JSON.parse(savedState);
+            const parsedState = typeof savedState === 'string' ? JSON.parse(savedState) : savedState;
             if (parsedState.currentPlayingAlbum && parsedState.currentPlayingAlbum.tracks) {
               console.log('🔄 Attempting to recover from saved state');
               setCurrentPlayingAlbum(parsedState.currentPlayingAlbum);
@@ -1127,7 +1131,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             }
           }
         } catch (error) {
-          console.error('❌ Error recovering from localStorage:', error);
+          console.error('❌ Error recovering from IndexedDB:', error);
         }
       }
       
@@ -1301,10 +1305,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     setIsShuffleMode(false);
     setShuffledPlaylist([]);
     setCurrentShuffleIndex(0);
-    
-    // Clear localStorage
+
+    // Clear IndexedDB
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('audioPlayerState');
+      storage.removeItem('audioPlayerState');
     }
   };
 

@@ -13,7 +13,6 @@ import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
-import NowPlayingScreen from '@/components/NowPlayingScreen';
 import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 
@@ -52,6 +51,16 @@ const ControlsBar = dynamic(() => import('@/components/ControlsBarLazy'), {
     </div>
   ),
   ssr: false // Disable SSR for better performance
+});
+
+// Lazy load the fullscreen Now Playing Screen - only loaded when user opens it
+const NowPlayingScreen = dynamic(() => import('@/components/NowPlayingScreen'), {
+  loading: () => (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="text-white text-lg">Loading...</div>
+    </div>
+  ),
+  ssr: false // Client-side only component
 });
 
 // Loading skeleton component for better UX
@@ -1079,7 +1088,18 @@ function HomePageContent() {
 
   // Albums are now sorted server-side, just use them directly
   const filteredAlbums = displayedAlbums.length > 0 ? displayedAlbums : (isEnhancedLoaded ? enhancedAlbums : criticalAlbums);
-  
+
+  // Memoize expensive filtering operations to prevent re-computation on every render
+  const albumsWithMultipleTracks = useMemo(() =>
+    filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) >= 6),
+    [filteredAlbums]
+  );
+
+  const epsAndSingles = useMemo(() =>
+    filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) < 6),
+    [filteredAlbums]
+  );
+
   // Debug filtered albums when activeFilter is 'artists'
   if (activeFilter === 'artists') {
     console.log(`🔍 Debug filteredAlbums for artists filter:`, {
@@ -1090,7 +1110,7 @@ function HomePageContent() {
       activeFilter
     });
   }
-  
+
   // Show loading state for progressive loading
   const showProgressiveLoading = isCriticalLoaded && !isEnhancedLoaded && filteredAlbums.length > 0;
 
@@ -1651,10 +1671,7 @@ function HomePageContent() {
                 // Original sectioned layout for "All" filter
                 <>
                   {/* Albums Grid */}
-                  {(() => {
-                    const albumsWithMultipleTracks = filteredAlbums
-                      .filter(album => (album.tracks?.length || album.totalTracks || 0) >= 6);
-                    return albumsWithMultipleTracks.length > 0 && (
+                  {albumsWithMultipleTracks.length > 0 && (
                       <div className="mb-12">
                         <h2 className="text-2xl font-bold mb-6 text-white">Albums</h2>
                         {viewType === 'grid' ? (
@@ -1711,14 +1728,10 @@ function HomePageContent() {
                           </div>
                         )}
                       </div>
-                    );
-                  })()}
-                  
+                  )}
+
                   {/* EPs and Singles Grid */}
-                  {(() => {
-                    const epsAndSingles = filteredAlbums
-                      .filter(album => (album.tracks?.length || album.totalTracks || 0) < 6);
-                    return epsAndSingles.length > 0 && (
+                  {epsAndSingles.length > 0 && (
                       <div>
                         <h2 className="text-2xl font-bold mb-6 text-white">EPs and Singles</h2>
                         {viewType === 'grid' ? (
@@ -1777,10 +1790,7 @@ function HomePageContent() {
                           </div>
                         )}
                       </div>
-                    );
-                  })()}
-                  
-
+                  )}
                 </>
               ) : (
                 // Unified layout for specific filters (Albums, EPs, Singles)

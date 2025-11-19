@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { formatTime, formatDate } from '@/lib/utils';
 import {
   Play,
@@ -19,7 +19,7 @@ import type { MusicTrackCardProps, V4VMusicTrack } from '@/types/music-track';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 
-export default function BaseMusicTrackCard({
+function BaseMusicTrackCard({
   track,
   variant = 'standard',
   selected = false,
@@ -412,3 +412,18 @@ export default function BaseMusicTrackCard({
     </div>
   );
 }
+
+export default memo(BaseMusicTrackCard, (prevProps, nextProps) => {
+  return (
+    prevProps.track.id === nextProps.track.id &&
+    prevProps.track.title === nextProps.track.title &&
+    prevProps.track.artist === nextProps.track.artist &&
+    prevProps.track.image === nextProps.track.image &&
+    prevProps.track.audioUrl === nextProps.track.audioUrl &&
+    prevProps.track.duration === nextProps.track.duration &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.showV4VBadge === nextProps.showV4VBadge &&
+    prevProps.className === nextProps.className
+  );
+});

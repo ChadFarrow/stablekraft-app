@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { MusicTrack } from '@/lib/music-track-parser';
 import BaseMusicTrackCard from './BaseMusicTrackCard';
 import type { BaseMusicTrack } from '@/types/music-track';
@@ -12,7 +13,7 @@ interface MusicTrackCardProps {
   selected?: boolean;
 }
 
-export default function MusicTrackCard({ track, onPlay, onViewDetails, actions, selected = false }: MusicTrackCardProps) {
+function MusicTrackCard({ track, onPlay, onViewDetails, actions, selected = false }: MusicTrackCardProps) {
   // Convert MusicTrack to BaseMusicTrack format
   const baseTrack: BaseMusicTrack = {
     id: track.id,
@@ -53,4 +54,16 @@ export default function MusicTrackCard({ track, onPlay, onViewDetails, actions, 
       className="bg-white/5 backdrop-blur-sm border-white/10 hover:border-white/20 hover:bg-white/10"
     />
   );
-} 
+}
+
+export default memo(MusicTrackCard, (prevProps, nextProps) => {
+  return (
+    prevProps.track.id === nextProps.track.id &&
+    prevProps.track.title === nextProps.track.title &&
+    prevProps.track.artist === nextProps.track.artist &&
+    prevProps.track.image === nextProps.track.image &&
+    prevProps.track.audioUrl === nextProps.track.audioUrl &&
+    prevProps.track.duration === nextProps.track.duration &&
+    prevProps.selected === nextProps.selected
+  );
+}); 
