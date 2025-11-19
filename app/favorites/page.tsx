@@ -53,7 +53,7 @@ interface FavoriteAlbum {
 export default function FavoritesPage() {
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  const { playAlbum: globalPlayAlbum, playTrack } = useAudio();
+  const { playAlbum: globalPlayAlbum, playTrack, setFullscreenMode } = useAudio();
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
@@ -203,6 +203,8 @@ export default function FavoritesPage() {
           const success = await globalPlayAlbum(rssAlbum, 0);
           if (success) {
             console.log('✅ Successfully started playback');
+            // Open the fullscreen Now Playing screen
+            setFullscreenMode(true);
             return;
           }
         }
@@ -330,6 +332,8 @@ export default function FavoritesPage() {
       const success = await globalPlayAlbum(rssAlbum, 0);
       if (success) {
         console.log('✅ Successfully started playback');
+        // Open the fullscreen Now Playing screen
+        setFullscreenMode(true);
       } else {
         console.error('❌ Failed to start playback');
         toast.error('Unable to play audio - please try again');
