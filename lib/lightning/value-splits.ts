@@ -79,16 +79,19 @@ export class ValueSplitsService {
     const errors: string[] = [];
 
     console.log(`⚡ Sending multi-recipient payment: ${totalAmount} sats to ${splitAmounts.length} recipients`);
+    console.log(`📋 Recipients: ${splitAmounts.map(s => `${s.recipient.name || 'Unknown'} (${s.amount} sats)`).join(', ')}`);
 
     // Process each recipient
     for (let i = 0; i < splitAmounts.length; i++) {
       const { recipient, amount } = splitAmounts[i];
-      console.log(`💸 Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%) to ${recipient.address.slice(0, 20)}...`);
+      console.log(`💸 [${i + 1}/${splitAmounts.length}] Processing ${recipient.name || 'Unknown'}: ${amount} sats (${recipient.split}%) to ${recipient.address.slice(0, 20)}...`);
 
-      // Add shorter delay between payments for better UX
+      // Add delay between payments to prevent overwhelming custodial wallets
+      // Custodial services like Alby need time to process each payment on their backend
       if (i > 0) {
-        console.log(`⏳ Waiting 50ms before next payment...`);
-        await new Promise(resolve => setTimeout(resolve, 50));
+        const delay = 1500; // 1.5 seconds - gives custodial wallets time to process
+        console.log(`⏳ Waiting ${delay}ms before next payment to avoid overwhelming wallet backend...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
 
       let result: PaymentResult;
@@ -112,9 +115,10 @@ export class ValueSplitsService {
           }
         })();
 
-        // Add 10 second timeout for individual payments
+        // Add 20 second timeout for individual payments
+        // Custodial wallets may take longer due to backend processing and retries
         const timeoutPromise = new Promise<PaymentResult>((_, reject) => {
-          setTimeout(() => reject(new Error('Payment timeout after 10 seconds')), 10000);
+          setTimeout(() => reject(new Error('Payment timeout after 20 seconds')), 20000);
         });
 
         result = await Promise.race([paymentPromise, timeoutPromise]);
