@@ -261,10 +261,31 @@ export function BoostButton({
             const signer = getUnifiedSigner();
             
             if (!signer.isAvailable()) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log('ℹ️ Boost not posted to Nostr: No signer available (NIP-07 extension, NIP-46, or NIP-55 required)');
+              // Check if user logged in with NIP-55 (Amber) - if so, try to reconnect
+              const loginType = typeof window !== 'undefined'
+                ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null
+                : null;
+
+              if (loginType === 'nip55') {
+                console.log('🔄 NIP-55 signer not available, attempting to reconnect...');
+                try {
+                  const { NIP55Client } = await import('@/lib/nostr/nip55-client');
+                  const nip55Client = new NIP55Client();
+                  await nip55Client.connect();
+                  await signer.setNIP55Signer(nip55Client);
+                  console.log('✅ NIP-55 reconnected successfully!');
+                  // Continue to sign the event
+                } catch (reconnectError) {
+                  console.warn('⚠️ Failed to reconnect NIP-55:', reconnectError);
+                  console.log('ℹ️ Boost not posted to Nostr: NIP-55 reconnection failed');
+                  return;
+                }
+              } else {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('ℹ️ Boost not posted to Nostr: No signer available (NIP-07 extension, NIP-46, or NIP-55 required)');
+                }
+                return;
               }
-              return;
             }
             
             // Sign event using unified signer (works with NIP-07, NIP-46, and NIP-55)

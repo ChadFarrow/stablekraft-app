@@ -240,6 +240,7 @@ export class UnifiedSigner {
     } else if (userLoginType === 'nip55') {
       // User logged in with NIP-55 (Android) - this requires explicit connection
       // NIP-55 connections are session-based, so we can't restore them automatically
+      // The user will be prompted to reconnect when they try to perform an action (like boosting)
       console.log('ℹ️ UnifiedSigner: User chose NIP-55 login, but NIP-55 requires explicit connection per session');
       // Fall through to try other signers as fallback
     } else if (userLoginType === 'nip05') {
