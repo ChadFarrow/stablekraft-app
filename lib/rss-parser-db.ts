@@ -169,7 +169,7 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
     
     if (recipients.length > 0) {
       // Filter out fee recipients (Podcastindex.org fee injection)
-      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true' && r.fee !== true);
+      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true');
 
       // Use the first recipient with split="100" (usually the artist)
       const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
@@ -288,7 +288,7 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     
     if (recipients.length > 0) {
       // Filter out fee recipients (Podcastindex.org fee injection)
-      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true' && r.fee !== true);
+      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true');
 
       // Use the first recipient with split="100" (usually the artist)
       const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
@@ -509,7 +509,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
                     .filter(r => {
                       const rData = r.$ || r;
                       // Filter out fee recipients (Podcastindex.org fee injection)
-                      return rData.fee !== 'true' && rData.fee !== true;
+                      return rData.fee !== 'true';
                     })
                     .map(r => {
                       const rData = r.$ || r;
@@ -603,7 +603,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
                   .filter(r => {
                     const rData = r.$ || r;
                     // Filter out fee recipients (Podcastindex.org fee injection)
-                    return rData.fee !== 'true' && rData.fee !== true;
+                    return rData.fee !== 'true';
                   })
                   .map(r => {
                     const rData = r.$ || r;
