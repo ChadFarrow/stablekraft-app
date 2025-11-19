@@ -350,15 +350,16 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 }}
               >
                 <div
-                  className="backdrop-blur-md rounded-full w-12 h-12 flex items-center justify-center pointer-events-auto touch-manipulation hover:scale-110 transition-all shadow-xl"
+                  className="backdrop-blur-md rounded-full w-12 h-12 flex items-center justify-center pointer-events-auto touch-manipulation active:scale-95 transition-all shadow-xl"
                   style={{
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                    border: '2px solid rgba(255,255,255,0.1)'
                   }}
                 >
                   <FavoriteButton
                     trackId={currentTrack.id}
-                    size={26}
+                    size={28}
                     className="text-white"
                   />
                 </div>
