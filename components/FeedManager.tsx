@@ -430,7 +430,7 @@ export default function FeedManager() {
                     className="w-16 h-16 rounded-lg object-cover"
                     onError={(e) => {
                       // Fallback to original URL if proxy fails
-                      if (e.currentTarget.src.includes('/api/proxy-image')) {
+                      if (e.currentTarget.src.includes('/api/proxy-image') && feed.image) {
                         e.currentTarget.src = feed.image;
                       }
                     }}
