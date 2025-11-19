@@ -274,7 +274,6 @@ export function BoostButton({
             let trackImage: string | null = null;
             let finalEpisodeGuid: string | null = episodeGuid || null;
             let finalFeedGuid: string | null = remoteFeedGuid || null;
-            let finalPublisherGuid: string | null = null;
             
             // Fetch track data if trackId is available
             if (trackId) {
@@ -302,11 +301,6 @@ export function BoostButton({
                   // Extract feedGuid from track's v4vValue (for podcast:guid tag)
                   if (!finalFeedGuid && trackData.v4vValue?.feedGuid) {
                     finalFeedGuid = trackData.v4vValue.feedGuid;
-                  }
-
-                  // Extract publisher GUID from track's Feed
-                  if (trackData.feedGuid) {
-                    finalPublisherGuid = trackData.feedGuid;
                   }
                 }
               }
@@ -375,13 +369,6 @@ export function BoostButton({
             if (finalFeedGuid) {
               tags.push(['k', 'podcast:guid']);
               tags.push(['i', `podcast:guid:${finalFeedGuid}`, urlWithAnchor]);
-            }
-
-            // Add publisher GUID tags (Fountain-style)
-            if (finalPublisherGuid) {
-              const albumUrl = `${baseUrl}/album/${finalFeedId}`;
-              tags.push(['k', 'podcast:publisher:guid']);
-              tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`, albumUrl]);
             }
 
             // Add NIP-57 zap-related tags
