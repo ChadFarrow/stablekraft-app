@@ -135,27 +135,27 @@ export class ValueSplitsService {
         if (error instanceof Error) {
           errorMessage = error.message;
           // Check for common Lightning errors and provide clearer messages
-          if (errorMessage.includes('no route')) {
-            errorMessage = 'No route found to recipient';
+          if (errorMessage.includes('no route') || errorMessage.includes('unreachable via Lightning Network')) {
+            errorMessage = 'Cannot find payment route - recipient may be offline';
           } else if (errorMessage.includes('insufficient')) {
-            errorMessage = 'Insufficient balance or liquidity';
-          } else if (errorMessage.includes('timeout')) {
-            errorMessage = 'Payment timeout';
-          } else if (errorMessage.includes('rejected')) {
-            errorMessage = 'Payment rejected by recipient';
-          } else if (errorMessage.includes('NetworkError')) {
-            errorMessage = 'Network error - recipient server unreachable';
-          } else if (errorMessage.includes('CORS')) {
-            errorMessage = 'CORS error - recipient server configuration issue';
+            errorMessage = 'Insufficient balance in wallet';
+          } else if (errorMessage.includes('timeout') || errorMessage.includes('experiencing issues')) {
+            errorMessage = 'Payment timeout - recipient may be experiencing issues';
+          } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
+            errorMessage = 'Payment rejected or cancelled';
+          } else if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+            errorMessage = 'Network error - check your connection';
+          } else if (errorMessage.includes('HTTP 4') || errorMessage.includes('HTTP 5')) {
+            errorMessage = 'Recipient server error - they may be experiencing downtime';
           }
         }
-        
-        const payment: ValueSplitPayment = { 
-          recipient, 
-          amount, 
+
+        const payment: ValueSplitPayment = {
+          recipient,
+          amount,
           result: { success: false, error: errorMessage, recipient: recipient.address, amount }
         };
-        
+
         failedPayments.push(payment);
         errors.push(`${recipient.name || recipient.address}: ${errorMessage}`);
         console.error(`❌ Exception sending to ${recipient.name || recipient.address}:`, error);
@@ -216,21 +216,23 @@ export class ValueSplitsService {
       if (error instanceof Error) {
         errorMessage = error.message;
         // Check for common Lightning errors and provide clearer messages
-        if (errorMessage.includes('no route')) {
-          errorMessage = 'No route found to recipient';
+        if (errorMessage.includes('no route') || errorMessage.includes('unreachable via Lightning Network')) {
+          errorMessage = 'Cannot find payment route - recipient may be offline';
         } else if (errorMessage.includes('insufficient')) {
-          errorMessage = 'Insufficient balance or liquidity';
-        } else if (errorMessage.includes('timeout')) {
-          errorMessage = 'Payment timeout';
-        } else if (errorMessage.includes('rejected')) {
-          errorMessage = 'Payment rejected by recipient';
-        } else if (errorMessage.includes('NetworkError')) {
-          errorMessage = 'Network error - recipient server unreachable';
-        } else if (errorMessage.includes('CORS')) {
-          errorMessage = 'CORS error - recipient server configuration issue';
+          errorMessage = 'Insufficient balance in wallet';
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('experiencing issues')) {
+          errorMessage = 'Payment timeout - recipient may be experiencing issues';
+        } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
+          errorMessage = 'Payment rejected or cancelled';
+        } else if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+          errorMessage = 'Network error - check your connection';
+        } else if (errorMessage.includes('HTTP 4') || errorMessage.includes('HTTP 5')) {
+          errorMessage = 'Recipient server error - they may be experiencing downtime';
+        } else if (errorMessage.includes('Invalid Lightning Address')) {
+          errorMessage = 'Invalid Lightning Address format';
         }
       }
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -267,17 +269,19 @@ export class ValueSplitsService {
       if (error instanceof Error) {
         errorMessage = error.message;
         // Check for common Lightning errors and provide clearer messages
-        if (errorMessage.includes('no route')) {
-          errorMessage = 'No route found to recipient';
+        if (errorMessage.includes('no route') || errorMessage.includes('unreachable via Lightning Network')) {
+          errorMessage = 'Cannot find payment route - recipient may be offline';
         } else if (errorMessage.includes('insufficient')) {
-          errorMessage = 'Insufficient balance or liquidity';
-        } else if (errorMessage.includes('timeout')) {
-          errorMessage = 'Payment timeout';
-        } else if (errorMessage.includes('rejected')) {
-          errorMessage = 'Payment rejected by recipient';
+          errorMessage = 'Insufficient balance in wallet';
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('experiencing issues')) {
+          errorMessage = 'Payment timeout - recipient may be experiencing issues';
+        } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
+          errorMessage = 'Payment rejected or cancelled';
+        } else if (errorMessage.includes('not supported')) {
+          errorMessage = 'Keysend not supported by your wallet';
         }
       }
-      
+
       return {
         success: false,
         error: errorMessage,

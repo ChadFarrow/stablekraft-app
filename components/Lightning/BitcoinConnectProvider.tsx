@@ -279,9 +279,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     }
   };
 
-  const sendPayment = async (invoice: string): Promise<{ preimage?: string; error?: string }> => {
-    console.log(`🔄 Starting invoice payment: ${invoice.slice(0, 50)}...`);
-    
+  const sendPayment = async (invoice: string, retryCount = 0): Promise<{ preimage?: string; error?: string }> => {
+    console.log(`🔄 Starting invoice payment (attempt ${retryCount + 1}/3): ${invoice.slice(0, 50)}...`);
+
     try {
       let currentProvider = provider;
 
@@ -291,7 +291,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         currentProvider = provider;
         if (!currentProvider) {
           console.error('❌ Failed to connect wallet for payment');
-          return { error: 'No wallet connected' };
+          return { error: 'No wallet connected - please connect your Lightning wallet' };
         }
       }
 
@@ -302,13 +302,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           console.log('✅ Provider enabled for payment');
         } catch (enableError) {
           console.warn('⚠️ Failed to enable provider:', enableError);
-          return { error: 'Provider must be enabled before calling sendPayment' };
+          return { error: 'Wallet must be unlocked - please check your Lightning wallet' };
         }
       }
 
       console.log('⚡ Executing invoice payment');
       const result = await currentProvider.sendPayment(invoice);
-      
+
       console.log('✅ Invoice payment successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
@@ -318,7 +318,36 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
-      return { error: error instanceof Error ? error.message : 'Payment failed' };
+
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+
+      // Parse common Lightning errors and provide helpful feedback
+      if (errorMessage.includes('FAILURE_REASON_NO_ROUTE') || errorMessage.includes('no route')) {
+        // Retry once for routing failures (routes can be temporarily unavailable)
+        if (retryCount < 2) {
+          console.log(`⚠️ No route found, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return sendPayment(invoice, retryCount + 1);
+        }
+        return {
+          error: 'Cannot find payment route to recipient - they may be offline or unreachable via Lightning Network'
+        };
+      } else if (errorMessage.includes('FAILURE_REASON_INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient')) {
+        return { error: 'Insufficient balance in your Lightning wallet' };
+      } else if (errorMessage.includes('FAILURE_REASON_TIMEOUT') || errorMessage.includes('timeout')) {
+        if (retryCount < 1) {
+          console.log(`⚠️ Payment timeout, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return sendPayment(invoice, retryCount + 1);
+        }
+        return { error: 'Payment timed out - the recipient may be experiencing issues' };
+      } else if (errorMessage.includes('FAILURE_REASON_INVOICE_EXPIRED') || errorMessage.includes('expired')) {
+        return { error: 'Invoice has expired - please request a new invoice' };
+      } else if (errorMessage.includes('user rejected') || errorMessage.includes('user cancelled')) {
+        return { error: 'Payment cancelled by user' };
+      }
+
+      return { error: errorMessage };
     }
   };
 
@@ -346,10 +375,11 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       remote_feed_guid?: string;
       album?: string;
       uuid?: string;
-    }
+    },
+    retryCount = 0
   ): Promise<{ preimage?: string; error?: string }> => {
-    console.log(`🔄 Starting keysend: ${amount} sats to ${pubkey.slice(0, 20)}...`);
-    
+    console.log(`🔄 Starting keysend (attempt ${retryCount + 1}/3): ${amount} sats to ${pubkey.slice(0, 20)}...`);
+
     try {
       let currentProvider = provider;
 
@@ -359,7 +389,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         currentProvider = provider;
         if (!currentProvider) {
           console.error('❌ Failed to connect wallet for keysend');
-          return { error: 'No wallet connected' };
+          return { error: 'No wallet connected - please connect your Lightning wallet' };
         }
       }
 
@@ -379,12 +409,12 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           const cleanMetadata = Object.fromEntries(
             Object.entries(helipadMetadata).filter(([_, value]) => value !== undefined && value !== null)
           );
-          
+
           // TLV record 7629169 is used for Helipad metadata (JSON)
           const helipadJson = JSON.stringify(cleanMetadata);
           // Try sending as raw JSON string instead of hex-encoded
           customRecords['7629169'] = helipadJson;
-          
+
           console.log('📋 Helipad metadata TLV:', helipadJson);
         } catch (jsonError) {
           console.error('Failed to stringify Helipad metadata:', jsonError, helipadMetadata);
@@ -399,31 +429,31 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           console.log('✅ Provider enabled for keysend');
         } catch (enableError) {
           console.warn('⚠️ Failed to enable provider:', enableError);
-          return { error: 'Provider must be enabled before calling keysend' };
+          return { error: 'Wallet must be unlocked - please check your Lightning wallet' };
         }
       }
 
       if (!currentProvider.keysend) {
         console.error('❌ Wallet does not support keysend');
-        return { error: 'Keysend not supported by wallet' };
+        return { error: 'Keysend not supported by wallet - try connecting a different wallet' };
       }
 
       console.log(`⚡ Executing keysend with ${Object.keys(customRecords).length} TLV records`);
-      
+
       const keysendPayload = {
         destination: pubkey,
         amount: amount.toString(),
         customRecords,
       };
-      
-      console.log('📤 Keysend payload:', { 
-        destination: pubkey, 
-        amount: amount.toString(), 
-        recordCount: Object.keys(customRecords).length 
+
+      console.log('📤 Keysend payload:', {
+        destination: pubkey,
+        amount: amount.toString(),
+        recordCount: Object.keys(customRecords).length
       });
 
       const result = await currentProvider.keysend(keysendPayload);
-      
+
       console.log('✅ Keysend successful:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
@@ -433,7 +463,34 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
-      return { error: error instanceof Error ? error.message : 'Keysend failed' };
+
+      const errorMessage = error instanceof Error ? error.message : 'Keysend failed';
+
+      // Parse common Lightning errors and provide helpful feedback
+      if (errorMessage.includes('FAILURE_REASON_NO_ROUTE') || errorMessage.includes('no route')) {
+        // Retry once for routing failures (routes can be temporarily unavailable)
+        if (retryCount < 2) {
+          console.log(`⚠️ No route found, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
+        }
+        return {
+          error: 'Cannot find payment route to recipient - they may be offline or unreachable via Lightning Network'
+        };
+      } else if (errorMessage.includes('FAILURE_REASON_INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient')) {
+        return { error: 'Insufficient balance in your Lightning wallet' };
+      } else if (errorMessage.includes('FAILURE_REASON_TIMEOUT') || errorMessage.includes('timeout')) {
+        if (retryCount < 1) {
+          console.log(`⚠️ Payment timeout, retrying in 1 second (attempt ${retryCount + 2}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
+        }
+        return { error: 'Payment timed out - the recipient may be experiencing issues' };
+      } else if (errorMessage.includes('user rejected') || errorMessage.includes('user cancelled')) {
+        return { error: 'Payment cancelled by user' };
+      }
+
+      return { error: errorMessage };
     }
   };
 

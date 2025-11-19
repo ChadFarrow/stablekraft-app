@@ -31,6 +31,13 @@ export interface LNURLPayResponse {
 
 export class LNURLService {
   /**
+   * Check if running in browser environment
+   */
+  private static isBrowser(): boolean {
+    return typeof window !== 'undefined';
+  }
+
+  /**
    * Check if a string is a valid Lightning Address (email format)
    */
   static isLightningAddress(address: string): boolean {
@@ -87,10 +94,29 @@ export class LNURLService {
       throw new Error('Invalid Lightning Address format');
     }
 
-    const [username, domain] = address.split('@');
-    const url = `https://${domain}/.well-known/lnurlp/${username}`;
-
     try {
+      // Use proxy endpoint in browser to avoid CORS issues
+      if (this.isBrowser()) {
+        const response = await fetch('/api/lightning/lnurl/resolve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ address }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+      }
+
+      // Server-side: direct fetch
+      const [username, domain] = address.split('@');
+      const url = `https://${domain}/.well-known/lnurlp/${username}`;
+
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
@@ -123,9 +149,28 @@ export class LNURLService {
    * Resolve LNURL to LNURL-pay parameters
    */
   static async resolveLNURL(lnurl: string): Promise<LNURLPayParams> {
-    const url = this.decodeLNURL(lnurl);
-
     try {
+      // Use proxy endpoint in browser to avoid CORS issues
+      if (this.isBrowser()) {
+        const response = await fetch('/api/lightning/lnurl/resolve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ lnurl }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+      }
+
+      // Server-side: direct fetch
+      const url = this.decodeLNURL(lnurl);
+
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
@@ -173,18 +218,42 @@ export class LNURLService {
       throw new Error(`Comment too long. Maximum ${params.commentAllowed} characters allowed`);
     }
 
-    const callbackUrl = new URL(params.callback);
-    callbackUrl.searchParams.set('amount', amount.toString());
-
-    if (comment) {
-      callbackUrl.searchParams.set('comment', comment);
-    }
-
-    if (payerData) {
-      callbackUrl.searchParams.set('payerdata', JSON.stringify(payerData));
-    }
-
     try {
+      // Use proxy endpoint in browser to avoid CORS issues
+      if (this.isBrowser()) {
+        const response = await fetch('/api/lightning/lnurl/invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            callback: params.callback,
+            amount,
+            comment,
+            payerData,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+      }
+
+      // Server-side: direct fetch
+      const callbackUrl = new URL(params.callback);
+      callbackUrl.searchParams.set('amount', amount.toString());
+
+      if (comment) {
+        callbackUrl.searchParams.set('comment', comment);
+      }
+
+      if (payerData) {
+        callbackUrl.searchParams.set('payerdata', JSON.stringify(payerData));
+      }
+
       const response = await fetch(callbackUrl.toString(), {
         headers: {
           'Accept': 'application/json',
