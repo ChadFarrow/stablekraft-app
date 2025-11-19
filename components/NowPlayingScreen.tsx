@@ -341,7 +341,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             )}
 
             {/* Favorite Button - Top-right corner overlay */}
-            {currentTrack?.guid && (
+            {currentTrack?.id && (
               <div
                 className="absolute top-4 right-4 z-20"
                 onClick={(e) => {
