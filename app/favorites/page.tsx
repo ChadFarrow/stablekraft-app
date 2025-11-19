@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useSession } from '@/contexts/SessionContext';
 import { useNostr } from '@/contexts/NostrContext';
 import { useAudio } from '@/contexts/AudioContext';
@@ -13,7 +14,7 @@ import { RSSAlbum } from '@/lib/rss-parser';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
-import { Heart, Music, Disc, Users, Play } from 'lucide-react';
+import { Heart, Music, Disc, Users, Play, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/Toast';
 
 interface FavoriteTrack {
@@ -51,6 +52,7 @@ interface FavoriteAlbum {
 }
 
 export default function FavoritesPage() {
+  const router = useRouter();
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
   const { playAlbum: globalPlayAlbum, playTrack, setFullscreenMode } = useAudio();
@@ -465,6 +467,14 @@ export default function FavoritesPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-x-hidden">
       <div className="container mx-auto px-4 py-8 pb-24 sm:pb-8">
         <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="mb-4 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm sm:text-base">Back</span>
+          </button>
           <h1 className="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
             <Heart className="w-6 h-6 sm:w-10 sm:h-10 text-red-500 fill-red-500" />
             My Favorites
