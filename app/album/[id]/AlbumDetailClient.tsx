@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
-import { generateAlbumUrl, generateAlbumSlug, generatePublisherSlug, getPublisherInfo } from '@/lib/url-utils';
+import { generateAlbumUrl, generateAlbumSlug, generatePublisherSlug, generatePublisherUrl, getPublisherInfo } from '@/lib/url-utils';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import ControlsBar from '@/components/ControlsBar';
