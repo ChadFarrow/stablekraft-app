@@ -377,7 +377,17 @@ export function BoostButton({
             if (trackImage) {
               tags.push(['image', trackImage]);
             }
-            
+
+            // Add URL metadata tags for rich link previews (like Fountain)
+            tags.push(['r', url]); // URL reference
+            tags.push(['title', finalTrackTitle]); // Title for preview
+            if (finalArtistName) {
+              tags.push(['summary', `By ${finalArtistName}`]); // Summary/description
+            }
+            if (trackImage) {
+              tags.push(['thumb', trackImage]); // Thumbnail for preview
+            }
+
             // Create note template
             const { createNoteTemplate } = await import('@/lib/nostr/events');
             const noteTemplate = createNoteTemplate(content, tags);
