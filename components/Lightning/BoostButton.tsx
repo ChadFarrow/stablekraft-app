@@ -7,7 +7,7 @@ import { useNostr } from '@/contexts/NostrContext';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
-import { Zap, Send, X, Mail, Check } from 'lucide-react';
+import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface BoostButtonProps {
@@ -61,6 +61,8 @@ export function BoostButton({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
+  const [showSplitDetails, setShowSplitDetails] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -500,6 +502,13 @@ export function BoostButton({
         fee: false
       }));
 
+      // Initialize payment statuses for all recipients
+      const initialStatuses = new Map(recipients.map(r => [
+        r.address,
+        { status: 'pending' as const, amount: 0 }
+      ]));
+      setPaymentStatuses(initialStatuses);
+
       // Debug: Log what values we're receiving for value splits
       console.log('🔍 BoostButton values (value splits):', {
         feedUrl,
@@ -550,6 +559,15 @@ export function BoostButton({
 
       console.log('📋 Final Helipad metadata (value splits):', helipadMetadata);
 
+      // Progress callback to update UI as each payment completes
+      const onProgress = (recipientAddress: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => {
+        setPaymentStatuses(prev => {
+          const updated = new Map(prev);
+          updated.set(recipientAddress, { status, error, amount });
+          return updated;
+        });
+      };
+
       // Use ValueSplitsService for proper multi-recipient payments
       const result = await ValueSplitsService.sendMultiRecipientPayment(
         recipients,
@@ -557,7 +575,8 @@ export function BoostButton({
         sendPayment,
         sendKeysend,
         message,
-        helipadMetadata
+        helipadMetadata,
+        onProgress
       );
 
       if (!result.success) {
@@ -737,10 +756,12 @@ export function BoostButton({
       {/* Render modal in portal to ensure it's centered over entire viewport */}
       {showModal && mounted && typeof window !== 'undefined' && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6">
+          <div className="bg-gray-900 rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">
-                Send a Boost ⚡
+                {valueSplits && valueSplits.length > 0 && customAmount && parseInt(customAmount) > 0
+                  ? `Splitting ${customAmount} sats to ${valueSplits.length} recipients ⚡`
+                  : 'Send a Boost ⚡'}
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -766,23 +787,102 @@ export function BoostButton({
                       <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
                     </>
                   ) : valueSplits && valueSplits.length > 0 ? (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-3 h-3 text-yellow-400" />
-                        <span className="text-yellow-400">Value splits to {valueSplits.length} recipients:</span>
-                      </div>
-                      <div className="ml-5 text-xs text-gray-300">
-                        {valueSplits.map((split, index) => (
-                          <div key={index} className="flex items-center gap-1">
-                            <span>{split.name || 'Unknown'}</span>
-                            <span className="text-gray-500">({split.split}%)</span>
-                            <span className="text-gray-600">-</span>
-                            <span className="text-blue-300">
-                              {split.type === 'lnaddress' ? split.address : `${split.address.slice(0, 8)}...${split.address.slice(-8)}`}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSplitDetails(!showSplitDetails)}
+                        className="flex items-center gap-2 hover:text-yellow-300 transition-colors text-left w-full"
+                      >
+                        <Zap className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                        <span className="text-yellow-400 flex-1">
+                          {customAmount && parseInt(customAmount) > 0
+                            ? `Splitting ${customAmount} sats to ${valueSplits.length} recipients`
+                            : `Value splits to ${valueSplits.length} recipients`}
+                        </span>
+                        {showSplitDetails ? (
+                          <ChevronUp className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                        )}
+                      </button>
+                      {showSplitDetails && (
+                        <div className="flex flex-col gap-1">
+                          {[...valueSplits].sort((a, b) => b.split - a.split).map((split, index) => {
+                            const amount = customAmount && parseInt(customAmount) > 0
+                              ? Math.max(1, Math.floor((split.split / valueSplits.reduce((sum, s) => sum + s.split, 0)) * parseInt(customAmount)))
+                              : 0;
+                            const status = paymentStatuses.get(split.address);
+
+                            return (
+                              <div
+                                key={index}
+                                className="bg-gray-800 rounded-lg p-3 flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {split.type === 'lnaddress' ? (
+                                    <Mail className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                                  ) : (
+                                    <Zap className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                                  )}
+                                  <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-white text-sm font-medium truncate">
+                                        {split.name || 'Unknown'}
+                                      </span>
+                                      {status && (
+                                        <span className="flex items-center gap-1 text-xs flex-shrink-0">
+                                          {status.status === 'pending' && (
+                                            <span className="text-gray-400">⏳</span>
+                                          )}
+                                          {status.status === 'sending' && (
+                                            <div className="w-3 h-3 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                                          )}
+                                          {status.status === 'success' && (
+                                            <span className="text-green-400">✓</span>
+                                          )}
+                                          {status.status === 'failed' && (
+                                            <span className="text-red-400">✗</span>
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {split.type === 'lnaddress' ? (
+                                      <span className="text-xs text-gray-400 truncate">
+                                        {split.address}
+                                      </span>
+                                    ) : (
+                                      <a
+                                        href={`https://amboss.space/node/${split.address}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-400 hover:text-blue-300 truncate underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {`${split.address.slice(0, 12)}...${split.address.slice(-12)}`}
+                                      </a>
+                                    )}
+                                    {status?.error && (
+                                      <span className="text-xs text-red-400 mt-1">
+                                        {status.error}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <div className="text-white text-sm font-semibold">
+                                    {amount > 0 ? `${amount} sats` : `${split.split}%`}
+                                  </div>
+                                  {amount > 0 && (
+                                    <div className="text-xs text-gray-500">
+                                      {split.split}%
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>

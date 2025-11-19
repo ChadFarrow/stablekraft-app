@@ -71,7 +71,8 @@ export class ValueSplitsService {
     sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>,
     sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
     message?: string,
-    helipadMetadata?: any
+    helipadMetadata?: any,
+    onProgress?: (recipientAddress: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => void
   ): Promise<MultiRecipientResult> {
     const splitAmounts = this.calculateSplitAmounts(recipients, totalAmount);
     const successfulPayments: ValueSplitPayment[] = [];
@@ -89,6 +90,11 @@ export class ValueSplitsService {
       if (i > 0) {
         const delay = 1500; // 1.5 seconds - gives custodial wallets time to process
         await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      // Notify that this payment is starting
+      if (onProgress) {
+        onProgress(recipient.address, 'sending', undefined, amount);
       }
 
       let result: PaymentResult;
@@ -124,10 +130,18 @@ export class ValueSplitsService {
 
         if (result.success) {
           successfulPayments.push(payment);
+          // Notify success
+          if (onProgress) {
+            onProgress(recipient.address, 'success', undefined, amount);
+          }
         } else {
           failedPayments.push(payment);
           errors.push(`${recipient.name || recipient.address}: ${result.error}`);
           console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${result.error}`);
+          // Notify failure
+          if (onProgress) {
+            onProgress(recipient.address, 'failed', result.error, amount);
+          }
         }
       } catch (error) {
         // Extract the actual Lightning error message
@@ -159,6 +173,10 @@ export class ValueSplitsService {
         failedPayments.push(payment);
         errors.push(`${recipient.name || recipient.address}: ${errorMessage}`);
         console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${errorMessage}`);
+        // Notify failure
+        if (onProgress) {
+          onProgress(recipient.address, 'failed', errorMessage, amount);
+        }
       }
     }
 
