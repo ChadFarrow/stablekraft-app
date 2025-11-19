@@ -199,14 +199,22 @@ export class ValueSplitsService {
     sendPayment: (invoice: string) => Promise<{ preimage?: string; error?: string }>
   ): Promise<PaymentResult> {
     try {
+      console.log(`📧 Resolving Lightning Address: ${recipient.address}`);
       const { invoice } = await LNURLService.payLightningAddress(
         recipient.address,
         amount,
         message
       );
 
+      console.log(`💰 Invoice received for ${recipient.address}, paying ${amount} sats...`);
       const result = await sendPayment(invoice);
-      
+
+      if (result.error) {
+        console.error(`❌ Invoice payment failed for ${recipient.address}:`, result.error);
+      } else {
+        console.log(`✅ Successfully paid ${amount} sats to ${recipient.address}`);
+      }
+
       return {
         success: !result.error,
         preimage: result.preimage,
@@ -215,6 +223,7 @@ export class ValueSplitsService {
         amount
       };
     } catch (error) {
+      console.error(`❌ Lightning Address resolution failed for ${recipient.address}:`, error);
       // Extract the actual Lightning error message
       let errorMessage = 'Lightning Address payment failed';
       if (error instanceof Error) {

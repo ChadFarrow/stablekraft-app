@@ -425,10 +425,16 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Ensure provider is enabled before using it
       if (currentProvider.enable && typeof currentProvider.enable === 'function') {
         try {
+          console.log('🔓 Enabling WebLN provider for keysend...');
           await currentProvider.enable();
           console.log('✅ Provider enabled for keysend');
         } catch (enableError) {
           console.warn('⚠️ Failed to enable provider:', enableError);
+          // Check if Alby extension is being used by Nostr at the same time
+          const loginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
+          if (loginType === 'extension') {
+            return { error: 'Wallet locked - if using Alby for both Nostr and Lightning, try closing any Nostr popups first' };
+          }
           return { error: 'Wallet must be unlocked - please check your Lightning wallet' };
         }
       }
