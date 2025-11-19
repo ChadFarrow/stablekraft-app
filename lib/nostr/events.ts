@@ -14,7 +14,7 @@ export interface EventTemplate {
   kind: number;
   tags: string[][];
   content: string;
-  created_at?: number;
+  created_at: number;
 }
 
 /**
