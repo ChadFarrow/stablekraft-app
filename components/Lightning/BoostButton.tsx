@@ -63,6 +63,7 @@ export function BoostButton({
   const [success, setSuccess] = useState(false);
   const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
   const [showSplitDetails, setShowSplitDetails] = useState(false);
+  const [fetchedValueSplits, setFetchedValueSplits] = useState<typeof valueSplits>([]);
 
   useEffect(() => {
     setIsClient(true);
@@ -96,6 +97,44 @@ export function BoostButton({
       }
     }
   }, [autoOpen, isClient, isConnected]);
+
+  // Fetch track v4vValue data if trackId is provided and valueSplits is empty
+  useEffect(() => {
+    if (trackId && valueSplits.length === 0 && !fetchedValueSplits.length) {
+      fetch(`/api/tracks/${trackId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.track?.v4vValue) {
+            // Parse v4vValue to extract recipients
+            const v4v = data.track.v4vValue;
+
+            // Handle both old format (recipients) and new format (destinations)
+            const recipientsList = v4v.recipients || v4v.destinations || [];
+
+            // Filter out fee recipients and convert to our format
+            const splits = recipientsList
+              .filter((r: any) => !r.fee)
+              .map((r: any) => ({
+                name: r.name || 'Unknown',
+                type: r.type || 'node',
+                address: r.address,
+                split: Number(r.split) || 0
+              }));
+
+            if (splits.length > 0) {
+              console.log('✅ Loaded value splits from track data:', splits);
+              setFetchedValueSplits(splits);
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch track v4vValue:', err);
+        });
+    }
+  }, [trackId, valueSplits, fetchedValueSplits]);
+
+  // Use fetched value splits if available, otherwise use prop value splits
+  const activeValueSplits = fetchedValueSplits.length > 0 ? fetchedValueSplits : valueSplits;
 
   // Don't render on server-side
   if (!isClient) {
@@ -136,7 +175,7 @@ export function BoostButton({
       // 2. Lightning Address (if provided)
       // 3. Node pubkey via keysend
 
-      if (valueSplits && valueSplits.length > 0) {
+      if (activeValueSplits && activeValueSplits.length > 0) {
         // Use value splits for multiple recipients (highest priority)
         result = await sendValueSplitPayments(amount, message);
       } else if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
@@ -250,7 +289,7 @@ export function BoostButton({
           message,
           senderName,
           preimage: result.preimage,
-          paymentMethod: valueSplits?.length ? 'value-splits' :
+          paymentMethod: activeValueSplits?.length ? 'value-splits' :
                         lightningAddress ? 'lightning-address' : 'keysend',
         });
 
@@ -494,7 +533,7 @@ export function BoostButton({
   ): Promise<{ preimage?: string; error?: string }> => {
     try {
       // Convert valueSplits to ValueRecipient format
-      const recipients = valueSplits.map(split => ({
+      const recipients = activeValueSplits.map(split => ({
         name: split.name,
         type: split.type as 'node' | 'lnaddress',
         address: split.address,
@@ -677,8 +716,8 @@ export function BoostButton({
     try {
       // Determine recipient based on payment method
       let recipient = 'unknown';
-      if (valueSplits?.length) {
-        recipient = `${valueSplits.length} recipients`;
+      if (activeValueSplits?.length) {
+        recipient = `${activeValueSplits.length} recipients`;
       } else if (lightningAddress) {
         recipient = lightningAddress;
       }
@@ -759,8 +798,8 @@ export function BoostButton({
           <div className="bg-gray-900 rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">
-                {valueSplits && valueSplits.length > 0 && customAmount && parseInt(customAmount) > 0
-                  ? `Splitting ${customAmount} sats to ${valueSplits.length} recipients ⚡`
+                {activeValueSplits && activeValueSplits.length > 0 && customAmount && parseInt(customAmount) > 0
+                  ? `Splitting ${customAmount} sats to ${activeValueSplits.length} recipients ⚡`
                   : customAmount && parseInt(customAmount) > 0
                   ? `Sending ${customAmount} sats ⚡`
                   : 'Send a Boost ⚡'}
@@ -788,7 +827,7 @@ export function BoostButton({
                       <Mail className="w-3 h-3 text-blue-400" />
                       <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
                     </>
-                  ) : valueSplits && valueSplits.length > 0 ? (
+                  ) : activeValueSplits && activeValueSplits.length > 0 ? (
                     <div className="flex flex-col gap-2">
                       <button
                         type="button"
@@ -798,8 +837,8 @@ export function BoostButton({
                         <Zap className="w-3 h-3 text-yellow-400 flex-shrink-0" />
                         <span className="text-yellow-400 flex-1">
                           {customAmount && parseInt(customAmount) > 0
-                            ? `Splitting ${customAmount} sats to ${valueSplits.length} recipients`
-                            : `Value splits to ${valueSplits.length} recipients`}
+                            ? `Splitting ${customAmount} sats to ${activeValueSplits.length} recipients`
+                            : `Value splits to ${activeValueSplits.length} recipients`}
                         </span>
                         {showSplitDetails ? (
                           <ChevronUp className="w-4 h-4 text-yellow-400 flex-shrink-0" />
@@ -815,7 +854,7 @@ export function BoostButton({
                         // This ensures each split is paired with its correct calculated amount
                         const splitsWithAmounts = totalAmount > 0
                           ? ValueSplitsService.calculateSplitAmounts(
-                              valueSplits.map(s => ({ ...s, fee: false })),
+                              activeValueSplits.map(s => ({ ...s, fee: false })),
                               totalAmount
                             ).map(calculated => ({
                               // Use data from the calculated result's recipient (which has the original split data)
@@ -825,7 +864,7 @@ export function BoostButton({
                               split: calculated.recipient.split,
                               calculatedAmount: calculated.amount
                             }))
-                          : valueSplits.map(s => ({ ...s, calculatedAmount: 0 }));
+                          : activeValueSplits.map(s => ({ ...s, calculatedAmount: 0 }));
 
                         // NOW sort by split percentage (largest first)
                         const sortedSplits = splitsWithAmounts.sort((a, b) => b.split - a.split);
