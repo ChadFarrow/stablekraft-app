@@ -168,17 +168,21 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
     }
     
     if (recipients.length > 0) {
+      // Filter out fee recipients (Podcastindex.org fee injection)
+      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true' && r.fee !== true);
+
       // Use the first recipient with split="100" (usually the artist)
-      const primaryRecipient = recipients.find(r => r.split === '100') || recipients[0];
-      
+      const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
+
       console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
-      
+      console.log('✅ DEBUG: Filtered out fee recipients, remaining:', nonFeeRecipients.length);
+
       return {
         recipient: primaryRecipient.address,
         value: {
           type: typeMatch ? typeMatch[1] : 'lightning',
           method: methodMatch ? methodMatch[1] : 'keysend',
-          recipients: recipients
+          recipients: nonFeeRecipients
         }
       };
     }
@@ -283,17 +287,21 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     }
     
     if (recipients.length > 0) {
+      // Filter out fee recipients (Podcastindex.org fee injection)
+      const nonFeeRecipients = recipients.filter(r => r.fee !== 'true' && r.fee !== true);
+
       // Use the first recipient with split="100" (usually the artist)
-      const primaryRecipient = recipients.find(r => r.split === '100') || recipients[0];
-      
+      const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
+
       console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
-      
+      console.log('✅ DEBUG: Filtered out fee recipients, remaining:', nonFeeRecipients.length);
+
       return {
         recipient: primaryRecipient.address,
         value: {
           type: typeMatch ? typeMatch[1] : 'lightning',
           method: methodMatch ? methodMatch[1] : 'keysend',
-          recipients: recipients
+          recipients: nonFeeRecipients
         }
       };
     }
@@ -497,18 +505,25 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
                 parsedItem.v4vValue = {
                   type: (valueData.$?.type || valueData.type || 'lightning'),
                   method: (valueData.$?.method || valueData.method || 'keysend'),
-                  recipients: recipients.map(r => {
-                    const rData = r.$ || r;
-                    return {
-                      name: rData.name,
-                      address: rData.address,
-                      type: rData.type || 'node',
-                      split: rData.split || '100',
-                      fee: rData.fee
-                    };
-                  })
+                  recipients: recipients
+                    .filter(r => {
+                      const rData = r.$ || r;
+                      // Filter out fee recipients (Podcastindex.org fee injection)
+                      return rData.fee !== 'true' && rData.fee !== true;
+                    })
+                    .map(r => {
+                      const rData = r.$ || r;
+                      return {
+                        name: rData.name,
+                        address: rData.address,
+                        type: rData.type || 'node',
+                        split: rData.split || '100',
+                        fee: rData.fee
+                      };
+                    })
                 };
                 console.log('✅ DEBUG: Set v4vRecipient to:', parsedItem.v4vRecipient);
+                console.log('✅ DEBUG: Filtered out fee recipients, remaining:', parsedItem.v4vValue.recipients.length);
               }
             }
           } else if (valueData.recipient) {
@@ -584,18 +599,25 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
               feedV4vValue = {
                 type: (valueData.$?.type || valueData.type || 'lightning'),
                 method: (valueData.$?.method || valueData.method || 'keysend'),
-                recipients: recipients.map(r => {
-                  const rData = r.$ || r;
-                  return {
-                    name: rData.name,
-                    address: rData.address,
-                    type: rData.type || 'node',
-                    split: rData.split || '100',
-                    fee: rData.fee
-                  };
-                })
+                recipients: recipients
+                  .filter(r => {
+                    const rData = r.$ || r;
+                    // Filter out fee recipients (Podcastindex.org fee injection)
+                    return rData.fee !== 'true' && rData.fee !== true;
+                  })
+                  .map(r => {
+                    const rData = r.$ || r;
+                    return {
+                      name: rData.name,
+                      address: rData.address,
+                      type: rData.type || 'node',
+                      split: rData.split || '100',
+                      fee: rData.fee
+                    };
+                  })
               };
               console.log('✅ DEBUG: Set feed v4vRecipient to:', feedV4vRecipient);
+              console.log('✅ DEBUG: Filtered out fee recipients, remaining:', feedV4vValue.recipients.length);
             }
           }
         }
