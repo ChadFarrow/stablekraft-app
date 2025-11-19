@@ -856,6 +856,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     split: parseInt(recipient.split) || 100,
                     type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
                   })) : undefined}
+                  publisherGuid={album.publisher?.feedGuid}
+                  publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
                   className="flex items-center gap-2 px-6 py-3 text-base"
                 />
               </div>
@@ -1056,6 +1058,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           lightningAddress={track.v4vRecipient}
                           episodeGuid={track.v4vValue?.itemGuid || track.guid}
                           remoteFeedGuid={track.v4vValue?.feedGuid}
+                          publisherGuid={album.publisher?.feedGuid}
+                          publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
                           className="text-xs px-2 py-1"
                         />
                       </div>

@@ -363,6 +363,8 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         episodeGuid={(album as any).guid || album.id}
         remoteFeedGuid={(album as any).feedGuid || (album as any).feedId}
         albumName={album.title}
+        publisherGuid={(album as any).publisher?.feedGuid}
+        publisherUrl={(album as any).publisher?.publisherUrl}
       />
     )}
   </>

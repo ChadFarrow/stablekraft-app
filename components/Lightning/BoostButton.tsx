@@ -29,6 +29,8 @@ interface BoostButtonProps {
   episodeGuid?: string; // Episode GUID
   remoteFeedGuid?: string; // Remote feed GUID
   albumName?: string; // Album name (can be same as trackTitle)
+  publisherGuid?: string; // Publisher's podcast:guid
+  publisherUrl?: string; // URL to publisher page (will be generated if not provided)
 }
 
 export function BoostButton({
@@ -45,6 +47,8 @@ export function BoostButton({
   episodeGuid,
   remoteFeedGuid,
   albumName,
+  publisherGuid,
+  publisherUrl,
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -274,7 +278,9 @@ export function BoostButton({
             let trackImage: string | null = null;
             let finalEpisodeGuid: string | null = episodeGuid || null;
             let finalFeedGuid: string | null = remoteFeedGuid || null;
-            
+            let finalPublisherGuid: string | null = publisherGuid || null;
+            let finalPublisherUrl: string | null = publisherUrl || null;
+
             // Fetch track data if trackId is available
             if (trackId) {
               const trackResponse = await fetch(`/api/music-tracks/${trackId}`);
@@ -365,6 +371,23 @@ export function BoostButton({
             if (finalFeedGuid) {
               tags.push(['k', 'podcast:guid']);
               tags.push(['i', `podcast:guid:${finalFeedGuid}`, urlWithAnchor]);
+            }
+
+            // Add podcast:publisher:guid tag if available
+            if (finalPublisherGuid) {
+              tags.push(['k', 'podcast:publisher:guid']);
+
+              // Generate publisher URL if not provided
+              if (!finalPublisherUrl && isClient) {
+                // Use generatePublisherUrl utility
+                const { generatePublisherUrl } = await import('@/lib/url-utils');
+                const publisherPath = generatePublisherUrl({ feedGuid: finalPublisherGuid });
+                finalPublisherUrl = `${baseUrl}${publisherPath}`;
+              }
+
+              // Use full publisher URL with base URL
+              const publisherFullUrl = finalPublisherUrl || `${baseUrl}/publisher/${finalPublisherGuid}`;
+              tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`, publisherFullUrl]);
             }
 
             // Add NIP-57 zap-related tags
