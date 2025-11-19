@@ -1186,6 +1186,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
   // Play next track - moved before useEffect hooks that depend on it
   const playNextTrack = useCallback(async () => {
+    console.log('⏭️ playNextTrack called from lockscreen', {
+      repeatMode,
+      currentTrackIndex,
+      totalTracks: currentPlayingAlbum?.tracks?.length || 0,
+      isShuffleMode
+    });
+
     // Add state validation and recovery logic
     if (!currentPlayingAlbum || !currentPlayingAlbum.tracks || currentPlayingAlbum.tracks.length === 0) {
       if (process.env.NODE_ENV === 'development') {
@@ -1208,8 +1215,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               console.log('🔄 Attempting to recover from saved state');
               setCurrentPlayingAlbum(parsedState.currentPlayingAlbum);
               setCurrentTrackIndex(parsedState.currentTrackIndex || 0);
-              // Retry after state recovery
-              setTimeout(() => playNextTrack(), 100);
+              // Retry after state recovery - using ref to avoid stale closure
+              setTimeout(() => {
+                if (playNextTrackRef.current) {
+                  playNextTrackRef.current();
+                }
+              }, 100);
               return;
             }
           }
@@ -1239,13 +1250,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }
 
     // Normal mode - play next track in current album
-    
+
     // Handle repeat one mode
     if (repeatMode === 'one') {
       // Replay the same track
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔂 Repeat one: replaying current track');
-      }
+      console.log('🔂 Repeat one mode detected - replaying current track');
       await playAlbum(currentPlayingAlbum, currentTrackIndex);
       return;
     }
@@ -1254,9 +1263,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     if (nextIndex < currentPlayingAlbum.tracks.length) {
       // Play next track in the album
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎵 Auto-playing next track:', currentPlayingAlbum.tracks[nextIndex].title);
-      }
+      console.log('🎵 Playing next track:', currentPlayingAlbum.tracks[nextIndex].title, `(${nextIndex + 1}/${currentPlayingAlbum.tracks.length})`);
       await playAlbum(currentPlayingAlbum, nextIndex);
     } else {
       // End of album reached
@@ -1284,11 +1291,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   }, [playNextTrack]);
 
   // Play previous track
-  const playPreviousTrack = async () => {
+  const playPreviousTrack = useCallback(async () => {
+    console.log('⏮️ playPreviousTrack called from lockscreen');
+
     if (isShuffleMode && shuffledPlaylist.length > 0) {
       // In shuffle mode, play previous track from shuffled playlist
       const prevShuffleIndex = currentShuffleIndex - 1;
-      
+
       if (prevShuffleIndex >= 0) {
         // Play previous track in shuffled playlist
         const prevTrack = shuffledPlaylist[prevShuffleIndex];
@@ -1305,14 +1314,19 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }
 
     // Normal mode - play previous track in current album
-    if (!currentPlayingAlbum || !currentPlayingAlbum.tracks) return;
+    if (!currentPlayingAlbum || !currentPlayingAlbum.tracks) {
+      console.warn('⚠️ Cannot play previous track: missing album or tracks');
+      return;
+    }
 
     const prevIndex = currentTrackIndex - 1;
     if (prevIndex >= 0) {
       console.log('🎵 Playing previous track:', currentPlayingAlbum.tracks[prevIndex].title);
       await playAlbum(currentPlayingAlbum, prevIndex);
+    } else {
+      console.log('⚠️ Already at first track');
     }
-  };
+  }, [isShuffleMode, shuffledPlaylist, currentShuffleIndex, playShuffledTrack, currentPlayingAlbum, currentTrackIndex, playAlbum]);
 
   // Update the ref whenever playPreviousTrack changes
   useEffect(() => {
