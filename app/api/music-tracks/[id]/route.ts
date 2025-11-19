@@ -64,6 +64,7 @@ export async function GET(
       feedId: track.feedId,
       feedGuid: track.Feed.guid || null,
       guid: track.guid || null,
+      v4vValue: track.v4vValue || null, // Include raw v4vValue for Lightning payments
       valueForValue: track.v4vValue ? {
         lightningAddress: (track.v4vValue as any).lightningAddress || '',
         suggestedAmount: (track.v4vValue as any).suggestedAmount || 0,

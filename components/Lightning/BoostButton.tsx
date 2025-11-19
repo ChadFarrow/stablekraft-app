@@ -101,12 +101,15 @@ export function BoostButton({
   // Fetch track v4vValue data if trackId is provided and valueSplits is empty
   useEffect(() => {
     if (trackId && valueSplits.length === 0 && !fetchedValueSplits.length) {
-      fetch(`/api/tracks/${trackId}`)
+      console.log(`🔍 Fetching track data for trackId: ${trackId}`);
+      fetch(`/api/music-tracks/${trackId}`)
         .then(res => res.json())
-        .then(data => {
-          if (data.track?.v4vValue) {
+        .then(response => {
+          console.log('📦 Track API response:', response);
+          if (response.success && response.data?.v4vValue) {
             // Parse v4vValue to extract recipients
-            const v4v = data.track.v4vValue;
+            const v4v = response.data.v4vValue;
+            console.log('📋 v4vValue data:', v4v);
 
             // Handle both old format (recipients) and new format (destinations)
             const recipientsList = v4v.recipients || v4v.destinations || [];
@@ -124,11 +127,15 @@ export function BoostButton({
             if (splits.length > 0) {
               console.log('✅ Loaded value splits from track data:', splits);
               setFetchedValueSplits(splits);
+            } else {
+              console.log('⚠️ No valid value splits found in v4vValue');
             }
+          } else {
+            console.log('⚠️ No v4vValue found in track data');
           }
         })
         .catch(err => {
-          console.error('Failed to fetch track v4vValue:', err);
+          console.error('❌ Failed to fetch track v4vValue:', err);
         });
     }
   }, [trackId, valueSplits, fetchedValueSplits]);
