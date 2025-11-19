@@ -120,6 +120,38 @@ export function decode(entity: string): DecodedNostrEntity {
 }
 
 /**
+ * Encode an event to nevent
+ * @param eventId - Event ID in hex format
+ * @param relays - Optional array of relay URLs
+ * @param author - Optional author public key in hex format
+ * @returns nevent string
+ */
+export function encodeNevent(
+  eventId: string,
+  relays?: string[],
+  author?: string
+): string {
+  return nip19.neventEncode({ id: eventId, relays, author });
+}
+
+/**
+ * Decode a nevent
+ * @param nevent - nevent string
+ * @returns Decoded event data
+ */
+export function decodeNevent(nevent: string): {
+  id: string;
+  relays?: string[];
+  author?: string;
+} {
+  const decoded = nip19.decode(nevent);
+  if (decoded.type !== 'nevent') {
+    throw new Error('Invalid nevent format');
+  }
+  return decoded.data;
+}
+
+/**
  * Check if a string is a valid NIP-19 entity
  * @param entity - String to check
  * @returns true if valid, false otherwise

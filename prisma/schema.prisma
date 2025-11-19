@@ -25,6 +25,7 @@ model ArtworkColor {
 
 model Feed {
   id           String    @id
+  guid         String?   @unique
   title        String
   description  String?
   originalUrl  String    @unique
@@ -45,6 +46,7 @@ model Feed {
   v4vValue     Json?
   Track        Track[]
 
+  @@index([guid])
   @@index([lastFetched])
   @@index([status])
   @@index([status, lastFetched])

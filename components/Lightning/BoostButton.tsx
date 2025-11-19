@@ -274,6 +274,7 @@ export function BoostButton({
             let trackImage: string | null = null;
             let finalEpisodeGuid: string | null = episodeGuid || null;
             let finalFeedGuid: string | null = remoteFeedGuid || null;
+            let finalPublisherGuid: string | null = null;
             
             // Fetch track data if trackId is available
             if (trackId) {
@@ -301,6 +302,11 @@ export function BoostButton({
                   // Extract feedGuid from track's v4vValue (for podcast:guid tag)
                   if (!finalFeedGuid && trackData.v4vValue?.feedGuid) {
                     finalFeedGuid = trackData.v4vValue.feedGuid;
+                  }
+
+                  // Extract publisher GUID from track's Feed
+                  if (trackData.feedGuid) {
+                    finalPublisherGuid = trackData.feedGuid;
                   }
                 }
               }
@@ -351,26 +357,39 @@ export function BoostButton({
               .replace(/^-+|-+$/g, '');
             const urlWithAnchor = `${url}#${sanitizedTitle}`;
             
-            // Build content
+            // Build content (Fountain-style format)
             const boostMessage = message || `Auto boost for "${finalTrackTitle}"`;
-            const content = `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${boostMessage}\n\n🎧 ${urlWithAnchor}`;
+            const content = `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${boostMessage}\n\n${url}`;
             
             // Build tags
             const tags: string[][] = [];
-            
+
             // Add podcast GUID tags if available
             // Use finalEpisodeGuid (from track.guid or v4vValue.itemGuid) for podcast:item:guid
             if (finalEpisodeGuid) {
               tags.push(['k', 'podcast:item:guid']);
               tags.push(['i', `podcast:item:guid:${finalEpisodeGuid}`, urlWithAnchor]);
             }
-            
+
             // Use finalFeedGuid (from remoteFeedGuid prop or v4vValue.feedGuid) for podcast:guid
             if (finalFeedGuid) {
               tags.push(['k', 'podcast:guid']);
               tags.push(['i', `podcast:guid:${finalFeedGuid}`, urlWithAnchor]);
             }
-            
+
+            // Add publisher GUID tags (Fountain-style)
+            if (finalPublisherGuid) {
+              const albumUrl = `${baseUrl}/album/${finalFeedId}`;
+              tags.push(['k', 'podcast:publisher:guid']);
+              tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`, albumUrl]);
+            }
+
+            // Add NIP-57 zap-related tags
+            tags.push(['amount', (amount * 1000).toString()]); // Amount in millisats
+            if (result.preimage) {
+              tags.push(['preimage', result.preimage]);
+            }
+
             // Add image tag if available (always include if we have it)
             if (trackImage) {
               tags.push(['image', trackImage]);
@@ -379,10 +398,10 @@ export function BoostButton({
             // Create note template
             const { createNoteTemplate } = await import('@/lib/nostr/events');
             const noteTemplate = createNoteTemplate(content, tags);
-            
+
             // Sign with unified signer (already obtained above)
             const signedEvent = await signer.signEvent(noteTemplate as any);
-            
+
             console.log('✅ Boost event signed:', signedEvent.id.slice(0, 16) + '...');
             
             // Send signed event to API
