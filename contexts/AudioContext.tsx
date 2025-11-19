@@ -634,10 +634,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     const handlePlay = () => {
       setIsPlaying(true);
+      // Update media session playback state immediately for iOS
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
     };
 
     const handlePause = () => {
       setIsPlaying(false);
+      // Update media session playback state immediately for iOS
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
     };
 
     const handleEnded = async () => {
@@ -664,6 +672,21 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const handleTimeUpdate = () => {
       const currentElement = isVideoMode ? video : audio;
       setCurrentTime(currentElement.currentTime);
+
+      // Update position state for iOS lockscreen controls
+      if ('mediaSession' in navigator && navigator.mediaSession && isPlaying) {
+        if (currentElement.duration && !isNaN(currentElement.duration)) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: currentElement.duration,
+              playbackRate: currentElement.playbackRate || 1.0,
+              position: currentElement.currentTime
+            });
+          } catch (error) {
+            // Ignore errors - some browsers don't support this
+          }
+        }
+      }
 
       // Check if current track has end time and we've reached it
       if (currentPlayingAlbum && currentPlayingAlbum.tracks[currentTrackIndex]) {
@@ -715,10 +738,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const handleLoadedMetadata = () => {
       const currentElement = isVideoMode ? video : audio;
       setDuration(currentElement.duration);
-      
-      // Check if current track has time segment information and seek to start time
+
+      // Re-update media session with duration info for iOS
       if (currentPlayingAlbum && currentPlayingAlbum.tracks[currentTrackIndex]) {
         const track = currentPlayingAlbum.tracks[currentTrackIndex];
+        updateMediaSession(currentPlayingAlbum, track);
+
+        // Check if current track has time segment information and seek to start time
         if (track.startTime && typeof track.startTime === 'number') {
           // Validate start time against duration
           if (track.startTime < currentElement.duration) {
@@ -894,9 +920,23 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         } catch (e) {
           // Some browsers might not support these, ignore errors
         }
-        
-        // Update playback state
-        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+        // Set position state (required for iOS lockscreen controls)
+        const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+        if (currentElement && currentElement.duration && !isNaN(currentElement.duration)) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: currentElement.duration,
+              playbackRate: currentElement.playbackRate || 1.0,
+              position: currentElement.currentTime || 0
+            });
+          } catch (error) {
+            console.warn('Failed to set position state:', error);
+          }
+        }
+
+        // Note: playbackState is now managed by handlePlay/handlePause event handlers
+        // to avoid race conditions with state updates
         
         console.log('📱 Media session metadata updated:', {
           title: track.title,
