@@ -22,36 +22,55 @@ interface AlbumCardProps {
 function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   const [showBoostModal, setShowBoostModal] = useState(false);
   const { shouldPreventClick } = useScrollDetectionContext();
 
-  // Minimum swipe distance (in px)
+  // Minimum swipe/scroll distance (in px)
   const minSwipeDistance = 50;
+  const minScrollDistance = 10; // Much lower threshold for detecting scroll intent
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
   }, []);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+
+    const deltaX = touchStart.x - touchEnd.x;
+    const deltaY = touchStart.y - touchEnd.y;
+
+    // Calculate absolute distances
+    const horizontalDistance = Math.abs(deltaX);
+    const verticalDistance = Math.abs(deltaY);
+
+    // If user scrolled vertically (even slightly), don't trigger any action
+    if (verticalDistance > minScrollDistance) {
+      return; // User was scrolling, not tapping
+    }
+
+    // Check for horizontal swipes
+    const isLeftSwipe = deltaX > minSwipeDistance;
+    const isRightSwipe = deltaX < -minSwipeDistance;
 
     if (isLeftSwipe) {
       // Left swipe - play next track (future enhancement)
     } else if (isRightSwipe) {
       // Right swipe - play previous track (future enhancement)
-    } else {
-      // Tap - play/pause, but check scroll detection first
+    } else if (horizontalDistance <= minScrollDistance) {
+      // Tap (minimal movement in any direction) - play/pause, but check scroll detection first
       if (!shouldPreventClick()) {
         onPlay(album, e);
       }
