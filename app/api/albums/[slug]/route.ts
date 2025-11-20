@@ -716,8 +716,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         lastUpdated: feed.updatedAt,
-        v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
-        v4vValue: feed.Track?.[0]?.v4vValue || null
+        v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
+        v4vValue: feed.v4vValue || feed.Track?.[0]?.v4vValue || null
       };
     }
     
