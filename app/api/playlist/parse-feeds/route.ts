@@ -128,23 +128,26 @@ function parseDuration(durationStr: string): number {
 
 async function importFeedToDatabase(feedData: any, episodes: any[]) {
   try {
+    // Ensure feed ID is a string (Podcast Index returns numeric IDs)
+    const feedId = String(feedData.id || feedData.guid || `feed-${Date.now()}`);
+
     // Check if feed already exists by GUID (id)
     let feed = await prisma.feed.findUnique({
-      where: { id: feedData.id || feedData.guid }
+      where: { id: feedId }
     });
-    
+
     if (!feed && feedData.url) {
       // Try to find by URL
       feed = await prisma.feed.findFirst({
         where: { originalUrl: feedData.url }
       });
     }
-    
+
     if (!feed) {
       // Create new feed
       feed = await prisma.feed.create({
         data: {
-          id: feedData.id || feedData.guid || `feed-${Date.now()}`,
+          id: feedId,
           title: feedData.title || 'Unknown Feed',
           description: feedData.description || null,
           originalUrl: feedData.url || '',

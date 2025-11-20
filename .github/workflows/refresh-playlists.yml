@@ -57,7 +57,45 @@ jobs:
 
         echo ""
         echo "✅ All playlists refreshed with full v4v parsing"
-        
+
+        # Step 3: Parse feeds to save tracks to database
+        echo ""
+        echo "📋 Step 3: Parsing feeds to save tracks to database..."
+
+        # Parse feeds multiple times to ensure all feeds are processed
+        # (parse-feeds processes 50 feeds at a time)
+        MAX_ITERATIONS=10
+        ITERATION=0
+
+        while [ $ITERATION -lt $MAX_ITERATIONS ]; do
+          ITERATION=$((ITERATION + 1))
+          echo "  🔄 Parse iteration $ITERATION/$MAX_ITERATIONS..."
+
+          PARSE_RESPONSE=$(curl -s -X POST -w "\n%{http_code}" "${BASE_URL}/api/playlist/parse-feeds")
+          HTTP_CODE=$(echo "$PARSE_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$PARSE_RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            # Check if any feeds were parsed
+            PARSED_COUNT=$(echo "$RESPONSE_BODY" | jq -r '.parsed // 0' 2>/dev/null || echo "0")
+
+            if [ "$PARSED_COUNT" -eq 0 ]; then
+              echo "  ✅ No more unparsed feeds found"
+              break
+            else
+              echo "  ✓ Parsed $PARSED_COUNT feeds"
+              # Small delay between iterations
+              sleep 3
+            fi
+          else
+            echo "  ⚠️ Parse iteration failed (HTTP $HTTP_CODE), continuing..."
+            break
+          fi
+        done
+
+        echo ""
+        echo "✅ Feed parsing completed - tracks saved to database"
+
         echo ""
         echo "✨ Playlist refresh workflow completed"
       env:
