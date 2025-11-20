@@ -7,7 +7,7 @@ import { Event, EventTemplate } from 'nostr-tools';
 import { NIP46Client } from './nip46-client';
 import { NIP55Client } from './nip55-client';
 import { loadNIP46Connection, saveNIP46Connection, clearNIP46Connection } from './nip46-storage';
-import { isAndroid } from '@/lib/utils/device';
+import { isAndroid, isIOS } from '@/lib/utils/device';
 
 export type SignerType = 'nip07' | 'nip46' | 'nip55' | null;
 
@@ -240,8 +240,34 @@ export class UnifiedSigner {
     } else if (userLoginType === 'nip55') {
       // User logged in with NIP-55 (Android) - this requires explicit connection
       // NIP-55 connections are session-based, so we can't restore them automatically
-      // The user will be prompted to reconnect when they try to perform an action (like boosting)
-      console.log('ℹ️ UnifiedSigner: User chose NIP-55 login, but NIP-55 requires explicit connection per session');
+
+      // IMPORTANT: Check if user is on iOS - NIP-55 doesn't work on iOS
+      if (isIOS()) {
+        console.warn('⚠️ UnifiedSigner: User chose NIP-55 login but iOS is not supported. Attempting to use NIP-46 fallback...');
+        // Try to use NIP-46 if available (user might have connected via NIP-46)
+        const savedConnection = loadNIP46Connection();
+        if (savedConnection) {
+          try {
+            const client = new NIP46Client();
+            await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
+            await client.authenticate();
+
+            this.nip46Signer = new NIP46Signer(client);
+            this.activeSigner = this.nip46Signer;
+            this.signerType = 'nip46';
+            console.log('✅ UnifiedSigner: Using NIP-46 remote signer (iOS fallback from NIP-55)');
+            return;
+          } catch (error) {
+            console.warn('⚠️ UnifiedSigner: Failed to use NIP-46 fallback on iOS:', error);
+            clearNIP46Connection();
+          }
+        }
+        console.warn('⚠️ UnifiedSigner: No NIP-46 connection available for iOS fallback');
+        // Fall through to try other signers
+      } else {
+        // The user will be prompted to reconnect when they try to perform an action (like boosting)
+        console.log('ℹ️ UnifiedSigner: User chose NIP-55 login, but NIP-55 requires explicit connection per session');
+      }
       // Fall through to try other signers as fallback
     } else if (userLoginType === 'nip05') {
       // User logged in with NIP-05 (read-only) - no signer available
@@ -320,14 +346,20 @@ export class UnifiedSigner {
    * Set NIP-55 signer
    */
   async setNIP55Signer(client: NIP55Client): Promise<void> {
+    // Check if platform supports NIP-55 (Android only, not iOS)
+    if (isIOS()) {
+      console.warn('⚠️ UnifiedSigner: Cannot set NIP-55 signer on iOS. NIP-55 requires Android.');
+      throw new Error('NIP-55 is not supported on iOS. Please use NIP-46 (Nostr Connect) instead.');
+    }
+
     this.nip55Signer = new NIP55Signer(client);
-    
+
     // Check if user logged in with NIP-46 - if so, don't check NIP-07
     let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
     if (typeof window !== 'undefined') {
       userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
     }
-    
+
     // NIP-55 takes priority over NIP-46 on Android, but NIP-07 is still preferred (unless user chose NIP-46)
     const nip07 = userLoginType !== 'nip46' ? this.getNIP07Signer() : null;
     if (userLoginType === 'nip46' || !nip07 || !nip07.isAvailable()) {

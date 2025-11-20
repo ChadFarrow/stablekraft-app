@@ -318,6 +318,16 @@ export function BoostButton({
                 console.log('🔄 NIP-55 signer not available, attempting to reconnect...');
                 try {
                   const { NIP55Client } = await import('@/lib/nostr/nip55-client');
+                  const { isIOS } = await import('@/lib/utils/device');
+
+                  // Check if user is on iOS - NIP-55 doesn't work on iOS
+                  if (isIOS()) {
+                    console.warn('⚠️ NIP-55 is not supported on iOS Safari. Boost payment succeeded but not posted to Nostr.');
+                    console.log('💡 To post boosts to Nostr on iOS, please reconnect using NIP-46 (Nostr Connect).');
+                    // Silently skip Nostr posting on iOS
+                    return;
+                  }
+
                   const nip55Client = new NIP55Client();
                   await nip55Client.connect();
                   await signer.setNIP55Signer(nip55Client);
@@ -325,7 +335,14 @@ export function BoostButton({
                   // Continue to sign the event
                 } catch (reconnectError) {
                   console.warn('⚠️ Failed to reconnect NIP-55:', reconnectError);
-                  console.log('ℹ️ Boost not posted to Nostr: NIP-55 reconnection failed');
+                  const errorMessage = reconnectError instanceof Error ? reconnectError.message : String(reconnectError);
+
+                  // Check if error is iOS-related
+                  if (errorMessage.includes('iOS') || errorMessage.includes('not supported')) {
+                    console.warn('💡 Boost payment succeeded but not posted to Nostr. To enable Nostr boosts on iOS, please log out and reconnect using NIP-46 (Nostr Connect) instead of NIP-55.');
+                  } else {
+                    console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-55 reconnection failed');
+                  }
                   return;
                 }
               } else {
@@ -429,23 +446,36 @@ export function BoostButton({
             // Build tags
             const tags: string[][] = [];
 
-            // Add podcast GUID tags if available
+            // Add standard tags FIRST (amount, preimage, image, URL)
+            // These are more widely supported and should appear before podcast identifiers
+            tags.push(['amount', (amount * 1000).toString()]); // Amount in millisats
+
+            if (result.preimage) {
+              tags.push(['preimage', result.preimage]);
+            }
+
+            // Add image tag if available (always include if we have it)
+            if (trackImage) {
+              tags.push(['image', trackImage]);
+            }
+
+            // Add URL reference tag (NIP-18) - more widely supported than 'i' tags
+            tags.push(['r', urlWithAnchor]);
+
+            // Add podcast GUID tags at the END (NIP-73 external identifiers)
+            // These come last to avoid clients misinterpreting them as "reply to" markers
             // Use finalEpisodeGuid (from track.guid or v4vValue.itemGuid) for podcast:item:guid
             if (finalEpisodeGuid) {
-              tags.push(['k', 'podcast:item:guid']);
-              tags.push(['i', `podcast:item:guid:${finalEpisodeGuid}`, urlWithAnchor]);
+              tags.push(['i', `podcast:item:guid:${finalEpisodeGuid}`]);
             }
 
             // Use finalFeedGuid (from remoteFeedGuid prop or v4vValue.feedGuid) for podcast:guid
             if (finalFeedGuid) {
-              tags.push(['k', 'podcast:guid']);
-              tags.push(['i', `podcast:guid:${finalFeedGuid}`, urlWithAnchor]);
+              tags.push(['i', `podcast:guid:${finalFeedGuid}`]);
             }
 
             // Add podcast:publisher:guid tag if available
             if (finalPublisherGuid) {
-              tags.push(['k', 'podcast:publisher:guid']);
-
               // Generate publisher URL if not provided
               if (!finalPublisherUrl && isClient) {
                 // Use generatePublisherUrl utility
@@ -456,18 +486,7 @@ export function BoostButton({
 
               // Use full publisher URL with base URL
               const publisherFullUrl = finalPublisherUrl || `${baseUrl}/publisher/${finalPublisherGuid}`;
-              tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`, publisherFullUrl]);
-            }
-
-            // Add NIP-57 zap-related tags
-            tags.push(['amount', (amount * 1000).toString()]); // Amount in millisats
-            if (result.preimage) {
-              tags.push(['preimage', result.preimage]);
-            }
-
-            // Add image tag if available (always include if we have it)
-            if (trackImage) {
-              tags.push(['image', trackImage]);
+              tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`]);
             }
 
             // Create note template
@@ -512,6 +531,18 @@ export function BoostButton({
             }
           } catch (nostrError) {
             console.warn('Failed to post boost to Nostr:', nostrError);
+
+            // Provide helpful error messages based on the error
+            const errorMessage = nostrError instanceof Error ? nostrError.message : String(nostrError);
+
+            if (errorMessage.includes('iOS') || errorMessage.includes('not supported')) {
+              console.warn('💡 Boost payment succeeded but not posted to Nostr. NIP-55 is not supported on iOS. Please log out and reconnect using NIP-46 (Nostr Connect) to enable Nostr features on iOS.');
+            } else if (errorMessage.includes('No signer available')) {
+              console.warn('💡 Boost payment succeeded but not posted to Nostr. No Nostr signer is available. Please connect a Nostr wallet (NIP-07 extension, NIP-46, or NIP-55).');
+            } else {
+              console.warn('💡 Boost payment succeeded but failed to post to Nostr. This may be a temporary issue. Check your Nostr connection.');
+            }
+
             // Don't fail the boost if Nostr posting fails
           }
         }

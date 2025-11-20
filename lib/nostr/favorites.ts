@@ -29,7 +29,30 @@ export async function publishFavoriteTrackToNostr(
     if (!privateKey && typeof window !== 'undefined') {
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
-      
+
+      // Check if signer is available, if not try to reconnect NIP-55
+      if (!signer.isAvailable()) {
+        const loginType = localStorage.getItem('nostr_login_type');
+
+        if (loginType === 'nip55') {
+          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
+          try {
+            const { NIP55Client } = await import('./nip55-client');
+            const nip55Client = new NIP55Client();
+            await nip55Client.connect();
+            await signer.setNIP55Signer(nip55Client);
+            console.log('✅ Favorites: NIP-55 reconnected successfully!');
+          } catch (reconnectError) {
+            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
+            console.log('ℹ️ Favorite track not posted to Nostr: NIP-55 reconnection failed');
+            return null;
+          }
+        } else {
+          console.log('ℹ️ Favorite track not posted to Nostr: No signer available');
+          return null;
+        }
+      }
+
       if (signer.isAvailable()) {
         const event = {
           kind: 30001,
@@ -125,7 +148,30 @@ export async function publishFavoriteAlbumToNostr(
     if (!privateKey && typeof window !== 'undefined') {
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
-      
+
+      // Check if signer is available, if not try to reconnect NIP-55
+      if (!signer.isAvailable()) {
+        const loginType = localStorage.getItem('nostr_login_type');
+
+        if (loginType === 'nip55') {
+          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
+          try {
+            const { NIP55Client } = await import('./nip55-client');
+            const nip55Client = new NIP55Client();
+            await nip55Client.connect();
+            await signer.setNIP55Signer(nip55Client);
+            console.log('✅ Favorites: NIP-55 reconnected successfully!');
+          } catch (reconnectError) {
+            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
+            console.log('ℹ️ Favorite album not posted to Nostr: NIP-55 reconnection failed');
+            return null;
+          }
+        } else {
+          console.log('ℹ️ Favorite album not posted to Nostr: No signer available');
+          return null;
+        }
+      }
+
       if (signer.isAvailable()) {
         const event = {
           kind: 30002,
@@ -217,7 +263,30 @@ export async function deleteFavoriteFromNostr(
     if (!privateKey && typeof window !== 'undefined') {
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
-      
+
+      // Check if signer is available, if not try to reconnect NIP-55
+      if (!signer.isAvailable()) {
+        const loginType = localStorage.getItem('nostr_login_type');
+
+        if (loginType === 'nip55') {
+          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
+          try {
+            const { NIP55Client } = await import('./nip55-client');
+            const nip55Client = new NIP55Client();
+            await nip55Client.connect();
+            await signer.setNIP55Signer(nip55Client);
+            console.log('✅ Favorites: NIP-55 reconnected successfully!');
+          } catch (reconnectError) {
+            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
+            console.log('ℹ️ Favorite deletion not posted to Nostr: NIP-55 reconnection failed');
+            return null;
+          }
+        } else {
+          console.log('ℹ️ Favorite deletion not posted to Nostr: No signer available');
+          return null;
+        }
+      }
+
       if (signer.isAvailable()) {
         const event = {
           kind: 5, // Deletion event (NIP-09)

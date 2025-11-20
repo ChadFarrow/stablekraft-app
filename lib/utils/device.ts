@@ -17,6 +17,26 @@ export function isAndroid(): boolean {
 }
 
 /**
+ * Check if the current device is iOS (iPhone, iPad, iPod)
+ * @returns true if running on iOS device
+ */
+export function isIOS(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+
+  // Check for iOS devices
+  const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+
+  // Check for iPad on iOS 13+ which reports as Mac
+  const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+
+  return isIOSDevice || isIPadOS;
+}
+
+/**
  * Check if running in a Trusted Web Activity (TWA)
  * @returns true if running in TWA
  */
@@ -71,6 +91,7 @@ export function isPWA(): boolean {
 export function getDeviceInfo() {
   return {
     isAndroid: isAndroid(),
+    isIOS: isIOS(),
     isTWA: isTWA(),
     isCapacitor: isCapacitor(),
     isPWA: isPWA(),

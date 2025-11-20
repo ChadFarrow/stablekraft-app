@@ -7,7 +7,7 @@ import { NIP46Client } from '@/lib/nostr/nip46-client';
 import { NIP55Client } from '@/lib/nostr/nip55-client';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
 import { saveNIP46Connection } from '@/lib/nostr/nip46-storage';
-import { isAndroid } from '@/lib/utils/device';
+import { isAndroid, isIOS } from '@/lib/utils/device';
 import Nip46Connect from './Nip46Connect';
 
 interface LoginModalProps {
@@ -84,7 +84,15 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   }, []);
 
   // Check NIP-55 availability on Android and set up callback handler early
+  // NIP-55 is Android-only and NOT supported on iOS
   useEffect(() => {
+    // Skip NIP-55 setup entirely on iOS
+    if (isIOS()) {
+      console.log('ℹ️ NIP-55: Skipping NIP-55 setup on iOS (not supported)');
+      setIsNip55Available(false);
+      return;
+    }
+
     if (isAndroid()) {
       const available = NIP55Client.isAvailable();
       setIsNip55Available(available);
@@ -109,6 +117,14 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
   // Check for NIP-55 connection result (after page reload from Amber callback)
   useEffect(() => {
+    // Skip NIP-55 callback processing on iOS - NIP-55 is Android-only
+    if (isIOS()) {
+      console.log('ℹ️ NIP-55: Skipping callback check on iOS (NIP-55 not supported)');
+      // Clear any stale NIP-55 data
+      sessionStorage.removeItem('nip55_connection_result');
+      return;
+    }
+
     const connectionResult = sessionStorage.getItem('nip55_connection_result');
     if (connectionResult) {
       console.log('🎯🎯🎯 NIP-55: Found connection result from callback, completing login...');

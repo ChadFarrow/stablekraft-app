@@ -172,6 +172,17 @@ export default function FavoriteButton({
             // Don't fail the favorite action if Nostr publish fails
             // We'll still create the favorite in the database
             console.warn('Failed to publish favorite to Nostr:', nostrError);
+
+            // Provide helpful error messages based on the error
+            const errorMessage = nostrError instanceof Error ? nostrError.message : String(nostrError);
+
+            if (errorMessage.includes('iOS') || errorMessage.includes('not supported')) {
+              console.warn('💡 Favorite saved locally but not posted to Nostr. NIP-55 is not supported on iOS. Please log out and reconnect using NIP-46 (Nostr Connect) to enable Nostr features on iOS.');
+            } else if (errorMessage.includes('No signer available')) {
+              console.warn('💡 Favorite saved locally but not posted to Nostr. No Nostr signer is available. Please connect a Nostr wallet (NIP-07 extension, NIP-46, or NIP-55).');
+            } else {
+              console.warn('💡 Favorite saved locally but failed to post to Nostr. This may be a temporary issue. Check your Nostr connection.');
+            }
           }
         }
 
@@ -292,6 +303,17 @@ export default function FavoriteButton({
             // Don't fail the unfavorite action if Nostr deletion fails
             // Database deletion already succeeded above
             console.warn('Failed to publish favorite deletion to Nostr:', nostrError);
+
+            // Provide helpful error messages based on the error
+            const errorMessage = nostrError instanceof Error ? nostrError.message : String(nostrError);
+
+            if (errorMessage.includes('iOS') || errorMessage.includes('not supported')) {
+              console.warn('💡 Favorite removed locally but deletion not posted to Nostr. NIP-55 is not supported on iOS. Please log out and reconnect using NIP-46 (Nostr Connect) to enable Nostr features on iOS.');
+            } else if (errorMessage.includes('No signer available')) {
+              console.warn('💡 Favorite removed locally but deletion not posted to Nostr. No Nostr signer is available. Please connect a Nostr wallet (NIP-07 extension, NIP-46, or NIP-55).');
+            } else {
+              console.warn('💡 Favorite removed locally but failed to post deletion to Nostr. This may be a temporary issue. Check your Nostr connection.');
+            }
           }
         }
       }

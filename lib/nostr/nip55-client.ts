@@ -6,7 +6,7 @@
  */
 
 import { Event, EventTemplate, UnsignedEvent, getEventHash } from 'nostr-tools';
-import { isAndroid } from '@/lib/utils/device';
+import { isAndroid, isIOS } from '@/lib/utils/device';
 
 export interface NIP55Connection {
   pubkey?: string;
@@ -46,12 +46,14 @@ export class NIP55Client {
 
   /**
    * Check if NIP-55 is available (Android device with signer app installed)
+   * Note: NIP-55 uses Android intents and is NOT supported on iOS
    */
   static isAvailable(): boolean {
     if (typeof window === 'undefined') {
       return false;
     }
-    return isAndroid();
+    // NIP-55 requires Android - explicitly check it's NOT iOS
+    return isAndroid() && !isIOS();
   }
 
   /**
@@ -76,7 +78,8 @@ export class NIP55Client {
    */
   async connect(): Promise<string> {
     if (!NIP55Client.isAvailable()) {
-      throw new Error('NIP-55 is only available on Android devices');
+      const platform = isIOS() ? 'iOS' : 'this platform';
+      throw new Error(`NIP-55 is only available on Android devices. ${platform === 'iOS' ? 'iOS is not supported - please use NIP-46 (Nostr Connect) instead.' : ''}`);
     }
 
     // For NIP-55, we need to request a signature to get the pubkey
@@ -229,7 +232,8 @@ export class NIP55Client {
    */
   async signEvent(eventTemplate: EventTemplate): Promise<Event> {
     if (!NIP55Client.isAvailable()) {
-      throw new Error('NIP-55 is only available on Android devices');
+      const platform = isIOS() ? 'iOS' : 'this platform';
+      throw new Error(`NIP-55 is only available on Android devices. ${platform === 'iOS' ? 'iOS is not supported - please use NIP-46 (Nostr Connect) instead.' : ''}`);
     }
 
     // Ensure we have pubkey - get it if we don't
