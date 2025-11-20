@@ -251,14 +251,19 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     }
     
     console.log(`🔍 DEBUG: Found podcast:value tag in item "${itemTitle}":`, valueMatch[0]);
-    
-    const valueContent = valueMatch[1];
+
+    let valueContent = valueMatch[1];
     const typeMatch = valueMatch[0].match(/type="([^"]*)"/);
     const methodMatch = valueMatch[0].match(/method="([^"]*)"/);
-    
+
     console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
     console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
-    
+
+    // Remove podcast:valueTimeSplit blocks to avoid duplicating their recipients
+    // These are for time-based payment splits (e.g., live shows), not track-level payments
+    valueContent = valueContent.replace(/<podcast:valueTimeSplit[^>]*>[\s\S]*?<\/podcast:valueTimeSplit>/g, '');
+    console.log('🔍 DEBUG: Removed valueTimeSplit blocks from value content');
+
     // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags)
     const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|><\/podcast:valueRecipient>)/g;
     const recipients = [];
