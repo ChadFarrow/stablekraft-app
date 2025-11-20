@@ -110,13 +110,19 @@ export default function AdminPanel() {
   const fetchRecentFeeds = async () => {
     setLoadingRecent(true);
     try {
-      const response = await fetch('/api/feeds?limit=5');
+      const response = await fetch('/api/feeds?limit=5&sortBy=recent');
       const data = await response.json();
       if (data.feeds) {
         setRecentFeeds(data.feeds);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Refreshed recent feeds:', data.feeds.length);
+        }
+      } else {
+        toast.error('Failed to load recent feeds');
       }
     } catch (error) {
       console.error('Error fetching recent feeds:', error);
+      toast.error('Network error loading recent feeds');
     } finally {
       setLoadingRecent(false);
     }
