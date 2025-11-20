@@ -107,9 +107,9 @@ export default function AdminPanel() {
 
   const addFeed = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const feedUrl = newFeedUrl.trim();
-    
+
     if (!feedUrl) {
       toast.error('Please enter a RSS feed URL');
       return;
@@ -124,7 +124,7 @@ export default function AdminPanel() {
     }
 
     setAddingFeed(true);
-    
+
     try {
       // Auto-detect type from URL patterns, default to 'album'
       let detectedType = 'album';
@@ -149,14 +149,50 @@ export default function AdminPanel() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok || response.status === 206) {
         const trackCount = data.feed?._count?.Track || 0;
-        toast.success(
-          response.ok 
-            ? `Feed added successfully! ${trackCount} tracks imported.`
-            : data.warning || 'Feed added but parsing had issues. Check feed details.'
-        );
+        let message = response.ok
+          ? `Feed added successfully! ${trackCount} tracks imported.`
+          : data.warning || 'Feed added but parsing had issues. Check feed details.';
+
+        // Check if a publisher feed was found
+        if (data.publisherFeed?.found && !data.publisherFeed.alreadyImported) {
+          message += ` Found publisher feed "${data.publisherFeed.title}" with ${data.publisherFeed.episodeCount} albums. Import it?`;
+          toast.success(message, {
+            action: {
+              label: 'Import Publisher',
+              onClick: async () => {
+                try {
+                  const pubResponse = await fetch('/api/feeds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      originalUrl: data.publisherFeed.feedUrl,
+                      type: 'publisher',
+                      priority: 'normal',
+                      cdnUrl: ''
+                    }),
+                  });
+                  const pubData = await pubResponse.json();
+                  if (pubResponse.ok) {
+                    toast.success(`Publisher feed imported with ${pubData.feed?._count?.Track || 0} tracks!`);
+                  } else {
+                    toast.error('Failed to import publisher feed');
+                  }
+                } catch (err) {
+                  toast.error('Error importing publisher feed');
+                }
+              }
+            }
+          });
+        } else if (data.publisherFeed?.alreadyImported) {
+          message += ' (Publisher feed already imported)';
+          toast.success(message);
+        } else {
+          toast.success(message);
+        }
+
         setNewFeedUrl('');
       } else if (response.status === 409) {
         toast.info('This feed already exists in the database');

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { findPublisherFeed } from '@/lib/publisher-detector';
 
 // GET /api/feeds - List all feeds with optional filters
 export async function GET(request: NextRequest) {
@@ -100,6 +101,8 @@ export async function POST(request: NextRequest) {
           language: parsedFeed.language,
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
+          v4vRecipient: parsedFeed.v4vRecipient || null,
+          v4vValue: parsedFeed.v4vValue || null,
           lastFetched: new Date(),
           status: 'active',
           updatedAt: new Date()
@@ -149,10 +152,55 @@ export async function POST(request: NextRequest) {
           }
         }
       });
-      
+
+      // Check for publisher feed if this is an album
+      let publisherFeedInfo = null;
+      if (type === 'album') {
+        // First check if the feed has a podcast:publisher tag
+        if (parsedFeed.publisherFeed) {
+          console.log('✅ Found publisher feed in RSS:', parsedFeed.publisherFeed.title);
+
+          // Check if publisher feed already exists
+          const existingPublisher = await prisma.feed.findFirst({
+            where: {
+              OR: [
+                { originalUrl: parsedFeed.publisherFeed.feedUrl },
+                { guid: parsedFeed.publisherFeed.feedGuid }
+              ]
+            }
+          });
+
+          publisherFeedInfo = {
+            found: true,
+            feedUrl: parsedFeed.publisherFeed.feedUrl,
+            title: parsedFeed.publisherFeed.title,
+            guid: parsedFeed.publisherFeed.feedGuid,
+            medium: parsedFeed.publisherFeed.medium,
+            alreadyImported: !!existingPublisher
+          };
+        } else if (parsedFeed.artist) {
+          // Fallback to Podcast Index API search if no publisher tag found
+          console.log('🔍 No publisher tag found, searching Podcast Index for artist:', parsedFeed.artist);
+          publisherFeedInfo = await findPublisherFeed(parsedFeed.artist);
+
+          if (publisherFeedInfo.found) {
+            // Check if publisher feed already exists
+            const existingPublisher = await prisma.feed.findUnique({
+              where: { originalUrl: publisherFeedInfo.feedUrl }
+            });
+
+            if (existingPublisher) {
+              console.log('ℹ️ Publisher feed already imported');
+              publisherFeedInfo.alreadyImported = true;
+            }
+          }
+        }
+      }
+
       return NextResponse.json({
         message: 'Feed added successfully',
-        feed: feedWithCount
+        feed: feedWithCount,
+        publisherFeed: publisherFeedInfo
       }, { status: 201 });
       
     } catch (parseError) {

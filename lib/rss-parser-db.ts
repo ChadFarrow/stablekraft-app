@@ -92,6 +92,12 @@ export interface ParsedFeed {
   items: ParsedItem[];
   v4vRecipient?: string;
   v4vValue?: any;
+  publisherFeed?: {
+    feedGuid: string;
+    feedUrl: string;
+    title: string;
+    medium?: string;
+  };
 }
 
 export interface ParsedItem {
@@ -192,6 +198,71 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
   } catch (error) {
     console.error('Error parsing V4V from XML:', error);
     return { recipient: null, value: null };
+  }
+}
+
+// Helper function to extract podcast:publisher remoteItem from channel level
+export function parsePublisherFeedFromXML(xmlText: string): { feedGuid: string; feedUrl: string; title: string; medium?: string } | null {
+  try {
+    // Extract channel section from XML
+    const channelMatch = xmlText.match(/<channel[^>]*>(.*?)<\/channel>/s);
+    if (!channelMatch) {
+      return null;
+    }
+
+    const channelContent = channelMatch[1];
+
+    // Look for podcast:publisher tag at channel level (not in items)
+    // Extract it before the first <item> tag
+    const beforeItems = channelContent.split(/<item[\s>]/)[0];
+
+    // Look for podcast:publisher with remoteItem
+    const publisherMatch = beforeItems.match(/<podcast:publisher[^>]*>(.*?)<\/podcast:publisher>/s);
+
+    if (!publisherMatch) {
+      return null;
+    }
+
+    const publisherContent = publisherMatch[1];
+
+    // Extract remoteItem attributes
+    const remoteItemMatch = publisherContent.match(/<podcast:remoteItem\s+([^>]+)\/>/);
+
+    if (!remoteItemMatch) {
+      return null;
+    }
+
+    const attributes = remoteItemMatch[1];
+
+    // Extract feedGuid
+    const feedGuidMatch = attributes.match(/feedGuid="([^"]+)"/);
+    // Extract feedUrl
+    const feedUrlMatch = attributes.match(/feedUrl="([^"]+)"/);
+    // Extract title
+    const titleMatch = attributes.match(/title="([^"]+)"/);
+    // Extract medium (optional)
+    const mediumMatch = attributes.match(/medium="([^"]+)"/);
+
+    if (feedGuidMatch && feedUrlMatch && titleMatch) {
+      console.log('✅ Found podcast:publisher remoteItem:', {
+        feedGuid: feedGuidMatch[1],
+        feedUrl: feedUrlMatch[1],
+        title: titleMatch[1],
+        medium: mediumMatch ? mediumMatch[1] : undefined
+      });
+
+      return {
+        feedGuid: feedGuidMatch[1],
+        feedUrl: feedUrlMatch[1],
+        title: titleMatch[1],
+        medium: mediumMatch ? mediumMatch[1] : undefined
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting podcast:publisher from XML:', error);
+    return null;
   }
 }
 
@@ -396,6 +467,9 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
 
     // Extract podcast:guid from channel level
     const podcastGuid = parsePodcastGuidFromXML(xmlText);
+
+    // Extract podcast:publisher remoteItem from channel level
+    const publisherFeed = parsePublisherFeedFromXML(xmlText);
 
     // Now parse with the RSS parser
     // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
@@ -642,7 +716,8 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       podcastGuid: podcastGuid || undefined,
       items,
       v4vRecipient: feedV4vRecipient,
-      v4vValue: feedV4vValue
+      v4vValue: feedV4vValue,
+      publisherFeed: publisherFeed || undefined
     };
   } catch (error) {
     console.error('Error parsing RSS feed:', error);

@@ -10,6 +10,10 @@ export interface Toast {
   type: ToastType;
   message: string;
   duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ToastProps {
@@ -45,17 +49,32 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
   }, [toast.id, toast.duration, onDismiss]);
   
   return (
-    <div className="flex items-center gap-3 bg-gray-900 text-white p-4 rounded-lg shadow-lg min-w-[300px] max-w-md">
-      <div className={`p-1 rounded ${styles[toast.type]}`}>
-        <Icon className="h-5 w-5" />
+    <div className="flex flex-col gap-2 bg-gray-900 text-white p-4 rounded-lg shadow-lg min-w-[300px] max-w-md">
+      <div className="flex items-center gap-3">
+        <div className={`p-1 rounded ${styles[toast.type]}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <p className="flex-1 text-sm">{toast.message}</p>
+        <button
+          onClick={() => onDismiss(toast.id)}
+          className="text-gray-400 hover:text-white transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <p className="flex-1 text-sm">{toast.message}</p>
-      <button
-        onClick={() => onDismiss(toast.id)}
-        className="text-gray-400 hover:text-white transition-colors"
-      >
-        <X className="h-4 w-4" />
-      </button>
+      {toast.action && (
+        <div className="ml-9">
+          <button
+            onClick={() => {
+              toast.action!.onClick();
+              onDismiss(toast.id);
+            }}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+          >
+            {toast.action.label}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -89,27 +108,27 @@ export function ToastContainer() {
 
 // Toast utility functions
 export const toast = {
-  show: (type: ToastType, message: string, duration = 5000) => {
+  show: (type: ToastType, message: string, duration = 5000, action?: { label: string; onClick: () => void }) => {
     const id = Math.random().toString(36).substr(2, 9);
     const event = new CustomEvent('toast', {
-      detail: { id, type, message, duration },
+      detail: { id, type, message, duration, action },
     });
     window.dispatchEvent(event);
   },
-  
-  success: (message: string, duration?: number) => {
-    toast.show('success', message, duration);
+
+  success: (message: string, options?: { duration?: number; action?: { label: string; onClick: () => void } }) => {
+    toast.show('success', message, options?.duration, options?.action);
   },
-  
-  error: (message: string, duration?: number) => {
-    toast.show('error', message, duration);
+
+  error: (message: string, options?: { duration?: number; action?: { label: string; onClick: () => void } }) => {
+    toast.show('error', message, options?.duration, options?.action);
   },
-  
-  warning: (message: string, duration?: number) => {
-    toast.show('warning', message, duration);
+
+  warning: (message: string, options?: { duration?: number; action?: { label: string; onClick: () => void } }) => {
+    toast.show('warning', message, options?.duration, options?.action);
   },
-  
-  info: (message: string, duration?: number) => {
-    toast.show('info', message, duration);
+
+  info: (message: string, options?: { duration?: number; action?: { label: string; onClick: () => void } }) => {
+    toast.show('info', message, options?.duration, options?.action);
   },
 };
