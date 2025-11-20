@@ -487,7 +487,16 @@ function HomePageContent() {
   // Handle filter changes - reload data and reset to page 1
   const handleFilterChange = async (newFilter: FilterType, skipUrlUpdate = false) => {
     console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
-    if (newFilter === activeFilter) return; // No change
+
+    // Check if filter is the same AND we already have data
+    if (newFilter === activeFilter) {
+      const hasData = displayedAlbums.length > 0 || enhancedAlbums.length > 0 || criticalAlbums.length > 0;
+      if (hasData) {
+        console.log(`🚫 Filter unchanged and data exists, skipping reload`);
+        return;
+      }
+      console.log(`⚠️ Filter unchanged but no data, continuing to load`);
+    }
 
     // Update URL with new filter (unless we're updating from URL change)
     if (!skipUrlUpdate && !isUpdatingFromUrlRef.current) {
