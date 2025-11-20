@@ -32,113 +32,130 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
 
   try {
     console.log(`🔍 Checking ${feedGuids.length} unique feed GUIDs for auto-population in ${playlistName}...`);
-    
+
     // Check which feeds already exist
     const existingFeeds = await prisma.feed.findMany({
       where: { id: { in: feedGuids } },
       select: { id: true }
     });
-    
+
     const existingFeedGuids = new Set(existingFeeds.map(f => f.id).filter(Boolean));
     const missingFeedGuids = feedGuids.filter(guid => !existingFeedGuids.has(guid));
-    
+
     if (missingFeedGuids.length === 0) {
       console.log(`✅ All ${feedGuids.length} feed GUIDs already exist in database`);
       return 0;
     }
-    
-    // Limit auto-population to prevent timeouts
-    const MAX_AUTO_POPULATE = 50; // Maximum feeds to auto-populate in one request
-    const feedsToProcess = missingFeedGuids.slice(0, MAX_AUTO_POPULATE);
-    
-    if (missingFeedGuids.length > MAX_AUTO_POPULATE) {
-      console.log(`⚠️ Limiting auto-population to ${MAX_AUTO_POPULATE} feeds (${missingFeedGuids.length} missing) to prevent timeouts`);
-    } else {
-      console.log(`🚀 Auto-populating ${feedsToProcess.length} missing feeds from Podcast Index for ${playlistName}...`);
-    }
-    
+
+    console.log(`🚀 Auto-populating ${missingFeedGuids.length} missing feeds from Podcast Index for ${playlistName}...`);
+
+    // Track time to prevent timeouts (stop at 4 minutes to leave buffer)
+    const startTime = Date.now();
+    const MAX_DURATION_MS = 4 * 60 * 1000; // 4 minutes max
+
     let autoPopulatedCount = 0;
     let errorCount = 0;
+    let processedCount = 0;
     
-    // Process feeds sequentially in small batches to avoid overwhelming the database
-    const BATCH_SIZE = 2; // Reduced from 3 to be more conservative
-    for (let i = 0; i < feedsToProcess.length; i += BATCH_SIZE) {
-      const batch = feedsToProcess.slice(i, Math.min(i + BATCH_SIZE, feedsToProcess.length));
-      
-      // Process batch sequentially instead of in parallel to reduce database load
-      for (const feedGuid of batch) {
-        try {
-          // Check if feed was created by another process
-          const existingFeed = await prisma.feed.findUnique({
-            where: { id: feedGuid },
-            select: { id: true }
-          });
-          
-          if (existingFeed) {
-            console.log(`⚡ Feed ${feedGuid.slice(0, 8)}... already exists, skipping`);
-            continue;
-          }
-          
-          const headers = await generateHeaders(PODCAST_INDEX_API_KEY!, PODCAST_INDEX_API_SECRET!);
-          const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, { 
-            headers,
-            signal: AbortSignal.timeout(5000) // 5 second timeout per request
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.status === 'true') {
-              const feedData = data.feed || (data.feeds && data.feeds[0]);
-              if (feedData) {
-                await prisma.feed.create({
-                  data: {
-                    id: feedGuid,
-                    title: feedData.title || 'Unknown Feed',
-                    description: feedData.description || null,
-                    artist: feedData.author || null,
-                    image: feedData.image || null,
-                    originalUrl: feedData.url || '',
-                    language: feedData.language || null,
-                    category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
-                    explicit: feedData.explicit || false,
-                    status: 'active',
-                    lastFetched: new Date(),
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                  }
-                });
-                autoPopulatedCount++;
-                console.log(`✅ Auto-created feed: ${feedData.title} (${feedGuid.slice(0, 8)}...)`);
-              }
+    // Process feeds in batches with parallel processing for speed
+    const BATCH_SIZE = 10; // Process 10 feeds per batch
+    for (let i = 0; i < missingFeedGuids.length; i += BATCH_SIZE) {
+      // Check if we're approaching timeout
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime > MAX_DURATION_MS) {
+        console.log(`⏱️ Approaching timeout after ${Math.round(elapsedTime / 1000)}s, stopping. Processed ${processedCount}/${missingFeedGuids.length} feeds.`);
+        break;
+      }
+
+      const batch = missingFeedGuids.slice(i, Math.min(i + BATCH_SIZE, missingFeedGuids.length));
+
+      // Process batch in parallel for speed
+      const batchResults = await Promise.allSettled(batch.map(async (feedGuid) => {
+        // Check if feed was created by another process
+        const existingFeed = await prisma.feed.findUnique({
+          where: { id: feedGuid },
+          select: { id: true }
+        });
+
+        if (existingFeed) {
+          return { status: 'exists', feedGuid };
+        }
+
+        const headers = await generateHeaders(PODCAST_INDEX_API_KEY!, PODCAST_INDEX_API_SECRET!);
+        const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
+          headers,
+          signal: AbortSignal.timeout(5000) // 5 second timeout per request
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'true') {
+            const feedData = data.feed || (data.feeds && data.feeds[0]);
+            if (feedData) {
+              await prisma.feed.create({
+                data: {
+                  id: feedGuid,
+                  title: feedData.title || 'Unknown Feed',
+                  description: feedData.description || null,
+                  artist: feedData.author || null,
+                  image: feedData.image || null,
+                  originalUrl: feedData.url || '',
+                  language: feedData.language || null,
+                  category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
+                  explicit: feedData.explicit || false,
+                  status: 'active',
+                  lastFetched: new Date(),
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              });
+              return { status: 'created', feedGuid, title: feedData.title };
             }
           }
-        } catch (error: any) {
+        }
+        return { status: 'not_found', feedGuid };
+      }));
+
+      // Process results
+      for (const result of batchResults) {
+        processedCount++;
+        if (result.status === 'fulfilled') {
+          const value = result.value;
+          if (value.status === 'created') {
+            autoPopulatedCount++;
+            console.log(`✅ Auto-created feed: ${value.title} (${value.feedGuid.slice(0, 8)}...)`);
+          } else if (value.status === 'exists') {
+            console.log(`⚡ Feed ${value.feedGuid.slice(0, 8)}... already exists, skipping`);
+          }
+        } else if (result.status === 'rejected') {
+          const error: any = result.reason;
           // Handle duplicates gracefully
           if (error.code === 'P2002' || error.message?.includes('unique constraint') || error.message?.includes('duplicate key')) {
-            console.log(`⚡ Feed ${feedGuid.slice(0, 8)}... already exists, skipping`);
+            console.log(`⚡ Feed already exists (duplicate), skipping`);
           } else if (error.name === 'AbortError') {
-            console.log(`⏱️ Timeout fetching feed ${feedGuid.slice(0, 8)}...`);
+            console.log(`⏱️ Timeout fetching feed`);
             errorCount++;
           } else {
-            console.log(`⚠️ Could not auto-populate feed ${feedGuid.slice(0, 8)}...: ${error.message?.slice(0, 50)}`);
+            console.log(`⚠️ Could not auto-populate feed: ${error.message?.slice(0, 50)}`);
             errorCount++;
-          }
-          
-          // Stop if we're getting too many errors
-          if (errorCount > 10) {
-            console.log(`❌ Too many errors (${errorCount}), stopping auto-population`);
-            break;
           }
         }
       }
-      
+
+      // Stop if we're getting too many errors
+      if (errorCount > 20) {
+        console.log(`❌ Too many errors (${errorCount}), stopping auto-population`);
+        break;
+      }
+
       // Small delay between batches to respect rate limits
-      if (i + BATCH_SIZE < feedsToProcess.length && errorCount <= 10) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms
+      if (i + BATCH_SIZE < missingFeedGuids.length && errorCount <= 20) {
+        await new Promise(resolve => setTimeout(resolve, 100)); // Reduced to 100ms for faster processing
       }
     }
     
-    console.log(`🎯 Auto-populated ${autoPopulatedCount} feeds for ${playlistName} - this should improve track resolution!`);
+    const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+    console.log(`🎯 Auto-populated ${autoPopulatedCount} feeds for ${playlistName} in ${elapsedTime}s (processed ${processedCount}/${missingFeedGuids.length} total) - this should improve track resolution!`);
     return autoPopulatedCount;
     
   } catch (error) {
