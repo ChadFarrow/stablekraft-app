@@ -126,13 +126,23 @@ export async function POST(request: NextRequest) {
 
     // Fetch user's profile metadata from Nostr relays (kind 0)
     let profileMetadata: any = null;
+    let relayList: string[] | null = null;
     try {
       const client = new NostrClient(getDefaultRelays());
       await client.connect();
+
+      // Fetch profile metadata (kind 0)
       profileMetadata = await client.getProfile(normalizedPubkey);
+
+      // Fetch relay list (kind 10002 - NIP-65)
+      relayList = await client.getRelayList(normalizedPubkey);
+      if (relayList && relayList.length > 0) {
+        console.log(`✅ Fetched ${relayList.length} relays from Nostr profile:`, relayList);
+      }
+
       await client.disconnect();
     } catch (error) {
-      console.warn('Failed to fetch profile from Nostr relays:', error);
+      console.warn('Failed to fetch profile/relays from Nostr:', error);
       // Continue without profile metadata - not critical for login
     }
 
@@ -149,8 +159,10 @@ export async function POST(request: NextRequest) {
       // Continue anyway - user might have entered a different valid identifier
     }
 
-    // Get relay URLs from NIP-05 response if available
-    const relays: string[] = nip05Data.relays?.[normalizedPubkey] || [];
+    // Get relay URLs - prioritize kind 10002 relay list (NIP-65), fall back to NIP-05 response
+    // NIP-65 relay list is more up-to-date and user-controlled
+    const nip05Relays: string[] = nip05Data.relays?.[normalizedPubkey] || [];
+    const relays: string[] = (relayList && relayList.length > 0) ? relayList : nip05Relays;
 
     // Find existing user by pubkey
     let user = await prisma.user.findUnique({

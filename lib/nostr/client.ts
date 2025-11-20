@@ -228,6 +228,41 @@ export class NostrClient {
       return null;
     }
   }
+
+  /**
+   * Get user's relay list (NIP-65)
+   * @param pubkey - User's public key
+   * @param relays - Optional relay URLs to query
+   * @returns Array of relay URLs or null
+   */
+  async getRelayList(pubkey: string, relays?: string[]): Promise<string[] | null> {
+    const events = await this.getEvents(
+      [{ kinds: [10002], authors: [pubkey], limit: 1 }],
+      relays,
+      3000
+    );
+
+    if (events.length === 0) {
+      return null;
+    }
+
+    // Extract relay URLs from tags
+    // NIP-65 format: ["r", "wss://relay.url", "read"/"write" (optional)]
+    const relayUrls: string[] = [];
+    const event = events[0];
+
+    for (const tag of event.tags) {
+      if (tag[0] === 'r' && tag[1]) {
+        const relayUrl = tag[1];
+        // Validate relay URL format
+        if (relayUrl.startsWith('wss://') || relayUrl.startsWith('ws://')) {
+          relayUrls.push(relayUrl);
+        }
+      }
+    }
+
+    return relayUrls.length > 0 ? relayUrls : null;
+  }
 }
 
 /**

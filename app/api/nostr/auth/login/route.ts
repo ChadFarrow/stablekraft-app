@@ -118,13 +118,23 @@ export async function POST(request: NextRequest) {
     // Fetch user's profile metadata from Nostr relays FIRST (kind 0)
     // Nostr profile data takes precedence over database data
     let profileMetadata: any = null;
+    let relayList: string[] | null = null;
     try {
       const client = new NostrClient(getDefaultRelays());
       await client.connect();
+
+      // Fetch profile metadata (kind 0)
       profileMetadata = await client.getProfile(publicKey);
+
+      // Fetch relay list (kind 10002 - NIP-65)
+      relayList = await client.getRelayList(publicKey);
+      if (relayList && relayList.length > 0) {
+        console.log(`✅ Fetched ${relayList.length} relays from Nostr profile:`, relayList);
+      }
+
       await client.disconnect();
     } catch (error) {
-      console.warn('Failed to fetch profile from Nostr relays:', error);
+      console.warn('Failed to fetch profile/relays from Nostr:', error);
       // Continue without profile metadata - not critical for login
     }
 
@@ -150,7 +160,7 @@ export async function POST(request: NextRequest) {
           avatar: avatar || null, // Use Nostr avatar first
           bio: bio || null, // Use Nostr bio first
           lightningAddress: lightningAddress || null, // Use Nostr lightning address first
-          relays: [],
+          relays: relayList || [], // Use relay list from Nostr profile (NIP-65)
         },
       });
     } else {
@@ -165,6 +175,11 @@ export async function POST(request: NextRequest) {
       updateData.avatar = avatar || null;
       updateData.bio = bio || null;
       updateData.lightningAddress = lightningAddress || null;
+
+      // Update relay list if found in Nostr profile (NIP-65)
+      if (relayList && relayList.length > 0) {
+        updateData.relays = relayList;
+      }
 
       user = await prisma.user.update({
         where: { id: user.id },
