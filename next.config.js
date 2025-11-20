@@ -149,11 +149,12 @@ const nextConfig = {
   
   // Dynamic route configuration to prevent build issues
   experimental: {
-    // Disable static generation for dynamic API routes
-    workerThreads: false,
-    cpus: 1,
-    // Performance optimizations - CSS optimization is now properly configured
-    optimizeCss: true, // Re-enabled now that critters is installed
+    // Enable parallel processing for faster builds on Railway
+    workerThreads: true,
+    // Don't limit CPUs - let Railway use available resources
+    // cpus: 1, // Removed to allow multi-core builds
+    // Disable CSS optimization during build - it's slow and not critical
+    optimizeCss: false, // Disabled for faster Railway builds
     optimizePackageImports: ['@/components'],
   },
   
