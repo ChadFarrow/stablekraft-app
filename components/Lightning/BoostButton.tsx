@@ -406,7 +406,10 @@ export function BoostButton({
                   }
                 }
               }
-            } else if (feedId) {
+            }
+
+            // Always try feed API as fallback if we don't have an image yet
+            if (!trackImage && feedId) {
               // For album boosts, fetch feed data to get image and guid
               try {
                 const feedResponse = await fetch(`/api/feeds/${feedId}`);
