@@ -902,67 +902,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           artwork: artwork
         });
 
-        // Set up media session action handlers - only track navigation, no seek
-        navigator.mediaSession.setActionHandler('play', () => {
-          console.log('📱 Media session: Play button pressed');
-          // Show visual feedback
-          if (typeof window !== 'undefined') {
-            const msg = document.createElement('div');
-            msg.innerHTML = '▶️ Play pressed';
-            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:green;color:white;padding:10px;border-radius:5px;z-index:9999;';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 2000);
-          }
-          resume();
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-          console.log('📱 Media session: Pause button pressed');
-          // Show visual feedback
-          if (typeof window !== 'undefined') {
-            const msg = document.createElement('div');
-            msg.innerHTML = '⏸️ Pause pressed';
-            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:orange;color:white;padding:10px;border-radius:5px;z-index:9999;';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 2000);
-          }
-          pause();
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          console.log('📱 Media session: Previous track button pressed');
-          // Show visual feedback
-          if (typeof window !== 'undefined') {
-            const msg = document.createElement('div');
-            msg.innerHTML = '⏮️ Previous track pressed';
-            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:blue;color:white;padding:10px;border-radius:5px;z-index:9999;';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 2000);
-          }
-          if (playPreviousTrackRef.current) {
-            playPreviousTrackRef.current();
-          }
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          console.log('📱 Media session: Next track button pressed');
-          // Show visual feedback
-          if (typeof window !== 'undefined') {
-            const msg = document.createElement('div');
-            msg.innerHTML = '⏭️ Next track pressed';
-            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:purple;color:white;padding:10px;border-radius:5px;z-index:9999;';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 2000);
-          }
-          if (playNextTrackRef.current) {
-            playNextTrackRef.current();
-          }
-        });
-        
-        // Explicitly disable seek handlers to show track navigation buttons instead
-        try {
-          navigator.mediaSession.setActionHandler('seekbackward', null);
-          navigator.mediaSession.setActionHandler('seekforward', null);
-        } catch (e) {
-          // Some browsers might not support these, ignore errors
-        }
+        // NOTE: Action handlers are registered ONCE in early init useEffect
+        // We don't re-register them here to avoid issues on iOS where
+        // re-registering can cause stale closures or handler conflicts
 
         // Set position state (required for iOS lockscreen controls)
         const currentElement = isVideoMode ? videoRef.current : audioRef.current;
