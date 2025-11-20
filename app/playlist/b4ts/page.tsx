@@ -6,7 +6,7 @@ import { PlaylistConfig } from '@/types/playlist';
 const b4tsConfig: PlaylistConfig = {
   title: 'Behind the Sch3m3s Music Playlist',
   description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
-  apiEndpoint: '/api/playlist/b4ts', // Use regular endpoint with caching
+  apiEndpoint: '/api/playlist/b4ts-fast', // Use fast endpoint with progressive loading
   cacheKey: 'b4ts-playlist',
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   useAudioContext: true
