@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { ValueTagParser } from '@/lib/lightning/value-parser';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -55,21 +56,21 @@ async function parseFeedXML(feedUrl: string) {
         'User-Agent': 'StableKraft-Feed-Parser/1.0'
       }
     });
-    
+
     if (!response.ok) {
       return null;
     }
-    
+
     const xmlText = await response.text();
-    
+
     // Simple XML parsing for episodes/tracks
     const episodes = [];
     const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
     let match;
-    
+
     while ((match = itemRegex.exec(xmlText)) !== null) {
       const itemContent = match[1];
-      
+
       // Extract basic fields
       const titleMatch = itemContent.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/);
       const descMatch = itemContent.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/);
@@ -78,7 +79,7 @@ async function parseFeedXML(feedUrl: string) {
       const imageMatch = itemContent.match(/<itunes:image[^>]*href="([^"]*)"/);
       const durationMatch = itemContent.match(/<itunes:duration>([^<]*)<\/itunes:duration>/);
       const pubDateMatch = itemContent.match(/<pubDate>([^<]*)<\/pubDate>/);
-      
+
       const title = titleMatch ? (titleMatch[1] || titleMatch[2] || '').trim() : '';
       const description = descMatch ? (descMatch[1] || descMatch[2] || '').trim() : '';
       const guid = guidMatch ? guidMatch[1].trim() : '';
@@ -86,7 +87,7 @@ async function parseFeedXML(feedUrl: string) {
       const image = imageMatch ? imageMatch[1] : '';
       const duration = durationMatch ? durationMatch[1] : '';
       const pubDate = pubDateMatch ? pubDateMatch[1] : '';
-      
+
       if (title && guid) {
         episodes.push({
           title,
@@ -99,9 +100,10 @@ async function parseFeedXML(feedUrl: string) {
         });
       }
     }
-    
-    return episodes;
-    
+
+    // Return both episodes and full XML for v4v parsing
+    return { episodes, xmlText };
+
   } catch (error) {
     console.error(`❌ Error parsing feed ${feedUrl}:`, error);
     return null;
@@ -126,10 +128,22 @@ function parseDuration(durationStr: string): number {
   return isNaN(numeric) ? 0 : numeric;
 }
 
-async function importFeedToDatabase(feedData: any, episodes: any[]) {
+async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: string) {
   try {
     // Ensure feed ID is a string (Podcast Index returns numeric IDs)
     const feedId = String(feedData.id || feedData.guid || `feed-${Date.now()}`);
+
+    // Parse v4v tags from RSS feed if xmlText is provided
+    let parsedV4V = null;
+    if (xmlText) {
+      try {
+        const valueParser = new ValueTagParser();
+        parsedV4V = valueParser.parseValueTags(xmlText);
+        console.log(`📊 Parsed v4v tags for feed ${feedId}: channel=${parsedV4V.channelValue ? 'yes' : 'no'}, items=${parsedV4V.itemValues.size}`);
+      } catch (v4vError) {
+        console.warn(`⚠️ Failed to parse v4v tags for feed ${feedId}:`, v4vError);
+      }
+    }
 
     // Check if feed already exists by GUID (id)
     let feed = await prisma.feed.findUnique({
@@ -179,22 +193,50 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
         }
       });
     }
-    
+
     // Check if feed has any tracks
     const existingTrackCount = await prisma.track.count({
       where: { feedId: feed.id }
     });
-    
+
     // Import tracks/episodes
     let trackCount = 0;
     for (const episode of episodes) {
       try {
         // Check if track already exists
         const existingTrack = await prisma.track.findFirst({
-          where: { guid: episode.guid }
+          where: { guid: episode.guid },
+          select: { id: true, v4vValue: true }
         });
-        
+
+        // Get v4v data for this track
+        let v4vData = null;
+        if (parsedV4V && episode.guid) {
+          const itemV4V = parsedV4V.itemValues.get(episode.guid);
+          const valueTag = itemV4V || parsedV4V.channelValue; // Use item-level or fall back to channel-level
+
+          if (valueTag) {
+            // Format v4v data for database storage
+            v4vData = {
+              type: valueTag.type,
+              method: valueTag.method,
+              suggested: valueTag.suggested,
+              recipients: valueTag.recipients.map(r => ({
+                name: r.name,
+                type: r.type,
+                address: r.address,
+                split: r.split,
+                customKey: r.customKey,
+                customValue: r.customValue,
+                fee: r.fee || false
+              }))
+            };
+            console.log(`✅ Found v4v data for track "${episode.title}": ${valueTag.recipients.length} recipients`);
+          }
+        }
+
         if (!existingTrack) {
+          // Create new track with v4v data
           await prisma.track.create({
             data: {
               id: `${feed.id}-${episode.guid || `track-${trackCount}-${Date.now()}`}`,
@@ -207,16 +249,28 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
               publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
               feedId: feed.id,
               trackOrder: trackCount + 1,
+              v4vValue: v4vData,
               updatedAt: new Date()
             }
           });
           trackCount++;
+        } else if (v4vData && !existingTrack.v4vValue) {
+          // Update existing track with v4v data if it doesn't have it
+          await prisma.track.update({
+            where: { id: existingTrack.id },
+            data: {
+              v4vValue: v4vData,
+              updatedAt: new Date()
+            }
+          });
+          console.log(`🔄 Updated existing track "${episode.title}" with v4v data`);
+          trackCount++; // Count as a new track for statistics
         }
       } catch (error) {
         console.warn(`⚠️ Failed to import track "${episode.title}":`, error instanceof Error ? error.message : error);
       }
     }
-    
+
     return {
       feedId: feed.id,
       title: feedData.title || feed.title,
@@ -224,7 +278,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[]) {
       hadTracks: existingTrackCount > 0,
       newTracks: trackCount
     };
-    
+
   } catch (error) {
     console.error(`❌ Error importing feed:`, error);
     return null;
@@ -287,15 +341,15 @@ export async function POST(request: Request) {
           continue;
         }
         
-        // Parse the RSS feed to get episodes
-        const episodes = await parseFeedXML(feedUrl);
-        
-        if (!episodes || episodes.length === 0) {
+        // Parse the RSS feed to get episodes and v4v data
+        const parseResult = await parseFeedXML(feedUrl);
+
+        if (!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) {
           failedParses.push({ feedId: feed.id, reason: 'No episodes found or feed parse failed' });
           continue;
         }
-        
-        // Import to database
+
+        // Import to database with v4v data
         const importResult = await importFeedToDatabase(
           feedData || {
             id: feed.id,
@@ -305,7 +359,8 @@ export async function POST(request: Request) {
             author: feed.artist,
             image: feed.image
           },
-          episodes
+          parseResult.episodes,
+          parseResult.xmlText
         );
         
         if (importResult) {
