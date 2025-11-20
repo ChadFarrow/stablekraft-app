@@ -539,7 +539,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           }
         } else {
           console.error('❌ HLS not supported in this browser');
-          toast.error('Video streaming not supported in this browser', 5000);
+          toast.error('Video streaming not supported in this browser', { duration: 5000 });
           return false;
         }
         
@@ -1011,7 +1011,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
         console.log('📱 Mobile playback failed - may need another tap');
-        toast.info('Tap the play button once more to enable audio', 3000);
+        toast.info('Tap the play button once more to enable audio', { duration: 3000 });
       }
       return false;
     }
