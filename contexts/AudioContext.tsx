@@ -187,6 +187,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           }
         });
 
+        // Explicitly disable seek handlers - we only support track navigation
+        // This prevents iOS from showing skip forward/back buttons
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
+
         // Set initial playback state to 'none' - will be updated when playback starts
         navigator.mediaSession.playbackState = 'none';
 
