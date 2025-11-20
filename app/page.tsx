@@ -164,13 +164,19 @@ function HomePageContent() {
   useEffect(() => {
     const urlFilter = searchParams?.get('filter');
     const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'artists', 'playlist'];
-    const newFilter = (urlFilter && validFilters.includes(urlFilter as FilterType)) 
-      ? (urlFilter as FilterType) 
+    const newFilter = (urlFilter && validFilters.includes(urlFilter as FilterType))
+      ? (urlFilter as FilterType)
       : 'all';
-    
-    // Only update if different and we're not already updating from URL
-    if (newFilter !== activeFilter && !isUpdatingFromUrlRef.current && handleFilterChangeRef.current) {
-      console.log(`🔄 URL filter changed: "${activeFilter}" -> "${newFilter}"`);
+
+    // Check if we need to reload data:
+    // 1. Filter changed, OR
+    // 2. Filter is the same but we don't have data for it (especially important for back navigation)
+    const hasDataForFilter = displayedAlbums.length > 0 || enhancedAlbums.length > 0 || criticalAlbums.length > 0;
+    const needsReload = newFilter !== activeFilter || (newFilter === activeFilter && !hasDataForFilter && !isLoading);
+
+    // Only update if needed and we're not already updating from URL
+    if (needsReload && !isUpdatingFromUrlRef.current && handleFilterChangeRef.current) {
+      console.log(`🔄 URL filter changed: "${activeFilter}" -> "${newFilter}" (hasData: ${hasDataForFilter})`);
       isUpdatingFromUrlRef.current = true;
       // Trigger filter change with skipUrlUpdate to avoid loop
       handleFilterChangeRef.current(newFilter, true).finally(() => {
@@ -180,7 +186,7 @@ function HomePageContent() {
         }, 100);
       });
     }
-  }, [searchParams, activeFilter]);
+  }, [searchParams, activeFilter, displayedAlbums.length, enhancedAlbums.length, criticalAlbums.length, isLoading]);
   
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [sortType, setSortType] = useState<SortType>('name');
