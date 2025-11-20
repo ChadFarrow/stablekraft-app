@@ -16,10 +16,12 @@ export default function AdminPanel() {
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  
+  const [recentFeeds, setRecentFeeds] = useState<any[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
+
   // Nostr authentication
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  
+
   // Admin authentication state (separate from Nostr auth)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
@@ -102,6 +104,28 @@ export default function AdminPanel() {
     localStorage.removeItem('admin-npub');
     setShowLoginModal(false);
   };
+
+  const fetchRecentFeeds = async () => {
+    setLoadingRecent(true);
+    try {
+      const response = await fetch('/api/feeds?limit=5');
+      const data = await response.json();
+      if (data.feeds) {
+        setRecentFeeds(data.feeds);
+      }
+    } catch (error) {
+      console.error('Error fetching recent feeds:', error);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  // Fetch recent feeds when authenticated
+  useEffect(() => {
+    if (isAdminAuthenticated) {
+      fetchRecentFeeds();
+    }
+  }, [isAdminAuthenticated]);
 
 
 
@@ -194,6 +218,8 @@ export default function AdminPanel() {
         }
 
         setNewFeedUrl('');
+        // Refresh the recent feeds list
+        fetchRecentFeeds();
       } else if (response.status === 409) {
         toast.info('This feed already exists in the database');
       } else {
@@ -349,6 +375,89 @@ export default function AdminPanel() {
               </p>
             </div>
           </form>
+        </div>
+
+        {/* Recently Added Feeds */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold">Recently Added</h2>
+            <button
+              onClick={fetchRecentFeeds}
+              disabled={loadingRecent}
+              className="px-3 py-1.5 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              {loadingRecent ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {loadingRecent && recentFeeds.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              Loading recent feeds...
+            </div>
+          ) : recentFeeds.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              No feeds imported yet. Add your first feed above!
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentFeeds.map((feed) => (
+                <div
+                  key={feed.id}
+                  className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    {feed.image && (
+                      <img
+                        src={feed.image}
+                        alt={feed.title}
+                        className="w-16 h-16 rounded object-cover flex-shrink-0"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-semibold text-white truncate">{feed.title}</h3>
+                          {feed.artist && (
+                            <p className="text-sm text-gray-400">{feed.artist}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
+                          feed.type === 'album' ? 'bg-blue-600/20 text-blue-400' :
+                          feed.type === 'publisher' ? 'bg-purple-600/20 text-purple-400' :
+                          'bg-green-600/20 text-green-400'
+                        }`}>
+                          {feed.type}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                        <span>📀 {feed._count?.Track || 0} tracks</span>
+                        {feed.v4vRecipient && (
+                          <span className="text-green-400">⚡ {feed.v4vRecipient}</span>
+                        )}
+                        <span className="text-gray-500">
+                          {new Date(feed.createdAt).toLocaleDateString()} {new Date(feed.createdAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <a
+                          href={feed.originalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:text-blue-300 truncate block"
+                        >
+                          {feed.originalUrl}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
