@@ -281,9 +281,9 @@ export async function GET(request: Request) {
           startTime: track.startTime,
           endTime: track.endTime
         })),
-      // Include V4V payment data from first track (all tracks in a feed should have same V4V data)
-      v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
-      v4vValue: feed.Track?.[0]?.v4vValue || null
+      // Include V4V payment data from feed (preferred) or first track (fallback)
+      v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
+      v4vValue: feed.v4vValue || feed.Track?.[0]?.v4vValue || null
     }));
     
     // Filter out Bowl After Bowl main podcast content but keep music covers
