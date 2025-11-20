@@ -31,8 +31,18 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
     originalUrl = originalUrl.replace('http://', 'https://');
   }
 
-  // If proxy is requested and URL is external, use image proxy
-  if (useProxy && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:')) {
+  // Check if URL is from a domain that requires CORS proxying
+  const corsProblematicImageDomains = [
+    'f.strangetextures.com',
+    'strangetextures.com',
+  ];
+
+  const needsProxy = corsProblematicImageDomains.some(domain =>
+    originalUrl.toLowerCase().includes(domain.toLowerCase())
+  );
+
+  // If proxy is explicitly requested OR domain requires CORS proxy, use image proxy
+  if ((useProxy || needsProxy) && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:')) {
     return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
   }
 
