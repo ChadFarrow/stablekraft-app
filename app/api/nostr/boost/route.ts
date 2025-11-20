@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get track or feed
+    // Get track or feed (optional - tracks/feeds may not be in database if loaded from RSS)
     let track: any = null;
     let feed: any = null;
     let finalFeedId: string | null = null;
@@ -63,31 +63,27 @@ export async function POST(request: NextRequest) {
         include: { Feed: true },
       });
 
-      if (!track) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Track not found',
-          },
-          { status: 404 }
-        );
+      // Track not in database is okay - it might be from an RSS feed
+      if (track) {
+        finalFeedId = track.feedId;
+      } else {
+        console.log(`ℹ️ Track ${trackId} not in database (RSS feed track) - proceeding anyway`);
       }
-      finalFeedId = track.feedId;
-    } else if (feedId) {
+    }
+
+    if (feedId) {
       feed = await prisma.feed.findUnique({
         where: { id: feedId },
       });
 
-      if (!feed) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Feed not found',
-          },
-          { status: 404 }
-        );
+      // Feed not in database is okay - it might be from an RSS feed
+      if (feed) {
+        finalFeedId = feedId;
+      } else {
+        console.log(`ℹ️ Feed ${feedId} not in database (RSS feed) - proceeding anyway`);
+        // Use feedId even if not in database
+        finalFeedId = feedId;
       }
-      finalFeedId = feedId;
     }
 
     // Use user's relays or default relays

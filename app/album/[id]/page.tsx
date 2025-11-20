@@ -31,18 +31,30 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   let albumArtist: string | undefined;
 
   try {
-    // Fetch from database API using the feed ID (slug)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app';
-    const response = await fetch(`${baseUrl}/api/feeds/${id}`, {
+    // Fetch from database API using the album slug
+    // Use localhost in development, production URL otherwise
+    const baseUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:3000'
+      : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
+
+    const response = await fetch(`${baseUrl}/api/albums/${encodeURIComponent(id)}`, {
       cache: 'no-store',
       next: { revalidate: 0 }
     });
 
     if (response.ok) {
       const data = await response.json();
-      if (data.success && data.data) {
-        albumImage = data.data.image;
-        albumArtist = data.data.artist;
+      if (data.album) {
+        // Ensure image URL is absolute for Open Graph
+        const coverArt = data.album.coverArt;
+        if (coverArt && !coverArt.startsWith('http')) {
+          albumImage = `${baseUrl}${coverArt}`;
+        } else {
+          albumImage = coverArt;
+        }
+        albumArtist = data.album.artist;
+        // Use the actual album title from the API
+        albumTitle = data.album.title;
       }
     }
   } catch (error) {

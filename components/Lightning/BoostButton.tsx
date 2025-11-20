@@ -268,13 +268,6 @@ export function BoostButton({
       } else {
         setSuccess(true);
 
-        // Trigger confetti celebration! 🎉
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-
         // Save sender name to localStorage for future boosts
         if (senderName) {
           localStorage.setItem('boostSenderName', senderName);
@@ -302,11 +295,27 @@ export function BoostButton({
 
         // Post to Nostr if user is authenticated and Nostr integration is enabled
         // Support both track boosts (trackId) and album boosts (feedId)
+        console.log('🔍 Boost: Checking Nostr posting conditions:', {
+          nostrIntegrationEnabled: LIGHTNING_CONFIG.features.nostrIntegration,
+          hasTrackId: !!trackId,
+          hasFeedId: !!feedId,
+          isNostrAuthenticated,
+          hasNostrUser: !!nostrUser,
+          nostrUserNpub: nostrUser?.nostrNpub?.slice(0, 16) + '...',
+        });
+
         if (LIGHTNING_CONFIG.features.nostrIntegration && (trackId || feedId) && isNostrAuthenticated && nostrUser) {
+          console.log('✅ Boost: All conditions met, proceeding to post to Nostr...');
           try {
             // Check if unified signer is available (supports NIP-07, NIP-46, and NIP-55)
             const { getUnifiedSigner } = await import('@/lib/nostr/signer');
             const signer = getUnifiedSigner();
+
+            console.log('🔍 Boost: Signer status:', {
+              isAvailable: signer.isAvailable(),
+              signerType: signer.getSignerType(),
+              loginType: localStorage.getItem('nostr_login_type'),
+            });
             
             if (!signer.isAvailable()) {
               // Check if user logged in with NIP-55 (Amber) - if so, try to reconnect
@@ -424,12 +433,33 @@ export function BoostButton({
             // Hardcode stablekraft.app for Nostr posts to ensure correct URLs in published events
             const baseUrl = 'https://stablekraft.app';
             let url: string;
-            if (trackId) {
+
+            // Use current page URL for album pages to preserve nice slugs
+            if (feedId && typeof window !== 'undefined') {
+              const currentPath = window.location.pathname;
+              console.log('🔗 Boost URL generation:', {
+                feedId,
+                currentPath,
+                isAlbumPage: currentPath.startsWith('/album/'),
+              });
+
+              // If we're on an album page, use that exact path
+              if (currentPath.startsWith('/album/')) {
+                url = `${baseUrl}${currentPath}`;
+                console.log('🔗 Using current album page URL:', url);
+              } else {
+                // Otherwise, generate slug from album title
+                const { generateAlbumSlug } = await import('@/lib/url-utils');
+                const albumSlug = generateAlbumSlug(albumName || finalTrackTitle);
+                url = `${baseUrl}/album/${albumSlug}`;
+                console.log('🔗 Generated slug URL:', url);
+              }
+            } else if (trackId) {
               url = `${baseUrl}/music-tracks/${trackId}`;
-            } else if (feedId) {
-              url = `${baseUrl}/album/${feedId}`;
+              console.log('🔗 Using track URL:', url);
             } else {
               url = baseUrl;
+              console.log('🔗 Using base URL:', url);
             }
             
             // Sanitize title for URL anchor
@@ -440,8 +470,10 @@ export function BoostButton({
             const urlWithAnchor = `${url}#${sanitizedTitle}`;
             
             // Build content (Fountain-style format)
-            const boostMessage = message || `Auto boost for "${finalTrackTitle}"`;
-            const content = `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${boostMessage}\n\n${url}`;
+            // Only include message if user provided one
+            const content = message
+              ? `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${message}\n\n${url}`
+              : `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${url}`;
             
             // Build tags
             const tags: string[][] = [];
@@ -493,12 +525,24 @@ export function BoostButton({
             const { createNoteTemplate } = await import('@/lib/nostr/events');
             const noteTemplate = createNoteTemplate(content, tags);
 
+            console.log('🔍 Boost: Note template created:', {
+              contentPreview: content.slice(0, 100) + '...',
+              tagCount: tags.length,
+              tags: tags.map(t => `[${t[0]}, ${t[1]?.slice(0, 30)}...]`),
+            });
+
             // Sign with unified signer (already obtained above)
+            console.log('🔏 Boost: Signing event with', signer.getSignerType(), '...');
             const signedEvent = await signer.signEvent(noteTemplate as any);
 
-            console.log('✅ Boost event signed:', signedEvent.id.slice(0, 16) + '...');
-            
+            console.log('✅ Boost: Event signed successfully:', {
+              eventId: signedEvent.id.slice(0, 16) + '...',
+              pubkey: signedEvent.pubkey.slice(0, 16) + '...',
+              kind: signedEvent.kind,
+            });
+
             // Send signed event to API
+            console.log('📤 Boost: Sending to /api/nostr/boost...');
             const zapResponse = await fetch('/api/nostr/boost', {
               method: 'POST',
               headers: {
@@ -515,22 +559,44 @@ export function BoostButton({
               }),
             });
 
+            console.log('📥 Boost: API response status:', zapResponse.status);
+
             if (zapResponse.ok) {
               const zapData = await zapResponse.json();
+              console.log('📥 Boost: API response data:', zapData);
+
               if (zapData.success && zapData.eventId) {
                 const published = zapData.data?.published ?? false;
                 if (published) {
-                  console.log('✅ Boost posted to Nostr:', zapData.eventId, '(published to relays)');
+                  console.log('✅ Boost posted to Nostr successfully:', {
+                    eventId: zapData.eventId,
+                    published: true,
+                    relayResults: zapData.data?.relayResults,
+                  });
                 } else {
-                  console.warn('⚠️ Boost stored but may not have been published to relays:', zapData.eventId);
+                  console.warn('⚠️ Boost stored but may not have been published to relays:', {
+                    eventId: zapData.eventId,
+                    published: false,
+                    relayResults: zapData.data?.relayResults,
+                  });
                 }
+              } else {
+                console.error('❌ Boost: API returned success=false:', zapData);
               }
             } else {
               const errorData = await zapResponse.json().catch(() => ({}));
-              console.warn('Failed to post boost to Nostr:', errorData.error || 'Unknown error');
+              console.error('❌ Boost: API request failed:', {
+                status: zapResponse.status,
+                statusText: zapResponse.statusText,
+                error: errorData.error || 'Unknown error',
+                errorData,
+              });
             }
           } catch (nostrError) {
-            console.warn('Failed to post boost to Nostr:', nostrError);
+            console.error('❌ Boost: Exception during Nostr posting:', {
+              error: nostrError instanceof Error ? nostrError.message : String(nostrError),
+              stack: nostrError instanceof Error ? nostrError.stack : undefined,
+            });
 
             // Provide helpful error messages based on the error
             const errorMessage = nostrError instanceof Error ? nostrError.message : String(nostrError);
@@ -545,7 +611,16 @@ export function BoostButton({
 
             // Don't fail the boost if Nostr posting fails
           }
+        } else {
+          console.log('⏭️ Boost: Skipping Nostr posting - one or more conditions not met');
         }
+
+        // Trigger confetti celebration after everything is complete! 🎉
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
 
         // Close modal after success
         setTimeout(() => {
@@ -1066,16 +1141,10 @@ export function BoostButton({
               </p>
             </div>
 
-            {/* Error/Success Messages */}
+            {/* Error Messages */}
             {error && (
               <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
                 {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-4 p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-200 text-sm">
-                ⚡ Boost sent successfully!
               </div>
             )}
 
