@@ -249,7 +249,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
               feedId: feed.id,
               trackOrder: trackCount + 1,
-              v4vValue: v4vData,
+              ...(v4vData && { v4vValue: v4vData }),
               updatedAt: new Date()
             }
           });
