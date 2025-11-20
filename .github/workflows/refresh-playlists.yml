@@ -34,31 +34,29 @@ jobs:
         # Wait a bit for cache to settle
         sleep 5
         
-        # Step 2: Parse newly discovered feeds
+        # Step 2: Refresh playlists with full v4v parsing
         echo ""
-        echo "📋 Step 2: Parsing newly discovered feeds..."
-        PARSE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/api/playlist/parse-feeds")
-        PARSE_HTTP_CODE=$(echo "$PARSE_RESPONSE" | tail -n1)
-        PARSE_BODY=$(echo "$PARSE_RESPONSE" | sed '$d')
-        
-        if [ "$PARSE_HTTP_CODE" -eq 200 ]; then
-          echo "✅ Feed parsing completed"
-          echo "$PARSE_BODY" | jq '.' || echo "$PARSE_BODY"
-          
-          # Extract summary
-          PARSED_COUNT=$(echo "$PARSE_BODY" | jq -r '.parsed // 0' 2>/dev/null || echo "0")
-          TOTAL_TRACKS=$(echo "$PARSE_BODY" | jq -r '.totalTracks // 0' 2>/dev/null || echo "0")
-          
-          if [ "$PARSED_COUNT" -gt 0 ]; then
-            echo "📊 Summary: Parsed $PARSED_COUNT feeds, imported $TOTAL_TRACKS tracks"
+        echo "📋 Step 2: Refreshing playlists with full RSS parsing (includes v4v payment data)..."
+
+        # Refresh each main playlist to ensure all feeds are discovered and fully parsed
+        PLAYLISTS=("hgh" "mmt" "sas" "mmm" "iam" "itdv" "b4ts" "upbeats")
+
+        for PLAYLIST in "${PLAYLISTS[@]}"; do
+          echo "  🔄 Refreshing $PLAYLIST playlist..."
+          curl -s "${BASE_URL}/api/playlist/${PLAYLIST}?refresh=true" > /dev/null
+
+          if [ $? -eq 0 ]; then
+            echo "  ✓ $PLAYLIST refreshed"
           else
-            echo "ℹ️ No new feeds to parse"
+            echo "  ⚠️ $PLAYLIST refresh had issues (non-critical)"
           fi
-        else
-          echo "⚠️ Feed parsing had issues (HTTP $PARSE_HTTP_CODE)"
-          echo "$PARSE_BODY"
-          # Don't fail the workflow if parsing has issues - it's not critical
-        fi
+
+          # Small delay to avoid rate limiting
+          sleep 2
+        done
+
+        echo ""
+        echo "✅ All playlists refreshed with full v4v parsing"
         
         echo ""
         echo "✨ Playlist refresh workflow completed"
