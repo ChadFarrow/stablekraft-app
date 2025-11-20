@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all
 
     // Redirect publisher filter requests to the publishers API
-    if (filter === 'publishers' || filter === 'artists') {
+    if (filter === 'publishers') {
       if (process.env.NODE_ENV === 'development') {
         console.log(`🚫 albums-fast: Rejecting ${filter} filter - should use /api/publishers instead`);
       }

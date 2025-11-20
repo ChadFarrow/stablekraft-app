@@ -50,7 +50,7 @@ function SearchContent() {
   const [results, setResults] = useState<SearchResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'tracks' | 'albums' | 'artists'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'tracks' | 'albums' | 'publishers'>('all');
   const { playAlbum } = useAudio();
 
   useEffect(() => {
@@ -91,7 +91,7 @@ function SearchContent() {
 
   const filteredTracks = activeTab === 'all' || activeTab === 'tracks' ? results?.tracks || [] : [];
   const filteredAlbums = activeTab === 'all' || activeTab === 'albums' ? results?.albums || [] : [];
-  const filteredArtists = activeTab === 'all' || activeTab === 'artists' ? results?.artists || [] : [];
+  const filteredArtists = activeTab === 'all' || activeTab === 'publishers' ? results?.artists || [] : [];
 
   return (
     <div className="min-h-screen text-white bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -157,7 +157,7 @@ function SearchContent() {
                   { value: 'all', label: 'All', count: totalResults },
                   { value: 'tracks', label: 'Tracks', count: results.tracks?.length || 0 },
                   { value: 'albums', label: 'Albums', count: results.albums?.length || 0 },
-                  { value: 'artists', label: 'Publishers', count: results.artists?.length || 0 }
+                  { value: 'publishers', label: 'Publishers', count: results.artists?.length || 0 }
                 ].map((tab) => (
                   <button
                     key={tab.value}

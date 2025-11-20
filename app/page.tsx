@@ -149,7 +149,7 @@ function HomePageContent() {
   const getInitialFilter = (): FilterType => {
     if (typeof window === 'undefined') return 'all';
     const urlFilter = searchParams?.get('filter');
-    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'artists', 'playlist'];
+    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'publishers', 'playlist'];
     if (urlFilter && validFilters.includes(urlFilter as FilterType)) {
       return urlFilter as FilterType;
     }
@@ -163,7 +163,7 @@ function HomePageContent() {
   // Sync filter from URL params when URL changes (e.g., browser back button)
   useEffect(() => {
     const urlFilter = searchParams?.get('filter');
-    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'artists', 'playlist'];
+    const validFilters: FilterType[] = ['all', 'albums', 'eps', 'singles', 'publishers', 'playlist'];
     const newFilter = (urlFilter && validFilters.includes(urlFilter as FilterType))
       ? (urlFilter as FilterType)
       : 'all';
@@ -358,8 +358,8 @@ function HomePageContent() {
       setError(null);
       setLoadingProgress(0);
 
-      // Handle artists filter separately - redirect to handleFilterChange
-      if (activeFilter === 'artists') {
+      // Handle publishers filter separately - redirect to handleFilterChange
+      if (activeFilter === 'publishers') {
         console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
         setIsLoading(false);
         await handleFilterChange(activeFilter);
@@ -404,8 +404,8 @@ function HomePageContent() {
   const loadMoreAlbums = useCallback(async () => {
     if (isLoading || !hasMoreAlbums) return;
 
-    // Don't load more for artists filter - all publishers are already loaded
-    if (activeFilter === 'artists') {
+    // Don't load more for publishers filter - all publishers are already loaded
+    if (activeFilter === 'publishers') {
       console.log(`🚫 loadMoreAlbums: Skipping - all publishers already loaded for ${activeFilter} filter`);
       return;
     }
@@ -525,8 +525,8 @@ function HomePageContent() {
     
     try {
       let resultData;
-      
-      if (newFilter === 'artists') {
+
+      if (newFilter === 'publishers') {
         console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
         // Load publishers instead of albums
         const publishersResponse = await fetch('/api/publishers');
@@ -647,8 +647,8 @@ function HomePageContent() {
 
   const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all'): Promise<{ albums: RSSAlbum[]; totalCount: number }> => {
     try {
-      // Handle artists filter separately - don't call albums API for publishers
-      if (filter === 'artists') {
+      // Handle publishers filter separately - don't call albums API for publishers
+      if (filter === 'publishers') {
         console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
         return { albums: [], totalCount: 0 }; // Return empty array to prevent showing wrong data
       }
@@ -1106,9 +1106,9 @@ function HomePageContent() {
     [filteredAlbums]
   );
 
-  // Debug filtered albums when activeFilter is 'artists'
-  if (activeFilter === 'artists') {
-    console.log(`🔍 Debug filteredAlbums for artists filter:`, {
+  // Debug filtered albums when activeFilter is 'publishers'
+  if (activeFilter === 'publishers') {
+    console.log(`🔍 Debug filteredAlbums for publishers filter:`, {
       displayedAlbums: displayedAlbums.length,
       enhancedAlbums: enhancedAlbums.length,
       criticalAlbums: criticalAlbums.length,
@@ -1306,7 +1306,7 @@ function HomePageContent() {
                   { value: 'albums', label: 'Albums' },
                   { value: 'eps', label: 'EPs' },
                   { value: 'singles', label: 'Singles' },
-                  { value: 'artists', label: 'Publishers' },
+                  { value: 'publishers', label: 'Publishers' },
                   { value: 'playlist', label: 'Playlists' },
                 ].map((filter) => (
                   <button
