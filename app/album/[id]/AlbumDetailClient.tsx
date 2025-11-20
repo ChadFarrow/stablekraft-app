@@ -842,25 +842,33 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
 
             {/* Lightning Boost and Funding Information */}
             <div className="space-y-4">
-              {/* Lightning Boost Button */}
-              <div className="flex justify-center lg:justify-start">
-                <BoostButton
-                  trackId={`album-${album.id}`}
-                  feedId={album.feedId}
-                  trackTitle={album.title}
-                  artistName={album.artist}
-                  lightningAddress={album.v4vRecipient}
-                  valueSplits={(album.v4vValue?.recipients || album.v4vValue?.destinations) ? (album.v4vValue.recipients || album.v4vValue.destinations).map((recipient: any) => ({
-                    name: recipient.name || album.artist,
-                    address: recipient.address || '',
-                    split: parseInt(recipient.split) || 100,
-                    type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
-                  })) : undefined}
-                  publisherGuid={album.publisher?.feedGuid}
-                  publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
-                  className="flex items-center gap-2 px-6 py-3 text-base"
-                />
-              </div>
+              {/* Lightning Boost Button - only show if v4v data exists */}
+              {(album.v4vRecipient || (album.v4vValue?.recipients?.length > 0 || album.v4vValue?.destinations?.length > 0)) ? (
+                <div className="flex justify-center lg:justify-start">
+                  <BoostButton
+                    trackId={`album-${album.id}`}
+                    feedId={album.feedId}
+                    trackTitle={album.title}
+                    artistName={album.artist}
+                    lightningAddress={album.v4vRecipient}
+                    valueSplits={(album.v4vValue?.recipients || album.v4vValue?.destinations) ? (album.v4vValue.recipients || album.v4vValue.destinations).map((recipient: any) => ({
+                      name: recipient.name || album.artist,
+                      address: recipient.address || '',
+                      split: parseInt(recipient.split) || 100,
+                      type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
+                    })) : undefined}
+                    publisherGuid={album.publisher?.feedGuid}
+                    publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
+                    className="flex items-center gap-2 px-6 py-3 text-base"
+                  />
+                </div>
+              ) : (
+                <div className="flex justify-center lg:justify-start">
+                  <div className="px-6 py-3 bg-gray-800/50 rounded-lg text-gray-400 text-sm">
+                    No Lightning payment info available for this album
+                  </div>
+                </div>
+              )}
 
               {/* Traditional Funding Information */}
               {album.funding && album.funding.length > 0 && (
@@ -1042,27 +1050,34 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         </div>
                       )}
 
-                      {/* Boost Button */}
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <BoostButton
-                          trackId={track.guid}
-                          feedId={album.feedId}
-                          trackTitle={track.title}
-                          artistName={album.artist}
-                          valueSplits={(track.v4vValue?.recipients || track.v4vValue?.destinations) ? (track.v4vValue.recipients || track.v4vValue.destinations).map((recipient: any) => ({
-                            name: recipient.name || album.artist,
-                            address: recipient.address || '',
-                            split: parseInt(recipient.split) || 100,
-                            type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
-                          })) : undefined}
-                          lightningAddress={track.v4vRecipient}
-                          episodeGuid={track.v4vValue?.itemGuid || track.guid}
-                          remoteFeedGuid={track.v4vValue?.feedGuid}
-                          publisherGuid={album.publisher?.feedGuid}
-                          publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
-                          className="text-xs px-2 py-1"
-                        />
-                      </div>
+                      {/* Boost Button - only show if v4v data exists */}
+                      {(track.v4vRecipient || album.v4vRecipient || (track.v4vValue?.recipients?.length > 0 || album.v4vValue?.recipients?.length > 0)) && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <BoostButton
+                            trackId={track.guid}
+                            feedId={album.feedId}
+                            trackTitle={track.title}
+                            artistName={album.artist}
+                            valueSplits={(() => {
+                              const trackRecipients = track.v4vValue?.recipients || track.v4vValue?.destinations;
+                              const albumRecipients = album.v4vValue?.recipients || album.v4vValue?.destinations;
+                              const recipients = trackRecipients || albumRecipients;
+                              return recipients ? recipients.map((recipient: any) => ({
+                                name: recipient.name || album.artist,
+                                address: recipient.address || '',
+                                split: parseInt(recipient.split) || 100,
+                                type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
+                              })) : undefined;
+                            })()}
+                            lightningAddress={track.v4vRecipient || album.v4vRecipient}
+                            episodeGuid={track.v4vValue?.itemGuid || track.guid}
+                            remoteFeedGuid={track.v4vValue?.feedGuid}
+                            publisherGuid={album.publisher?.feedGuid}
+                            publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
+                            className="text-xs px-2 py-1"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
