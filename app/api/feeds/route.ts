@@ -234,7 +234,8 @@ export async function POST(request: NextRequest) {
                     v4vValue: item.v4vValue,
                     trackOrder: item.trackOrder,
                     startTime: item.startTime,
-                    endTime: item.endTime
+                    endTime: item.endTime,
+                    updatedAt: new Date()
                   }
                 });
               }
