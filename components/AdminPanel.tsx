@@ -18,6 +18,8 @@ export default function AdminPanel() {
   const [verifying, setVerifying] = useState(false);
   const [recentFeeds, setRecentFeeds] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const [showImportResultModal, setShowImportResultModal] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // Nostr authentication
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
@@ -175,48 +177,15 @@ export default function AdminPanel() {
       const data = await response.json();
 
       if (response.ok || response.status === 206) {
-        const trackCount = data.feed?._count?.Track || 0;
-        let message = response.ok
-          ? `Feed added successfully! ${trackCount} tracks imported.`
-          : data.warning || 'Feed added but parsing had issues. Check feed details.';
-
-        // Check if a publisher feed was found
-        if (data.publisherFeed?.found && !data.publisherFeed.alreadyImported) {
-          message += ` Found publisher feed "${data.publisherFeed.title}" with ${data.publisherFeed.episodeCount} albums. Import it?`;
-          toast.success(message, {
-            action: {
-              label: 'Import Publisher',
-              onClick: async () => {
-                try {
-                  const pubResponse = await fetch('/api/feeds', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      originalUrl: data.publisherFeed.feedUrl,
-                      type: 'publisher',
-                      priority: 'normal',
-                      cdnUrl: ''
-                    }),
-                  });
-                  const pubData = await pubResponse.json();
-                  if (pubResponse.ok) {
-                    toast.success(`Publisher feed imported with ${pubData.feed?._count?.Track || 0} tracks!`);
-                  } else {
-                    toast.error('Failed to import publisher feed');
-                  }
-                } catch (err) {
-                  toast.error('Error importing publisher feed');
-                }
-              }
-            }
-          });
-        } else if (data.publisherFeed?.alreadyImported) {
-          message += ' (Publisher feed already imported)';
-          toast.success(message);
-        } else {
-          toast.success(message);
-        }
-
+        // Show modal with import results
+        setImportResult({
+          success: response.ok,
+          warning: response.status === 206,
+          feed: data.feed,
+          publisherFeed: data.publisherFeed,
+          importedPublisherFeed: data.importedPublisherFeed
+        });
+        setShowImportResultModal(true);
         setNewFeedUrl('');
         // Refresh the recent feeds list
         fetchRecentFeeds();
@@ -461,6 +430,188 @@ export default function AdminPanel() {
         </div>
 
       </div>
+
+      {/* Import Result Modal */}
+      {showImportResultModal && importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-xl border border-white/20 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-white/10 p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-1">
+                    {importResult.success ? '✅ Import Successful!' : '⚠️ Import Completed with Warnings'}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    {importResult.success
+                      ? 'Feed and tracks have been imported successfully'
+                      : 'Feed was added but some issues were encountered'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowImportResultModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Main Album/Feed Info */}
+              <div className="bg-white/5 rounded-lg p-5 border border-white/10">
+                <div className="flex items-start gap-4">
+                  {importResult.feed?.image && (
+                    <img
+                      src={importResult.feed.image}
+                      alt={importResult.feed.title}
+                      className="w-24 h-24 rounded-lg object-cover flex-shrink-0 shadow-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2 mb-2">
+                      <h4 className="text-xl font-semibold text-white">{importResult.feed?.title}</h4>
+                      <span className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
+                        importResult.feed?.type === 'album' ? 'bg-blue-600/20 text-blue-400' :
+                        importResult.feed?.type === 'publisher' ? 'bg-purple-600/20 text-purple-400' :
+                        'bg-green-600/20 text-green-400'
+                      }`}>
+                        {importResult.feed?.type}
+                      </span>
+                    </div>
+                    {importResult.feed?.artist && (
+                      <p className="text-gray-300 mb-3">{importResult.feed.artist}</p>
+                    )}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-400">📀 Tracks:</span>
+                        <span className="text-white font-medium">{importResult.feed?._count?.Track || 0}</span>
+                      </div>
+                      {importResult.feed?.v4vRecipient && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-400">⚡ Lightning:</span>
+                          <span className="text-green-400 font-mono text-xs">{importResult.feed.v4vRecipient}</span>
+                        </div>
+                      )}
+                      {importResult.feed?.v4vValue?.recipients && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-400 mb-1">Payment splits:</p>
+                          <div className="space-y-1">
+                            {importResult.feed.v4vValue.recipients.map((recipient: any, idx: number) => (
+                              <div key={idx} className="text-xs text-gray-300 font-mono">
+                                {recipient.name} ({recipient.split}%) - {recipient.address}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t border-white/10">
+                        <a
+                          href={importResult.feed?.originalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:text-blue-300 truncate block"
+                        >
+                          {importResult.feed?.originalUrl}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Publisher Feed Auto-Import Info */}
+              {importResult.importedPublisherFeed && (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">🎤</div>
+                    <div className="flex-1">
+                      <h5 className="text-lg font-semibold text-purple-300 mb-2">
+                        Publisher Feed Auto-Imported!
+                      </h5>
+                      <p className="text-sm text-gray-300 mb-3">
+                        Found and automatically imported the artist's publisher feed:
+                      </p>
+                      <div className="bg-white/5 rounded p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-medium">{importResult.importedPublisherFeed.title}</span>
+                          <span className="px-2 py-0.5 bg-purple-600/30 text-purple-300 rounded text-xs font-medium">
+                            publisher
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          📀 {importResult.importedPublisherFeed.trackCount} albums imported
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Publisher Feed Already Existed */}
+              {importResult.publisherFeed?.found && importResult.publisherFeed?.alreadyImported && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xl">ℹ️</div>
+                    <div>
+                      <p className="text-sm text-gray-300">
+                        Publisher feed <span className="text-blue-300 font-medium">{importResult.publisherFeed.title}</span> was already in the database.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Publisher Auto-Import Failed */}
+              {importResult.publisherFeed?.found && importResult.publisherFeed?.error && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xl">⚠️</div>
+                    <div>
+                      <p className="text-sm text-yellow-200 font-medium mb-1">
+                        Failed to auto-import publisher feed
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {importResult.publisherFeed.error}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning Message */}
+              {importResult.warning && (
+                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xl">⚠️</div>
+                    <div>
+                      <p className="text-sm text-orange-200">
+                        Feed was added but parsing had some issues. Please check the feed details.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-gray-900/95 backdrop-blur-sm border-t border-white/10 p-6">
+              <button
+                onClick={() => setShowImportResultModal(false)}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
