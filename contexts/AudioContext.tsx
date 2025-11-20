@@ -327,28 +327,35 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // Helper function to get URLs to try for audio/video playback
   const getAudioUrlsToTry = (originalUrl: string): string[] => {
     const urlsToTry = [];
-    
+
+    console.log('🔍 [URL Strategy] Processing URL:', originalUrl);
+
     if (!originalUrl || typeof originalUrl !== 'string') {
       console.warn('⚠️ Invalid audio URL provided:', originalUrl);
       return [];
     }
-    
+
     try {
       const url = new URL(originalUrl);
       const isExternal = url.hostname !== window.location.hostname;
       const isHls = isHlsUrl(originalUrl);
-      
+
+      console.log(`🔍 [URL Strategy] Parsed - hostname: ${url.hostname}, isExternal: ${isExternal}, isHls: ${isHls}`);
+
       // Special handling for HLS streams
       if (isHls) {
         // For HLS streams, try video proxy first, then audio proxy, then direct
+        console.log('📺 [URL Strategy] HLS stream detected - using proxy + direct fallback');
         urlsToTry.push(`/api/proxy-video?url=${encodeURIComponent(originalUrl)}`);
         urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
         urlsToTry.push(originalUrl);
+        console.log('📋 [URL Strategy] Final URLs to try:', urlsToTry.length, 'URLs');
         return urlsToTry;
       }
-      
+
       // Special handling for op3.dev analytics URLs - extract direct URL
       if (originalUrl.includes('op3.dev/e,') && originalUrl.includes('/https://')) {
+        console.log('🔗 [URL Strategy] op3.dev analytics URL detected');
         const directUrl = originalUrl.split('/https://')[1];
         if (directUrl) {
           const fullDirectUrl = `https://${directUrl}`;
@@ -367,6 +374,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           urlsToTry.push(originalUrl);
         }
       } else if (isExternal) {
+        // Normalize hostname for case-insensitive matching
+        const hostname = url.hostname.toLowerCase();
+
         // Check if URL is from a known CORS-problematic domain
         const corsProblematicDomains = [
           'cloudfront.net',
@@ -376,30 +386,42 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'anchor.fm',
           'libsyn.com'
         ];
-        
-        const isDomainProblematic = corsProblematicDomains.some(domain => 
-          url.hostname.includes(domain)
+
+        // Case-insensitive domain matching
+        const isDomainProblematic = corsProblematicDomains.some(domain =>
+          hostname.includes(domain.toLowerCase())
         );
-        
-        if (isDomainProblematic) {
+
+        // Extra check for CloudFront subdomains explicitly
+        const isCloudFront = hostname.endsWith('.cloudfront.net') || hostname === 'cloudfront.net';
+
+        console.log(`🔍 [URL Strategy] Domain check - hostname: ${hostname}, problematic: ${isDomainProblematic}, isCloudFront: ${isCloudFront}`);
+
+        if (isDomainProblematic || isCloudFront) {
           // For known CORS-problematic domains, use proxy first and skip direct URL
-          console.log(`🚫 Known CORS-problematic domain detected (${url.hostname}), using proxy only`);
-          monitoring.info('audio-playback', `CORS-problematic domain detected: ${url.hostname}`, { originalUrl });
+          console.log(`🚫 [URL Strategy] CORS-problematic domain detected (${hostname}) - PROXY ONLY`);
+          monitoring.info('audio-playback', `CORS-problematic domain detected: ${hostname}`, { originalUrl });
           urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
         } else {
+          console.log(`✅ [URL Strategy] External domain OK (${hostname}) - proxy first, then direct fallback`);
           // For other external URLs, try proxy first then direct as fallback
           urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
           urlsToTry.push(originalUrl);
         }
       } else {
+        console.log('🏠 [URL Strategy] Local URL - direct only');
         // For local URLs, try direct first
         urlsToTry.push(originalUrl);
       }
     } catch (urlError) {
-      console.warn('⚠️ Could not parse audio URL, using as-is:', originalUrl);
+      console.warn('⚠️ Could not parse audio URL, using as-is:', originalUrl, urlError);
       urlsToTry.push(originalUrl);
     }
-    
+
+    console.log(`📋 [URL Strategy] Final strategy: ${urlsToTry.length} URL(s) to try:`, urlsToTry.map((u, i) =>
+      `\n  ${i + 1}. ${u.includes('proxy-audio') ? '🔄 PROXY' : '📡 DIRECT'}: ${u.substring(0, 100)}${u.length > 100 ? '...' : ''}`
+    ).join(''));
+
     return urlsToTry;
   };
 
@@ -570,8 +592,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     
     for (let i = 0; i < urlsToTry.length; i++) {
       const audioUrl = urlsToTry[i];
-      console.log(`🔄 ${context} attempt ${i + 1}/${urlsToTry.length}: ${typeof audioUrl === 'string' && audioUrl.includes('proxy-audio') ? 'Proxied URL' : 'Direct URL'}`);
-      
+      const isProxied = typeof audioUrl === 'string' && audioUrl.includes('proxy-audio');
+      console.log(`🔄 [Playback Attempt ${i + 1}/${urlsToTry.length}] ${isProxied ? '🔄 PROXY' : '📡 DIRECT'}: ${audioUrl.substring(0, 150)}${audioUrl.length > 150 ? '...' : ''}`);
+
       try {
         // Clean up any existing HLS instance when switching to regular media
       if (hlsRef.current) {
@@ -628,38 +651,42 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           return true;
         }
       } catch (attemptError) {
-        console.warn(`⚠️ ${context} attempt ${i + 1} failed:`, attemptError);
-        
-        // Monitor failed attempts
-        const isProxied = typeof audioUrl === 'string' && audioUrl.includes('proxy-audio');
         const errorMessage = attemptError instanceof Error ? attemptError.message : String(attemptError);
-        
+        const errorName = attemptError instanceof DOMException ? attemptError.name : 'Unknown';
+
+        console.warn(`⚠️ [Playback Attempt ${i + 1} FAILED] Error: ${errorName} - ${errorMessage}`);
+        console.warn(`⚠️ [Playback Attempt ${i + 1} FAILED] Failed URL:`, audioUrl);
+
+        // Monitor failed attempts
         monitoring.warn('audio-playback', `Playback failed on attempt ${i + 1}`, {
           context,
           method: isProxied ? 'proxy' : 'direct',
           error: errorMessage,
-          url: originalUrl
+          errorName: errorName,
+          url: originalUrl,
+          attemptedUrl: audioUrl
         });
-        
+
         // Handle specific error types
         if (attemptError instanceof DOMException) {
           if (attemptError.name === 'NotAllowedError') {
-            console.log('🚫 Autoplay blocked - this should not happen on user click');
+            console.log('🚫 [Error Handler] Autoplay blocked - this should not happen on user click');
             // If we get NotAllowedError on a user click, something is wrong
             // Don't show a generic message, return false to let playAlbum handle it
             return false;
           } else if (attemptError.name === 'NotSupportedError') {
-            console.log('🚫 Audio format not supported');
+            console.log('🚫 [Error Handler] Audio format not supported - trying next URL');
             continue; // Try next URL
           } else if (attemptError.name === 'AbortError') {
-            console.log('🚫 Audio request aborted - trying next URL');
+            console.log('🚫 [Error Handler] Audio request aborted - trying next URL');
             continue; // Try next URL
           } else if (typeof attemptError.message === 'string' && (attemptError.message.includes('CORS') || attemptError.message.includes('cross-origin'))) {
-            console.log('🚫 CORS error - trying next URL');
+            console.log('🚫 [Error Handler] CORS error detected - trying next URL');
             continue; // Try next URL
           }
         }
-        
+
+        console.log(`⏳ [Error Handler] Waiting 500ms before trying next URL...`);
         // Add a small delay before trying the next URL
         await new Promise(resolve => setTimeout(resolve, 500));
       }

@@ -3,8 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get('url');
-  
+
+  console.log('🔄 [Audio Proxy] Incoming request for URL:', url?.substring(0, 150));
+
   if (!url) {
+    console.error('❌ [Audio Proxy] Missing URL parameter');
     return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
   }
 
@@ -15,42 +18,67 @@ export async function GET(request: NextRequest) {
       'Accept': 'audio/mpeg, audio/wav, audio/*, */*',
       'Cache-Control': 'no-cache',
     };
-    
+
     // Add range header if provided (for seeking support)
     const rangeHeader = request.headers.get('range');
     if (rangeHeader) {
+      console.log('📍 [Audio Proxy] Range request:', rangeHeader);
       fetchHeaders['Range'] = rangeHeader;
     }
-    
+
+    console.log('⏳ [Audio Proxy] Fetching from origin...');
+    const startTime = Date.now();
+
     const response = await fetch(url, {
       headers: fetchHeaders,
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
+    const fetchDuration = Date.now() - startTime;
+    console.log(`✅ [Audio Proxy] Origin responded in ${fetchDuration}ms - Status: ${response.status}`);
+
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch audio file' }, { status: response.status });
+      console.error(`❌ [Audio Proxy] Origin returned error status: ${response.status} ${response.statusText}`);
+      return NextResponse.json(
+        { error: 'Failed to fetch audio file', status: response.status },
+        {
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': 'Range, Content-Type, Accept'
+          }
+        }
+      );
     }
 
     // Get the response headers with comprehensive CORS support
     const headers = new Headers();
-    headers.set('Content-Type', response.headers.get('content-type') || 'audio/mpeg');
+    const contentType = response.headers.get('content-type') || 'audio/mpeg';
+    headers.set('Content-Type', contentType);
     headers.set('Accept-Ranges', 'bytes');
-    
+
     // Enhanced CORS headers
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     headers.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
     headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-    
+
     // Content length handling
     const contentLength = response.headers.get('content-length');
     if (contentLength) {
       headers.set('Content-Length', contentLength);
+      console.log(`📦 [Audio Proxy] Content-Length: ${contentLength} bytes`);
     }
-    
+
     // Copy range headers if present
-    if (response.headers.get('content-range')) {
-      headers.set('Content-Range', response.headers.get('content-range') || '');
+    const contentRange = response.headers.get('content-range');
+    if (contentRange) {
+      headers.set('Content-Range', contentRange);
+      console.log(`📍 [Audio Proxy] Content-Range: ${contentRange}`);
     }
+
+    console.log(`✅ [Audio Proxy] Returning proxied audio - Content-Type: ${contentType}, Status: ${response.status}`);
 
     // Return the audio file with proper headers
     return new NextResponse(response.body, {
@@ -58,13 +86,26 @@ export async function GET(request: NextRequest) {
       headers,
     });
   } catch (error) {
-    console.error('Error proxying audio:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ 
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+
+    console.error('❌ [Audio Proxy] Error proxying audio:', {
+      error: errorName,
+      message: errorMessage,
+      url: url?.substring(0, 150)
+    });
+
+    // Check for timeout
+    if (errorName === 'TimeoutError' || errorMessage.includes('timeout')) {
+      console.error('⏱️ [Audio Proxy] Request timed out after 30 seconds');
+    }
+
+    return NextResponse.json({
       error: 'Failed to proxy audio file',
+      errorType: errorName,
       details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
       url: process.env.NODE_ENV === 'development' ? url : undefined
-    }, { 
+    }, {
       status: 500,
       headers: {
         'Access-Control-Allow-Origin': '*',
