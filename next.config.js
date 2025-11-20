@@ -149,12 +149,12 @@ const nextConfig = {
   
   // Dynamic route configuration to prevent build issues
   experimental: {
-    // Enable parallel processing for faster builds on Railway
-    workerThreads: true,
-    // Don't limit CPUs - let Railway use available resources
-    // cpus: 1, // Removed to allow multi-core builds
-    // Disable CSS optimization during build - it's slow and not critical
-    optimizeCss: false, // Disabled for faster Railway builds
+    // Disable worker threads - causes DataCloneError with webpack config
+    workerThreads: false,
+    // Single CPU to prevent serialization issues, but still faster than CSS optimization
+    cpus: 1,
+    // Disable CSS optimization during build - this is the main bottleneck
+    optimizeCss: false, // Disabled for faster Railway builds (was causing 30min timeouts)
     optimizePackageImports: ['@/components'],
   },
   
