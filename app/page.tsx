@@ -362,7 +362,7 @@ function HomePageContent() {
       if (activeFilter === 'publishers') {
         console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
         setIsLoading(false);
-        await handleFilterChange(activeFilter);
+        await handleFilterChange(activeFilter, true); // skipUrlUpdate = true to avoid conflicts
         return;
       }
 
