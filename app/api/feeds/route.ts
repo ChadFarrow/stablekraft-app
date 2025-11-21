@@ -232,7 +232,6 @@ export async function POST(request: NextRequest) {
                     explicit: item.explicit,
                     v4vRecipient: item.v4vRecipient,
                     v4vValue: item.v4vValue,
-                    trackOrder: item.trackOrder,
                     startTime: item.startTime,
                     endTime: item.endTime,
                     updatedAt: new Date()
