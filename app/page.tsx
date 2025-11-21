@@ -1237,11 +1237,11 @@ function HomePageContent() {
               </div>
             </div>
 
-            {/* Desktop Header - Original Layout */}
+            {/* Desktop Header - Responsive Flex Layout */}
             <div className="hidden sm:block mb-4">
-              <div className="relative flex items-center justify-center min-h-[60px]">
-                {/* Left side - Menu Button */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2">
+              <div className="flex items-center justify-between gap-4 min-h-[60px]">
+                {/* Left side - Menu Button & Title */}
+                <div className="flex items-center gap-3 flex-shrink-0">
                   <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
@@ -1251,15 +1251,11 @@ function HomePageContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                   </button>
-                </div>
-
-                {/* Center - Title */}
-                <div className="text-center">
-                  <h1 className="text-3xl font-bold text-white">Project StableKraft</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white whitespace-nowrap">Project StableKraft</h1>
                 </div>
 
                 {/* Right side - Lightning Wallet Button & Nostr Login */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {(() => {
                     try {
                       const LoginButton = require('@/components/Nostr/LoginButton').default;

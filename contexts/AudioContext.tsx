@@ -6,6 +6,9 @@ import { toast } from '@/components/Toast';
 import Hls from 'hls.js';
 import { monitoring } from '@/lib/monitoring';
 import { storage } from '@/lib/indexed-db-storage';
+import { useNostr } from './NostrContext';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { publishNowPlayingStatus, clearUserStatus } from '@/lib/nostr/nip38';
 
 interface AudioContextType {
   // Audio state
@@ -69,10 +72,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const [duration, setDuration] = useState(0);
   const [albums, setAlbums] = useState<RSSAlbum[]>([]);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
-  
+
   // Video mode state
   const [isVideoMode, setIsVideoMode] = useState(false);
-  
+
   // Shuffle state
   const [isShuffleMode, setIsShuffleMode] = useState(false);
   const [shuffledPlaylist, setShuffledPlaylist] = useState<Array<{
@@ -81,11 +84,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     track: any;
   }>>([]);
   const [currentShuffleIndex, setCurrentShuffleIndex] = useState(0);
-  
+
   // UI state
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('none');
-  
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -93,6 +96,65 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isRetryingRef = useRef(false);
   const playNextTrackRef = useRef<() => Promise<void>>();
   const playPreviousTrackRef = useRef<() => Promise<void>>();
+
+  // NIP-38 status publishing
+  const { user, isAuthenticated } = useNostr();
+  const { settings } = useUserSettings();
+  const nip38TimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to publish NIP-38 status (debounced)
+  const publishNip38StatusDebounced = useCallback((action: 'play') => {
+    // Clear any pending timeout
+    if (nip38TimeoutRef.current) {
+      clearTimeout(nip38TimeoutRef.current);
+    }
+
+    // Check if auto-status is enabled and user is authenticated
+    if (!settings.nip38AutoStatus || !isAuthenticated) {
+      return;
+    }
+
+    // Debounce status updates to avoid spam (especially for rapid track changes)
+    nip38TimeoutRef.current = setTimeout(async () => {
+      try {
+        if (action === 'play' && currentPlayingAlbum && currentPlayingAlbum.tracks[currentTrackIndex]) {
+          const track = currentPlayingAlbum.tracks[currentTrackIndex];
+          const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+
+          // Construct track page URL on this site
+          const baseUrl = typeof window !== 'undefined'
+            ? window.location.origin
+            : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
+
+          // Use track.id if available, otherwise fall back to track.guid or track.url
+          const trackIdentifier = track.id || track.guid || encodeURIComponent(track.url || '');
+          const trackPageUrl = trackIdentifier ? `${baseUrl}/music-tracks/${encodeURIComponent(trackIdentifier)}` : track.url;
+
+          // Publish "now playing" status - persists as "last played" until next track
+          await publishNowPlayingStatus(
+            track.title || 'Unknown Track',
+            track.artist || currentPlayingAlbum.artist || 'Unknown Artist',
+            {
+              trackTitle: track.title,
+              artistName: track.artist || currentPlayingAlbum.artist,
+              albumTitle: currentPlayingAlbum.title,
+              trackUrl: trackPageUrl, // Link to track page on this site
+              trackGuid: track.guid,
+              feedGuid: currentPlayingAlbum.feedGuid,
+              durationSeconds: currentElement?.duration || duration,
+              currentTimeSeconds: currentElement?.currentTime || currentTime,
+              imageUrl: track.image || currentPlayingAlbum.coverArt || undefined,
+            },
+            user?.relays
+          );
+        }
+        // Status persists - never cleared automatically
+      } catch (error) {
+        // Silently fail - don't disrupt playback
+        console.warn('Failed to publish NIP-38 status:', error);
+      }
+    }, 500); // 500ms debounce
+  }, [settings.nip38AutoStatus, isAuthenticated, currentPlayingAlbum, currentTrackIndex, isVideoMode, duration, currentTime, user?.relays]);
 
   // AudioContext state version - increment when structure changes to invalidate old cache
   const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
@@ -710,6 +772,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       if ('mediaSession' in navigator && navigator.mediaSession) {
         navigator.mediaSession.playbackState = 'playing';
       }
+      // Publish NIP-38 "now playing" status
+      publishNip38StatusDebounced('play');
     };
 
     const handlePause = () => {
@@ -718,6 +782,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       if ('mediaSession' in navigator && navigator.mediaSession) {
         navigator.mediaSession.playbackState = 'paused';
       }
+      // NIP-38 status persists - shows last/current track
     };
 
     const handleEnded = async () => {
@@ -882,7 +947,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         hlsRef.current = null;
       }
     };
-  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode]); // Add necessary dependencies for preloading logic
+  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode, publishNip38StatusDebounced]); // Add necessary dependencies for preloading logic
 
   // Helper function to proxy external image URLs for media session
   const getProxiedMediaImageUrl = (imageUrl: string): string => {
@@ -989,20 +1054,22 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       setHasUserInteracted(true);
     }
 
+    // IMPORTANT: Update state BEFORE attempting playback
+    // This ensures NIP-38 status publishing has access to correct track info
+    setCurrentPlayingAlbum(album);
+    setCurrentTrackIndex(trackIndex);
+
+    // When manually playing an album/track, always exit shuffle mode
+    // This ensures shuffle is turned off when you play something specific
+    setIsShuffleMode(false);
+    setShuffledPlaylist([]);
+    setCurrentShuffleIndex(0);
+
     // Try to play the track immediately
     const success = await attemptAudioPlayback(track.url, 'Album playback');
     if (success) {
-      setCurrentPlayingAlbum(album);
-      setCurrentTrackIndex(trackIndex);
-
       // Update media session for lockscreen display
       updateMediaSession(album, track);
-
-      // When manually playing an album/track, always exit shuffle mode
-      // This ensures shuffle is turned off when you play something specific
-      setIsShuffleMode(false);
-      setShuffledPlaylist([]);
-      setCurrentShuffleIndex(0);
 
       console.log('✅ Playback started successfully');
       return true;
@@ -1033,13 +1100,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
+    // IMPORTANT: Update state BEFORE attempting playback
+    setCurrentPlayingAlbum(album);
+    setCurrentTrackIndex(trackData.trackIndex);
+    setCurrentShuffleIndex(index);
+    setHasUserInteracted(true);
+
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
     if (success) {
-      setCurrentPlayingAlbum(album);
-      setCurrentTrackIndex(trackData.trackIndex);
-      setCurrentShuffleIndex(index);
-      setHasUserInteracted(true);
-      
       // Update media session for lockscreen display
       updateMediaSession(album, track);
     }
@@ -1102,13 +1170,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
+    // IMPORTANT: Update state BEFORE attempting playback
+    setCurrentPlayingAlbum(album);
+    setCurrentTrackIndex(firstTrack.trackIndex);
+    setCurrentShuffleIndex(0);
+    setHasUserInteracted(true);
+
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
-    if (success) {
-      setCurrentPlayingAlbum(album);
-      setCurrentTrackIndex(firstTrack.trackIndex);
-      setCurrentShuffleIndex(0);
-      setHasUserInteracted(true);
-    }
     return success;
   };
 
@@ -1364,20 +1432,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
-    
+
     // Clean up HLS instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-    
+
     setIsPlaying(false);
     setCurrentPlayingAlbum(null);
     setCurrentTrackIndex(0);
     setCurrentTime(0);
     setDuration(0);
     setIsVideoMode(false);
-    
+
     // Clear shuffle state
     setIsShuffleMode(false);
     setShuffledPlaylist([]);
@@ -1387,6 +1455,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     if (typeof window !== 'undefined') {
       storage.removeItem('audioPlayerState');
     }
+
+    // Don't clear NIP-38 status - it persists as "last played"
   };
 
   // Toggle shuffle mode
