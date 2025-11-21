@@ -3,7 +3,7 @@ import crypto from 'crypto';
 const API_KEY = process.env.PODCAST_INDEX_API_KEY!;
 const API_SECRET = process.env.PODCAST_INDEX_API_SECRET!;
 
-interface PublisherFeedInfo {
+export interface PublisherFeedInfo {
   found: boolean;
   feedUrl?: string;
   title?: string;
@@ -12,6 +12,8 @@ interface PublisherFeedInfo {
   episodeCount?: number;
   medium?: string;
   alreadyImported?: boolean;
+  autoImported?: boolean;
+  error?: string;
 }
 
 /**
