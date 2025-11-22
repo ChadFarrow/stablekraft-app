@@ -119,16 +119,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   // Extract dominant color from album art and ensure good contrast
   useEffect(() => {
-    console.log('🎨 useEffect triggered:', { albumArt, originalImageUrl, currentTrack: currentTrack?.title });
-
     if (albumArt && !albumArt.includes('/api/placeholder/')) {
-      // Debug logging
-      console.log('🎨 Fullscreen Color Extraction Debug:', {
-        originalImageUrl,
-        proxiedAlbumArt: albumArt,
-        trackTitle: currentTrack?.title,
-        isProxied: albumArt.includes('/api/proxy-image')
-      });
 
       // Check database first
       const fetchColors = async () => {
@@ -138,9 +129,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
           if (response.ok) {
             const { data } = await response.json();
-            if (process.env.NODE_ENV === 'development') {
-              console.log('🎨 Using database colors for:', currentTrack?.title);
-            }
             setDominantColor(data.enhancedColor);
             setContrastColors({
               backgroundColor: data.backgroundColor,
@@ -150,9 +138,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           }
 
           // If not in database, process and store it
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🎨 Processing new color for database:', currentTrack?.title);
-          }
 
           const processResponse = await fetch('/api/artwork-colors', {
             method: 'POST',

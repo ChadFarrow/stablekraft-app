@@ -69,7 +69,7 @@ const GlobalNowPlayingBar: React.FC = () => {
 
     const track = currentPlayingAlbum.tracks?.[currentTrackIndex];
     return {
-      id: track?.guid || track?.episodeId || `${currentPlayingAlbum.id || currentPlayingAlbum.title}-${currentTrackIndex}`,
+      id: track?.id || track?.guid || track?.episodeId || `${currentPlayingAlbum.id || currentPlayingAlbum.title}-${currentTrackIndex}`,
       title: track?.title || `Track ${currentTrackIndex + 1}`,
       artist: currentPlayingAlbum.artist,
       albumTitle: currentPlayingAlbum.title,
@@ -116,22 +116,6 @@ const GlobalNowPlayingBar: React.FC = () => {
   // Don't render if currentTrack is null
   if (!currentTrack) {
     return null;
-  }
-
-  // Debug logging for artwork troubleshooting
-  if (process.env.NODE_ENV === 'development' && currentPlayingAlbum.tracks?.[currentTrackIndex]) {
-    const track = currentPlayingAlbum.tracks[currentTrackIndex];
-    const originalUrl = track.image || currentPlayingAlbum.coverArt || '';
-    console.log('🎨 Now Playing Artwork Debug:', {
-      trackTitle: track.title,
-      trackImage: track.image,
-      albumCoverArt: currentPlayingAlbum.coverArt,
-      originalUrl: originalUrl,
-      proxiedUrl: currentTrack.albumArt,
-      hasTrackImage: !!track.image,
-      hasAlbumCoverArt: !!currentPlayingAlbum.coverArt,
-      isExternalUrl: originalUrl && !originalUrl.startsWith('/') && !originalUrl.includes('/api/proxy-image')
-    });
   }
 
   return (

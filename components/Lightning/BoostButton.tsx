@@ -100,16 +100,27 @@ export function BoostButton({
 
   // Fetch track v4vValue data if trackId is provided and valueSplits is empty
   useEffect(() => {
-    if (trackId && valueSplits.length === 0 && !fetchedValueSplits.length) {
-      console.log(`🔍 Fetching track data for trackId: ${trackId}`);
+    // Skip if trackId looks like a composite ID (contains '-https' or multiple UUIDs)
+    const isCompositeId = trackId && (trackId.includes('-https') || trackId.split('-').length > 5);
+
+    if (trackId && !isCompositeId && valueSplits.length === 0 && !fetchedValueSplits.length) {
       fetch(`/api/music-tracks/${trackId}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            // Only log 404s in development
+            if (process.env.NODE_ENV === 'development' && res.status === 404) {
+              console.warn(`Track not found: ${trackId}`);
+            }
+            return null;
+          }
+          return res.json();
+        })
         .then(response => {
-          console.log('📦 Track API response:', response);
+          if (!response) return;
+
           if (response.success && response.data?.v4vValue) {
             // Parse v4vValue to extract recipients
             const v4v = response.data.v4vValue;
-            console.log('📋 v4vValue data:', v4v);
 
             // Handle both old format (recipients) and new format (destinations)
             const recipientsList = v4v.recipients || v4v.destinations || [];
@@ -125,17 +136,15 @@ export function BoostButton({
               }));
 
             if (splits.length > 0) {
-              console.log('✅ Loaded value splits from track data:', splits);
               setFetchedValueSplits(splits);
-            } else {
-              console.log('⚠️ No valid value splits found in v4vValue');
             }
-          } else {
-            console.log('⚠️ No v4vValue found in track data');
           }
         })
         .catch(err => {
-          console.error('❌ Failed to fetch track v4vValue:', err);
+          // Silently fail - don't spam console
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to fetch track v4vValue:', err.message);
+          }
         });
     }
   }, [trackId, valueSplits, fetchedValueSplits]);

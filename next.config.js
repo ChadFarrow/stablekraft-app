@@ -181,6 +181,7 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    qualities: [75, 85, 90, 100], // Explicitly configure allowed quality values
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days for faster updates
     // Improved loading state configuration
     dangerouslyAllowSVG: true,
@@ -191,6 +192,13 @@ const nextConfig = {
     loaderFile: undefined,
     // Add better error handling for image optimization
     disableStaticImages: false,
+    // Configure local patterns for proxied images
+    localPatterns: [
+      {
+        pathname: '/api/proxy-image',
+        search: '**',
+      },
+    ],
     // Configure domains for external images
     domains: [
       're.podtards.com',

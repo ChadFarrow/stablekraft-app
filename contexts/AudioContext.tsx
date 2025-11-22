@@ -439,6 +439,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         // Normalize hostname for case-insensitive matching
         const hostname = url.hostname.toLowerCase();
 
+        // Domains that should try direct first (known to have CORS enabled)
+        const directFirstDomains = [
+          'rssblue.com',
+          'strangetextures.com',
+          'thisisjdog.com',
+          'doerfelverse.com',
+          'behindthesch3m3s.com',
+          'heycitizen.xyz',
+          'bitpunk.fm',
+          'thebearsnare.com'
+        ];
+
         // Check if URL is from a known CORS-problematic domain
         const corsProblematicDomains = [
           'cloudfront.net',
@@ -449,6 +461,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'libsyn.com'
         ];
 
+        const isDirectFirst = directFirstDomains.some(domain =>
+          hostname.includes(domain.toLowerCase())
+        );
+
         // Case-insensitive domain matching
         const isDomainProblematic = corsProblematicDomains.some(domain =>
           hostname.includes(domain.toLowerCase())
@@ -457,12 +473,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         // Extra check for CloudFront subdomains explicitly
         const isCloudFront = hostname.endsWith('.cloudfront.net') || hostname === 'cloudfront.net';
 
-        console.log(`🔍 [URL Strategy] Domain check - hostname: ${hostname}, problematic: ${isDomainProblematic}, isCloudFront: ${isCloudFront}`);
+        console.log(`🔍 [URL Strategy] Domain check - hostname: ${hostname}, problematic: ${isDomainProblematic}, isCloudFront: ${isCloudFront}, directFirst: ${isDirectFirst}`);
 
         if (isDomainProblematic || isCloudFront) {
           // For known CORS-problematic domains, use proxy first and skip direct URL
           console.log(`🚫 [URL Strategy] CORS-problematic domain detected (${hostname}) - PROXY ONLY`);
           monitoring.info('audio-playback', `CORS-problematic domain detected: ${hostname}`, { originalUrl });
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
+        } else if (isDirectFirst) {
+          // For domains known to work directly, try direct first for faster playback
+          console.log(`⚡ [URL Strategy] Direct-first domain (${hostname}) - direct then proxy fallback`);
+          urlsToTry.push(originalUrl);
           urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
         } else {
           console.log(`✅ [URL Strategy] External domain OK (${hostname}) - proxy first, then direct fallback`);
