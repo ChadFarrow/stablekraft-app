@@ -332,17 +332,46 @@ export async function POST(request: Request) {
         if (feed.id && feed.id.length > 10) { // Likely a GUID
           feedData = await lookupFeedByGuid(feed.id);
         }
-        
+
         // Use feed data from Podcast Index if available, otherwise use existing feed data
         const feedUrl = feedData?.url || feed.originalUrl;
-        
+
         if (!feedUrl) {
           failedParses.push({ feedId: feed.id, reason: 'No feed URL available' });
           continue;
         }
-        
-        // Parse the RSS feed to get episodes and v4v data
-        const parseResult = await parseFeedXML(feedUrl);
+
+        // Try to parse the RSS feed to get episodes and v4v data
+        let parseResult = await parseFeedXML(feedUrl);
+
+        // If RSS parsing failed but we have Podcast Index data, get episodes from API
+        if ((!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) && feedData?.id) {
+          console.log(`⚠️ RSS feed failed, trying Podcast Index API for feed ${feedData.id}`);
+          try {
+            const headers = generateAuthHeaders();
+            const episodesResponse = await fetch(`${API_BASE_URL}/episodes/byfeedid?id=${feedData.id}&max=1000`, { headers });
+
+            if (episodesResponse.ok) {
+              const episodesData = await episodesResponse.json();
+              if (episodesData.status === 'true' && episodesData.items && episodesData.items.length > 0) {
+                console.log(`✅ Got ${episodesData.items.length} episodes from Podcast Index API`);
+                // Convert Podcast Index episodes to our format
+                const episodes = episodesData.items.map((ep: any) => ({
+                  title: ep.title,
+                  description: ep.description || '',
+                  guid: ep.guid,
+                  audioUrl: ep.enclosureUrl || '',
+                  image: ep.image || feedData.image || '',
+                  duration: ep.duration?.toString() || '0',
+                  pubDate: new Date(ep.datePublished * 1000).toUTCString()
+                }));
+                parseResult = { episodes, xmlText: null }; // No XML since we got from API
+              }
+            }
+          } catch (apiError) {
+            console.error(`❌ Error getting episodes from API:`, apiError);
+          }
+        }
 
         if (!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) {
           failedParses.push({ feedId: feed.id, reason: 'No episodes found or feed parse failed' });
