@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
+import { validateDuration } from '@/lib/duration-validation';
 
 // Increase timeout for this route to 5 minutes
 export const maxDuration = 300;
@@ -155,8 +156,8 @@ export async function GET(request: Request) {
           episodeTitle: resolvedTrack.feedTitle || "Mutton, Mead & Music",
           audioUrl: resolvedTrack.audioUrl || '',
           startTime: 0,
-          endTime: resolvedTrack.duration || 180,
-          duration: resolvedTrack.duration || 180,
+          endTime: validateDuration(resolvedTrack.duration, resolvedTrack.title) || 180,
+          duration: validateDuration(resolvedTrack.duration, resolvedTrack.title) || 180,
           source: 'database',
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,

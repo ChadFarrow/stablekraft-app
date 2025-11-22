@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
+import { validateDuration } from '@/lib/duration-validation';
 
 // Increase timeout for this route to 5 minutes
 export const maxDuration = 300;
@@ -139,7 +140,7 @@ export async function GET(request: Request) {
           artist: resolvedTrack.artist,
           audioUrl: resolvedTrack.audioUrl || '',
           url: resolvedTrack.audioUrl || '', // Add url property for compatibility
-          duration: resolvedTrack.duration || 180,
+          duration: validateDuration(resolvedTrack.duration, resolvedTrack.title) || 180,
           publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,

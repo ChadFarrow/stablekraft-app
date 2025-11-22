@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { XMLParser } from 'fast-xml-parser';
+import { validateDuration } from './duration-validation';
 
 interface CustomFeed {
   title?: string;
@@ -429,7 +430,7 @@ function extractItunesCategories(categories: any): string[] {
 
 function parseDuration(duration: string | undefined): number | undefined {
   if (!duration) return undefined;
-  
+
   // Handle HH:MM:SS format
   if (duration.includes(':')) {
     const parts = duration.split(':').map(p => parseInt(p, 10));
@@ -439,7 +440,7 @@ function parseDuration(duration: string | undefined): number | undefined {
       return parts[0] * 60 + parts[1];
     }
   }
-  
+
   // Handle seconds as string
   const seconds = parseInt(duration, 10);
   return isNaN(seconds) ? undefined : seconds;
@@ -539,7 +540,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           description: item.contentSnippet || item.content || undefined,
           artist: item.itunes?.author || feedArtist,
           audioUrl: item.enclosure.url,
-          duration: parseDuration(item.itunes?.duration),
+          duration: validateDuration(parseDuration(item.itunes?.duration), item.title),
           explicit: item.itunes?.explicit?.toLowerCase() === 'yes' || 
                    item.itunes?.explicit?.toLowerCase() === 'true' ||
                    feedExplicit,
@@ -761,7 +762,10 @@ export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]>
             audioUrl: remoteItem['@_enclosureUrl'] || remoteItem.enclosureUrl || item.enclosure?.['@_url'],
             startTime: parseFloat(remoteItem['@_startTime'] || remoteItem.startTime || '0'),
             endTime: remoteItem['@_endTime'] ? parseFloat(remoteItem['@_endTime']) : undefined,
-            duration: remoteItem['@_duration'] ? parseFloat(remoteItem['@_duration']) : undefined,
+            duration: validateDuration(
+              remoteItem['@_duration'] ? parseFloat(remoteItem['@_duration']) : undefined,
+              remoteItem.title || 'Music Segment'
+            ),
             image: remoteItem['@_image'] || remoteItem.image,
             explicit: false,
             publishedAt: item.pubDate ? new Date(item.pubDate) : undefined
@@ -792,7 +796,10 @@ export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]>
               audioUrl: item.enclosure?.['@_url'] || item.enclosure?.url,
               startTime: parseFloat(split['@_startTime'] || '0'),
               endTime: split['@_endTime'] ? parseFloat(split['@_endTime']) : undefined,
-              duration: split['@_duration'] ? parseFloat(split['@_duration']) : undefined,
+              duration: validateDuration(
+                split['@_duration'] ? parseFloat(split['@_duration']) : undefined,
+                remoteItem.title || split['@_title'] || 'Music Segment'
+              ),
               image: remoteItem['@_image'] || remoteItem.image,
               explicit: false,
               publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,

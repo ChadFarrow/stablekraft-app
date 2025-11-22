@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
+import { validateDuration } from '@/lib/duration-validation';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 
@@ -125,9 +126,9 @@ export async function GET(request: Request) {
     );
     
     // Create tracks for ALL remote items, using resolved data when available
-    const tracks = remoteItems.map((item, index) => {
+    const allTracks = remoteItems.map((item, index) => {
       const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
-      
+
       if (resolvedTrack) {
         // Use real track data
         return {
@@ -136,7 +137,7 @@ export async function GET(request: Request) {
           artist: resolvedTrack.artist,
           audioUrl: resolvedTrack.audioUrl || '',
           url: resolvedTrack.audioUrl || '', // Add url property for compatibility
-          duration: resolvedTrack.duration || 180,
+          duration: validateDuration(resolvedTrack.duration, resolvedTrack.title) || 180,
           publishedAt: resolvedTrack.publishedAt || new Date().toISOString(),
           image: resolvedTrack.image || artworkUrl || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
@@ -147,22 +148,21 @@ export async function GET(request: Request) {
           guid: resolvedTrack.guid
         };
       } else {
-        // Use placeholder data
-        return {
-          id: `itdv-track-${index + 1}`,
-          title: `Music Reference #${index + 1}`,
-          artist: 'Featured in ITDV Podcast',
-          audioUrl: '',
-          url: '', // Add url property for compatibility
-          duration: 180,
-          publishedAt: new Date().toISOString(),
-          image: artworkUrl || '/placeholder-podcast.jpg',
-          feedGuid: item.feedGuid,
-          itemGuid: item.itemGuid,
-          description: `Music track referenced in Into The Doerfel-Verse podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
-        };
+        // Return null for unresolved tracks (will be filtered out)
+        return null;
       }
+    }).filter(Boolean); // Remove null entries
+
+    // Filter to only include tracks with valid audio URLs AND real database IDs
+    // Exclude tracks with API-resolved IDs (api-*) since they're not in the database
+    const tracks = allTracks.filter(track => {
+      if (!track || !track.url || track.url.length === 0) return false;
+      if (track.id.startsWith('api-')) return false;
+      if (track.id.startsWith('itdv-track-')) return false;
+      return true;
     });
+
+    console.log(`🎯 Filtered tracks: ${allTracks.length} total -> ${tracks.length} playable (removed ${allTracks.length - tracks.length} without audio or database IDs)`);
     
     // Create a single virtual album that represents the ITDV playlist
     const playlistAlbum = {

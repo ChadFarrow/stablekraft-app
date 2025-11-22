@@ -20,6 +20,9 @@ export default function AdminPanel() {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [showImportResultModal, setShowImportResultModal] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [reparsingFeeds, setReparsingFeeds] = useState<Set<string>>(new Set());
+  const [reparseFeedUrl, setReparseFeedUrl] = useState('');
+  const [reparsingByUrl, setReparsingByUrl] = useState(false);
 
   // Nostr authentication
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
@@ -136,6 +139,97 @@ export default function AdminPanel() {
   }, [isAdminAuthenticated]);
 
 
+
+  const reparseFeed = async (feedId: string) => {
+    setReparsingFeeds(prev => new Set(prev).add(feedId));
+
+    try {
+      const response = await fetch(`/api/admin/feeds/${feedId}/reparse`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Feed reparsed successfully! ${data.newTracks > 0 ? `Added ${data.newTracks} new tracks.` : 'No new tracks found.'} ${data.updatedTracks > 0 ? `Updated ${data.updatedTracks} existing tracks.` : ''}`);
+        // Refresh the recent feeds list
+        fetchRecentFeeds();
+      } else {
+        toast.error(data.error || 'Failed to reparse feed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error reparsing feed:', error);
+      toast.error('Network error. Please check your connection and try again.');
+    } finally {
+      setReparsingFeeds(prev => {
+        const next = new Set(prev);
+        next.delete(feedId);
+        return next;
+      });
+    }
+  };
+
+  const reparseByUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const feedUrl = reparseFeedUrl.trim();
+
+    if (!feedUrl) {
+      toast.error('Please enter a RSS feed URL');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      new URL(feedUrl);
+    } catch {
+      toast.error('Please enter a valid URL');
+      return;
+    }
+
+    setReparsingByUrl(true);
+
+    try {
+      // Use the refresh-by-url endpoint which will find the feed by URL and reparse it
+      const response = await fetch('/api/feeds/refresh-by-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originalUrl: feedUrl,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Check if this is the HGH playlist and clear its cache
+        if (feedUrl.includes('HGH-music-playlist.xml') || feedUrl.includes('chadf-musicl-playlists')) {
+          try {
+            await fetch('/api/playlist-cache?clear=hgh-playlist', {
+              method: 'DELETE',
+            });
+            console.log('✅ Cleared HGH playlist cache');
+          } catch (cacheError) {
+            console.warn('⚠️ Failed to clear HGH playlist cache:', cacheError);
+          }
+        }
+
+        toast.success(`Feed reparsed successfully! ${data.newTracks > 0 ? `Added ${data.newTracks} new tracks.` : 'No new tracks found.'} Total tracks: ${data.totalTracks}`);
+        setReparseFeedUrl('');
+        // Refresh the recent feeds list
+        fetchRecentFeeds();
+      } else {
+        toast.error(data.error || 'Failed to reparse feed. Please check the URL and try again.');
+      }
+    } catch (error) {
+      console.error('Error reparsing feed:', error);
+      toast.error('Network error. Please check your connection and try again.');
+    } finally {
+      setReparsingByUrl(false);
+    }
+  };
 
   const addFeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,6 +446,55 @@ export default function AdminPanel() {
           </form>
         </div>
 
+        {/* Reparse Feed Form */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Reparse Existing Feed</h2>
+          <form onSubmit={reparseByUrl} className="space-y-4">
+            <div>
+              <label htmlFor="reparseFeedUrl" className="block text-sm font-medium text-gray-300 mb-2">
+                Paste RSS Feed URL to Reparse
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  id="reparseFeedUrl"
+                  value={reparseFeedUrl}
+                  onChange={(e) => setReparseFeedUrl(e.target.value)}
+                  onPaste={(e) => {
+                    const pastedText = e.clipboardData.getData('text');
+                    if (pastedText.trim()) {
+                      setReparseFeedUrl(pastedText.trim());
+                    }
+                  }}
+                  placeholder="https://example.com/feed.xml"
+                  className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  disabled={reparsingByUrl}
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  disabled={reparsingByUrl || !reparseFeedUrl.trim()}
+                  className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
+                >
+                  {reparsingByUrl ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Reparsing...
+                    </>
+                  ) : (
+                    <>
+                      🔄 Reparse Feed
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Paste the URL of an existing feed to refresh it from the source. This will update metadata and add any new tracks.
+              </p>
+            </div>
+          </form>
+        </div>
+
         {/* Recently Added Feeds */}
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -394,19 +537,39 @@ export default function AdminPanel() {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-white truncate">{feed.title}</h3>
                           {feed.artist && (
                             <p className="text-sm text-gray-400">{feed.artist}</p>
                           )}
                         </div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
-                          feed.type === 'album' ? 'bg-blue-600/20 text-blue-400' :
-                          feed.type === 'publisher' ? 'bg-purple-600/20 text-purple-400' :
-                          'bg-green-600/20 text-green-400'
-                        }`}>
-                          {feed.type}
-                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            feed.type === 'album' ? 'bg-blue-600/20 text-blue-400' :
+                            feed.type === 'publisher' ? 'bg-purple-600/20 text-purple-400' :
+                            'bg-green-600/20 text-green-400'
+                          }`}>
+                            {feed.type}
+                          </span>
+                          <button
+                            onClick={() => reparseFeed(feed.id)}
+                            disabled={reparsingFeeds.has(feed.id)}
+                            className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded hover:bg-orange-600/30 transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            title="Reparse feed from RSS source"
+                          >
+                            {reparsingFeeds.has(feed.id) ? (
+                              <>
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-orange-400"></div>
+                                <span>Reparsing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>🔄</span>
+                                <span>Reparse</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
                         <span>📀 {feed._count?.Track || 0} tracks</span>

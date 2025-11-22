@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -91,7 +92,8 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
           const data = await response.json();
           if (data.status === 'true') {
             const feedData = data.feed || (data.feeds && data.feeds[0]);
-            if (feedData) {
+            if (feedData && feedData.url) {
+              // Create the Feed record
               await prisma.feed.create({
                 data: {
                   id: feedGuid,
@@ -109,7 +111,64 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                   updatedAt: new Date()
                 }
               });
-              return { status: 'created', feedGuid, title: feedData.title };
+
+              // Now parse the RSS feed and create Track records
+              try {
+                console.log(`🔄 Parsing RSS feed for ${feedData.title}...`);
+                const parsedFeed = await parseRSSFeedWithSegments(feedData.url);
+
+                // Create tracks from parsed items
+                if (parsedFeed.items && parsedFeed.items.length > 0) {
+                  const tracksData = parsedFeed.items.map((item, index) => ({
+                    id: `${feedGuid}-${item.guid || `track-${index}-${Date.now()}`}`,
+                    feedId: feedGuid,
+                    guid: item.guid,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    description: item.description,
+                    artist: item.artist,
+                    audioUrl: item.audioUrl,
+                    duration: item.duration,
+                    explicit: item.explicit,
+                    image: item.image,
+                    publishedAt: item.publishedAt,
+                    itunesAuthor: item.itunesAuthor,
+                    itunesSummary: item.itunesSummary,
+                    itunesImage: item.itunesImage,
+                    itunesDuration: item.itunesDuration,
+                    itunesKeywords: item.itunesKeywords || [],
+                    itunesCategories: item.itunesCategories || [],
+                    v4vRecipient: item.v4vRecipient,
+                    v4vValue: item.v4vValue,
+                    startTime: item.startTime,
+                    endTime: item.endTime,
+                    trackOrder: index + 1, // Preserve RSS feed order
+                    updatedAt: new Date()
+                  }));
+
+                  await prisma.track.createMany({
+                    data: tracksData,
+                    skipDuplicates: true
+                  });
+
+                  console.log(`✅ Created ${tracksData.length} tracks for ${feedData.title}`);
+                  return { status: 'created', feedGuid, title: feedData.title, tracksCreated: tracksData.length };
+                } else {
+                  console.log(`⚠️ No tracks found in RSS feed for ${feedData.title}`);
+                  return { status: 'created', feedGuid, title: feedData.title, tracksCreated: 0 };
+                }
+              } catch (parseError) {
+                console.error(`❌ Error parsing RSS for ${feedData.title}:`, parseError);
+                // Feed was created but tracks weren't - mark it so user knows to reparse
+                await prisma.feed.update({
+                  where: { id: feedGuid },
+                  data: {
+                    status: 'error',
+                    lastError: `RSS parse error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+                  }
+                });
+                return { status: 'created_no_tracks', feedGuid, title: feedData.title };
+              }
             }
           }
         }
@@ -123,7 +182,11 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
           const value = result.value;
           if (value.status === 'created') {
             autoPopulatedCount++;
-            console.log(`✅ Auto-created feed: ${value.title} (${value.feedGuid.slice(0, 8)}...)`);
+            const trackInfo = value.tracksCreated !== undefined ? ` with ${value.tracksCreated} tracks` : '';
+            console.log(`✅ Auto-created feed: ${value.title} (${value.feedGuid.slice(0, 8)}...)${trackInfo}`);
+          } else if (value.status === 'created_no_tracks') {
+            autoPopulatedCount++;
+            console.log(`⚠️ Auto-created feed but RSS parse failed: ${value.title} (${value.feedGuid.slice(0, 8)}...) - will need manual reparse`);
           } else if (value.status === 'exists') {
             console.log(`⚡ Feed ${value.feedGuid.slice(0, 8)}... already exists, skipping`);
           }
