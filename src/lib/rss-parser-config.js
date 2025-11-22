@@ -7,15 +7,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function loadEnvConfig() {
-  const envPath = path.join(__dirname, '../../.env.local');
-  
-  if (!fs.existsSync(envPath)) {
-    throw new Error('.env.local file not found. Please create it with PODCAST_INDEX_API_KEY and PODCAST_INDEX_API_SECRET');
+  // First, try to get from process.env (works in production/Railway)
+  if (process.env.PODCAST_INDEX_API_KEY && process.env.PODCAST_INDEX_API_SECRET) {
+    return {
+      PODCAST_INDEX_API_KEY: process.env.PODCAST_INDEX_API_KEY,
+      PODCAST_INDEX_API_SECRET: process.env.PODCAST_INDEX_API_SECRET
+    };
   }
-  
+
+  // Fall back to .env.local for local development
+  const envPath = path.join(__dirname, '../../.env.local');
+
+  if (!fs.existsSync(envPath)) {
+    throw new Error('.env.local file not found and PODCAST_INDEX_API_KEY/PODCAST_INDEX_API_SECRET not in environment. Please set environment variables or create .env.local');
+  }
+
   const envContent = fs.readFileSync(envPath, 'utf8');
   const config = {};
-  
+
   envContent.split('\n').forEach(line => {
     const trimmedLine = line.trim();
     if (trimmedLine && !trimmedLine.startsWith('#')) {
@@ -26,11 +35,11 @@ function loadEnvConfig() {
       }
     }
   });
-  
+
   if (!config.PODCAST_INDEX_API_KEY || !config.PODCAST_INDEX_API_SECRET) {
     throw new Error('PODCAST_INDEX_API_KEY and PODCAST_INDEX_API_SECRET must be set in .env.local');
   }
-  
+
   return config;
 }
 
