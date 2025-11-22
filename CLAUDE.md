@@ -42,3 +42,4 @@ When working with playlists:
   2. Podcast Index API resolution (slower, for missing tracks)
 - Tracks without valid `audioUrl` are filtered out (unavailable content)
 - **Expected behavior**: Some tracks from XML feeds may not resolve (API doesn't have them)
+- https://podcastindex-org.github.io/docs-api/#overview--example-code
