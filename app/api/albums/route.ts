@@ -4,6 +4,9 @@ import { generateAlbumSlug } from '@/lib/url-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Force dynamic rendering to prevent build-time database calls
+export const dynamic = 'force-dynamic';
+
 // Helper function to normalize Wavlake URLs for comparison
 function normalizeWavlakeUrl(url: string): string {
   if (!url) return '';
