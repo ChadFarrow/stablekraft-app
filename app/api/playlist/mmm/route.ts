@@ -334,7 +334,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
       
       // Process more items for better resolution
       let processedCount = 0;
-      const maxToProcess = Math.min(100, unresolvedItems.length); // Process max 100 items via API for better resolution
+      const maxToProcess = Math.min(200, unresolvedItems.length); // Process max 200 items via API for better resolution
       
       for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
         let apiResult = null;
