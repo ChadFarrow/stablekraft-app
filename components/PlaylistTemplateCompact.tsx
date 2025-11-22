@@ -29,8 +29,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
   // Search and filtering
   const [searchQuery, setSearchQuery] = useState('');
-  // Default to 'original' for HGH playlist to preserve XML order, otherwise 'episode-desc'
-  const [sortBy, setSortBy] = useState<SortOption>(config.apiEndpoint.includes('/hgh') ? 'original' : 'episode-desc');
+  // Default to 'original' for HGH and MMM playlists to preserve XML order, otherwise 'episode-desc'
+  const [sortBy, setSortBy] = useState<SortOption>(config.apiEndpoint.includes('/hgh') || config.apiEndpoint.includes('/mmm') ? 'original' : 'episode-desc');
   
   // Client-side check
   useEffect(() => {
