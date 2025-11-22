@@ -115,7 +115,7 @@ export default function NostrSettings() {
       >
         <SettingsRow
           label="Auto-publish status"
-          description="Publish your currently playing track to Nostr relays. Your status will clear automatically when you pause or stop playback."
+          description="Publish your currently playing track to Nostr relays. Your status will persist until the next track plays or until the track's duration expires."
         >
           <label className="relative inline-flex items-center cursor-pointer">
             <input
@@ -146,8 +146,8 @@ export default function NostrSettings() {
                 <p className="font-medium mb-1">Status publishing is enabled</p>
                 <p className="text-purple-300/80">
                   Your currently playing track will be shared to your Nostr relays.
-                  This status is visible to anyone following you on Nostr and will automatically
-                  expire when the track ends or you pause/stop playback.
+                  This status is visible to anyone following you on Nostr and will persist
+                  as "last played" until you play a different track or the expiration time is reached.
                 </p>
               </div>
             </div>
