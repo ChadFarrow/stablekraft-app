@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@getalby/bitcoin-connect": "^3.11.0",
+    "@prisma/client": "6.16.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -70,6 +71,7 @@
     "node-fetch": "^2.7.0",
     "nostr-tools": "^2.15.0",
     "postcss": "^8",
+    "prisma": "6.16.2",
     "process": "^0.11.10",
     "qrcode.react": "^4.2.0",
     "react": "^18",
@@ -86,7 +88,6 @@
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
     "@next/bundle-analyzer": "^16.0.3",
-    "@prisma/client": "6.16.2",
     "@types/canvas-confetti": "^1.9.0",
     "@types/colorthief": "^2.6.0",
     "@types/js-yaml": "^4.0.9",
@@ -94,7 +95,6 @@
     "eslint": "^8",
     "eslint-config-next": "^14.0.4",
     "ignore-loader": "^0.1.2",
-    "prisma": "6.16.2",
     "task-master-ai": "^0.22.0",
     "ts-node": "^10.9.2"
   },
