@@ -312,6 +312,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           feedId: track.Feed.id,
           guid: track.guid,
           v4vRecipient: track.v4vRecipient, // Include V4V payment data
+          v4vValue: track.v4vValue,
           // Add playlist context
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
@@ -385,6 +386,8 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
               feedId: `api-feed-${remoteItem.feedGuid}`,
               guid: apiResult.guid,
               description: apiResult.description,
+              v4vRecipient: apiResult.v4vRecipient || null, // Include V4V payment data from API
+              v4vValue: apiResult.v4vValue || null,
               // Add playlist context
               playlistContext: {
                 feedGuid: remoteItem.feedGuid,
