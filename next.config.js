@@ -192,11 +192,14 @@ const nextConfig = {
     loaderFile: undefined,
     // Add better error handling for image optimization
     disableStaticImages: false,
-    // Configure local patterns for proxied images
+    // Configure local patterns for proxied images and static assets
     localPatterns: [
       {
         pathname: '/api/proxy-image',
         search: '**',
+      },
+      {
+        pathname: '/**',
       },
     ],
     // Configure domains for external images
