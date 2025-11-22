@@ -8,7 +8,7 @@ import { validateDuration } from '@/lib/duration-validation';
 export const maxDuration = 300;
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
-// Force recompilation
+// Force Railway rebuild - v4vRecipient fix
 
 // Persistent cache duration - 6 hours for daily updates
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
