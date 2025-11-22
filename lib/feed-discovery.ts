@@ -98,10 +98,12 @@ export async function resolveFeedGuid(feedGuid: string): Promise<string | null> 
       return null;
     }
     
-    const data: PodcastIndexResponse = await response.json();
-    
-    if (data.status === 'true' && data.feeds && data.feeds.length > 0) {
-      const feed = data.feeds[0];
+    const data: any = await response.json();
+
+    // Handle both singular 'feed' and plural 'feeds' response formats
+    const feed = data.feed || (data.feeds && data.feeds[0]);
+
+    if (data.status === 'true' && feed) {
       console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
       return feed.url;
     } else {
