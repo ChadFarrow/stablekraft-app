@@ -4,7 +4,7 @@ import { resolveItemGuid } from '@/lib/feed-discovery';
 import Parser from 'rss-parser';
 
 const parser = new Parser();
-const MMM_FEED_URL = 'https://feeds.fountain.fm/@chadf-music/chadf_music_mmm_playlist';
+const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 
 interface RemoteItem {
   feedGuid: string;
@@ -16,8 +16,8 @@ export async function POST(request: Request) {
     console.log('🚀 Starting MMM track resolution process...');
 
     // Fetch and parse MMM playlist RSS feed
-    const feed = await parser.parseURL(MMM_FEED_URL);
-    const xmlResponse = await fetch(MMM_FEED_URL);
+    const feed = await parser.parseURL(MMM_PLAYLIST_URL);
+    const xmlResponse = await fetch(MMM_PLAYLIST_URL);
     const xmlText = await xmlResponse.text();
 
     // Extract podcast:remoteItem elements
