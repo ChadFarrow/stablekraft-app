@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
         artist: 'Various Artists',
         album: 'Behind the Sch3m3s Music Playlist',
         description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
-        image: '/placeholder-podcast.jpg',
-        coverArt: '/placeholder-podcast.jpg',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/b4ts-playlist-art.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/b4ts-playlist-art.webp',
         url: B4TS_PLAYLIST_URL,
         tracks: [], // Start with empty tracks, will load via regular endpoint
         feedId: 'b4ts-playlist',
