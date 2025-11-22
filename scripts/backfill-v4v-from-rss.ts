@@ -24,10 +24,11 @@ interface PodcastValue {
   'podcast:valueRecipient'?: ValueRecipient[];
 }
 
-async function parseV4VFromRSS(rssUrl: string) {
+async function parseV4VFromRSS(rssUrl: string, debug = false) {
   try {
     const response = await fetch(rssUrl);
     if (!response.ok) {
+      if (debug) console.log(`   DEBUG: Response not OK: ${response.status}`);
       return null;
     }
 
@@ -40,6 +41,11 @@ async function parseV4VFromRSS(rssUrl: string) {
 
     if (channel?.['podcast:value']?.[0]) {
       channelValue = channel['podcast:value'][0];
+    }
+
+    if (debug) {
+      console.log(`   DEBUG: channelValue exists:`, channelValue ? 'YES' : 'NO');
+      console.log(`   DEBUG: has recipients:`, channelValue?.['podcast:valueRecipient'] ? 'YES' : 'NO');
     }
 
     // Return channel-level V4V data (will apply to all items in this feed)
@@ -60,6 +66,7 @@ async function parseV4VFromRSS(rssUrl: string) {
       };
     }
 
+    if (debug) console.log(`   DEBUG: Returning null (no V4V found)`);
     return null;
   } catch (error) {
     console.error(`   Error parsing RSS:`, error instanceof Error ? error.message : error);
@@ -123,11 +130,22 @@ async function main() {
       }
 
       try {
-        // Parse RSS feed directly
-        const v4vData = await parseV4VFromRSS(feed.originalUrl);
+        // Parse RSS feed directly (enable debug for specific feeds)
+        const enableDebug = feed.title === 'ABOUT 30' || feed.title === 'Cowboy Songs';
+        const v4vData = await parseV4VFromRSS(feed.originalUrl, enableDebug);
 
-        if (!v4vData || !v4vData.recipients || v4vData.recipients.length === 0) {
-          console.log(`   ⚠️ No V4V data found in RSS`);
+        if (!v4vData) {
+          console.log(`   ⚠️ No V4V data found in RSS (parseV4VFromRSS returned null)`);
+          skippedCount += tracks.length;
+          // Still rate limit even on failures to avoid hammering the server
+          if (feed.originalUrl?.includes('wavlake.com')) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          continue;
+        }
+
+        if (!v4vData.recipients || v4vData.recipients.length === 0) {
+          console.log(`   ⚠️ No V4V data found in RSS (no recipients)`);
           skippedCount += tracks.length;
           continue;
         }
@@ -149,9 +167,11 @@ async function main() {
 
         console.log(`   ✅ Updated ${tracks.length} tracks`);
 
-        // Rate limiting
-        if (feedIndex % 20 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        // Rate limiting - aggressive delay for Wavlake to avoid 429 errors
+        if (feed.originalUrl?.includes('wavlake.com')) {
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3s delay for Wavlake
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms for others
         }
 
       } catch (error) {
