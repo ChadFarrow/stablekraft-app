@@ -7,7 +7,7 @@ const sasConfig: PlaylistConfig = {
   title: 'Sats and Sounds Music Playlist',
   description: 'Curated playlist from Sats and Sounds podcast featuring Value4Value independent artists',
   apiEndpoint: '/api/playlist/sas-fast', // Use fast endpoint with progressive loading
-  cacheKey: 'sas-playlist',
+  cacheKey: 'sas-playlist-v2', // Bumped to v2 for correct feed order
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   useAudioContext: true
 };

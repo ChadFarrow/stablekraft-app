@@ -7,7 +7,7 @@ const upbeatsConfig: PlaylistConfig = {
   title: 'Upbeats Playlist',
   description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
   apiEndpoint: '/api/playlist/upbeats-fast', // Use fast endpoint with progressive loading
-  cacheKey: 'upbeats-playlist',
+  cacheKey: 'upbeats-playlist-v2', // Bumped to v2 for correct feed order
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   useAudioContext: true
 };
