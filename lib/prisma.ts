@@ -7,9 +7,6 @@ const globalForPrisma = global as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter: {
-      url: process.env.DATABASE_URL || '',
-    },
     log: ['error'], // Only log errors to reduce console spam
   })
 
