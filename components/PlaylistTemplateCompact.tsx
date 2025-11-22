@@ -590,9 +590,9 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   </a>
                 )}
               </div>
-              <p className="text-gray-400 mb-4">{config.description}</p>
+              <p className="text-white/80 mb-4">{config.description}</p>
               {stats && (
-                <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                <div className="flex flex-wrap gap-4 text-sm text-white/70">
                   <span>{new Date().getFullYear()}</span>
                   <span>•</span>
                   <span>{stats.totalTracks} tracks</span>
@@ -604,7 +604,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           </div>
 
           {/* Search and Tracks Container */}
-          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
+          <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
             {/* Search */}
             <div className="mb-6">
               <div className="relative max-w-md">
@@ -614,7 +614,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   placeholder="Search tracks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-600/50 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-gray-300"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-600/50 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-white/60"
                 />
               </div>
             </div>
@@ -681,7 +681,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                         }`}>
                           {track.valueForValue?.resolvedTitle || track.title}
                         </h3>
-                        <p className="text-xs text-gray-400 truncate">
+                        <p className="text-xs text-white/70 truncate">
                           {track.valueForValue?.resolvedArtist || track.artist}
                         </p>
                       </div>
@@ -699,7 +699,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                             V4V
                           </span>
                         )}
-                        <span className="text-xs text-gray-400 tabular-nums">
+                        <span className="text-xs text-white/70 tabular-nums">
                           {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
                         </span>
                       </div>
