@@ -324,7 +324,7 @@ export async function POST(request: Request) {
           none: {}
         }
       },
-      take: 50 // Limit to 50 feeds per run to prevent timeouts
+      take: 200 // Increased from 50 to process more feeds per run
     });
     
     console.log(`📋 Found ${unparsedFeeds.length} unparsed feeds to process`);
@@ -422,8 +422,8 @@ export async function POST(request: Request) {
           failedParses.push({ feedId: feed.id, reason: 'Database import failed' });
         }
         
-        // Rate limiting: wait 500ms between feeds
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Rate limiting: wait 100ms between feeds (reduced from 500ms for faster processing)
+        await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
         console.error(`❌ Error processing feed ${feed.id}:`, error);
