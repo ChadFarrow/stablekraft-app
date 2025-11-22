@@ -577,8 +577,22 @@ export default function PlaylistTemplate({ config }: PlaylistTemplateProps) {
                         <div className="flex items-center space-x-2 ml-4">
                           <BoostButton
                             trackId={track.id}
+                            feedId={track.valueForValue?.feedGuid || track.feedGuid}
                             trackTitle={track.valueForValue?.resolvedTitle || track.title}
                             artistName={track.valueForValue?.resolvedArtist || track.artist}
+                            lightningAddress={track.v4vRecipient}
+                            valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations 
+                              ? (track.v4vValue.recipients || track.v4vValue.destinations)
+                                  .filter((r: any) => !r.fee)
+                                  .map((r: any) => ({
+                                    name: r.name || track.artist,
+                                    address: r.address || '',
+                                    split: parseInt(r.split) || 100,
+                                    type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
+                                  }))
+                              : undefined}
+                            episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
+                            remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
                             className="text-xs"
                           />
                           {/* Source Badge */}

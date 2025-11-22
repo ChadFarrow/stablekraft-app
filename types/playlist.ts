@@ -23,6 +23,8 @@ export interface Track {
     resolvedAudioUrl?: string;
     resolvedDuration?: number;
   };
+  v4vRecipient?: string;
+  v4vValue?: any;
 }
 
 export type SortOption = 'original' | 'episode-desc' | 'episode-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc' | 'time-asc';

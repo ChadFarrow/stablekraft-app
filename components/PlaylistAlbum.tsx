@@ -25,6 +25,8 @@ export interface PlaylistTrack {
     resolvedAudioUrl?: string;
     resolvedDuration?: number;
   };
+  v4vRecipient?: string;
+  v4vValue?: any;
 }
 
 export interface PlaylistConfig {
@@ -78,7 +80,9 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
             resolvedImage: song.artworkUrl || config.coverArt,
             resolvedAudioUrl: song.audioUrl,
             resolvedDuration: song.duration
-          }
+          },
+          v4vRecipient: song.v4vRecipient,
+          v4vValue: song.v4vValue
         }));
       
       logger.info(`✅ Created initial tracks for ${config.name}:`, initialTracks.length);
@@ -397,6 +401,19 @@ export default function PlaylistAlbum({ tracks: rawTracks, config, onTrackResolv
                 feedId={track.valueForValue?.feedGuid}
                 trackTitle={displayTitle}
                 artistName={displayArtist}
+                lightningAddress={track.v4vRecipient}
+                valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations 
+                  ? (track.v4vValue.recipients || track.v4vValue.destinations)
+                      .filter((r: any) => !r.fee)
+                      .map((r: any) => ({
+                        name: r.name || track.artist,
+                        address: r.address || '',
+                        split: parseInt(r.split) || 100,
+                        type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
+                      }))
+                  : undefined}
+                episodeGuid={track.valueForValue?.itemGuid}
+                remoteFeedGuid={track.valueForValue?.feedGuid}
                 className="text-xs"
               />
               <span className="text-xs md:text-sm text-gray-400">
