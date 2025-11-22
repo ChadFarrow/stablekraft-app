@@ -51,7 +51,7 @@ export async function GET() {
       return {
         id: track.id,
         title: track.title,
-        artist: track.artist || track.Feed.artist || 'Unknown Artist',
+        artist: track.artist || (track.Feed.artist === 'Unresolved GUID' ? track.Feed.title : track.Feed.artist) || 'Unknown Artist',
         audioUrl: track.audioUrl,
         duration: track.duration || 0,
         image: track.image || track.Feed.image,

@@ -259,7 +259,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
         const resolvedTrack = {
           id: track.id,
           title: track.title,
-          artist: track.artist || track.Feed.artist || 'Unknown Artist',
+          artist: track.artist || (track.Feed.artist === 'Unresolved GUID' ? track.Feed.title : track.Feed.artist) || 'Unknown Artist',
           audioUrl: track.audioUrl,
           url: track.audioUrl, // Add url property for compatibility
           duration: track.duration || 0,

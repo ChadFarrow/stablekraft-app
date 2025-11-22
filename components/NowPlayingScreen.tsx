@@ -367,7 +367,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             {currentTrack.title || 'Unknown Track'}
           </h1>
           <p className="text-lg opacity-80 truncate">
-            {currentPlayingAlbum.artist || 'Unknown Artist'}
+            {currentTrack.artist || currentPlayingAlbum.artist || 'Unknown Artist'}
           </p>
         </div>
 
