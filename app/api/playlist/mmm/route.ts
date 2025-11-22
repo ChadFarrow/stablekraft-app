@@ -166,6 +166,8 @@ export async function GET(request: Request) {
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
           guid: resolvedTrack.guid,
+          v4vRecipient: resolvedTrack.v4vRecipient, // V4V payment data
+          v4vValue: resolvedTrack.v4vValue,
           resolved: true
         };
       } else {
