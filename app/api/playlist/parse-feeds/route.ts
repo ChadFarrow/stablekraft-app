@@ -211,7 +211,27 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
 
         // Get v4v data for this track
         let v4vData = null;
-        if (parsedV4V && episode.guid) {
+
+        // Check if episode already has v4v data from Podcast Index API
+        if (episode.v4vValue && episode.v4vValue.destinations) {
+          v4vData = {
+            type: episode.v4vValue.model?.type || 'lightning',
+            method: episode.v4vValue.model?.method || 'keysend',
+            suggested: episode.v4vValue.model?.suggested,
+            recipients: episode.v4vValue.destinations.map((r: any) => ({
+              name: r.name,
+              type: r.type,
+              address: r.address,
+              split: r.split,
+              customKey: r.customKey,
+              customValue: r.customValue,
+              fee: r.fee || false
+            }))
+          };
+          console.log(`✅ Found v4v data from API for track "${episode.title}": ${episode.v4vValue.destinations.length} recipients`);
+        }
+        // Fallback to parsed XML v4v data if available
+        else if (parsedV4V && episode.guid) {
           const itemV4V = parsedV4V.itemValues.get(episode.guid);
           const valueTag = itemV4V || parsedV4V.channelValue; // Use item-level or fall back to channel-level
 
@@ -231,7 +251,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
                 fee: r.fee || false
               }))
             };
-            console.log(`✅ Found v4v data for track "${episode.title}": ${valueTag.recipients.length} recipients`);
+            console.log(`✅ Found v4v data from RSS for track "${episode.title}": ${valueTag.recipients.length} recipients`);
           }
         }
 
@@ -333,20 +353,12 @@ export async function POST(request: Request) {
           feedData = await lookupFeedByGuid(feed.id);
         }
 
-        // Use feed data from Podcast Index if available, otherwise use existing feed data
+        let parseResult = null;
         const feedUrl = feedData?.url || feed.originalUrl;
 
-        if (!feedUrl) {
-          failedParses.push({ feedId: feed.id, reason: 'No feed URL available' });
-          continue;
-        }
-
-        // Try to parse the RSS feed to get episodes and v4v data
-        let parseResult = await parseFeedXML(feedUrl);
-
-        // If RSS parsing failed but we have Podcast Index data, get episodes from API
-        if ((!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) && feedData?.id) {
-          console.log(`⚠️ RSS feed failed, trying Podcast Index API for feed ${feedData.id}`);
+        // PRIMARY: Try Podcast Index API first if we have feed data
+        if (feedData?.id) {
+          console.log(`📡 Using Podcast Index API for feed ${feedData.id}`);
           try {
             const headers = generateAuthHeaders();
             const episodesResponse = await fetch(`${API_BASE_URL}/episodes/byfeedid?id=${feedData.id}&max=1000`, { headers });
@@ -355,7 +367,7 @@ export async function POST(request: Request) {
               const episodesData = await episodesResponse.json();
               if (episodesData.status === 'true' && episodesData.items && episodesData.items.length > 0) {
                 console.log(`✅ Got ${episodesData.items.length} episodes from Podcast Index API`);
-                // Convert Podcast Index episodes to our format
+                // Convert Podcast Index episodes to our format with v4v data
                 const episodes = episodesData.items.map((ep: any) => ({
                   title: ep.title,
                   description: ep.description || '',
@@ -363,14 +375,26 @@ export async function POST(request: Request) {
                   audioUrl: ep.enclosureUrl || '',
                   image: ep.image || feedData.image || '',
                   duration: ep.duration?.toString() || '0',
-                  pubDate: new Date(ep.datePublished * 1000).toUTCString()
+                  pubDate: new Date(ep.datePublished * 1000).toUTCString(),
+                  v4vValue: ep.value // Include v4v data from API
                 }));
-                parseResult = { episodes, xmlText: '' }; // No XML since we got from API
+                parseResult = { episodes, xmlText: '' };
               }
             }
           } catch (apiError) {
-            console.error(`❌ Error getting episodes from API:`, apiError);
+            console.error(`❌ Error getting episodes from Podcast Index API:`, apiError);
           }
+        }
+
+        // FALLBACK: Try RSS parsing if API failed or no feedData
+        if (!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) {
+          if (!feedUrl) {
+            failedParses.push({ feedId: feed.id, reason: 'No feed URL or API data available' });
+            continue;
+          }
+
+          console.log(`⚠️ Falling back to RSS parsing for ${feedUrl}`);
+          parseResult = await parseFeedXML(feedUrl);
         }
 
         if (!parseResult || !parseResult.episodes || parseResult.episodes.length === 0) {
