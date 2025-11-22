@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/auto-version-update.js",
-    "build": "npx prisma generate && next build --no-lint",
+    "build": "npm run db:generate && next build --no-lint",
     "postbuild": "echo 'Build complete'",
     "postinstall": "if [ \"$NODE_ENV\" != \"production\" ]; then npm run check-env || true && npm run dev-setup || true; fi",
     "start": "next start",
