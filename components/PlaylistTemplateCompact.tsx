@@ -674,8 +674,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                   {/* Track Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-4">
+                      <div className="min-w-0 max-w-2xl">
                         <h3 className={`text-sm font-medium truncate ${
                           isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
                         }`}>
@@ -687,7 +687,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                       </div>
 
                       {/* Duration */}
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-2 ml-auto">
                         <BoostButton
                           trackId={track.id}
                           trackTitle={track.valueForValue?.resolvedTitle || track.title}
