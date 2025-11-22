@@ -82,7 +82,8 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
     "webln": "^0.3.2",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "@types/xml2js": "^0.4.14"
   },
   "devDependencies": {
     "@capacitor/android": "^7.4.2",
@@ -91,7 +92,6 @@
     "@next/bundle-analyzer": "^16.0.3",
     "@types/colorthief": "^2.6.0",
     "@types/js-yaml": "^4.0.9",
-    "@types/xml2js": "^0.4.14",
     "eslint": "^8",
     "eslint-config-next": "^14.0.4",
     "ignore-loader": "^0.1.2",
