@@ -101,6 +101,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const { user, isAuthenticated } = useNostr();
   const { settings } = useUserSettings();
   const nip38TimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPublishedNip38TrackRef = useRef<string | null>(null);
 
   // Helper function to publish NIP-38 status (debounced)
   const publishNip38StatusDebounced = useCallback((action: 'play') => {
@@ -119,6 +120,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       try {
         if (action === 'play' && currentPlayingAlbum && currentPlayingAlbum.tracks[currentTrackIndex]) {
           const track = currentPlayingAlbum.tracks[currentTrackIndex];
+
+          // Generate unique identifier for this track
+          const trackIdentifier = track.id || track.guid || track.url || '';
+
+          // Check if this is the same track we already published
+          if (lastPublishedNip38TrackRef.current === trackIdentifier) {
+            console.log('⏭️ NIP-38: Skipping duplicate status for same track');
+            return;
+          }
+
           const currentElement = isVideoMode ? videoRef.current : audioRef.current;
 
           // Construct track page URL on this site
@@ -126,8 +137,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             ? window.location.origin
             : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
 
-          // Use track.id if available, otherwise fall back to track.guid or track.url
-          const trackIdentifier = track.id || track.guid || encodeURIComponent(track.url || '');
           const trackPageUrl = trackIdentifier ? `${baseUrl}/music-tracks/${encodeURIComponent(trackIdentifier)}` : track.url;
 
           // Publish "now playing" status - persists as "last played" until next track
@@ -147,6 +156,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             },
             user?.relays
           );
+
+          // Store this track as the last published
+          lastPublishedNip38TrackRef.current = trackIdentifier;
         }
         // Status persists - never cleared automatically
       } catch (error) {
@@ -1458,6 +1470,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
+
+    // Clear last published NIP-38 track so next play will publish
+    lastPublishedNip38TrackRef.current = null;
 
     setIsPlaying(false);
     setCurrentPlayingAlbum(null);
