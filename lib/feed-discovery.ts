@@ -40,10 +40,25 @@ interface PodcastIndexResponse {
   description: string;
 }
 
-// Load API keys from .env.local
+// Load API keys from environment variables or .env.local
 function getApiKeys(): { apiKey: string; apiSecret: string } {
+  // First, try to get from environment variables (works in production/Railway)
+  if (process.env.PODCAST_INDEX_API_KEY && process.env.PODCAST_INDEX_API_SECRET) {
+    return {
+      apiKey: process.env.PODCAST_INDEX_API_KEY,
+      apiSecret: process.env.PODCAST_INDEX_API_SECRET
+    };
+  }
+
+  // Fall back to .env.local for local development
   try {
     const envPath = path.join(process.cwd(), '.env.local');
+    
+    // Check if file exists before trying to read it
+    if (!fs.existsSync(envPath)) {
+      throw new Error('PODCAST_INDEX_API_KEY and PODCAST_INDEX_API_SECRET must be set in environment variables or .env.local file');
+    }
+    
     const envContent = fs.readFileSync(envPath, 'utf8');
     
     const apiKeyMatch = envContent.match(/PODCAST_INDEX_API_KEY=(.+)/);

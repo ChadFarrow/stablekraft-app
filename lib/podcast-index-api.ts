@@ -94,15 +94,25 @@ class PodcastIndexAPI {
       if (fs.existsSync(envPath)) {
         const envContent = fs.readFileSync(envPath, 'utf8');
         envContent.split('\n').forEach(line => {
-          const [key, value] = line.split('=');
-          if (key && value && !process.env[key]) {
-            process.env[key] = value;
+          const trimmedLine = line.trim();
+          if (trimmedLine && !trimmedLine.startsWith('#')) {
+            const [key, ...valueParts] = trimmedLine.split('=');
+            if (key && valueParts.length > 0 && !process.env[key.trim()]) {
+              const value = valueParts.join('=').replace(/^["']|["']$/g, '').trim();
+              process.env[key.trim()] = value;
+            }
           }
         });
         console.log('📁 Loaded environment variables from .env.local');
+      } else {
+        // File doesn't exist - this is normal in production
+        // Environment variables should be set directly
       }
     } catch (error) {
-      console.warn('Failed to load .env.local file:', error);
+      // Only warn if it's not a "file not found" error
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn('Failed to load .env.local file:', error);
+      }
     }
   }
 
