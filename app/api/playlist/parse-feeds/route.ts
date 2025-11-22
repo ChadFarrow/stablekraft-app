@@ -211,6 +211,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
 
         // Get v4v data for this track
         let v4vData = null;
+        let v4vRecipient = null;
 
         // Check if episode already has v4v data from Podcast Index API
         if (episode.v4vValue && episode.v4vValue.destinations) {
@@ -228,6 +229,8 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               fee: r.fee || false
             }))
           };
+          // Extract lightning address from first recipient
+          v4vRecipient = episode.v4vValue.destinations[0]?.address || null;
           console.log(`✅ Found v4v data from API for track "${episode.title}": ${episode.v4vValue.destinations.length} recipients`);
         }
         // Fallback to parsed XML v4v data if available
@@ -251,6 +254,8 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
                 fee: r.fee || false
               }))
             };
+            // Extract lightning address from first recipient
+            v4vRecipient = valueTag.recipients[0]?.address || null;
             console.log(`✅ Found v4v data from RSS for track "${episode.title}": ${valueTag.recipients.length} recipients`);
           }
         }
@@ -270,6 +275,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               feedId: feed.id,
               trackOrder: trackCount + 1,
               ...(v4vData && { v4vValue: v4vData }),
+              ...(v4vRecipient && { v4vRecipient }),
               updatedAt: new Date()
             }
           });
@@ -280,6 +286,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
             where: { id: existingTrack.id },
             data: {
               v4vValue: v4vData,
+              ...(v4vRecipient && { v4vRecipient }),
               updatedAt: new Date()
             }
           });

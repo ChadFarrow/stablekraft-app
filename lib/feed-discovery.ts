@@ -84,20 +84,20 @@ async function generateHeaders(apiKey: string, apiSecret: string): Promise<Recor
 export async function resolveFeedGuid(feedGuid: string): Promise<string | null> {
   try {
     console.log(`🔍 Resolving feed GUID: ${feedGuid}`);
-    
+
     const { apiKey, apiSecret } = getApiKeys();
     const headers = await generateHeaders(apiKey, apiSecret);
-    
+
     // Use Podcast Index API to resolve GUID to feed URL
     const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
       headers
     });
-    
+
     if (!response.ok) {
       console.warn(`⚠️ Podcast Index API error: ${response.status} ${response.statusText}`);
       return null;
     }
-    
+
     const data: any = await response.json();
 
     // Handle both singular 'feed' and plural 'feeds' response formats
@@ -106,6 +106,47 @@ export async function resolveFeedGuid(feedGuid: string): Promise<string | null> 
     if (data.status === 'true' && feed) {
       console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
       return feed.url;
+    } else {
+      console.warn(`⚠️ No feed found for GUID: ${feedGuid}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Error resolving feed GUID ${feedGuid}:`, error);
+    return null;
+  }
+}
+
+// New function that returns full feed metadata
+export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ url: string; title: string; artist: string; image: string } | null> {
+  try {
+    console.log(`🔍 Resolving feed GUID with metadata: ${feedGuid}`);
+
+    const { apiKey, apiSecret } = getApiKeys();
+    const headers = await generateHeaders(apiKey, apiSecret);
+
+    // Use Podcast Index API to resolve GUID to feed metadata
+    const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
+      headers
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ Podcast Index API error: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data: any = await response.json();
+
+    // Handle both singular 'feed' and plural 'feeds' response formats
+    const feed = data.feed || (data.feeds && data.feeds[0]);
+
+    if (data.status === 'true' && feed) {
+      console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
+      return {
+        url: feed.url,
+        title: feed.title || 'Unknown Feed',
+        artist: feed.author || feed.ownerName || 'Unknown Artist',
+        image: feed.artwork || feed.image || ''
+      };
     } else {
       console.warn(`⚠️ No feed found for GUID: ${feedGuid}`);
       return null;
@@ -133,48 +174,49 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         continue;
       }
       
-      // Try to resolve the GUID to an actual feed URL
-      const resolvedUrl = await resolveFeedGuid(feedGuid);
-      
-      if (resolvedUrl) {
+      // Try to resolve the GUID to get full feed metadata
+      const resolvedFeed = await resolveFeedGuidWithMetadata(feedGuid);
+
+      if (resolvedFeed) {
         // Check if we already have this resolved URL
         const existingResolvedFeed = await prisma.feed.findUnique({
-          where: { originalUrl: resolvedUrl }
+          where: { originalUrl: resolvedFeed.url }
         });
-        
+
         if (existingResolvedFeed) {
-          console.log(`⚡ Resolved feed URL already exists: ${resolvedUrl}`);
+          console.log(`⚡ Resolved feed URL already exists: ${resolvedFeed.url}`);
           continue;
         }
-        
-        // Add the resolved feed using the podcast GUID as the ID
+
+        // Add the resolved feed using the podcast GUID as the ID and proper metadata
         const newFeed = await prisma.feed.create({
           data: {
             id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
-            title: `Auto-discovered feed (${feedGuid.slice(0, 8)}...)`,
-            description: `Automatically discovered feed from playlist analysis`,
-            originalUrl: resolvedUrl,
+            title: resolvedFeed.title,
+            description: `Auto-discovered from playlist`,
+            originalUrl: resolvedFeed.url,
             type: 'album',
             priority: 'normal',
             status: 'active',
-            artist: 'Auto-discovered',
+            artist: resolvedFeed.artist,
+            image: resolvedFeed.image,
             updatedAt: new Date()
           }
         });
-        
-        console.log(`✅ Added resolved feed: ${resolvedUrl}`);
-        
+
+        console.log(`✅ Added resolved feed: ${resolvedFeed.title} by ${resolvedFeed.artist}`);
+
         // Automatically process the RSS feed to extract tracks
         try {
           console.log(`🔄 Processing RSS for feed: ${newFeed.id}`);
           const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const parseResponse = await fetch(`${baseUrl}/api/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
+          const parseResponse = await fetch(`${baseUrl}/api/playlist/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             }
           });
-          
+
           if (parseResponse.ok) {
             const parseResult = await parseResponse.json();
             console.log(`✅ RSS processing completed for feed ${newFeed.id}: ${parseResult.message}`);
@@ -184,26 +226,11 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         } catch (parseError) {
           console.error(`❌ Error processing RSS for feed ${newFeed.id}:`, parseError);
         }
-        
+
         addedCount++;
       } else {
-        // Store the GUID using the podcast GUID as the ID
-        await prisma.feed.create({
-          data: {
-            id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
-            title: `Unresolved feed GUID (${feedGuid.slice(0, 8)}...)`,
-            description: `Feed GUID from playlist - needs manual resolution: ${feedGuid}`,
-            originalUrl: guidUrl,
-            type: 'album',
-            priority: 'low',
-            status: 'active', // Set to active so parse-feeds will try to parse it
-            artist: 'Unresolved GUID',
-            updatedAt: new Date()
-          }
-        });
-        
-        console.log(`📝 Stored unresolved feed GUID: ${feedGuid}`);
-        addedCount++;
+        // Could not resolve - skip this feed (don't create placeholder)
+        console.warn(`⚠️ Skipping feed GUID ${feedGuid} - could not resolve via Podcast Index API`);
       }
     } catch (error) {
       console.error(`❌ Error processing feed GUID ${feedGuid}:`, error);
