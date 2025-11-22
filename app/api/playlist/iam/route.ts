@@ -10,7 +10,7 @@ export const maxDuration = 300;
 const IAM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml';
 
 // Persistent cache duration - 90 days for static playlists (manual refresh when needed)
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
+const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours for daily updates
 
 interface RemoteItem {
   feedGuid: string;

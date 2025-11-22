@@ -10,8 +10,8 @@ export const maxDuration = 300;
 
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
 
-// Persistent cache duration - 90 days for static playlists (manual refresh when needed)
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 90; // 90 days
+// Persistent cache duration - 6 hours for daily updates
+const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
 
 interface RemoteItem {
   feedGuid: string;

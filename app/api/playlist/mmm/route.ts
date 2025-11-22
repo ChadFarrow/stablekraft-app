@@ -10,8 +10,8 @@ export const maxDuration = 300;
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 // Force recompilation
 
-// Persistent cache duration - 7 days for faster responses 
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
+// Persistent cache duration - 6 hours for daily updates
+const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
 
 interface RemoteItem {
   feedGuid: string;

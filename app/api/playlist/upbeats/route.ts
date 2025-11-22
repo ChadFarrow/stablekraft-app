@@ -12,7 +12,7 @@ export const maxDuration = 300;
 const UPBEATS_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/upbeats-music-playlist.xml';
 
 // Persistent cache duration - 7 days for faster responses 
-const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
+const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours for daily updates
 
 interface RemoteItem {
   feedGuid: string;
