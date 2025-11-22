@@ -365,7 +365,7 @@ export async function POST(request: Request) {
                   duration: ep.duration?.toString() || '0',
                   pubDate: new Date(ep.datePublished * 1000).toUTCString()
                 }));
-                parseResult = { episodes, xmlText: null }; // No XML since we got from API
+                parseResult = { episodes, xmlText: '' }; // No XML since we got from API
               }
             }
           } catch (apiError) {
