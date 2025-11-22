@@ -445,7 +445,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'strangetextures.com',
           'thisisjdog.com',
           'doerfelverse.com',
-          'behindthesch3m3s.com',
           'heycitizen.xyz',
           'bitpunk.fm',
           'thebearsnare.com'
