@@ -32,12 +32,7 @@ async function main() {
     // Get tracks missing V4V data, grouped by feed
     const tracksWithoutV4V = await prisma.track.findMany({
       where: {
-        v4vRecipient: null, // Use the string field instead of JSON field for null check
-        Feed: {
-          originalUrl: {
-            contains: 'wavlake.com' // Focus on Wavlake tracks first
-          }
-        }
+        v4vRecipient: null // Get ALL tracks without V4V data (all sources)
       },
       include: {
         Feed: {
@@ -53,7 +48,7 @@ async function main() {
       }
     });
 
-    console.log(`\nFound ${tracksWithoutV4V.length} Wavlake tracks without V4V data\n`);
+    console.log(`\nFound ${tracksWithoutV4V.length} tracks without V4V data (all sources)\n`);
 
     let updatedCount = 0;
     let failedCount = 0;
@@ -79,8 +74,23 @@ async function main() {
       console.log(`${progress} ${feed.title} (${tracks.length} tracks)`);
 
       try {
-        // Get episodes from Podcast Index API using feed GUID
         const headers = await generateHeaders(apiKey, apiSecret);
+
+        // STEP 1: Get feed-level V4V data
+        const feedResponse = await fetch(
+          `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedId)}`,
+          { headers }
+        );
+
+        let feedLevelV4V = null;
+        if (feedResponse.ok) {
+          const feedData = await feedResponse.json();
+          if (feedData.status === 'true' && feedData.feed && feedData.feed.value) {
+            feedLevelV4V = feedData.feed.value;
+          }
+        }
+
+        // STEP 2: Get episodes from Podcast Index API using feed GUID
         const response = await fetch(
           `https://api.podcastindex.org/api/1.0/episodes/bypodcastguid?guid=${encodeURIComponent(feedId)}`,
           { headers }
@@ -94,10 +104,47 @@ async function main() {
 
         const data = await response.json();
 
+        // If no episodes found, try to use feed-level V4V for all tracks
         if (!data.items || data.items.length === 0) {
-          console.log(`   ⚠️ No episodes found in API`);
-          skippedCount += tracks.length;
-          continue;
+          if (feedLevelV4V && feedLevelV4V.destinations) {
+            console.log(`   📡 No episodes in API, using feed-level V4V`);
+            // Update all tracks with feed-level V4V
+            let feedUpdatedCount = 0;
+            for (const track of tracks) {
+              const v4vData = {
+                type: feedLevelV4V.model?.type || 'lightning',
+                method: feedLevelV4V.model?.method || 'keysend',
+                suggested: feedLevelV4V.model?.suggested,
+                recipients: feedLevelV4V.destinations.map((r: any) => ({
+                  name: r.name,
+                  type: r.type,
+                  address: r.address,
+                  split: r.split,
+                  customKey: r.customKey,
+                  customValue: r.customValue,
+                  fee: r.fee || false
+                }))
+              };
+              const v4vRecipient = feedLevelV4V.destinations[0]?.address || null;
+
+              await prisma.track.update({
+                where: { id: track.id },
+                data: {
+                  v4vValue: v4vData,
+                  v4vRecipient: v4vRecipient,
+                  updatedAt: new Date()
+                }
+              });
+              feedUpdatedCount++;
+              updatedCount++;
+            }
+            console.log(`   ✅ Updated ${feedUpdatedCount} tracks with feed-level V4V`);
+            continue;
+          } else {
+            console.log(`   ⚠️ No episodes found in API`);
+            skippedCount += tracks.length;
+            continue;
+          }
         }
 
         // Create a map of episodes by GUID for quick lookup
@@ -114,16 +161,19 @@ async function main() {
             continue;
           }
 
-          if (!episode.value || !episode.value.destinations) {
+          // Use episode-level V4V if available, otherwise fall back to feed-level V4V
+          const v4vSource = (episode.value && episode.value.destinations) ? episode.value : feedLevelV4V;
+
+          if (!v4vSource || !v4vSource.destinations) {
             continue;
           }
 
           // Format V4V data for database
           const v4vData = {
-            type: episode.value.model?.type || 'lightning',
-            method: episode.value.model?.method || 'keysend',
-            suggested: episode.value.model?.suggested,
-            recipients: episode.value.destinations.map((r: any) => ({
+            type: v4vSource.model?.type || 'lightning',
+            method: v4vSource.model?.method || 'keysend',
+            suggested: v4vSource.model?.suggested,
+            recipients: v4vSource.destinations.map((r: any) => ({
               name: r.name,
               type: r.type,
               address: r.address,
@@ -134,9 +184,8 @@ async function main() {
             }))
           };
 
-          // Extract lightning address from first recipient if it's a node address
-          const firstRecipient = episode.value.destinations[0];
-          const v4vRecipient = firstRecipient?.address || null;
+          // Extract lightning address from first recipient
+          const v4vRecipient = v4vSource.destinations[0]?.address || null;
 
           // Update track with V4V data
           await prisma.track.update({
