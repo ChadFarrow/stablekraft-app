@@ -45,11 +45,28 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   useEffect(() => {
     logger.info(`🚀 ${config.title} Playlist component mounted`);
 
-    const loadCachedData = () => {
+    const loadCachedData = async () => {
       try {
-        const cached = localStorage.getItem(config.cacheKey);
-        if (cached && cached !== null) {
-          const data: CachedData = JSON.parse(cached as string);
+        // Try IndexedDB first for large playlists, then localStorage
+        let cached: string | null = null;
+        let data: CachedData | null = null;
+        
+        try {
+          const { storage } = await import('@/lib/indexed-db-storage');
+          data = await storage.getItem<CachedData>(config.cacheKey);
+        } catch (indexedDBError) {
+          // Fallback to localStorage
+          try {
+            cached = localStorage.getItem(config.cacheKey);
+            if (cached) {
+              data = JSON.parse(cached);
+            }
+          } catch (localError) {
+            console.warn(`Failed to load from localStorage:`, localError);
+          }
+        }
+        
+        if (data) {
           const now = Date.now();
 
           // Check if cache has resolved V4V data OR is a database playlist
@@ -95,21 +112,47 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               logger.info('⏰ Cache expired, will fetch fresh data');
             }
             console.log(`🗑️ Removing cache for ${config.title}`);
-            localStorage.removeItem(config.cacheKey);
+            // Remove from both storage locations
+            try {
+              const { storage } = await import('@/lib/indexed-db-storage');
+              await storage.removeItem(config.cacheKey);
+            } catch {
+              // Ignore errors
+            }
+            try {
+              localStorage.removeItem(config.cacheKey);
+            } catch {
+              // Ignore errors
+            }
           }
         }
         return false; // Cache was not used
       } catch (error) {
         logger.error('❌ Error loading cached data:', error);
-        localStorage.removeItem(config.cacheKey);
+        // Try to remove from both storage locations
+        try {
+          const { storage } = await import('@/lib/indexed-db-storage');
+          await storage.removeItem(config.cacheKey);
+        } catch {
+          // Ignore errors
+        }
+        try {
+          localStorage.removeItem(config.cacheKey);
+        } catch {
+          // Ignore errors
+        }
         return false;
       }
     };
 
-    const cacheUsed = loadCachedData();
-    if (!cacheUsed) {
+    loadCachedData().then((cacheUsed) => {
+      if (!cacheUsed) {
+        loadTracks();
+      }
+    }).catch((error) => {
+      console.error('Error loading cached data:', error);
       loadTracks();
-    }
+    });
   }, [config.cacheKey, config.cacheDuration, config.apiEndpoint]);
 
   // Load tracks from API
@@ -189,7 +232,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   setPlaylistLink(fullData.albums[0].link);
                 }
                 
-                // Cache the full data
+                // Cache the full data using IndexedDB for large playlists
                 const fullCacheData: CachedData = {
                   tracks: fullData.albums[0].tracks,
                   timestamp: Date.now(),
@@ -197,7 +240,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   artwork: fullData.albums[0].coverArt || fullData.albums[0].image,
                   link: fullData.albums[0].link
                 };
-                localStorage.setItem(config.cacheKey, JSON.stringify(fullCacheData));
+                
+                // Use IndexedDB for large playlists to avoid quota issues
+                try {
+                  const { storage } = await import('@/lib/indexed-db-storage');
+                  await storage.setItem(config.cacheKey, fullCacheData);
+                  console.log(`✅ Cached full playlist data to IndexedDB`);
+                } catch (error) {
+                  console.error(`❌ Error caching playlist data:`, error);
+                  // Continue without caching - better than crashing
+                }
               }
             }
           } catch (error) {
@@ -213,7 +265,49 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           artwork: artworkUrl,
           link: data.albums && data.albums[0] ? data.albums[0].link : null
         };
-        localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
+        
+        // Use IndexedDB for large playlists (1000+ tracks) to avoid quota issues
+        const useIndexedDB = tracksData.length > 1000;
+        
+        if (useIndexedDB) {
+          try {
+            const { storage } = await import('@/lib/indexed-db-storage');
+            await storage.setItem(config.cacheKey, cacheData);
+            console.log(`✅ Cached large playlist (${tracksData.length} tracks) to IndexedDB`);
+          } catch (error) {
+            console.error(`❌ Error caching large playlist to IndexedDB:`, error);
+            // Fallback to localStorage for smaller data
+            try {
+              localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
+            } catch (localError) {
+              if (localError instanceof DOMException && localError.name === 'QuotaExceededError') {
+                console.error(`❌ Storage quota exceeded. Unable to cache playlist.`);
+                logger.error(`❌ Error loading ${config.title} Playlist tracks:`, localError);
+              } else {
+                throw localError;
+              }
+            }
+          }
+        } else {
+          // Use localStorage for smaller playlists
+          try {
+            localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+              console.warn(`⚠️ localStorage quota exceeded, trying IndexedDB...`);
+              try {
+                const { storage } = await import('@/lib/indexed-db-storage');
+                await storage.setItem(config.cacheKey, cacheData);
+                console.log(`✅ Fallback to IndexedDB successful`);
+              } catch (indexedDBError) {
+                console.error(`❌ Both storage methods failed:`, indexedDBError);
+                logger.error(`❌ Error loading ${config.title} Playlist tracks:`, indexedDBError);
+              }
+            } else {
+              throw error;
+            }
+          }
+        }
       }
 
     } catch (error) {
@@ -232,9 +326,21 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       
       // Try to use cached data as fallback if available
       try {
-        const cachedDataStr = localStorage.getItem(config.cacheKey);
-        if (cachedDataStr) {
-          const cachedData: CachedData = JSON.parse(cachedDataStr);
+        let cachedData: CachedData | null = null;
+        
+        // Try IndexedDB first
+        try {
+          const { storage } = await import('@/lib/indexed-db-storage');
+          cachedData = await storage.getItem<CachedData>(config.cacheKey);
+        } catch {
+          // Fallback to localStorage
+          const cachedDataStr = localStorage.getItem(config.cacheKey);
+          if (cachedDataStr) {
+            cachedData = JSON.parse(cachedDataStr);
+          }
+        }
+        
+        if (cachedData) {
           const cacheAge = Date.now() - cachedData.timestamp;
           const maxCacheAge = config.cacheDuration || 3600000; // Default 1 hour
           

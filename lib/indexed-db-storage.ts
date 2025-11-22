@@ -104,6 +104,10 @@ export async function setItem<T = any>(key: string, value: T): Promise<void> {
       };
 
       request.onerror = () => {
+        // Check if it's a quota error
+        if (request.error && (request.error.name === 'QuotaExceededError' || request.error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+          console.warn(`⚠️ IndexedDB quota exceeded for key "${key}"`);
+        }
         reject(request.error);
       };
     });
@@ -240,9 +244,58 @@ export const storage = {
     try {
       await setItem(key, value);
     } catch (error) {
-      // Fallback to localStorage
+      // Handle quota exceeded errors gracefully
+      if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+        console.warn(`⚠️ Storage quota exceeded for key "${key}". Attempting cleanup...`);
+        
+        // Try to clean up old cache entries
+        try {
+          const allKeys = await keys();
+          const cacheKeys = allKeys.filter(k => k.startsWith('playlist_') || k.startsWith('mmm_') || k.startsWith('iam_'));
+          
+          // Sort by timestamp if available, or remove oldest entries
+          for (const cacheKey of cacheKeys.slice(0, Math.floor(cacheKeys.length / 2))) {
+            await removeItem(cacheKey);
+            console.log(`🗑️ Cleaned up old cache entry: ${cacheKey}`);
+          }
+          
+          // Retry storing the value
+          try {
+            await setItem(key, value);
+            console.log(`✅ Successfully stored after cleanup`);
+            return;
+          } catch (retryError) {
+            console.error(`❌ Still unable to store after cleanup:`, retryError);
+            // If still failing, try to store a compressed/simplified version
+            if (typeof value === 'object' && value !== null && 'tracks' in value) {
+              const simplified = {
+                ...value,
+                tracks: (value as any).tracks.slice(0, 100) // Only keep first 100 tracks
+              };
+              await setItem(key, simplified);
+              console.warn(`⚠️ Stored simplified version (first 100 tracks only) due to quota limits`);
+              return;
+            }
+          }
+        } catch (cleanupError) {
+          console.error(`❌ Error during cleanup:`, cleanupError);
+        }
+        
+        // If all else fails, throw the error
+        throw new Error(`Storage quota exceeded. Please clear some browser storage or use a different device.`);
+      }
+      
+      // Fallback to localStorage for other errors
       if (typeof window !== 'undefined') {
-        localStorage.setItem(key, JSON.stringify(value));
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (localStorageError) {
+          if (localStorageError instanceof DOMException && localStorageError.name === 'QuotaExceededError') {
+            console.error(`❌ Both IndexedDB and localStorage quota exceeded for key "${key}"`);
+            throw new Error(`Storage quota exceeded. Please clear browser storage.`);
+          }
+          throw localStorageError;
+        }
       }
     }
   },

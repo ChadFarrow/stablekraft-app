@@ -35,6 +35,8 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
   const corsProblematicImageDomains = [
     'f.strangetextures.com',
     'strangetextures.com',
+    'raw.githubusercontent.com', // GitHub raw content can have CORS issues
+    'githubusercontent.com',
   ];
 
   const needsProxy = corsProblematicImageDomains.some(domain =>
@@ -42,7 +44,7 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
   );
 
   // If proxy is explicitly requested OR domain requires CORS proxy, use image proxy
-  if ((useProxy || needsProxy) && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:')) {
+  if ((useProxy || needsProxy) && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:') && !originalUrl.startsWith('/')) {
     return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
   }
 
