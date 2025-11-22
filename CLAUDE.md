@@ -43,3 +43,4 @@ When working with playlists:
 - Tracks without valid `audioUrl` are filtered out (unavailable content)
 - **Expected behavior**: Some tracks from XML feeds may not resolve (API doesn't have them)
 - https://podcastindex-org.github.io/docs-api/#overview--example-code
+- any time we fix an issue make sure the change is added to the main code base
