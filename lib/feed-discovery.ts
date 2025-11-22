@@ -145,10 +145,10 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
           continue;
         }
         
-        // Add the resolved feed
+        // Add the resolved feed using the podcast GUID as the ID
         const newFeed = await prisma.feed.create({
           data: {
-            id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
             title: `Auto-discovered feed (${feedGuid.slice(0, 8)}...)`,
             description: `Automatically discovered feed from playlist analysis`,
             originalUrl: resolvedUrl,
@@ -185,16 +185,16 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         
         addedCount++;
       } else {
-        // Store the GUID for future resolution
+        // Store the GUID using the podcast GUID as the ID
         await prisma.feed.create({
           data: {
-            id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
             title: `Unresolved feed GUID (${feedGuid.slice(0, 8)}...)`,
             description: `Feed GUID from playlist - needs manual resolution: ${feedGuid}`,
             originalUrl: guidUrl,
             type: 'album',
             priority: 'low',
-            status: 'pending',
+            status: 'active', // Set to active so parse-feeds will try to parse it
             artist: 'Unresolved GUID',
             updatedAt: new Date()
           }
