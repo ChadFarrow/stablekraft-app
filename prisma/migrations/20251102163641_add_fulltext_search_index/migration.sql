@@ -6,10 +6,11 @@
 CREATE INDEX IF NOT EXISTS "Track_searchVector_gin_idx" ON "Track" USING GIN (to_tsvector('english', "searchVector"))
 WHERE "searchVector" IS NOT NULL AND "searchVector" != '';
 
--- Add index on subtitle and description for improved search performance
+-- Add index on subtitle for improved search performance
+-- Note: description field is too large for btree indexing (exceeds 2704 bytes limit)
+-- Description search is handled by the GIN full-text search index above
 CREATE INDEX IF NOT EXISTS "Track_subtitle_idx" ON "Track"("subtitle") WHERE "subtitle" IS NOT NULL;
-CREATE INDEX IF NOT EXISTS "Track_description_idx" ON "Track"("description") WHERE "description" IS NOT NULL;
 
 -- Create composite index for common search patterns (title + artist)
-CREATE INDEX IF NOT EXISTS "Track_title_artist_idx" ON "Track"("title", "artist") 
+CREATE INDEX IF NOT EXISTS "Track_title_artist_idx" ON "Track"("title", "artist")
 WHERE "title" IS NOT NULL AND "artist" IS NOT NULL;
