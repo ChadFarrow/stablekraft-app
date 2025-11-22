@@ -4,7 +4,7 @@ import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
 const IAM_CONFIG: PlaylistConfig = {
-  cacheKey: 'iam_playlist_cache_v2',
+  cacheKey: 'iam_playlist_cache_v3', // Bumped to v3 for fresh data
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   apiEndpoint: '/api/playlist/iam',
   title: 'It\'s A Mood Music Playlist',

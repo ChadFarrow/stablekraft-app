@@ -4,7 +4,7 @@ import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
 const MMM_CONFIG: PlaylistConfig = {
-  cacheKey: 'mmm_playlist_cache_v2',
+  cacheKey: 'mmm_playlist_cache_v3', // Bumped to v3 for fresh data
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   apiEndpoint: '/api/playlist/mmm-fast', // Use fast endpoint with progressive loading
   title: 'Mutton, Mead & Music Playlist',

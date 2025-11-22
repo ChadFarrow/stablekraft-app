@@ -4,7 +4,7 @@ import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
 const HGH_CONFIG: PlaylistConfig = {
-  cacheKey: 'hgh_playlist_cache_v2',
+  cacheKey: 'hgh_playlist_cache_v3', // Bumped to v3 for fresh data
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   apiEndpoint: '/api/playlist/hgh',
   title: 'HGH Music Playlist',
