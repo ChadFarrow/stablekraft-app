@@ -99,10 +99,37 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           setManuallyDisconnected(false);
         }
 
-        // Bitcoin Connect will automatically reconnect to saved connections via onConnected event
-        // No need to call requestProvider() - it would trigger the modal for new users
-        // The onConnected listener above will fire when Bitcoin Connect auto-reconnects
-        setIsLoading(false);
+        // Check if Bitcoin Connect has a saved connection
+        // Bitcoin Connect stores its state with keys starting with 'bc:'
+        const hasBitcoinConnectData = Object.keys(localStorage).some(key => key.startsWith('bc:'));
+        const hasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
+
+        // Only try to reconnect if:
+        // 1. User needs wallet restoration after Nostr login, OR
+        // 2. Bitcoin Connect has saved connection data AND user hasn't manually disconnected
+        if (shouldRestoreWallet || (hasBitcoinConnectData && !hasManuallyDisconnected)) {
+          // Try to reconnect to existing wallet
+          import('@getalby/bitcoin-connect').then(async ({ requestProvider }) => {
+            try {
+              console.log('🔍 Checking for existing wallet connection...');
+              const existingProvider = await requestProvider();
+              if (existingProvider) {
+                console.log('✅ Found and reconnected existing wallet');
+                setProvider(existingProvider);
+                setIsConnected(true);
+              }
+            } catch (err) {
+              // No existing connection or user cancelled
+              console.log('ℹ️ No existing wallet connection found');
+            } finally {
+              setIsLoading(false);
+            }
+          });
+        } else {
+          // No saved connection or user manually disconnected
+          console.log('ℹ️ Skipping auto-reconnect (no saved connection or manually disconnected)');
+          setIsLoading(false);
+        }
       }).catch((error) => {
         console.error('Failed to load Bitcoin Connect:', error);
         setIsLoading(false);
