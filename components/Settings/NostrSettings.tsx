@@ -74,7 +74,7 @@ export default function NostrSettings() {
         title="Nostr Account"
         description="Your connected Nostr identity"
       >
-        <div className="space-y-4 relative">
+        <div className="space-y-6 relative">
           {/* Profile Info */}
           <div className="flex items-center gap-4">
             {user.avatar && (
@@ -131,24 +131,8 @@ export default function NostrSettings() {
             </div>
           )}
 
-          {/* Logout Button - Bottom Right */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="px-3 py-1.5 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </button>
-          </div>
-        </div>
-      </SettingsSection>
-
-      {/* NIP-38 Status Settings */}
-      <SettingsSection
-        title="Now Playing Status"
-        description=""
-      >
+          {/* NIP-38 Now Playing Status */}
+          <div className="border-t border-gray-700 pt-6">
         <SettingsRow
           label={
             <div className="flex items-center gap-2">
@@ -207,6 +191,19 @@ export default function NostrSettings() {
             <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
           </label>
         </SettingsRow>
+          </div>
+
+          {/* Logout Button - Bottom Right */}
+          <div className="flex justify-end border-t border-gray-700 pt-6">
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="px-3 py-1.5 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
+        </div>
       </SettingsSection>
     </>
   );
