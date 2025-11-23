@@ -153,36 +153,46 @@ export default function NostrSettings() {
           label={
             <div className="flex items-center gap-2">
               <span className="text-base font-medium">Auto-publish status to Nostr</span>
-              {settings.nip38AutoStatus && (
-                <div className="relative group">
-                  <svg
-                    className="w-4 h-4 text-purple-400 cursor-help"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {/* Tooltip */}
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-80 bg-gray-900 border border-purple-700/50 rounded-lg p-3 shadow-xl z-10">
-                    <p className="font-semibold mb-1 text-purple-200 text-sm">Now Playing Status (NIP-38)</p>
-                    <p className="text-purple-300/80 text-xs mb-2">
-                      Share what you're listening to on Nostr
-                    </p>
-                    <p className="font-medium mb-1 text-purple-200 text-sm">Status publishing is enabled</p>
-                    <p className="text-purple-300/80 text-xs">
-                      Your currently playing track will be shared to your Nostr relays.
-                      This status is visible to anyone following you on Nostr and will persist
-                      as "last played" until you play a different track or the expiration time is reached.
-                    </p>
-                    {/* Arrow */}
-                    <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-purple-700/50"></div>
-                  </div>
+              <div className="relative group">
+                <svg
+                  className="w-4 h-4 text-purple-400 cursor-help"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {/* Tooltip */}
+                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-80 bg-gray-900 border border-purple-700/50 rounded-lg p-3 shadow-xl z-10">
+                  <p className="font-semibold mb-1 text-purple-200 text-sm">Now Playing Status (NIP-38)</p>
+                  <p className="text-purple-300/80 text-xs mb-2">
+                    Share what you're listening to on Nostr
+                  </p>
+                  {settings.nip38AutoStatus ? (
+                    <>
+                      <p className="font-medium mb-1 text-purple-200 text-sm">Status publishing is enabled</p>
+                      <p className="text-purple-300/80 text-xs">
+                        Your currently playing track will be shared to your Nostr relays.
+                        This status is visible to anyone following you on Nostr and will persist
+                        as "last played" until you play a different track or the expiration time is reached.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium mb-1 text-purple-200 text-sm">Status publishing is disabled</p>
+                      <p className="text-purple-300/80 text-xs">
+                        Enable this to automatically share what you're listening to on Nostr.
+                        Your currently playing track will be visible to anyone following you.
+                      </p>
+                    </>
+                  )}
+                  {/* Arrow */}
+                  <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-purple-700/50"></div>
                 </div>
-              )}
+              </div>
             </div>
           }
           description=""
