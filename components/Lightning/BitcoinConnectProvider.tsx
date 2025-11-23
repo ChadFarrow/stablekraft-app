@@ -102,7 +102,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
                 // Check if webln is already available (browser extension)
                 // Don't auto-enable it to prevent popup on page load - wait for user action
                 // ONLY auto-connect if user hasn't manually disconnected
-                if ((window as any).webln && !manuallyDisconnected) {
+                const wasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
+                if ((window as any).webln && !wasManuallyDisconnected) {
                   const existingProvider = (window as any).webln;
                   // Just detect it, don't enable yet - enable will happen when user clicks
                   setProvider(existingProvider);
@@ -184,7 +185,11 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // If Nostr user is authenticated with extension, detect WebLN (same wallet as Nostr)
     // Don't auto-enable to prevent popup - wait for user to click wallet button
     // ONLY auto-connect if user hasn't manually disconnected
-    if (isNostrAuthenticated && typeof window !== 'undefined' && !manuallyDisconnected) {
+    const wasManuallyDisconnected = typeof window !== 'undefined'
+      ? localStorage.getItem('wallet_manually_disconnected') === 'true'
+      : false;
+
+    if (isNostrAuthenticated && typeof window !== 'undefined' && !wasManuallyDisconnected) {
       // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
       if ((window as any).webln) {
         const weblnProvider = (window as any).webln;
@@ -198,7 +203,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         }
       }
     }
-  }, [isNostrAuthenticated, provider, nostrUser, manuallyDisconnected]);
+  }, [isNostrAuthenticated, provider, nostrUser]);
 
   const connect = async () => {
     try {
