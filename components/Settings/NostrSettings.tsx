@@ -145,7 +145,10 @@ export default function NostrSettings() {
       </SettingsSection>
 
       {/* NIP-38 Status Settings */}
-      <SettingsSection>
+      <SettingsSection
+        title="Now Playing Status"
+        description=""
+      >
         <SettingsRow
           label={
             <div className="flex items-center gap-2">

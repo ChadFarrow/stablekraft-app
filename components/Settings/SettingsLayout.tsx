@@ -48,7 +48,7 @@ export function SettingsSection({ title, description, children }: SettingsSectio
 }
 
 interface SettingsRowProps {
-  label: string;
+  label: string | ReactNode;
   description?: string;
   children: ReactNode;
 }
