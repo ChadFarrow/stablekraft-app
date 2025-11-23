@@ -7,7 +7,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 export default function UserSettings() {
   const { settings, updateSettings } = useUserSettings();
   const [boostAmount, setBoostAmount] = useState(settings.defaultBoostAmount?.toString() || '21');
-  const [boostName, setBoostName] = useState(settings.defaultBoostName || '');
+  const [boostName, setBoostName] = useState(settings.defaultBoostName || 'StableKraft.app user');
 
   const handleBoostAmountChange = (value: string) => {
     setBoostAmount(value);
@@ -47,13 +47,13 @@ export default function UserSettings() {
 
       <SettingsRow
         label="Default Boost Name"
-        description="Your name that will appear with boosts (leave empty to boost anonymously)"
+        description="Your name that will appear with boosts (clear to boost anonymously)"
       >
         <input
           type="text"
           value={boostName}
           onChange={(e) => handleBoostNameChange(e.target.value)}
-          placeholder="Anonymous"
+          placeholder="StableKraft.app user"
           maxLength={50}
           className="w-full max-w-xs px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 placeholder-gray-500"
         />
