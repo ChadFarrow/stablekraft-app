@@ -111,7 +111,7 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
                   }}
                 />
               )}
-              <span className="text-sm text-white hidden sm:block">
+              <span className="text-sm text-white">
                 {user.displayName || 'User'}
               </span>
             </div>

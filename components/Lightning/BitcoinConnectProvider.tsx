@@ -46,7 +46,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isConnected, setIsConnected] = useState(false);
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [manuallyDisconnected, setManuallyDisconnected] = useState(false);
+  const [manuallyDisconnected, setManuallyDisconnected] = useState(() => {
+    // Initialize from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wallet_manually_disconnected') === 'true';
+    }
+    return false;
+  });
   const { isAuthenticated: isNostrAuthenticated, user: nostrUser } = useNostr();
 
   useEffect(() => {
@@ -200,6 +206,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
       // Clear manual disconnect flag when user explicitly connects
       setManuallyDisconnected(false);
+      localStorage.setItem('wallet_manually_disconnected', 'false');
 
       // Always use Bitcoin Connect modal to let user choose their wallet
       // This gives users full control over which wallet to connect
@@ -230,6 +237,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
       // Mark as manually disconnected to prevent auto-reconnect
       setManuallyDisconnected(true);
+      localStorage.setItem('wallet_manually_disconnected', 'true');
 
       // Call disconnect and force state update
       await bitcoinConnect.disconnect();
@@ -243,6 +251,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       console.error('❌ Failed to disconnect:', error);
       // Force disconnect even if there's an error
       setManuallyDisconnected(true);
+      localStorage.setItem('wallet_manually_disconnected', 'true');
       setProvider(null);
       setIsConnected(false);
       throw error;
