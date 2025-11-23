@@ -218,6 +218,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
 
       try {
+        // First, disconnect any existing connection to force wallet selection modal
+        // This prevents auto-reconnect to a stale/broken connection
+        await bitcoinConnect.disconnect();
+
+        // Small delay to ensure disconnect completes
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Launch Bitcoin Connect modal
         // This will show all available wallet options (Alby, Phoenix, NWC, etc.)
         // Connection state is updated via the onConnected callback set up in useEffect
@@ -247,6 +254,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Call disconnect and force state update
       await bitcoinConnect.disconnect();
 
+      // Clear Bitcoin Connect's localStorage data to prevent stale connections
+      // Bitcoin Connect uses these keys to persist connections
+      if (typeof window !== 'undefined') {
+        const bcKeys = Object.keys(localStorage).filter(key =>
+          key.startsWith('bc:') || key.includes('bitcoin-connect')
+        );
+        bcKeys.forEach(key => localStorage.removeItem(key));
+      }
+
       // Force state updates immediately
       setProvider(null);
       setIsConnected(false);
@@ -257,6 +273,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Force disconnect even if there's an error
       setManuallyDisconnected(true);
       localStorage.setItem('wallet_manually_disconnected', 'true');
+
+      // Clear Bitcoin Connect localStorage even on error
+      if (typeof window !== 'undefined') {
+        const bcKeys = Object.keys(localStorage).filter(key =>
+          key.startsWith('bc:') || key.includes('bitcoin-connect')
+        );
+        bcKeys.forEach(key => localStorage.removeItem(key));
+      }
+
       setProvider(null);
       setIsConnected(false);
       throw error;
