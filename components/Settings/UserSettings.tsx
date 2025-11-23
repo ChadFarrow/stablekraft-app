@@ -39,7 +39,7 @@ export default function UserSettings() {
             value={boostAmount}
             onChange={(e) => handleBoostAmountChange(e.target.value)}
             min="1"
-            className="w-24 px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+            className="w-24 px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="text-gray-400 text-sm">sats</span>
         </div>
