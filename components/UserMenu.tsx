@@ -177,20 +177,6 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
 
                 {/* Wallet Section */}
                 <div className="mb-4 pb-4 border-b border-gray-700">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      isConnected ? 'bg-green-600' : 'bg-gray-700'
-                    }`}>
-                      <Zap className={`w-5 h-5 ${isConnected ? 'text-white' : 'text-gray-400'}`} />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-white">Lightning Wallet</h4>
-                      <p className="text-sm text-gray-400">
-                        {isLoading ? 'Connecting...' : isConnected ? 'Connected' : 'Not connected'}
-                      </p>
-                    </div>
-                  </div>
-
                   {isConnected ? (
                     <div className="space-y-2">
                       <button
