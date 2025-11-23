@@ -9,6 +9,7 @@ import { AudioProvider } from '@/contexts/AudioContext'
 import { SessionProvider } from '@/contexts/SessionContext'
 import { NostrProvider } from '@/contexts/NostrContext'
 import { UserSettingsProvider } from '@/contexts/UserSettingsContext'
+import { SidebarProvider } from '@/contexts/SidebarContext'
 import LightningWrapper from '@/components/LightningWrapper'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
@@ -105,41 +106,43 @@ export default function RootLayout({
             <NostrProvider>
               <UserSettingsProvider>
                 <LightningWrapper>
-                  <ScrollDetectionProvider>
-                    <SessionProvider>
-                      <AudioProvider>
-                    <div className="min-h-screen relative">
-                    {/* Background Image - Lazy loaded for better performance */}
-                    <div 
-                      className="fixed inset-0 z-0"
-                      style={{
-                        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-                        opacity: 0.8
-                      }}
-                    />
-                    {/* Background image loads after critical content */}
-                    <div 
-                      className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
-                      id="background-image"
-                      style={{
-                        background: 'url(/stablekraft-rocket.png) center/contain fixed',
-                        backgroundAttachment: 'fixed',
-                        opacity: 0.6
-                      }}
-                    />
-                    
-                    {/* Content overlay */}
-                    <div className="relative z-10">
-                      {children}
-                    </div>
-                  </div>
-                  <GlobalNowPlayingBar />
-                  <NowPlayingScreen />
-                  <ToastContainer />
-                  <ServiceWorkerRegistration />
-                    </AudioProvider>
-                  </SessionProvider>
-                  </ScrollDetectionProvider>
+                  <SidebarProvider>
+                    <ScrollDetectionProvider>
+                      <SessionProvider>
+                        <AudioProvider>
+                          <div className="min-h-screen relative">
+                            {/* Background Image - Lazy loaded for better performance */}
+                            <div
+                              className="fixed inset-0 z-0"
+                              style={{
+                                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                                opacity: 0.8
+                              }}
+                            />
+                            {/* Background image loads after critical content */}
+                            <div
+                              className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
+                              id="background-image"
+                              style={{
+                                background: 'url(/stablekraft-rocket.png) center/contain fixed',
+                                backgroundAttachment: 'fixed',
+                                opacity: 0.6
+                              }}
+                            />
+
+                            {/* Content overlay */}
+                            <div className="relative z-10">
+                              {children}
+                            </div>
+                          </div>
+                          <GlobalNowPlayingBar />
+                          <NowPlayingScreen />
+                          <ToastContainer />
+                          <ServiceWorkerRegistration />
+                        </AudioProvider>
+                      </SessionProvider>
+                    </ScrollDetectionProvider>
+                  </SidebarProvider>
                 </LightningWrapper>
               </UserSettingsProvider>
             </NostrProvider>

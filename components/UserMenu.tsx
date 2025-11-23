@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useNostr } from '@/contexts/NostrContext';
 import { useBitcoinConnect } from '@/components/Lightning/BitcoinConnectProvider';
 import Link from 'next/link';
-import { Menu, Zap, Settings, LogOut, User, Wallet } from 'lucide-react';
+import { Menu, Zap, Settings, LogOut, User, Wallet, Info } from 'lucide-react';
 
 // Lazy load LoginModal
 const LoginModal = dynamic(() => import('./Nostr/LoginModal'), {
@@ -218,6 +218,15 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
                   >
                     <Settings className="w-4 h-4" />
                     Settings
+                  </Link>
+
+                  <Link
+                    href="/about"
+                    onClick={() => setShowDropdown(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <Info className="w-4 h-4" />
+                    About & Support
                   </Link>
 
                   {isAuthenticated ? (

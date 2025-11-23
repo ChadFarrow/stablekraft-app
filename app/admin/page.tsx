@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
+import AppLayout from '@/components/AppLayout';
 
 // Dynamic import for the heavy admin panel component
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), {
@@ -18,5 +19,9 @@ const AdminPanel = dynamic(() => import('@/components/AdminPanel'), {
 });
 
 export default function AdminPage() {
-  return <AdminPanel />;
+  return (
+    <AppLayout>
+      <AdminPanel />
+    </AppLayout>
+  );
 }

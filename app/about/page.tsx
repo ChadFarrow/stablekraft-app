@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import AppLayout from '@/components/AppLayout';
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <AppLayout>
+      <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b backdrop-blur-sm bg-black/30 pt-safe-plus pt-12" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
         <div className="container mx-auto px-6 py-4">
@@ -262,5 +264,6 @@ export default function AboutPage() {
         </div>
       </main>
     </div>
+    </AppLayout>
   );
 }

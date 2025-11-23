@@ -8,7 +8,6 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, generatePublisherSlug } from '@/lib/url-utils';
-import { getVersionString, getBuildVersion } from '@/lib/version';
 import { useAudio } from '@/contexts/AudioContext';
 import { AppError, ErrorCodes, ErrorCode, getErrorMessage, createErrorLogger } from '@/lib/error-utils';
 import { toast } from '@/components/Toast';
@@ -16,6 +15,7 @@ import dynamic from 'next/dynamic';
 import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { Play, Pause } from 'lucide-react';
+import AppLayout from '@/components/AppLayout';
 
 
 
@@ -110,7 +110,6 @@ function HomePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [totalFeedsCount, setTotalFeedsCount] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   
   // Progressive loading states
@@ -197,8 +196,6 @@ function HomePageContent() {
   const [filterCache, setFilterCache] = useState<Map<FilterType, any>>(new Map());
 
   // Test feeds state
-  const [testFeeds, setTestFeeds] = useState<any[]>([]);
-  const [testFeedsLoading, setTestFeedsLoading] = useState(true);
 
 
   // Shuffle functionality is now handled by the global AudioContext
@@ -287,24 +284,6 @@ function HomePageContent() {
     loadCriticalAlbums();
   }, []); // Run only once on mount
 
-  // Load test feeds
-  useEffect(() => {
-    const loadTestFeeds = async () => {
-      try {
-        const response = await fetch('/api/feeds?type=test&status=active');
-        if (response.ok) {
-          const data = await response.json();
-          setTestFeeds(data.feeds || []);
-        }
-      } catch (error) {
-        console.error('Error loading test feeds:', error);
-      } finally {
-        setTestFeedsLoading(false);
-      }
-    };
-
-    loadTestFeeds();
-  }, []);
 
   // Load publisher stats separately to ensure they're always available, even when using cache
   useEffect(() => {
@@ -1131,7 +1110,8 @@ function HomePageContent() {
   const showProgressiveLoading = isCriticalLoaded && !isEnhancedLoaded && filteredAlbums.length > 0;
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden">
+    <AppLayout>
+      <div className="min-h-screen text-white relative overflow-hidden">
       {/* Navy Background Base - Full Screen */}
       <div className="fixed inset-0 z-0" style={{
         background: 'linear-gradient(to right, #0a0f1a, #0f1419, #0a0f1a)',
@@ -1178,86 +1158,22 @@ function HomePageContent() {
       <div className="relative z-20">
         {/* Audio element is now handled by the global AudioContext */}
         
-        {/* Header */}
-        <header 
-          className="border-b backdrop-blur-sm bg-black/70 pt-safe-plus pt-6"
+        {/* Header - Aligned with menu buttons */}
+        <header
+          className="border-b backdrop-blur-sm bg-black/70 pt-safe-plus"
           style={{
             borderColor: 'rgba(255, 255, 255, 0.1)'
           }}
         >
-          <div className="container mx-auto px-6 py-1">
-            {/* Mobile Header - Stacked Layout */}
-            <div className="block sm:hidden mb-1">
-              {/* Top row - Menu, Logo, Actions */}
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-4">
-                  {/* Menu Button */}
-                  <button
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
-                    aria-label="Toggle menu"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Right side - User Menu */}
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    try {
-                      const UserMenu = require('@/components/UserMenu').default;
-                      return <UserMenu />;
-                    } catch (error) {
-                      console.error('UserMenu error in mobile header:', error);
-                      return null;
-                    }
-                  })()}
-                </div>
-              </div>
-
-              {/* Bottom row - Title only (quote hidden on mobile) */}
-              <div className="text-center">
-                <h1 className="text-lg font-bold mb-0.5 text-white">Project StableKraft</h1>
-              </div>
+          <div className="container mx-auto px-6">
+            {/* Header row - Centered title between menu buttons */}
+            <div className="flex items-center justify-center gap-4 h-16">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Project StableKraft</h1>
             </div>
 
-            {/* Desktop Header - Responsive Flex Layout */}
-            <div className="hidden sm:block mb-4">
-              <div className="flex items-center justify-between gap-4 min-h-[60px]">
-                {/* Left side - Menu Button & Title */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <button
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
-                    aria-label="Toggle menu"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-white whitespace-nowrap">Project StableKraft</h1>
-                </div>
-
-                {/* Right side - User Menu */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {(() => {
-                    try {
-                      const UserMenu = require('@/components/UserMenu').default;
-                      return <UserMenu className="bg-gray-800/50" />;
-                    } catch (error) {
-                      console.error('UserMenu error in desktop header:', error);
-                      return null;
-                    }
-                  })()}
-                </div>
-              </div>
-            </div>
-            
             {/* Error Status Only */}
             {isClient && error && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center justify-center gap-2 text-sm pb-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-stablekraft-orange rounded-full"></span>
                   <span className="text-stablekraft-orange">{error}</span>
@@ -1358,97 +1274,6 @@ function HomePageContent() {
             </div>
           </div>
         </div>
-        
-        {/* Sidebar */}
-        <div className={`fixed top-0 left-0 h-full w-80 bg-gray-900/95 backdrop-blur-sm transform transition-transform duration-300 z-30 border-r border-gray-700 overflow-y-auto ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          <div className="p-4 pt-16 flex flex-col min-h-full">
-            <h2 className="text-lg font-bold mb-4 text-white">Menu</h2>
-            
-            {/* Navigation Links */}
-            <div className="mb-4 space-y-1">
-              <Link
-                href="/about"
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-300"
-                onClick={() => setIsSidebarOpen(false)}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm text-gray-300">About & Support</span>
-              </Link>
-
-            </div>
-
-            {/* Test Feeds Section */}
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold mb-2 text-white">
-                Test Feeds
-                {testFeedsLoading && (
-                  <span className="ml-2 text-xs text-stablekraft-teal">(Loading...)</span>
-                )}
-              </h3>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {testFeeds.length > 0 ? (
-                  testFeeds.map((feed) => (
-                    <Link
-                      key={`test-feed-${feed.id}`}
-                      href={`/album/${feed.id}`}
-                      className="flex items-center justify-between bg-orange-800/20 hover:bg-orange-800/30 rounded p-1.5 transition-colors group border border-orange-700/30"
-                      onClick={(e) => {
-                        // Prevent navigation if user was scrolling
-                        if (shouldPreventClick()) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          return;
-                        }
-                        setIsSidebarOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <svg className="w-3 h-3 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                        <span className="text-xs text-orange-300 group-hover:text-orange-200 truncate flex-1">
-                          {feed.title}
-                        </span>
-                      </div>
-                      <span className="text-xs text-orange-500 group-hover:text-orange-400 ml-1">
-                        {feed._count?.Track || 0}
-                      </span>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="text-sm text-gray-500 italic">
-                    {testFeedsLoading ? 'Loading test feeds...' : 'No test feeds available'}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Version Display - Moved to top for better visibility */}
-            <div className="mt-auto pt-2 border-t border-gray-700 pb-20">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Version</span>
-                <span className="text-xs text-gray-400 font-mono">{getVersionString()}</span>
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-500">Build</span>
-                <span className="text-xs text-gray-400 font-mono">{getBuildVersion()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Overlay to close sidebar when clicking outside */}
-        {isSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-20" 
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
-        
         {/* Main Content */}
         <div className="container mx-auto px-3 sm:px-6 py-6 sm:py-8 pb-28">
           
@@ -1903,6 +1728,7 @@ function HomePageContent() {
         onClose={() => setFullscreenMode(false)}
       />
     </div>
+    </AppLayout>
   );
 }
 

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
+import AppLayout from '@/components/AppLayout';
 
 interface PlaylistTemplateCompactProps {
   config: PlaylistConfig;
@@ -624,7 +625,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   }
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden">
+    <AppLayout>
+      <div className="min-h-screen text-white relative overflow-hidden">
       {/* Background layer - similar to album pages */}
       <div 
         className="fixed inset-0"
@@ -845,5 +847,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         </div>
       </div>
     </div>
+    </AppLayout>
   );
 }

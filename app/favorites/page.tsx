@@ -16,6 +16,7 @@ import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { Heart, Music, Disc, Users, Play, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import AppLayout from '@/components/AppLayout';
 
 interface FavoriteTrack {
   id: string;
@@ -464,7 +465,8 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-x-hidden">
+    <AppLayout>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-x-hidden">
       <div className="container mx-auto px-4 py-8 pb-24 sm:pb-8">
         <div className="mb-8">
           <button
@@ -735,6 +737,7 @@ export default function FavoritesPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   );
 }
 

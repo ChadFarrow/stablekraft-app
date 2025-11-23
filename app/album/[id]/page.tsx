@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { RSSAlbum } from '@/lib/rss-parser';
 import AlbumDetailClient from './AlbumDetailClient';
 import { generateAlbumSlug } from '@/lib/url-utils';
+import AppLayout from '@/components/AppLayout';
 
 // Dynamic generation - disable static generation for now
 // export async function generateStaticParams() {
@@ -193,5 +194,9 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
 
   // FIXED: Pass the original ID to the client component, not the converted title
   // This allows the client component to fetch the album using the correct ID format
-  return <AlbumDetailClient albumTitle={albumTitle} albumId={id} initialAlbum={album} />;
+  return (
+    <AppLayout>
+      <AlbumDetailClient albumTitle={albumTitle} albumId={id} initialAlbum={album} />
+    </AppLayout>
+  );
 }
