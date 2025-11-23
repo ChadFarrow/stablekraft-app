@@ -8,6 +8,7 @@ export interface UserSettings {
 
   // Lightning/Boost settings
   defaultBoostAmount?: number;
+  defaultBoostName?: string;
 
   // Future settings can be added here
   // theme?: 'light' | 'dark' | 'auto';
@@ -24,6 +25,7 @@ interface UserSettingsContextType {
 const defaultSettings: UserSettings = {
   nip38AutoStatus: false, // Default to disabled (opt-in)
   defaultBoostAmount: 21, // Default boost amount in sats
+  defaultBoostName: '', // Default boost name (empty for anonymous)
 };
 
 const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);

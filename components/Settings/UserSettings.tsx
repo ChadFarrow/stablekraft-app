@@ -7,6 +7,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 export default function UserSettings() {
   const { settings, updateSettings } = useUserSettings();
   const [boostAmount, setBoostAmount] = useState(settings.defaultBoostAmount?.toString() || '21');
+  const [boostName, setBoostName] = useState(settings.defaultBoostName || '');
 
   const handleBoostAmountChange = (value: string) => {
     setBoostAmount(value);
@@ -16,6 +17,11 @@ export default function UserSettings() {
     if (!isNaN(amount) && amount >= 1) {
       updateSettings({ defaultBoostAmount: amount });
     }
+  };
+
+  const handleBoostNameChange = (value: string) => {
+    setBoostName(value);
+    updateSettings({ defaultBoostName: value });
   };
 
   return (
@@ -37,6 +43,20 @@ export default function UserSettings() {
           />
           <span className="text-gray-400 text-sm">sats</span>
         </div>
+      </SettingsRow>
+
+      <SettingsRow
+        label="Default Boost Name"
+        description="Your name that will appear with boosts (leave empty to boost anonymously)"
+      >
+        <input
+          type="text"
+          value={boostName}
+          onChange={(e) => handleBoostNameChange(e.target.value)}
+          placeholder="Anonymous"
+          maxLength={50}
+          className="w-full max-w-xs px-3 py-2 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 placeholder-gray-500"
+        />
       </SettingsRow>
     </SettingsSection>
   );

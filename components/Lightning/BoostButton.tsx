@@ -71,10 +71,14 @@ export function BoostButton({
     setIsClient(true);
     setMounted(true);
 
-    // Load saved sender name from localStorage
-    const savedName = localStorage.getItem('boostSenderName');
-    if (savedName) {
-      setSenderName(savedName);
+    // Load sender name from settings (preferred) or localStorage (legacy)
+    if (settings.defaultBoostName) {
+      setSenderName(settings.defaultBoostName);
+    } else {
+      const savedName = localStorage.getItem('boostSenderName');
+      if (savedName) {
+        setSenderName(savedName);
+      }
     }
 
     // Set default boost amount from settings
@@ -83,7 +87,7 @@ export function BoostButton({
     }
 
     return () => setMounted(false);
-  }, [settings.defaultBoostAmount]);
+  }, [settings.defaultBoostAmount, settings.defaultBoostName]);
 
   // Handle autoOpen - check connection first
   useEffect(() => {
