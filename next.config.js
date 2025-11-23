@@ -697,6 +697,10 @@ const nextConfig = {
             key: 'X-DNS-Prefetch-Control',
             value: 'on',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: "connect-src 'self' https: wss: wss://relay.nsec.app wss://nos.lol wss://relay.snort.social wss://nostr.oxtr.dev wss://relay.primal.net wss://theforest.nostr1.com wss://relay.damus.io;",
+          },
         ],
       },
     ];

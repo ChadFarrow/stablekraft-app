@@ -183,6 +183,34 @@ export function clearNIP46Connection(): void {
 }
 
 /**
+ * Check if there's a valid existing NIP-46 connection
+ * @returns true if a connection exists with valid pubkey and connection data
+ */
+export function hasValidConnection(): boolean {
+  const connection = loadNIP46Connection();
+
+  if (!connection) {
+    return false;
+  }
+
+  // Check if connection has required fields
+  const hasRequiredFields = !!(
+    connection.pubkey &&
+    connection.signerUrl &&
+    connection.connected
+  );
+
+  if (!hasRequiredFields) {
+    console.log('ℹ️ NIP-46: Stored connection is missing required fields');
+    return false;
+  }
+
+  // Connection exists and looks valid
+  console.log('✅ NIP-46: Found valid stored connection for pubkey:', connection.pubkey?.slice(0, 16) + '...');
+  return true;
+}
+
+/**
  * Update connection pubkey (user's Nostr account pubkey from Amber)
  * This is called when we receive the user's pubkey from Amber
  */

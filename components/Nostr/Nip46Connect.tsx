@@ -95,6 +95,10 @@ export default function Nip46Connect({
 
     if (connectionStatus === 'waiting' || connectionStatus === 'connecting') {
       let checkCount = 0;
+      const TIMEOUT_SECONDS = 60;
+      const CHECK_INTERVAL_MS = 2000;
+      const MAX_CHECKS = (TIMEOUT_SECONDS * 1000) / CHECK_INTERVAL_MS; // 30 checks
+
       const interval = setInterval(() => {
         checkCount++;
 
@@ -104,12 +108,23 @@ export default function Nip46Connect({
           eventsReceived = (window as any).__NIP46_EVENT_COUNT__;
         }
 
-
         setDebugInfo(prev => ({
           ...prev,
           connectionCheckCount: checkCount,
           eventsReceived: eventsReceived || prev.eventsReceived || 0,
         }));
+
+        // Check for timeout (60 seconds)
+        if (checkCount >= MAX_CHECKS) {
+          console.error('⏱️ NIP-46: Connection timeout after 60 seconds');
+          setConnectionStatus('error');
+          setIsConnecting(false);
+
+          const errorMessage = `Connection timed out after ${TIMEOUT_SECONDS} seconds.\n\nMake sure you:\n1. Scanned the QR code and approved the connection in Amber\n2. Have a stable internet connection\n3. Aren't blocking the relay connection with ad blockers or privacy extensions`;
+
+          onError(errorMessage);
+          return;
+        }
 
         // Check if connection was established (stored in localStorage)
         // The key should match what saveNIP46Connection uses: 'nostr_nip46_connection'
@@ -135,7 +150,7 @@ export default function Nip46Connect({
             // Ignore parse errors
           }
         }
-      }, 2000); // Check every 2 seconds
+      }, CHECK_INTERVAL_MS); // Check every 2 seconds
 
       return () => clearInterval(interval);
     }

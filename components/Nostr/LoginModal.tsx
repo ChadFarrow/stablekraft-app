@@ -423,12 +423,48 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return;
     }
 
-    // Clear any existing connections to start fresh
-    // This ensures we always create a new connection when user explicitly clicks NIP-46
-    const { clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+    // Check for existing valid connection and try to auto-reconnect
+    const { hasValidConnection, loadNIP46Connection, clearNIP46Connection } = await import('@/lib/nostr/nip46-storage');
     const { getUnifiedSigner } = await import('@/lib/nostr/signer');
 
-    // Clear stored connection
+    if (hasValidConnection()) {
+      console.log('🔄 NIP-46: Found existing connection, attempting auto-reconnect...');
+
+      try {
+        setIsSubmitting(true);
+        setError(null);
+
+        // Load the stored connection
+        const storedConnection = loadNIP46Connection();
+        if (storedConnection && storedConnection.pubkey) {
+          // Create client and restore connection
+          const client = new NIP46Client();
+
+          // Manually set the connection data from storage
+          (client as any).connection = storedConnection;
+
+          setNip46Client(client);
+          nip46ClientRef.current = client;
+
+          // Register with unified signer
+          const signer = getUnifiedSigner();
+          await signer.setNIP46Signer(client);
+
+          console.log('✅ NIP-46: Auto-reconnect successful, proceeding to login');
+
+          // Proceed directly to login with the restored connection
+          await handleNip46ConnectedWithClient(client);
+          return; // Exit early, we've completed the login
+        }
+      } catch (reconnectError) {
+        console.warn('⚠️ NIP-46: Auto-reconnect failed, falling back to QR code flow:', reconnectError);
+        // Clear the invalid connection and fall through to normal flow
+        clearNIP46Connection();
+      }
+    }
+
+    // Clear any existing connections to start fresh
+    // This ensures we always create a new connection when user explicitly clicks NIP-46
     clearNIP46Connection();
 
     // Disconnect any active NIP-46 signer in UnifiedSigner
