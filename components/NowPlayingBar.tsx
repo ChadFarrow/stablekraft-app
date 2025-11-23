@@ -170,9 +170,6 @@ export default function NowPlayingBar({
 
         {/* Progress Bar and Time */}
         <div className="flex items-center space-x-3 flex-1 max-w-xs">
-          <span className="text-gray-300 text-sm w-12 text-right">
-            {formatTime(currentTrack.currentTime)}
-          </span>
           <div className="flex-1 relative">
             <div className="w-full bg-gray-600 rounded-full h-1">
               <div
@@ -189,8 +186,8 @@ export default function NowPlayingBar({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
           </div>
-          <span className="text-gray-300 text-sm w-12">
-            {formatTime(currentTrack.duration)}
+          <span className="text-gray-300 text-sm whitespace-nowrap">
+            {formatTime(currentTrack.currentTime)}/{formatTime(currentTrack.duration)}
           </span>
         </div>
       </div>

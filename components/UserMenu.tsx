@@ -139,12 +139,12 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
 
             {/* Dropdown Menu */}
             <div
-              className="w-72 bg-gray-900 border-2 border-gray-700 rounded-lg shadow-lg"
+              className="w-72 sm:w-72 max-w-[calc(100vw-2rem)] bg-gray-900 border-2 border-gray-700 rounded-lg shadow-lg"
               style={{
                 zIndex: 2147483647,
                 position: 'fixed',
                 top: '80px',
-                right: '20px',
+                right: '1rem',
                 isolation: 'isolate'
               }}
             >
