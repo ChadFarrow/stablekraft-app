@@ -1,10 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useNostr } from '@/contexts/NostrContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { SettingsSection, SettingsRow } from './SettingsLayout';
 import { useRouter } from 'next/navigation';
+
+// Lazy load LoginModal
+const LoginModal = dynamic(() => import('@/components/Nostr/LoginModal'), {
+  loading: () => (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg p-6">
+        <div className="text-gray-700">Loading...</div>
+      </div>
+    </div>
+  ),
+  ssr: false
+});
 
 export default function NostrSettings() {
   const { user, isAuthenticated, logout } = useNostr();
@@ -12,6 +25,7 @@ export default function NostrSettings() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showRelays, setShowRelays] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleNip38Toggle = () => {
     updateSettings({ nip38AutoStatus: !settings.nip38AutoStatus });
@@ -21,7 +35,7 @@ export default function NostrSettings() {
     setIsLoggingOut(true);
     try {
       await logout();
-      router.push('/');
+      // Stay on settings page after logout
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -31,20 +45,25 @@ export default function NostrSettings() {
 
   if (!isAuthenticated || !user) {
     return (
-      <SettingsSection
-        title="Nostr Account"
-        description="Connect with Nostr to unlock social features"
-      >
-        <div className="text-center py-8">
-          <p className="text-gray-400 mb-4">Not connected to Nostr</p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-          >
-            Connect Account
-          </button>
-        </div>
-      </SettingsSection>
+      <>
+        <SettingsSection
+          title="Nostr Account"
+          description="Connect with Nostr to unlock social features"
+        >
+          <div className="text-center py-8">
+            <p className="text-gray-400 mb-4">Not connected to Nostr</p>
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              Connect Account
+            </button>
+          </div>
+        </SettingsSection>
+
+        {/* Login Modal */}
+        {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
+      </>
     );
   }
 
@@ -55,7 +74,7 @@ export default function NostrSettings() {
         title="Nostr Account"
         description="Your connected Nostr identity"
       >
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
           {/* Profile Info */}
           <div className="flex items-center gap-4">
             {user.avatar && (
@@ -70,11 +89,7 @@ export default function NostrSettings() {
                 {user.displayName || 'Unnamed User'}
               </div>
               <div className="text-sm text-gray-400 font-mono break-all">
-                {user.nostrNpub ? (
-                  `${user.nostrNpub.slice(0, 12)}...${user.nostrNpub.slice(-8)}`
-                ) : (
-                  user.nostrPubkey ? `${user.nostrPubkey.slice(0, 12)}...${user.nostrPubkey.slice(-8)}` : 'No public key'
-                )}
+                {user.nostrNpub || (user.nostrPubkey || 'No public key')}
               </div>
             </div>
           </div>
@@ -116,25 +131,58 @@ export default function NostrSettings() {
             </div>
           )}
 
-          {/* Disconnect Button */}
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="w-full px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoggingOut ? 'Disconnecting...' : 'Disconnect Account'}
-          </button>
+          {/* Logout Button - Bottom Right */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="px-3 py-1.5 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
         </div>
       </SettingsSection>
 
       {/* NIP-38 Status Settings */}
-      <SettingsSection
-        title="Now Playing Status (NIP-38)"
-        description="Automatically share what you're listening to on Nostr"
-      >
+      <SettingsSection>
         <SettingsRow
-          label="Auto-publish status"
-          description="Publish your currently playing track to Nostr relays. Your status will persist until the next track plays or until the track's duration expires."
+          label={
+            <div className="flex items-center gap-2">
+              <span className="text-base font-medium">Auto-publish status to Nostr</span>
+              {settings.nip38AutoStatus && (
+                <div className="relative group">
+                  <svg
+                    className="w-4 h-4 text-purple-400 cursor-help"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {/* Tooltip */}
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-80 bg-gray-900 border border-purple-700/50 rounded-lg p-3 shadow-xl z-10">
+                    <p className="font-semibold mb-1 text-purple-200 text-sm">Now Playing Status (NIP-38)</p>
+                    <p className="text-purple-300/80 text-xs mb-2">
+                      Share what you're listening to on Nostr
+                    </p>
+                    <p className="font-medium mb-1 text-purple-200 text-sm">Status publishing is enabled</p>
+                    <p className="text-purple-300/80 text-xs">
+                      Your currently playing track will be shared to your Nostr relays.
+                      This status is visible to anyone following you on Nostr and will persist
+                      as "last played" until you play a different track or the expiration time is reached.
+                    </p>
+                    {/* Arrow */}
+                    <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-purple-700/50"></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+          description=""
         >
           <label className="relative inline-flex items-center cursor-pointer">
             <input
@@ -146,32 +194,6 @@ export default function NostrSettings() {
             <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
           </label>
         </SettingsRow>
-
-        {settings.nip38AutoStatus && (
-          <div className="bg-purple-900/20 border border-purple-700/30 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <svg
-                className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <div className="text-sm text-purple-200">
-                <p className="font-medium mb-1">Status publishing is enabled</p>
-                <p className="text-purple-300/80">
-                  Your currently playing track will be shared to your Nostr relays.
-                  This status is visible to anyone following you on Nostr and will persist
-                  as "last played" until you play a different track or the expiration time is reached.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </SettingsSection>
     </>
   );
