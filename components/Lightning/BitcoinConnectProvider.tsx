@@ -91,45 +91,21 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         // Check if we should restore wallet connection after page reload from Nostr login
         const shouldRestoreWallet = localStorage.getItem('wallet_restore_after_login') === 'true';
         if (shouldRestoreWallet) {
-          console.log('🔄 Restoring wallet connection after Nostr login...');
+          console.log('🔄 Wallet flagged for restoration after Nostr login');
           // Clear the restore flag
           localStorage.removeItem('wallet_restore_after_login');
-          // Clear manual disconnect flag to allow reconnection
+          // Clear manual disconnect flag to allow Bitcoin Connect to auto-reconnect
           localStorage.setItem('wallet_manually_disconnected', 'false');
           setManuallyDisconnected(false);
         }
 
-        // Check if Bitcoin Connect has a saved connection
-        // Bitcoin Connect stores its state with keys starting with 'bc:'
-        const hasBitcoinConnectData = Object.keys(localStorage).some(key => key.startsWith('bc:'));
-        const hasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
-
-        // Only try to reconnect if:
-        // 1. User needs wallet restoration after Nostr login, OR
-        // 2. Bitcoin Connect has saved connection data AND user hasn't manually disconnected
-        if (shouldRestoreWallet || (hasBitcoinConnectData && !hasManuallyDisconnected)) {
-          // Try to reconnect to existing wallet
-          import('@getalby/bitcoin-connect').then(async ({ requestProvider }) => {
-            try {
-              console.log('🔍 Checking for existing wallet connection...');
-              const existingProvider = await requestProvider();
-              if (existingProvider) {
-                console.log('✅ Found and reconnected existing wallet');
-                setProvider(existingProvider);
-                setIsConnected(true);
-              }
-            } catch (err) {
-              // No existing connection or user cancelled
-              console.log('ℹ️ No existing wallet connection found');
-            } finally {
-              setIsLoading(false);
-            }
-          });
-        } else {
-          // No saved connection or user manually disconnected
-          console.log('ℹ️ Skipping auto-reconnect (no saved connection or manually disconnected)');
-          setIsLoading(false);
-        }
+        // Never call requestProvider() on mount - it can trigger unwanted modals
+        // Bitcoin Connect will automatically reconnect via onConnected event if:
+        // 1. A saved connection exists in localStorage
+        // 2. The connection is still valid
+        // The onConnected listener above will handle the state update
+        console.log('ℹ️ Bitcoin Connect initialized. Will auto-reconnect via onConnected event if saved connection exists.');
+        setIsLoading(false);
       }).catch((error) => {
         console.error('Failed to load Bitcoin Connect:', error);
         setIsLoading(false);

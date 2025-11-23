@@ -17,23 +17,21 @@ interface LoginModalProps {
 // Helper function to preserve wallet connection state before page reload
 const preserveWalletConnection = async () => {
   try {
-    // Dynamically import Bitcoin Connect to check for active connection
-    const bc = await import('@getalby/bitcoin-connect');
+    // Check if Bitcoin Connect has saved connection data
+    // Bitcoin Connect stores its state with keys starting with 'bc:'
+    const hasBitcoinConnectData = Object.keys(localStorage).some(key => key.startsWith('bc:'));
 
-    // Check if a wallet is currently connected
-    const isWalletConnected = bc.isConnected();
-
-    if (isWalletConnected) {
+    if (hasBitcoinConnectData) {
       console.log('💾 Preserving wallet connection before Nostr login reload...');
       localStorage.setItem('wallet_restore_after_login', 'true');
       // Ensure manual disconnect flag is cleared
       localStorage.setItem('wallet_manually_disconnected', 'false');
     } else {
-      console.log('ℹ️ No wallet connection to preserve');
+      console.log('ℹ️ No wallet connection to preserve (no bc: keys found)');
     }
   } catch (err) {
-    // Bitcoin Connect might not be loaded - that's OK, just skip preservation
-    console.log('ℹ️ Bitcoin Connect not available for wallet preservation:', err);
+    // Shouldn't happen, but just in case
+    console.log('ℹ️ Error checking wallet connection:', err);
   }
 };
 
