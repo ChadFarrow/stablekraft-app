@@ -46,6 +46,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [isConnected, setIsConnected] = useState(false);
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [manuallyDisconnected, setManuallyDisconnected] = useState(false);
   const { isAuthenticated: isNostrAuthenticated, user: nostrUser } = useNostr();
 
   useEffect(() => {
@@ -94,7 +95,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
                 // Check if webln is already available (browser extension)
                 // Don't auto-enable it to prevent popup on page load - wait for user action
-                if ((window as any).webln) {
+                // ONLY auto-connect if user hasn't manually disconnected
+                if ((window as any).webln && !manuallyDisconnected) {
                   const existingProvider = (window as any).webln;
                   // Just detect it, don't enable yet - enable will happen when user clicks
                   setProvider(existingProvider);
@@ -175,7 +177,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
     // If Nostr user is authenticated with extension, detect WebLN (same wallet as Nostr)
     // Don't auto-enable to prevent popup - wait for user to click wallet button
-    if (isNostrAuthenticated && typeof window !== 'undefined') {
+    // ONLY auto-connect if user hasn't manually disconnected
+    if (isNostrAuthenticated && typeof window !== 'undefined' && !manuallyDisconnected) {
       // Check if WebLN is available (Alby extension provides both Nostr and WebLN)
       if ((window as any).webln) {
         const weblnProvider = (window as any).webln;
@@ -189,41 +192,23 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         }
       }
     }
-  }, [isNostrAuthenticated, provider, nostrUser]);
+  }, [isNostrAuthenticated, provider, nostrUser, manuallyDisconnected]);
 
   const connect = async () => {
     try {
       setIsLoading(true);
 
-      // If Nostr user is authenticated, check for WebLN first (Alby extension)
-      // Skip if user logged in with NIP-05 (read-only mode)
-      const isNip05Login = nostrUser?.loginType === 'nip05';
-      if (isNostrAuthenticated && !isNip05Login && typeof window !== 'undefined' && (window as any).webln) {
-        try {
-          const weblnProvider = (window as any).webln;
+      // Clear manual disconnect flag when user explicitly connects
+      setManuallyDisconnected(false);
 
-          // Enable WebLN if needed
-          if (weblnProvider.enable) {
-            await weblnProvider.enable();
-          }
-
-          setProvider(weblnProvider);
-          setIsConnected(true);
-          setIsLoading(false);
-          return;
-        } catch (weblnError) {
-          // Fall through to standard Bitcoin Connect flow
-        }
-      }
-
-      // Use requestProvider() which automatically shows modal if no provider exists
-      // This is the recommended approach per Bitcoin Connect docs
+      // Always use Bitcoin Connect modal to let user choose their wallet
+      // This gives users full control over which wallet to connect
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
 
       try {
-        // requestProvider will automatically launch modal if needed
-        // If already connected, it returns existing provider
-        const newProvider = await bitcoinConnect.requestProvider();
+        // Launch Bitcoin Connect modal
+        // This will show all available wallet options (Alby, Phoenix, NWC, etc.)
+        const newProvider = await bitcoinConnect.launchModal();
 
         if (newProvider) {
           setProvider(newProvider);
@@ -231,6 +216,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         }
       } catch (providerError) {
         // User may have cancelled or there was an error
+        console.log('Bitcoin Connect modal cancelled or error:', providerError);
         throw providerError;
       }
 
@@ -243,12 +229,27 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
   const disconnectWallet = async () => {
     try {
+      console.log('🔌 Disconnecting wallet...');
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
+
+      // Mark as manually disconnected to prevent auto-reconnect
+      setManuallyDisconnected(true);
+
+      // Call disconnect and force state update
       await bitcoinConnect.disconnect();
+
+      // Force state updates immediately
       setProvider(null);
       setIsConnected(false);
+
+      console.log('✅ Wallet disconnected successfully');
     } catch (error) {
-      console.error('Failed to disconnect:', error);
+      console.error('❌ Failed to disconnect:', error);
+      // Force disconnect even if there's an error
+      setManuallyDisconnected(true);
+      setProvider(null);
+      setIsConnected(false);
+      throw error;
     }
   };
 

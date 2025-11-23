@@ -1202,29 +1202,14 @@ function HomePageContent() {
                   </button>
                 </div>
 
-                {/* Right side - Lightning Wallet Button & Nostr Login */}
+                {/* Right side - User Menu */}
                 <div className="flex items-center gap-2">
                   {(() => {
                     try {
-                      const LoginButton = require('@/components/Nostr/LoginButton').default;
-                      return <LoginButton size="sm" variant="outline" className="text-xs" />;
+                      const UserMenu = require('@/components/UserMenu').default;
+                      return <UserMenu />;
                     } catch (error) {
-                      console.error('LoginButton error in mobile header:', error);
-                      return null;
-                    }
-                  })()}
-                  {(() => {
-                    try {
-                      const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
-                      return (
-                        <LightningWalletButton
-                          variant="dropdown"
-                          showLabel={false}
-                          className="p-2"
-                        />
-                      );
-                    } catch (error) {
-                      console.error('LightningWalletButton error in mobile header:', error);
+                      console.error('UserMenu error in mobile header:', error);
                       return null;
                     }
                   })()}
@@ -1254,34 +1239,15 @@ function HomePageContent() {
                   <h1 className="text-2xl lg:text-3xl font-bold text-white whitespace-nowrap">Project StableKraft</h1>
                 </div>
 
-                {/* Right side - Lightning Wallet Button & Nostr Login */}
+                {/* Right side - User Menu */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {(() => {
                     try {
-                      const LoginButton = require('@/components/Nostr/LoginButton').default;
-                      return <LoginButton size="sm" variant="outline" />;
+                      const UserMenu = require('@/components/UserMenu').default;
+                      return <UserMenu className="bg-gray-800/50" />;
                     } catch (error) {
-                      console.error('LoginButton error in desktop header:', error);
+                      console.error('UserMenu error in desktop header:', error);
                       return null;
-                    }
-                  })()}
-                  {(() => {
-                    try {
-                      const { LightningWalletButton } = require('@/components/Lightning/LightningWalletButton');
-                      return (
-                        <LightningWalletButton
-                          variant="dropdown"
-                          showLabel={false}
-                          className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors"
-                        />
-                      );
-                    } catch (error) {
-                      console.error('LightningWalletButton error in desktop header:', error);
-                      return (
-                        <button className="p-2 bg-gray-800/50 hover:bg-gray-700/50 text-yellow-400 rounded-lg transition-colors">
-                          ⚡
-                        </button>
-                      );
                     }
                   })()}
                 </div>
