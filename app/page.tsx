@@ -15,6 +15,7 @@ import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
+import { Play, Pause } from 'lucide-react';
 
 
 
@@ -1669,7 +1670,7 @@ function HomePageContent() {
                                 href={generateAlbumUrl(album.title)}
                                 className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                               >
-                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
                                   <Image
                                     src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                                     alt={album.title}
@@ -1682,6 +1683,20 @@ function HomePageContent() {
                                       target.src = getPlaceholderImageUrl('thumbnail');
                                     }}
                                   />
+                                  {/* Play button overlay */}
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        playAlbum(album, e);
+                                      }}
+                                      className="w-10 h-10 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
+                                      aria-label="Play album"
+                                    >
+                                      <Play className="w-4 h-4 text-white ml-0.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <div className="flex-1 min-w-0">
@@ -1730,7 +1745,7 @@ function HomePageContent() {
                                 href={generateAlbumUrl(album.title)}
                                 className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                               >
-                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
                                   <Image
                                     src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                                     alt={album.title}
@@ -1743,6 +1758,20 @@ function HomePageContent() {
                                       target.src = getPlaceholderImageUrl('thumbnail');
                                     }}
                                   />
+                                  {/* Play button overlay */}
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        playAlbum(album, e);
+                                      }}
+                                      className="w-10 h-10 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
+                                      aria-label="Play album"
+                                    >
+                                      <Play className="w-4 h-4 text-white ml-0.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <div className="flex-1 min-w-0">
@@ -1793,7 +1822,7 @@ function HomePageContent() {
                         href={generateAlbumUrl(album.title)}
                         className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                       >
-                        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
                           <Image
                             src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                             alt={album.title}
@@ -1806,6 +1835,20 @@ function HomePageContent() {
                               target.src = getPlaceholderImageUrl('thumbnail');
                             }}
                           />
+                          {/* Play button overlay */}
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                playAlbum(album, e);
+                              }}
+                              className="w-10 h-10 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
+                              aria-label="Play album"
+                            >
+                              <Play className="w-4 h-4 text-white ml-0.5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex-1 min-w-0">
