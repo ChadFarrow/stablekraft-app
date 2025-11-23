@@ -14,6 +14,29 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
+// Helper function to preserve wallet connection state before page reload
+const preserveWalletConnection = async () => {
+  try {
+    // Dynamically import Bitcoin Connect to check for active connection
+    const bc = await import('@getalby/bitcoin-connect');
+
+    // Check if a wallet is currently connected
+    const isWalletConnected = bc.isConnected();
+
+    if (isWalletConnected) {
+      console.log('💾 Preserving wallet connection before Nostr login reload...');
+      localStorage.setItem('wallet_restore_after_login', 'true');
+      // Ensure manual disconnect flag is cleared
+      localStorage.setItem('wallet_manually_disconnected', 'false');
+    } else {
+      console.log('ℹ️ No wallet connection to preserve');
+    }
+  } catch (err) {
+    // Bitcoin Connect might not be loaded - that's OK, just skip preservation
+    console.log('ℹ️ Bitcoin Connect not available for wallet preservation:', err);
+  }
+};
+
 export default function LoginModal({ onClose }: LoginModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -228,6 +251,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
             // Close modal and reload
             onClose();
+            // Preserve wallet connection before reload (Android fix)
+            await preserveWalletConnection();
             setTimeout(() => {
               window.location.reload();
             }, 2000);
@@ -286,8 +311,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         } catch (storageError) {
           console.error('❌ LoginModal: Failed to save to localStorage:', storageError);
         }
-        
+
         onClose();
+        // Preserve wallet connection before reload (Android fix)
+        await preserveWalletConnection();
         window.location.reload(); // Refresh to update context
       } else {
         throw new Error(loginData.error || 'Login failed');
@@ -917,6 +944,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
         // Close modal and reload (delay to let sync messages show)
         onClose();
+        // Preserve wallet connection before reload (Android fix)
+        await preserveWalletConnection();
         setTimeout(() => {
           window.location.reload();
         }, 2000); // 2 second delay to see sync messages
@@ -1058,6 +1087,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
         // Close modal and reload (delay to let sync messages show)
         onClose();
+        // Preserve wallet connection before reload (Android fix)
+        await preserveWalletConnection();
         setTimeout(() => {
           window.location.reload();
         }, 2000); // 2 second delay to see sync messages
@@ -1065,8 +1096,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         throw new Error(loginData.error || 'Login failed');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
+      const errorMessage = err instanceof Error
+        ? err.message
         : typeof err === 'string'
         ? err
         : JSON.stringify(err, Object.getOwnPropertyNames(err));
@@ -1209,8 +1240,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         } catch (storageError) {
           console.error('❌ LoginModal: Failed to save to localStorage:', storageError);
         }
-        
+
         onClose();
+        // Preserve wallet connection before reload (Android fix)
+        await preserveWalletConnection();
         window.location.reload(); // Refresh to update context
       } else {
         throw new Error(loginData.error || 'Login failed');

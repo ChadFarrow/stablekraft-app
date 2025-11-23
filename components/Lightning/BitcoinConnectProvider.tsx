@@ -87,48 +87,22 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           setIsConnected(false);
         });
 
-        // Check for existing connection from localStorage
-        // Bitcoin Connect automatically persists connections (including NWC/Alby Go)
-        import('@getalby/bitcoin-connect').then(({ requestProvider }) => {
-          const checkProvider = async () => {
-            try {
-              // Double-check login type before enabling WebLN (in case it changed)
-              const currentLoginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
-              if (currentLoginType === 'nip46') {
-                setIsLoading(false);
-                return;
-              }
+        // Handle wallet restoration after Nostr login (Android fix)
+        // Check if we should restore wallet connection after page reload from Nostr login
+        const shouldRestoreWallet = localStorage.getItem('wallet_restore_after_login') === 'true';
+        if (shouldRestoreWallet) {
+          console.log('🔄 Restoring wallet connection after Nostr login...');
+          // Clear the restore flag
+          localStorage.removeItem('wallet_restore_after_login');
+          // Clear manual disconnect flag to allow reconnection
+          localStorage.setItem('wallet_manually_disconnected', 'false');
+          setManuallyDisconnected(false);
+        }
 
-              // ONLY auto-connect if user hasn't manually disconnected
-              const wasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
-              if (!wasManuallyDisconnected) {
-                console.log('🔍 Checking for existing Bitcoin Connect connection...');
-
-                // Use requestProvider to check for existing connection
-                // This works for both webln (browser extensions) and NWC (Alby Go, etc.)
-                try {
-                  const existingProvider = await requestProvider();
-                  if (existingProvider) {
-                    console.log('✅ Found existing connection, reconnecting...');
-                    setProvider(existingProvider);
-                    setIsConnected(true);
-                  } else {
-                    console.log('ℹ️ No existing connection found');
-                  }
-                } catch (err) {
-                  console.log('ℹ️ No provider available:', err);
-                }
-              } else {
-                console.log('ℹ️ User manually disconnected, skipping auto-reconnect');
-              }
-            } catch (err) {
-              console.error('Error checking for provider:', err);
-            } finally {
-              setIsLoading(false);
-            }
-          };
-          checkProvider();
-        });
+        // Bitcoin Connect will automatically reconnect to saved connections via onConnected event
+        // No need to call requestProvider() - it would trigger the modal for new users
+        // The onConnected listener above will fire when Bitcoin Connect auto-reconnects
+        setIsLoading(false);
       }).catch((error) => {
         console.error('Failed to load Bitcoin Connect:', error);
         setIsLoading(false);
