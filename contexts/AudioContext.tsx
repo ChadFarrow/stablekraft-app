@@ -622,7 +622,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
           // Safari native HLS support
           console.log('🍎 Using Safari native HLS support');
-          videoElement.src = currentUrl;
+          // Upgrade HTTP to HTTPS for security
+          let secureUrl = currentUrl;
+          if (currentUrl.startsWith('http://')) {
+            secureUrl = currentUrl.replace(/^http:/, 'https:');
+          }
+          videoElement.src = secureUrl;
           videoElement.load();
           
           const playPromise = videoElement.play();
@@ -707,9 +712,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       currentMediaElement.pause();
       currentMediaElement.removeAttribute('src');
       currentMediaElement.load();
-      
+
+      // Upgrade HTTP to HTTPS for security and CORS compliance
+      let secureAudioUrl = audioUrl;
+      if (audioUrl.startsWith('http://')) {
+        console.log(`⚠️ Upgrading HTTP audio URL to HTTPS: ${audioUrl}`);
+        secureAudioUrl = audioUrl.replace(/^http:/, 'https:');
+      }
+
       // Set new source and load
-      currentMediaElement.src = audioUrl;
+      currentMediaElement.src = secureAudioUrl;
       currentMediaElement.load();
         
         // Set volume for audio, videos typically control their own volume
@@ -891,10 +903,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           if (nextTrack && nextTrack.url) {
             const nextElement = isVideoUrl(nextTrack.url) ? videoRef.current : audioRef.current;
             if (nextElement && nextElement !== currentElement) {
+              // Upgrade HTTP to HTTPS for preloaded tracks
+              let secureNextUrl = nextTrack.url;
+              if (nextTrack.url.startsWith('http://')) {
+                secureNextUrl = nextTrack.url.replace(/^http:/, 'https:');
+              }
+
               // Only preload if not already loaded
-              if (!nextElement.src || nextElement.src !== nextTrack.url) {
+              if (!nextElement.src || nextElement.src !== secureNextUrl) {
                 console.log('🔄 Preloading next track for smooth transition:', nextTrack.title);
-                nextElement.src = nextTrack.url;
+                nextElement.src = secureNextUrl;
                 nextElement.preload = 'auto';
                 nextElement.load();
               }
