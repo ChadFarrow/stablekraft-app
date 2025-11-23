@@ -25,7 +25,7 @@ interface UserSettingsContextType {
 const defaultSettings: UserSettings = {
   nip38AutoStatus: false, // Default to disabled (opt-in)
   defaultBoostAmount: 21, // Default boost amount in sats
-  defaultBoostName: 'StableKraft.app user', // Default boost name
+  defaultBoostName: '', // Default boost name (empty, will use "StableKraft.app user" as fallback)
 };
 
 const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);

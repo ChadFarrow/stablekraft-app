@@ -71,13 +71,15 @@ export function BoostButton({
     setIsClient(true);
     setMounted(true);
 
-    // Load sender name from settings (preferred) or localStorage (legacy)
+    // Load sender name from settings (preferred) or localStorage (legacy) or default
     if (settings.defaultBoostName) {
       setSenderName(settings.defaultBoostName);
     } else {
       const savedName = localStorage.getItem('boostSenderName');
       if (savedName) {
         setSenderName(savedName);
+      } else {
+        setSenderName('StableKraft.app user');
       }
     }
 
