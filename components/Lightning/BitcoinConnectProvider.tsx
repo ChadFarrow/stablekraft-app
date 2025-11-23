@@ -208,12 +208,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       try {
         // Launch Bitcoin Connect modal
         // This will show all available wallet options (Alby, Phoenix, NWC, etc.)
-        const newProvider = await bitcoinConnect.launchModal();
-
-        if (newProvider) {
-          setProvider(newProvider);
-          setIsConnected(true);
-        }
+        // Connection state is updated via the onConnected callback set up in useEffect
+        await bitcoinConnect.launchModal();
       } catch (providerError) {
         // User may have cancelled or there was an error
         console.log('Bitcoin Connect modal cancelled or error:', providerError);
