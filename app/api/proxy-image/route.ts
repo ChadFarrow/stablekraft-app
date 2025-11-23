@@ -1,16 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 
+/**
+ * Generate a placeholder image as PNG buffer
+ * This ensures Next.js Image optimization always receives a valid image
+ */
+async function generatePlaceholderImage(): Promise<Buffer> {
+  const svg = `
+    <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+          <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)"/>
+      <g transform="translate(200, 200)" fill="white" opacity="0.9">
+        <circle cx="0" cy="-60" r="32" fill="white"/>
+        <rect x="-8" y="-60" width="16" height="160" fill="white"/>
+        <circle cx="0" cy="100" r="32" fill="white"/>
+        <rect x="-8" y="100" width="16" height="80" fill="white"/>
+      </g>
+    </svg>
+  `;
+  
+  // Convert SVG to PNG using sharp
+  return await sharp(Buffer.from(svg))
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Return a placeholder image response instead of JSON error
+ * This prevents Next.js Image optimization from failing
+ */
+async function returnPlaceholderImage(): Promise<NextResponse> {
+  try {
+    const placeholderBuffer = await generatePlaceholderImage();
+    return new NextResponse(placeholderBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Length': placeholderBuffer.length.toString(),
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD',
+        'X-Image-Proxy': 're.podtards.com',
+        'X-Image-Placeholder': 'true',
+      },
+    });
+  } catch (error) {
+    // If we can't generate placeholder, return a minimal 1x1 PNG
+    const minimalPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    return new NextResponse(minimalPng, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Length': minimalPng.length.toString(),
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD',
+        'X-Image-Proxy': 're.podtards.com',
+        'X-Image-Placeholder': 'true',
+      },
+    });
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const imageUrl = searchParams.get('url');
     
     if (!imageUrl) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Missing image URL parameter' 
-      }, { status: 400 });
+      console.warn('⚠️ Missing image URL parameter, returning placeholder');
+      return returnPlaceholderImage();
     }
 
     // Validate URL
@@ -18,10 +86,8 @@ export async function GET(request: NextRequest) {
     try {
       url = new URL(imageUrl);
     } catch {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid URL format' 
-      }, { status: 400 });
+      console.warn(`⚠️ Invalid URL format: ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
 
     // Try to upgrade HTTP to HTTPS for security
@@ -44,10 +110,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `Failed to fetch image: ${response.status} ${response.statusText}` 
-      }, { status: response.status });
+      console.warn(`⚠️ Failed to fetch image: ${response.status} ${response.statusText} for ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
 
     // Validate that we actually got an image
@@ -59,10 +123,8 @@ export async function GET(request: NextRequest) {
     const hasImageExtension = imageExtensions.some(ext => imageUrl.toLowerCase().includes(ext));
     
     if (!isValidImageType && !hasImageExtension) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `Invalid content type: ${contentType}. Expected image/* or image file extension` 
-      }, { status: 400 });
+      console.warn(`⚠️ Invalid content type: ${contentType} for ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
 
     // Get the image data (read once, reuse for validation and processing)
@@ -70,10 +132,8 @@ export async function GET(request: NextRequest) {
     
     // Validate buffer before processing
     if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Received empty image data' 
-      }, { status: 400 });
+      console.warn(`⚠️ Received empty image data for ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
     
     const imageBuffer = Buffer.from(arrayBuffer);
@@ -98,10 +158,8 @@ export async function GET(request: NextRequest) {
     
     // Validate buffer size (must be at least a few bytes to be a valid image)
     if (imageBuffer.length < 10) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Image data too small to be valid' 
-      }, { status: 400 });
+      console.warn(`⚠️ Image data too small (${imageBuffer.length} bytes) for ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
 
     // Check if we should enhance the image (for backgrounds, use enhance=true parameter)
@@ -213,10 +271,8 @@ export async function GET(request: NextRequest) {
         console.warn('⚠️ Sharp processing failed, using original image:', sharpError);
         // Fall back to original buffer if sharp processing fails, but validate it first
         if (!imageBuffer || imageBuffer.length === 0) {
-          return NextResponse.json({ 
-            success: false, 
-            error: 'Image processing failed and original buffer is invalid' 
-          }, { status: 500 });
+          console.warn('⚠️ Image processing failed and original buffer is invalid, returning placeholder');
+          return returnPlaceholderImage();
         }
         processedBuffer = imageBuffer;
       }
@@ -224,10 +280,8 @@ export async function GET(request: NextRequest) {
     
     // Final validation before returning
     if (!processedBuffer || processedBuffer.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Processed image buffer is invalid or empty' 
-      }, { status: 500 });
+      console.warn(`⚠️ Processed image buffer is invalid or empty for ${imageUrl}, returning placeholder`);
+      return returnPlaceholderImage();
     }
 
     // Set headers for image serving
@@ -258,25 +312,21 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Image proxy error:', error);
     
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Image fetch timeout' 
-      }, { status: 408 });
+    // Always return a placeholder image instead of JSON error
+    // This prevents Next.js Image optimization from failing
+    if (error instanceof Error) {
+      if (error.name === 'TimeoutError') {
+        console.warn('⚠️ Image fetch timeout, returning placeholder');
+      } else if (error.message.includes('ENOTFOUND')) {
+        console.warn('⚠️ Domain not found - DNS resolution failed, returning placeholder');
+      } else {
+        console.warn(`⚠️ Image proxy error: ${error.message}, returning placeholder`);
+      }
+    } else {
+      console.warn('⚠️ Unknown image proxy error, returning placeholder');
     }
-
-    // Handle DNS resolution errors specifically
-    if (error instanceof Error && error.message.includes('ENOTFOUND')) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Domain not found - DNS resolution failed' 
-      }, { status: 404 });
-    }
-
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 });
+    
+    return returnPlaceholderImage();
   }
 }
 
