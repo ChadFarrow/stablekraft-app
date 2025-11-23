@@ -1667,33 +1667,34 @@ function HomePageContent() {
                               <Link
                                 key={`album-${index}`}
                                 href={generateAlbumUrl(album.title)}
-                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-200 border border-gray-700/50 hover:border-cyan-400/30"
+                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                               >
-                                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                  <Image 
-                                    src={getAlbumArtworkUrl(album.coverArt || '', 'medium')} 
+                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                                  <Image
+                                    src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                                     alt={album.title}
-                                    width={128}
-                                    height={128}
+                                    width={80}
+                                    height={80}
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
                                       target.src = getPlaceholderImageUrl('thumbnail');
                                     }}
                                   />
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="font-semibold text-lg group-hover:text-stablekraft-teal transition-colors truncate">
+                                  <h3 className="font-bold text-white text-sm sm:text-base leading-tight group-hover:text-cyan-400 transition-colors duration-200 truncate">
                                     {album.title}
                                   </h3>
-                                  <p className="text-gray-400 text-sm truncate">{album.artist}</p>
+                                  <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
-                                
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
+
+                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
                                   <span>{new Date(album.releaseDate).getFullYear()}</span>
                                   <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-white/10 rounded text-xs">Album</span>
+                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">Album</span>
                                   {album.explicit && (
                                     <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
                                       E
@@ -1727,33 +1728,34 @@ function HomePageContent() {
                               <Link
                                 key={`ep-single-${index}`}
                                 href={generateAlbumUrl(album.title)}
-                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-200 border border-gray-700/50 hover:border-cyan-400/30"
+                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                               >
-                                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                  <Image 
-                                    src={getAlbumArtworkUrl(album.coverArt || '', 'medium')} 
+                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                                  <Image
+                                    src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                                     alt={album.title}
-                                    width={128}
-                                    height={128}
+                                    width={80}
+                                    height={80}
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
                                       target.src = getPlaceholderImageUrl('thumbnail');
                                     }}
                                   />
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="font-semibold text-lg group-hover:text-stablekraft-teal transition-colors truncate">
+                                  <h3 className="font-bold text-white text-sm sm:text-base leading-tight group-hover:text-cyan-400 transition-colors duration-200 truncate">
                                     {album.title}
                                   </h3>
-                                  <p className="text-gray-400 text-sm truncate">{album.artist}</p>
+                                  <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
-                                
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
+
+                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
                                   <span>{new Date(album.releaseDate).getFullYear()}</span>
                                   <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-white/10 rounded text-xs">
+                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
                                     {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
                                   </span>
                                   {album.explicit && (
@@ -1789,33 +1791,34 @@ function HomePageContent() {
                       <Link
                         key={`${album.title}-${index}`}
                         href={generateAlbumUrl(album.title)}
-                        className="group flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
+                        className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                       >
-                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                          <Image 
-                            src={getAlbumArtworkUrl(album.coverArt || '', 'thumbnail')} 
+                        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
                             alt={album.title}
-                            width={64}
-                            height={64}
+                            width={80}
+                            height={80}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = getPlaceholderImageUrl('thumbnail');
                             }}
                           />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-lg group-hover:text-stablekraft-teal transition-colors truncate">
+                          <h3 className="font-bold text-white text-sm sm:text-base leading-tight group-hover:text-cyan-400 transition-colors duration-200 truncate">
                             {album.title}
                           </h3>
-                          <p className="text-gray-400 text-sm truncate">{album.artist}</p>
+                          <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                         </div>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
+
+                        <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
                           <span>{new Date(album.releaseDate).getFullYear()}</span>
                           <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                          <span className="px-2 py-1 bg-white/10 rounded text-xs">
+                          <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
                             {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
                           </span>
                           {album.explicit && (
@@ -1824,7 +1827,7 @@ function HomePageContent() {
                             </span>
                           )}
                         </div>
-                        
+
                         {/* Play button removed - now handled by global audio context */}
                       </Link>
                     ))}
