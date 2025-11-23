@@ -65,8 +65,44 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get the image data
-    const imageBuffer = Buffer.from(await response.arrayBuffer());
+    // Get the image data (read once, reuse for validation and processing)
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Validate buffer before processing
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Received empty image data' 
+      }, { status: 400 });
+    }
+    
+    const imageBuffer = Buffer.from(arrayBuffer);
+    
+    // Quick validation: check for common image file signatures (optional check)
+    try {
+      const isValidImageSignature = 
+        (imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8 && imageBuffer[2] === 0xFF) || // JPEG
+        (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4E && imageBuffer[3] === 0x47) || // PNG
+        (imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46) || // GIF
+        (imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46 && imageBuffer[3] === 0x46) || // WebP (RIFF)
+        (imageBuffer[0] === 0x3C && imageBuffer[1] === 0x3F && imageBuffer[2] === 0x78 && imageBuffer[3] === 0x6D); // SVG (XML)
+      
+      // If we have a content-type header saying it's an image, trust it even without signature match
+      // (some images might have different signatures or be valid but not match common ones)
+      if (!isValidImageSignature && !isValidImageType && imageBuffer.length > 10) {
+        console.warn(`⚠️ Image signature validation failed for ${imageUrl}, but proceeding with content-type: ${contentType}`);
+      }
+    } catch (validationError) {
+      console.warn('⚠️ Image validation check failed, proceeding anyway:', validationError);
+    }
+    
+    // Validate buffer size (must be at least a few bytes to be a valid image)
+    if (imageBuffer.length < 10) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Image data too small to be valid' 
+      }, { status: 400 });
+    }
 
     // Check if we should enhance the image (for backgrounds, use enhance=true parameter)
     const enhance = searchParams.get('enhance') === 'true';
@@ -79,8 +115,30 @@ export async function GET(request: NextRequest) {
     // Enhance image quality for backgrounds if requested
     if (enhance) {
       try {
-        const image = sharp(imageBuffer);
+        // Validate buffer before passing to sharp
+        if (!imageBuffer || imageBuffer.length === 0) {
+          throw new Error('Invalid image buffer');
+        }
+        
+        // Try to validate the image can be processed by sharp
+        let image: sharp.Sharp;
+        try {
+          image = sharp(imageBuffer);
+        } catch (sharpInitError) {
+          throw new Error(`Failed to initialize sharp with image: ${sharpInitError instanceof Error ? sharpInitError.message : 'Unknown error'}`);
+        }
+        
         const metadata = await image.metadata();
+        
+        // Validate metadata was retrieved successfully
+        if (!metadata) {
+          throw new Error('Failed to retrieve image metadata');
+        }
+        
+        // Validate metadata has valid dimensions
+        if (!metadata.width || !metadata.height || metadata.width <= 0 || metadata.height <= 0) {
+          throw new Error(`Invalid image dimensions: ${metadata.width}x${metadata.height}`);
+        }
         
         // Check if image needs upscaling for background use
         const needsUpscale = metadata.width && metadata.height && 
@@ -114,6 +172,11 @@ export async function GET(request: NextRequest) {
             })
             .toBuffer();
           
+          // Validate processed buffer
+          if (!processedBuffer || processedBuffer.length === 0) {
+            throw new Error('Sharp processing returned empty buffer');
+          }
+          
           finalContentType = 'image/jpeg';
         } else if (!metadata.format || metadata.format === 'gif') {
           // For GIFs or unsupported formats, convert to high-quality JPEG for backgrounds
@@ -123,6 +186,11 @@ export async function GET(request: NextRequest) {
               mozjpeg: true 
             })
             .toBuffer();
+          
+          // Validate processed buffer
+          if (!processedBuffer || processedBuffer.length === 0) {
+            throw new Error('Sharp processing returned empty buffer');
+          }
           
           finalContentType = 'image/jpeg';
         } else {
@@ -134,13 +202,32 @@ export async function GET(request: NextRequest) {
             })
             .toBuffer();
           
+          // Validate processed buffer
+          if (!processedBuffer || processedBuffer.length === 0) {
+            throw new Error('Sharp processing returned empty buffer');
+          }
+          
           finalContentType = 'image/jpeg';
         }
       } catch (sharpError) {
         console.warn('⚠️ Sharp processing failed, using original image:', sharpError);
-        // Fall back to original buffer if sharp processing fails
+        // Fall back to original buffer if sharp processing fails, but validate it first
+        if (!imageBuffer || imageBuffer.length === 0) {
+          return NextResponse.json({ 
+            success: false, 
+            error: 'Image processing failed and original buffer is invalid' 
+          }, { status: 500 });
+        }
         processedBuffer = imageBuffer;
       }
+    }
+    
+    // Final validation before returning
+    if (!processedBuffer || processedBuffer.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Processed image buffer is invalid or empty' 
+      }, { status: 500 });
     }
 
     // Set headers for image serving
