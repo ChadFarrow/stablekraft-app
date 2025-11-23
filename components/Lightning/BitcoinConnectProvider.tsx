@@ -74,12 +74,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
         // Listen for connection events
         onConnected((provider) => {
+          console.log('✅ Bitcoin Connect: onConnected event', provider);
           setProvider(provider);
           setIsConnected(true);
           setIsLoading(false);
+          console.log('✅ State updated: isConnected = true');
         });
 
         onDisconnected(() => {
+          console.log('🔌 Bitcoin Connect: onDisconnected event');
           setProvider(null);
           setIsConnected(false);
         });
@@ -218,17 +221,14 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       const bitcoinConnect = await import('@getalby/bitcoin-connect');
 
       try {
-        // First, disconnect any existing connection to force wallet selection modal
-        // This prevents auto-reconnect to a stale/broken connection
-        await bitcoinConnect.disconnect();
-
-        // Small delay to ensure disconnect completes
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('🔌 Launching Bitcoin Connect modal...');
 
         // Launch Bitcoin Connect modal
         // This will show all available wallet options (Alby, Phoenix, NWC, etc.)
         // Connection state is updated via the onConnected callback set up in useEffect
         await bitcoinConnect.launchModal();
+
+        console.log('✅ Modal launch completed');
       } catch (providerError) {
         // User may have cancelled or there was an error
         console.log('Bitcoin Connect modal cancelled or error:', providerError);
