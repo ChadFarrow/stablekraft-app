@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
@@ -54,6 +55,7 @@ export function BoostButton({
   const [mounted, setMounted] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated } = useNostr();
+  const { settings } = useUserSettings();
   const [showModal, setShowModal] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
@@ -74,9 +76,14 @@ export function BoostButton({
     if (savedName) {
       setSenderName(savedName);
     }
-    
+
+    // Set default boost amount from settings
+    if (settings.defaultBoostAmount) {
+      setCustomAmount(settings.defaultBoostAmount.toString());
+    }
+
     return () => setMounted(false);
-  }, []);
+  }, [settings.defaultBoostAmount]);
 
   // Handle autoOpen - check connection first
   useEffect(() => {
@@ -639,8 +646,12 @@ export function BoostButton({
           setShowModal(false);
           setSuccess(false);
           setMessage('');
-          setSenderName('');
-          setCustomAmount('');
+          // Reset amount to default from settings
+          if (settings.defaultBoostAmount) {
+            setCustomAmount(settings.defaultBoostAmount.toString());
+          } else {
+            setCustomAmount('');
+          }
         }, 2000);
       }
     } catch (err) {
@@ -893,6 +904,18 @@ export function BoostButton({
 
   const handleCloseModal = () => {
     setShowModal(false);
+
+    // Reset amount to default from settings
+    if (settings.defaultBoostAmount) {
+      setCustomAmount(settings.defaultBoostAmount.toString());
+    } else {
+      setCustomAmount('');
+    }
+
+    // Clear message and error states
+    setMessage('');
+    setError(null);
+
     if (onClose) {
       onClose();
     }

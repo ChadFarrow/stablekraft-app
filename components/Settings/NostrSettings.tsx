@@ -11,6 +11,7 @@ export default function NostrSettings() {
   const { settings, updateSettings } = useUserSettings();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showRelays, setShowRelays] = useState(false);
 
   const handleNip38Toggle = () => {
     updateSettings({ nip38AutoStatus: !settings.nip38AutoStatus });
@@ -81,19 +82,37 @@ export default function NostrSettings() {
           {/* Relays Info */}
           {user.relays && user.relays.length > 0 && (
             <div>
-              <div className="text-sm text-gray-400 mb-2">
-                Connected Relays ({user.relays.length})
-              </div>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {user.relays.map((relay, index) => (
-                  <div
-                    key={index}
-                    className="text-xs text-gray-500 font-mono bg-gray-900/50 px-3 py-1 rounded"
-                  >
-                    {relay}
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={() => setShowRelays(!showRelays)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors mb-2"
+              >
+                <span>Connected Relays ({user.relays.length})</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${showRelays ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {showRelays && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {user.relays.map((relay, index) => (
+                    <div
+                      key={index}
+                      className="text-xs text-gray-500 font-mono bg-gray-900/50 px-3 py-1 rounded"
+                    >
+                      {relay}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -6,6 +6,9 @@ export interface UserSettings {
   // NIP-38 auto-status publishing
   nip38AutoStatus: boolean;
 
+  // Lightning/Boost settings
+  defaultBoostAmount?: number;
+
   // Future settings can be added here
   // theme?: 'light' | 'dark' | 'auto';
   // notifications?: boolean;
@@ -20,6 +23,7 @@ interface UserSettingsContextType {
 
 const defaultSettings: UserSettings = {
   nip38AutoStatus: false, // Default to disabled (opt-in)
+  defaultBoostAmount: 21, // Default boost amount in sats
 };
 
 const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
