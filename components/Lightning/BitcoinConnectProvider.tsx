@@ -209,6 +209,22 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         await bitcoinConnect.launchModal();
 
         console.log('✅ Modal launch completed');
+
+        // After modal closes, check if a connection was made
+        // The onConnected event should fire, but let's verify the connection state
+        setTimeout(async () => {
+          try {
+            const connectedProvider = await bitcoinConnect.requestProvider();
+            if (connectedProvider && !provider) {
+              console.log('🔄 Modal closed with connection, but state not updated. Forcing update...');
+              setProvider(connectedProvider);
+              setIsConnected(true);
+            }
+          } catch (err) {
+            // No connection made, user likely cancelled
+            console.log('ℹ️ No connection after modal close');
+          }
+        }, 500); // Small delay to let onConnected fire first
       } catch (providerError) {
         // User may have cancelled or there was an error
         console.log('Bitcoin Connect modal cancelled or error:', providerError);
