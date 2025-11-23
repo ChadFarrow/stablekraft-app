@@ -88,40 +88,46 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         });
 
         // Check for existing connection from localStorage
-        // Bitcoin Connect automatically persists connections
+        // Bitcoin Connect automatically persists connections (including NWC/Alby Go)
         import('@getalby/bitcoin-connect').then(({ requestProvider }) => {
-          // Don't launch modal, just check if provider exists
-          // Use a try-catch to avoid triggering the modal
-          try {
-            const checkProvider = async () => {
-              try {
-                // Double-check login type before enabling WebLN (in case it changed)
-                const currentLoginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
-                if (currentLoginType === 'nip46') {
-                  setIsLoading(false);
-                  return;
-                }
-
-                // Check if webln is already available (browser extension)
-                // Don't auto-enable it to prevent popup on page load - wait for user action
-                // ONLY auto-connect if user hasn't manually disconnected
-                const wasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
-                if ((window as any).webln && !wasManuallyDisconnected) {
-                  const existingProvider = (window as any).webln;
-                  // Just detect it, don't enable yet - enable will happen when user clicks
-                  setProvider(existingProvider);
-                  setIsConnected(true);
-                }
-              } catch (err) {
-                // No WebLN provider available
-              } finally {
+          const checkProvider = async () => {
+            try {
+              // Double-check login type before enabling WebLN (in case it changed)
+              const currentLoginType = typeof window !== 'undefined' ? localStorage.getItem('nostr_login_type') : null;
+              if (currentLoginType === 'nip46') {
                 setIsLoading(false);
+                return;
               }
-            };
-            checkProvider();
-          } catch (error) {
-            setIsLoading(false);
-          }
+
+              // ONLY auto-connect if user hasn't manually disconnected
+              const wasManuallyDisconnected = localStorage.getItem('wallet_manually_disconnected') === 'true';
+              if (!wasManuallyDisconnected) {
+                console.log('🔍 Checking for existing Bitcoin Connect connection...');
+
+                // Use requestProvider to check for existing connection
+                // This works for both webln (browser extensions) and NWC (Alby Go, etc.)
+                try {
+                  const existingProvider = await requestProvider();
+                  if (existingProvider) {
+                    console.log('✅ Found existing connection, reconnecting...');
+                    setProvider(existingProvider);
+                    setIsConnected(true);
+                  } else {
+                    console.log('ℹ️ No existing connection found');
+                  }
+                } catch (err) {
+                  console.log('ℹ️ No provider available:', err);
+                }
+              } else {
+                console.log('ℹ️ User manually disconnected, skipping auto-reconnect');
+              }
+            } catch (err) {
+              console.error('Error checking for provider:', err);
+            } finally {
+              setIsLoading(false);
+            }
+          };
+          checkProvider();
         });
       }).catch((error) => {
         console.error('Failed to load Bitcoin Connect:', error);
@@ -251,17 +257,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       setManuallyDisconnected(true);
       localStorage.setItem('wallet_manually_disconnected', 'true');
 
-      // Call disconnect and force state update
+      // Call disconnect - Bitcoin Connect will handle its own localStorage
       await bitcoinConnect.disconnect();
-
-      // Clear Bitcoin Connect's localStorage data to prevent stale connections
-      // Bitcoin Connect uses these keys to persist connections
-      if (typeof window !== 'undefined') {
-        const bcKeys = Object.keys(localStorage).filter(key =>
-          key.startsWith('bc:') || key.includes('bitcoin-connect')
-        );
-        bcKeys.forEach(key => localStorage.removeItem(key));
-      }
 
       // Force state updates immediately
       setProvider(null);
@@ -273,14 +270,6 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Force disconnect even if there's an error
       setManuallyDisconnected(true);
       localStorage.setItem('wallet_manually_disconnected', 'true');
-
-      // Clear Bitcoin Connect localStorage even on error
-      if (typeof window !== 'undefined') {
-        const bcKeys = Object.keys(localStorage).filter(key =>
-          key.startsWith('bc:') || key.includes('bitcoin-connect')
-        );
-        bcKeys.forEach(key => localStorage.removeItem(key));
-      }
 
       setProvider(null);
       setIsConnected(false);
