@@ -1691,10 +1691,10 @@ function HomePageContent() {
                                   <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
 
-                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
-                                  <span>{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">Album</span>
+                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                                  <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                                  <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Album</span>
                                   {album.explicit && (
                                     <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
                                       E
@@ -1752,10 +1752,10 @@ function HomePageContent() {
                                   <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
 
-                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
-                                  <span>{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
+                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                                  <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                                  <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
                                     {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
                                   </span>
                                   {album.explicit && (
@@ -1815,10 +1815,10 @@ function HomePageContent() {
                           <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                         </div>
 
-                        <div className="hidden sm:flex items-center gap-4 text-sm text-gray-400">
-                          <span>{new Date(album.releaseDate).getFullYear()}</span>
-                          <span>{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                          <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
+                        <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                          <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                          <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                          <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
                             {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
                           </span>
                           {album.explicit && (
