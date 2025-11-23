@@ -334,12 +334,40 @@ export function BoostButton({
             });
             
             if (!signer.isAvailable()) {
-              // Check if user logged in with NIP-55 (Amber) - if so, try to reconnect
+              // Check if user logged in with NIP-46 or NIP-55 (Amber) - if so, try to reconnect
               const loginType = typeof window !== 'undefined'
-                ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null
+                ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'amber' | null
                 : null;
 
-              if (loginType === 'nip55') {
+              if (loginType === 'nip46' || loginType === 'amber') {
+                console.log('🔄 NIP-46 signer not available, attempting to restore connection...');
+                try {
+                  const { loadNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+                  const { NIP46Client } = await import('@/lib/nostr/nip46-client');
+
+                  // Load saved NIP-46 connection
+                  const savedConnection = loadNIP46Connection();
+                  if (savedConnection && savedConnection.pubkey) {
+                    console.log('✅ Found saved NIP-46 connection, restoring...');
+                    // Create client and restore connection
+                    const client = new NIP46Client();
+                    (client as any).connection = savedConnection;
+
+                    // Register with unified signer
+                    await signer.setNIP46Signer(client);
+                    console.log('✅ NIP-46 signer restored successfully!');
+                    // Continue to sign the event
+                  } else {
+                    console.warn('⚠️ No saved NIP-46 connection found');
+                    console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 connection not available');
+                    return;
+                  }
+                } catch (reconnectError) {
+                  console.warn('⚠️ Failed to restore NIP-46:', reconnectError);
+                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 reconnection failed');
+                  return;
+                }
+              } else if (loginType === 'nip55') {
                 console.log('🔄 NIP-55 signer not available, attempting to reconnect...');
                 try {
                   const { NIP55Client } = await import('@/lib/nostr/nip55-client');
