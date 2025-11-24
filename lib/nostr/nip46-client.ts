@@ -3001,60 +3001,15 @@ export class NIP46Client {
       throw new Error('Not connected');
     }
 
-    // If we have a saved pubkey (from restored connection), verify it's still valid
-    // This prevents unnecessary requests that can trigger rate limits
+    // If we have a saved pubkey (from restored connection), use it immediately
+    // We'll verify it when we actually need to use it (e.g., when signing)
+    // This avoids timeouts when restoring connections
     if (this.connection.pubkey) {
-      console.log('✅ NIP-46: Found saved user pubkey, verifying connection is still active (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
-      
-      // For relay-based connections, verify the relay is actually connected
-      if (this.relayClient && !this.ws) {
-        const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
-        if (connectedRelays.length === 0) {
-          console.warn('⚠️ NIP-46: Relay not connected yet, waiting for connection...');
-          // Wait a bit for relay to connect (startRelayConnection might still be in progress)
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const connectedRelaysRetry = this.relayClient.getConnectedRelays?.() || [];
-          if (connectedRelaysRetry.length === 0) {
-            console.warn('⚠️ NIP-46: Relay still not connected, will need to re-authenticate');
-            // Clear pubkey so we go through normal authentication flow
-            this.connection.pubkey = undefined;
-          } else {
-            // Relay is now connected, trust the saved pubkey for now
-            // We'll verify it when we actually need to use it (e.g., when signing)
-            // This avoids timeouts when Amber isn't immediately responsive
-            console.log('✅ NIP-46: Relay connected, using saved user pubkey (will verify on first use)');
-            console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey?.slice(0, 16) + '...');
-            if (this.connection.pubkey) {
-              this.connection.connected = true;
-              this.connection.connectedAt = Date.now();
-              return this.connection.pubkey;
-            } else {
-              console.warn('⚠️ NIP-46: No saved pubkey available, will re-authenticate');
-              // Clear pubkey and continue with normal authentication
-              this.connection.pubkey = undefined;
-            }
-          }
-        } else {
-          // Relay is connected, trust the saved pubkey for now
-          // We'll verify it when we actually need to use it (e.g., when signing)
-          // This avoids timeouts when Amber isn't immediately responsive
-          if (this.connection.pubkey) {
-            console.log('✅ NIP-46: Relay connected, using saved user pubkey (will verify on first use)');
-            console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey.slice(0, 16) + '...');
-            this.connection.connected = true;
-            this.connection.connectedAt = Date.now();
-            return this.connection.pubkey;
-          } else {
-            console.warn('⚠️ NIP-46: No saved pubkey available, will re-authenticate');
-            // Clear pubkey and continue with normal authentication
-            this.connection.pubkey = undefined;
-          }
-        }
-      } else if (this.connection.connected && this.ws) {
-        // For WebSocket connections, if we have pubkey and connected flag, trust it
-        console.log('✅ NIP-46: Already authenticated (WebSocket), skipping connect request');
-        return this.connection.pubkey;
-      }
+      console.log('✅ NIP-46: Found saved user pubkey, using it immediately (will verify on first use)');
+      console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey.slice(0, 16) + '...');
+      this.connection.connected = true;
+      this.connection.connectedAt = Date.now();
+      return this.connection.pubkey;
     }
 
     // CRITICAL: For client-initiated connections (nostrconnect://), do NOT send connect requests
