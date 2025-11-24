@@ -1199,26 +1199,26 @@ export class NIP46Client {
                 console.error(`[NIP46-DECRYPT-FAIL] Failed to decrypt with p tag pubkey: ${pTagDecryptErr instanceof Error ? pTagDecryptErr.message : String(pTagDecryptErr)}`);
               }
             } else {
-              // P tag doesn't match - Amber is using a cached old app pubkey!
+              // P tag doesn't match - signer is using a cached old app pubkey!
               // Try to decrypt with historical keypairs
-              console.warn(`[NIP46-AMBER-CACHE] ⚠️ P tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match current app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...)`);
-              console.warn(`[NIP46-AMBER-CACHE] Amber appears to be using a cached connection. Trying historical keypairs...`);
+              console.warn(`[NIP46-SIGNER-CACHE] ⚠️ P tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match current app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...)`);
+              console.warn(`[NIP46-SIGNER-CACHE] Remote signer appears to be using a cached connection. Trying historical keypairs...`);
 
               const keyPairHistory = getAppKeyPairHistory();
-              console.log(`[NIP46-AMBER-CACHE] 📚 Found ${keyPairHistory.length} historical keypair(s) to try`);
+              console.log(`[NIP46-SIGNER-CACHE] 📚 Found ${keyPairHistory.length} historical keypair(s) to try`);
 
               // Try each historical keypair
               for (const oldKeyPair of keyPairHistory) {
                 if (pTagPubkey === oldKeyPair.publicKey) {
-                  console.log(`[NIP46-AMBER-CACHE] 🔑 Found matching historical keypair! (pubkey: ${oldKeyPair.publicKey.slice(0, 16)}...)`);
+                  console.log(`[NIP46-SIGNER-CACHE] 🔑 Found matching historical keypair! (pubkey: ${oldKeyPair.publicKey.slice(0, 16)}...)`);
                   try {
                     const oldAppPrivateKeyBytes = hexToBytes(oldKeyPair.privateKey);
                     const conversationKey = nip44.getConversationKey(oldAppPrivateKeyBytes, signerPubkey);
                     decryptedContent = nip44.decrypt(event.content, conversationKey);
                     content = JSON.parse(decryptedContent);
 
-                    console.log(`[NIP46-AMBER-CACHE] ✅ Successfully decrypted with old keypair!`);
-                    console.log(`[NIP46-AMBER-CACHE] 🔄 Updating current app keypair to match Amber's cached version`);
+                    console.log(`[NIP46-SIGNER-CACHE] ✅ Successfully decrypted with old keypair!`);
+                    console.log(`[NIP46-SIGNER-CACHE] 🔄 Updating current app keypair to match signer's cached version`);
 
                     // Update localStorage to use this old keypair so future events work
                     localStorage.setItem('nostr_nip46_app_keypair', JSON.stringify(oldKeyPair));
@@ -1229,12 +1229,12 @@ export class NIP46Client {
                       connectionInfo.publicKey = oldKeyPair.publicKey;
                     }
 
-                    console.log(`[NIP46-AMBER-CACHE] ℹ️ Workaround applied: Now using the keypair that Amber has cached`);
-                    console.log(`[NIP46-AMBER-CACHE] ℹ️ To use a fresh keypair, clear Amber's connection cache and scan a new QR code`);
+                    console.log(`[NIP46-SIGNER-CACHE] ℹ️ Workaround applied: Now using the keypair that the signer has cached`);
+                    console.log(`[NIP46-SIGNER-CACHE] ℹ️ To use a fresh keypair, clear the signer's connection cache and scan a new QR code`);
 
                     break; // Successfully decrypted, stop trying
                   } catch (oldKeyErr) {
-                    console.warn(`[NIP46-AMBER-CACHE] Failed to decrypt with old keypair ${oldKeyPair.publicKey.slice(0, 16)}:`, oldKeyErr);
+                    console.warn(`[NIP46-SIGNER-CACHE] Failed to decrypt with old keypair ${oldKeyPair.publicKey.slice(0, 16)}:`, oldKeyErr);
                     // Continue to next keypair
                   }
                 }
@@ -1242,10 +1242,10 @@ export class NIP46Client {
 
               // If we still haven't decrypted after trying all historical keypairs
               if (!decryptedContent) {
-                console.error(`[NIP46-AMBER-CACHE] ❌ Could not decrypt with any historical keypair`);
-                console.error(`[NIP46-AMBER-CACHE] Amber's cached pubkey: ${pTagPubkey.slice(0, 16)}...`);
-                console.error(`[NIP46-AMBER-CACHE] Historical pubkeys we have:`, keyPairHistory.map(kp => kp.publicKey.slice(0, 16) + '...'));
-                console.error(`[NIP46-AMBER-CACHE] SOLUTION: Clear Amber's app data or reinstall Amber to completely clear its cache`);
+                console.error(`[NIP46-SIGNER-CACHE] ❌ Could not decrypt with any historical keypair`);
+                console.error(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}...`);
+                console.error(`[NIP46-SIGNER-CACHE] Historical pubkeys we have:`, keyPairHistory.map(kp => kp.publicKey.slice(0, 16) + '...'));
+                console.error(`[NIP46-SIGNER-CACHE] SOLUTION: Clear signer's app data or reinstall to completely clear its cache`);
               }
             }
           }
@@ -1263,13 +1263,13 @@ export class NIP46Client {
             } catch (jsonErr) {
               // If we have a p tag mismatch and decryption failed even with historical keypairs
               if (pTagMismatch) {
-                console.error(`[NIP46-AMBER-CACHE] ❌ Cannot decrypt event - all decryption attempts failed.`);
-                console.error(`[NIP46-AMBER-CACHE] This event was encrypted for a pubkey we don't have the private key for.`);
-                console.error(`[NIP46-AMBER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}...`);
-                console.error(`[NIP46-AMBER-CACHE] Current app pubkey: ${connectionInfo.publicKey?.slice(0, 16)}...`);
+                console.error(`[NIP46-SIGNER-CACHE] ❌ Cannot decrypt event - all decryption attempts failed.`);
+                console.error(`[NIP46-SIGNER-CACHE] This event was encrypted for a pubkey we don't have the private key for.`);
+                console.error(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}...`);
+                console.error(`[NIP46-SIGNER-CACHE] Current app pubkey: ${connectionInfo.publicKey?.slice(0, 16)}...`);
                 const keyPairHistory = getAppKeyPairHistory();
-                console.error(`[NIP46-AMBER-CACHE] Historical pubkeys checked: ${keyPairHistory.length} keypair(s)`);
-                console.error(`[NIP46-AMBER-CACHE] SOLUTION: Uninstall/reinstall Amber or clear Amber's app data to completely reset its cache.`);
+                console.error(`[NIP46-SIGNER-CACHE] Historical pubkeys checked: ${keyPairHistory.length} keypair(s)`);
+                console.error(`[NIP46-SIGNER-CACHE] SOLUTION: Uninstall/reinstall signer or clear signer's app data to completely reset its cache.`);
                 // Don't throw - just return to skip this event
                 return;
               }
