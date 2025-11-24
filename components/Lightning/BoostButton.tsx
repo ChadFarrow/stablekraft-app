@@ -410,14 +410,29 @@ export function BoostButton({
                     });
                     
                     // Create client and restore connection
-                    // Don't pass pubkey to connect() - let authenticate() establish the connection properly
-                    // Passing pubkey can cause authenticate() to skip the connection establishment
+                    // For relay-based connections (Amber), if we have a saved pubkey, pass it to connect()
+                    // so authenticate() knows the connection is already established and skips the 120s wait
                     const client = new NIP46Client();
-                    await client.connect(savedConnection.signerUrl, savedConnection.token, false);
+                    await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
                     
-                    // Now authenticate - this will establish the connection and get the pubkey
+                    // Now authenticate - if pubkey was provided, this will skip the waiting period
+                    // and just verify the connection is still active
                     console.log('🔐 Boost: Authenticating NIP-46/nsecBunker connection...');
-                    await client.authenticate();
+                    try {
+                      await client.authenticate();
+                    } catch (authError) {
+                      // If authentication fails (e.g., connection expired), try without saved pubkey
+                      // to establish a fresh connection
+                      console.warn('⚠️ Boost: Authentication failed with saved pubkey, trying fresh connection...', authError);
+                      // Disconnect and reconnect without pubkey
+                      try {
+                        await client.disconnect();
+                      } catch (disconnectError) {
+                        // Ignore disconnect errors
+                      }
+                      await client.connect(savedConnection.signerUrl, savedConnection.token, false);
+                      await client.authenticate();
+                    }
 
                     // Verify client is connected before registering
                     const isClientConnected = client.isConnected();
