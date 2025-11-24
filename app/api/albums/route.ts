@@ -69,12 +69,21 @@ async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<stri
 }
 
 // Function to get playlist albums
-async function getPlaylistAlbums() {
+async function getPlaylistAlbums(requestUrl?: string) {
   try {
     const playlistAlbums = [];
 
-    // Use the correct localhost port (3000) for development
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // Use the correct base URL - prefer env var, fallback to request origin, then localhost
+    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+
+    if (!baseUrl && requestUrl) {
+      const url = new URL(requestUrl);
+      baseUrl = `${url.protocol}//${url.host}`;
+    }
+
+    if (!baseUrl) {
+      baseUrl = 'http://localhost:3000';
+    }
 
     // Fetch HGH playlist
     const hghResponse = await fetch(`${baseUrl}/api/playlist/hgh`);
@@ -469,7 +478,7 @@ export async function GET(request: Request) {
     // Skip for publisher requests to avoid timeouts
     if (!publisher) {
       try {
-        const playlistAlbums = await getPlaylistAlbums();
+        const playlistAlbums = await getPlaylistAlbums(request.url);
         if (playlistAlbums.length > 0) {
           filteredAlbums.push(...playlistAlbums);
         }
