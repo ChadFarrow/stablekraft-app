@@ -18,11 +18,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Found ${feeds.length} feeds to process`);
 
-    let updatedFeeds = 0;
-    let updatedTracks = 0;
-    let errors = 0;
+    // Return immediately and process in background
+    // This prevents timeout for long-running operations
+    const processInBackground = async () => {
+      let updatedFeeds = 0;
+      let updatedTracks = 0;
+      let errors = 0;
 
-    for (const feed of feeds) {
+      for (const feed of feeds) {
       try {
         console.log(`🔍 Processing feed: ${feed.title} (${feed.id})`);
         
@@ -84,18 +87,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('✅ Comprehensive V4V update completed');
-    console.log(`📊 Results: ${updatedFeeds} feeds updated, ${updatedTracks} tracks updated, ${errors} errors`);
+      console.log('✅ Comprehensive V4V update completed');
+      console.log(`📊 Results: ${updatedFeeds} feeds updated, ${updatedTracks} tracks updated, ${errors} errors`);
+    };
 
+    // Start background processing (don't await)
+    processInBackground().catch((error) => {
+      console.error('❌ Background V4V update failed:', error);
+    });
+
+    // Return immediately
     return NextResponse.json({
       success: true,
-      message: 'Comprehensive V4V data update completed',
-      results: {
-        totalFeeds: feeds.length,
-        updatedFeeds: updatedFeeds,
-        updatedTracks: updatedTracks,
-        errors: errors,
-      },
+      message: 'V4V data update started in background',
+      totalFeeds: feeds.length,
+      note: 'Processing all feeds. Check server logs for progress and completion.',
     });
 
   } catch (error: any) {
