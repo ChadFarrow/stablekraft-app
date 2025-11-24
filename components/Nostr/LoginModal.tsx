@@ -362,6 +362,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Connection successful, authenticate to get pubkey
       const pubkey = await client.getPublicKey();
 
+      // Register NIP-46 client with unified signer so boost signing works
+      const { getUnifiedSigner } = await import('@/lib/nostr/signer');
+      const signer = getUnifiedSigner();
+      await signer.setNIP46Signer(client);
+      console.log('✅ NIP-46 client registered with unified signer');
+
       // Save to context and localStorage
       onLoginSuccess(pubkey, 'nip46', client);
       setIsSubmitting(false);
