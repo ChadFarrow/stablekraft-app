@@ -1285,12 +1285,17 @@ export class NIP46Client {
 
               // If we still haven't decrypted after trying all historical keypairs
               if (!decryptedContent) {
-                // Only clear connection if we have an established connection (not just listening for new connections)
-                // During initial connection (QR code shown), Amber may send old cached events - ignore them silently
-                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined') {
-                  // This is an established connection that can't decrypt - clear it
+                // Only clear connection if:
+                // 1. We have an established connection (not just listening for new connections)
+                // 2. We have pending requests waiting for responses (meaning this might be a response we can't decrypt)
+                // If we have no pending requests, these are just old cached events from Amber that we should ignore
+                const hasPendingRequests = this.pendingRequests.size > 0;
+                
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests) {
+                  // This is an established connection with pending requests that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
+                  console.warn(`[NIP46-SIGNER-CACHE] Has ${this.pendingRequests.size} pending request(s) waiting for responses`);
                   // Use .then() instead of await since this function is not async
                   import('./nip46-storage').then(({ clearNIP46ConnectionForUser }) => {
                     try {
@@ -1308,8 +1313,12 @@ export class NIP46Client {
                     console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
                   });
                 } else {
-                  // Initial connection phase - just ignore old cached events silently
-                  // These are expected when showing QR code before scanning
+                  // No pending requests - this is just an old cached event from Amber, ignore it silently
+                  // Or we're in initial connection phase - these are expected when showing QR code before scanning
+                  if (this.connection?.connected && this.connection?.pubkey && !hasPendingRequests) {
+                    // Established connection but no pending requests - just an old cached event
+                    // Silently ignore it (don't spam logs)
+                  }
                 }
               }
             }
@@ -1328,12 +1337,17 @@ export class NIP46Client {
             } catch (jsonErr) {
               // If we have a p tag mismatch and decryption failed even with historical keypairs
               if (pTagMismatch) {
-                // Only clear connection if we have an established connection (not just listening for new connections)
-                // During initial connection (QR code shown), Amber may send old cached events - ignore them silently
-                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined') {
-                  // This is an established connection that can't decrypt - clear it
+                // Only clear connection if:
+                // 1. We have an established connection (not just listening for new connections)
+                // 2. We have pending requests waiting for responses (meaning this might be a response we can't decrypt)
+                // If we have no pending requests, these are just old cached events from Amber that we should ignore
+                const hasPendingRequests = this.pendingRequests.size > 0;
+                
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests) {
+                  // This is an established connection with pending requests that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
+                  console.warn(`[NIP46-SIGNER-CACHE] Has ${this.pendingRequests.size} pending request(s) waiting for responses`);
                   // Use .then() instead of await since this function is not async
                   import('./nip46-storage').then(({ clearNIP46ConnectionForUser }) => {
                     try {
@@ -1351,8 +1365,12 @@ export class NIP46Client {
                     console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
                   });
                 } else {
-                  // Initial connection phase - just ignore old cached events silently
-                  // These are expected when showing QR code before scanning
+                  // No pending requests - this is just an old cached event from Amber, ignore it silently
+                  // Or we're in initial connection phase - these are expected when showing QR code before scanning
+                  if (this.connection?.connected && this.connection?.pubkey && !hasPendingRequests) {
+                    // Established connection but no pending requests - just an old cached event
+                    // Silently ignore it (don't spam logs)
+                  }
                 }
                 
                 // Don't throw - just return to skip this event
