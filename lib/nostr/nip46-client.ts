@@ -225,6 +225,19 @@ export class NIP46Client {
     
     // Last resort: if signerUrl is a bunker:// URI but we got here, something went wrong
     if (this.connection.signerUrl?.startsWith('bunker://')) {
+      // Try one more time to parse it
+      try {
+        const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
+        const relayUrl = bunkerInfo.relays[0];
+        if (relayUrl && relayUrl.startsWith('wss://')) {
+          // Store it for future use
+          (this.connection as any).relayUrl = relayUrl;
+          console.log('✅ NIP-46: Last resort - parsed and stored relay URL from bunker:// URI:', relayUrl);
+          return relayUrl;
+        }
+      } catch (err) {
+        console.error('❌ NIP-46: Failed to parse bunker:// URI as last resort:', err);
+      }
       throw new Error(`Failed to extract relay URL from bunker:// URI: ${this.connection.signerUrl}`);
     }
     
