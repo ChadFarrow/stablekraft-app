@@ -387,6 +387,18 @@ export function BoostButton({
                     console.warn('⚠️ Failed to get current user pubkey:', err);
                   }
 
+                  // Debug: Check what's in localStorage
+                  if (typeof window !== 'undefined') {
+                    const defaultConn = localStorage.getItem('nostr_nip46_connection');
+                    const byPubkeyConn = localStorage.getItem('nostr_nip46_connections_by_pubkey');
+                    console.log('🔍 Boost: Checking localStorage for connections:', {
+                      hasDefaultConnection: !!defaultConn,
+                      hasByPubkeyConnections: !!byPubkeyConn,
+                      currentUserPubkey: currentUserPubkey?.slice(0, 16) + '...' || 'N/A',
+                      defaultConnectionPreview: defaultConn ? JSON.parse(defaultConn).signerUrl : 'N/A',
+                    });
+                  }
+                  
                   // Load saved NIP-46/nsecBunker connection
                   // Try with user pubkey first, but fall back to loading without it if needed
                   let savedConnection = currentUserPubkey ? loadNIP46Connection(currentUserPubkey) : null;

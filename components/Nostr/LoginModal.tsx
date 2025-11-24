@@ -1003,7 +1003,30 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           if (connection) {
             // Ensure connection has the correct pubkey
             connection.pubkey = loginData.user.nostrPubkey;
+            
+            // Log connection details before saving
+            console.log('💾 LoginModal: Saving NIP-46 connection:', {
+              signerUrl: connection.signerUrl,
+              hasToken: !!connection.token,
+              tokenLength: connection.token?.length || 0,
+              pubkey: connection.pubkey?.slice(0, 16) + '...' || 'N/A',
+              connected: connection.connected,
+              connectedAt: connection.connectedAt,
+            });
+            
+            // Validate connection has required fields
+            if (!connection.signerUrl || !connection.token) {
+              console.error('❌ LoginModal: Connection missing required fields:', {
+                hasSignerUrl: !!connection.signerUrl,
+                hasToken: !!connection.token,
+              });
+              throw new Error('Connection missing required fields. Cannot save.');
+            }
+            
             saveNIP46Connection(connection);
+            console.log('✅ LoginModal: Connection saved successfully');
+          } else {
+            console.error('❌ LoginModal: No connection object to save!');
           }
         }
         
