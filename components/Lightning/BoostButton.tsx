@@ -339,6 +339,21 @@ export function BoostButton({
               loginType: localStorage.getItem('nostr_login_type'),
             });
             
+            // Try to reinitialize signer first - it might just need a refresh
+            if (!signer.isAvailable()) {
+              console.log('🔄 Boost: Signer not available, attempting to reinitialize...');
+              try {
+                await signer.reinitialize();
+                console.log('✅ Boost: Signer reinitialized, checking availability again...');
+                console.log('🔍 Boost: After reinitialize:', {
+                  isAvailable: signer.isAvailable(),
+                  signerType: signer.getSignerType(),
+                });
+              } catch (reinitError) {
+                console.warn('⚠️ Boost: Failed to reinitialize signer:', reinitError);
+              }
+            }
+            
             if (!signer.isAvailable()) {
               // Check if user logged in with NIP-46, nsecBunker, or NIP-55 (Amber) - if so, try to reconnect
               const loginType = typeof window !== 'undefined'
@@ -379,9 +394,38 @@ export function BoostButton({
                     await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
                     await client.authenticate();
 
+                    // Verify client is connected before registering
+                    const isClientConnected = client.isConnected();
+                    console.log('🔍 Boost: NIP-46 client connection status:', {
+                      isConnected: isClientConnected,
+                      hasConnection: !!client.getConnection(),
+                      pubkey: client.getPubkey()?.slice(0, 16) + '...' || 'N/A',
+                    });
+                    
+                    if (!isClientConnected) {
+                      console.warn('⚠️ NIP-46 client not connected after restore attempt');
+                      // Try to authenticate again
+                      try {
+                        await client.authenticate();
+                        console.log('✅ NIP-46 client authenticated after retry');
+                      } catch (authError) {
+                        console.error('❌ Failed to authenticate NIP-46 client:', authError);
+                        console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 authentication failed');
+                        return;
+                      }
+                    }
+                    
                     // Register with unified signer
                     await signer.setNIP46Signer(client);
                     console.log('✅ NIP-46/nsecBunker signer restored successfully!');
+                    
+                    // Verify signer is now available before proceeding
+                    if (!signer.isAvailable()) {
+                      console.warn('⚠️ Signer restored but still not available');
+                      console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signer not available after reconnection');
+                      return;
+                    }
+                    console.log('✅ Signer verified available, proceeding to sign event');
                     // Continue to sign the event
                   } else {
                     console.warn('⚠️ No saved NIP-46/nsecBunker connection found');
@@ -389,8 +433,10 @@ export function BoostButton({
                     return;
                   }
                 } catch (reconnectError) {
-                  console.warn('⚠️ Failed to restore NIP-46:', reconnectError);
-                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 reconnection failed');
+                  console.warn('⚠️ Failed to restore NIP-46/nsecBunker:', reconnectError);
+                  const errorMessage = reconnectError instanceof Error ? reconnectError.message : String(reconnectError);
+                  console.error('❌ Reconnection error details:', errorMessage);
+                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker reconnection failed');
                   return;
                 }
               } else if (loginType === 'nip55') {
@@ -430,6 +476,13 @@ export function BoostButton({
                 }
                 return;
               }
+            }
+            
+            // Final check: ensure signer is available before attempting to sign
+            if (!signer.isAvailable()) {
+              console.error('❌ Boost: Signer not available after all reconnection attempts');
+              console.log('ℹ️ Boost payment succeeded but not posted to Nostr: No signer available');
+              return;
             }
             
             // Sign event using unified signer (works with NIP-07, NIP-46, and NIP-55)
@@ -606,7 +659,25 @@ export function BoostButton({
 
             // Sign with unified signer (already obtained above)
             console.log('🔏 Boost: Signing event with', signer.getSignerType(), '...');
-            const signedEvent = await signer.signEvent(noteTemplate as any);
+            console.log('🔍 Boost: Final signer check before signing:', {
+              isAvailable: signer.isAvailable(),
+              signerType: signer.getSignerType(),
+              hasActiveSigner: !!signer,
+            });
+            
+            let signedEvent;
+            try {
+              signedEvent = await signer.signEvent(noteTemplate as any);
+            } catch (signError) {
+              console.error('❌ Boost: Failed to sign event:', signError);
+              const errorMessage = signError instanceof Error ? signError.message : String(signError);
+              console.error('❌ Sign error details:', {
+                message: errorMessage,
+                signerType: signer.getSignerType(),
+                isAvailable: signer.isAvailable(),
+              });
+              throw signError;
+            }
 
             console.log('✅ Boost: Event signed successfully:', {
               eventId: signedEvent.id.slice(0, 16) + '...',
