@@ -981,7 +981,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               <div className="space-y-2">
                 {album.tracks.map((track, displayIndex) => (
                   <div
-                    key={displayIndex}
+                    key={track.guid || track.url || `${track.title}-${displayIndex}`}
                     className={`flex items-center justify-between p-4 hover:bg-white/10 rounded-lg transition-colors group cursor-pointer ${
                       globalTrackIndex === displayIndex && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
                     }`}
@@ -1054,6 +1054,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       {(track.v4vRecipient || album.v4vRecipient || (track.v4vValue?.recipients?.length > 0 || album.v4vValue?.recipients?.length > 0)) && (
                         <div onClick={(e) => e.stopPropagation()}>
                           <BoostButton
+                            key={track.guid || track.url || `boost-${track.title}-${displayIndex}`}
                             trackId={track.guid}
                             feedId={album.feedId}
                             trackTitle={track.title}
