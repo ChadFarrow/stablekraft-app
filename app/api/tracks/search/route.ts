@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ApiCache } from '@/lib/api-utils';
 import { parseSearchQuery, normalizeQuery, buildFieldFilters } from '@/lib/search-utils';
+import { Prisma } from '@prisma/client';
 
 // Initialize cache instance
 const searchCache = new ApiCache();
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       };
     } else if (type === 'v4v') {
       typeFilter = {
-        v4vValue: { not: null }
+        v4vValue: { not: Prisma.JsonNull }
       };
     }
     
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (filters.hasV4V) {
-      where.v4vValue = { not: null };
+      where.v4vValue = { not: Prisma.JsonNull };
     }
     
     if (filters.hasImage) {

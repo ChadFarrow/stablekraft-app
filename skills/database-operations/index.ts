@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 export interface DatabaseOperationInput {
   operation: 'create' | 'read' | 'update' | 'delete' | 'search' | 'batch';
@@ -373,7 +373,7 @@ export class DatabaseOperationsSkill {
         where.guid = filters.episodeId;
       }
       if (filters.hasV4VData) {
-        where.v4vValue = { not: null };
+        where.v4vValue = { not: Prisma.JsonNull };
       }
       
       const [tracks, total] = await Promise.all([

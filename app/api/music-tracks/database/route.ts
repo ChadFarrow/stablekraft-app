@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { createErrorLogger } from '@/lib/error-utils';
+import { Prisma } from '@prisma/client';
 
 const logger = createErrorLogger('MusicTracksDatabaseAPI');
 
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
     // Source information can be derived from Feed.type if needed
     
     if (hasV4VData !== null && hasV4VData === 'true') {
-      where.v4vValue = { not: null };
+      where.v4vValue = { not: Prisma.JsonNull };
     }
 
     logger.info('Searching tracks with filters', { where, page, pageSize });

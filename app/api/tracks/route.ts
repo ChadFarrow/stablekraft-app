@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/tracks - List tracks with search and filters
 export async function GET(request: NextRequest) {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     
     // Filter by V4V support
     if (hasV4V === 'true') {
-      where.v4vValue = { not: null };
+      where.v4vValue = { not: Prisma.JsonNull };
     }
     
     // Execute query

@@ -1,11 +1,12 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 async function verifyFeesRemoved() {
   console.log('🔍 Checking for remaining fee recipients...\n');
 
   // Check feeds
   const feeds = await prisma.feed.findMany({
-    where: { v4vValue: { not: null } },
+    where: { v4vValue: { not: Prisma.JsonNull } },
     select: { id: true, title: true, v4vValue: true }
   });
 
@@ -31,7 +32,7 @@ async function verifyFeesRemoved() {
 
   // Check tracks
   const tracks = await prisma.track.findMany({
-    where: { v4vValue: { not: null } },
+    where: { v4vValue: { not: Prisma.JsonNull } },
     select: { id: true, title: true, v4vValue: true }
   });
 

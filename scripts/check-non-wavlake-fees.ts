@@ -1,10 +1,11 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 async function checkFees() {
   // Get non-Wavlake feeds with v4v data
   const feeds = await prisma.feed.findMany({
     where: {
-      v4vValue: { not: null },
+      v4vValue: { not: Prisma.JsonNull },
       artist: { not: { contains: 'wavlake', mode: 'insensitive' } },
       title: { not: { contains: 'wavlake', mode: 'insensitive' } }
     },

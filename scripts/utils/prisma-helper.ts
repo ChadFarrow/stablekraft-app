@@ -7,7 +7,7 @@
  * All scripts should use this instead of directly reading/writing JSON files.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -154,7 +154,7 @@ export async function getDatabaseStats() {
     prisma.feed.count(),
     prisma.track.count({
       where: {
-        v4vValue: { not: null }
+        v4vValue: { not: Prisma.JsonNull }
       }
     })
   ]);
