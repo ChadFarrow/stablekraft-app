@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     // Count total tracks with v4vValue
     const tracksWithV4V = await prisma.track.count({
       where: {
-        v4vValue: { not: null }
+        v4vValue: { not: Prisma.JsonNull }
       }
     });
 
