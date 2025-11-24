@@ -1288,11 +1288,18 @@ export class NIP46Client {
                 // Only clear connection if:
                 // 1. We have an established connection (not just listening for new connections)
                 // 2. We have pending requests waiting for responses (meaning this might be a response we can't decrypt)
+                // 3. The pending requests are NOT authentication-related (get_public_key, connect)
+                //    - During authentication, old cached events are expected and should be ignored
                 // If we have no pending requests, these are just old cached events from Amber that we should ignore
                 const hasPendingRequests = this.pendingRequests.size > 0;
                 
-                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests) {
-                  // This is an established connection with pending requests that can't decrypt - clear it
+                // Check if we're in the middle of authentication (get_public_key or connect requests)
+                const isAuthenticating = hasPendingRequests && Array.from(this.pendingRequests.values()).some(
+                  (req: any) => req.method === 'get_public_key' || req.method === 'connect'
+                );
+                
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests && !isAuthenticating) {
+                  // This is an established connection with pending requests (not auth) that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
                   console.warn(`[NIP46-SIGNER-CACHE] Has ${this.pendingRequests.size} pending request(s) waiting for responses`);
@@ -1313,10 +1320,13 @@ export class NIP46Client {
                     console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
                   });
                 } else {
-                  // No pending requests - this is just an old cached event from Amber, ignore it silently
-                  // Or we're in initial connection phase - these are expected when showing QR code before scanning
+                  // No pending requests, or we're authenticating - this is just an old cached event from Amber, ignore it silently
+                  // During authentication/login, old cached events are expected and should be ignored
                   if (this.connection?.connected && this.connection?.pubkey && !hasPendingRequests) {
                     // Established connection but no pending requests - just an old cached event
+                    // Silently ignore it (don't spam logs)
+                  } else if (isAuthenticating) {
+                    // We're authenticating - old cached events are expected, ignore them
                     // Silently ignore it (don't spam logs)
                   }
                 }
@@ -1340,11 +1350,18 @@ export class NIP46Client {
                 // Only clear connection if:
                 // 1. We have an established connection (not just listening for new connections)
                 // 2. We have pending requests waiting for responses (meaning this might be a response we can't decrypt)
+                // 3. The pending requests are NOT authentication-related (get_public_key, connect)
+                //    - During authentication, old cached events are expected and should be ignored
                 // If we have no pending requests, these are just old cached events from Amber that we should ignore
                 const hasPendingRequests = this.pendingRequests.size > 0;
                 
-                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests) {
-                  // This is an established connection with pending requests that can't decrypt - clear it
+                // Check if we're in the middle of authentication (get_public_key or connect requests)
+                const isAuthenticating = hasPendingRequests && Array.from(this.pendingRequests.values()).some(
+                  (req: any) => req.method === 'get_public_key' || req.method === 'connect'
+                );
+                
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined' && hasPendingRequests && !isAuthenticating) {
+                  // This is an established connection with pending requests (not auth) that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
                   console.warn(`[NIP46-SIGNER-CACHE] Has ${this.pendingRequests.size} pending request(s) waiting for responses`);
@@ -1365,10 +1382,13 @@ export class NIP46Client {
                     console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
                   });
                 } else {
-                  // No pending requests - this is just an old cached event from Amber, ignore it silently
-                  // Or we're in initial connection phase - these are expected when showing QR code before scanning
+                  // No pending requests, or we're authenticating - this is just an old cached event from Amber, ignore it silently
+                  // During authentication/login, old cached events are expected and should be ignored
                   if (this.connection?.connected && this.connection?.pubkey && !hasPendingRequests) {
                     // Established connection but no pending requests - just an old cached event
+                    // Silently ignore it (don't spam logs)
+                  } else if (isAuthenticating) {
+                    // We're authenticating - old cached events are expected, ignore them
                     // Silently ignore it (don't spam logs)
                   }
                 }
