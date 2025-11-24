@@ -126,7 +126,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [albumsLoading, setAlbumsLoading] = useState(false);
   const [viewType, setViewType] = useState<ViewType>('grid');
-  const [sortType, setSortType] = useState<SortType>('name');
+  const [sortType, setSortType] = useState<SortType>('year'); // Default to newest first
   
   // Global audio context for shuffle functionality
   const { shuffleAllTracks } = useAudio();
@@ -712,9 +712,16 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     });
   };
 
-  // Separate albums from EPs/singles (6 tracks or less)
-  const albumsWithMultipleTracks = sortAlbums(albums.filter(album => (album.tracks?.length || 0) > 6));
-  const epsAndSingles = sortEpsAndSingles(albums.filter(album => (album.tracks?.length || 0) <= 6));
+  // Sort all albums by release date (newest first) BEFORE separating by type
+  const albumsSortedByDate = [...albums].sort((a, b) => {
+    const dateA = new Date(a.releaseDate || 0);
+    const dateB = new Date(b.releaseDate || 0);
+    return dateB.getTime() - dateA.getTime(); // Newest first
+  });
+
+  // Separate albums from EPs/singles (6 tracks or less) - maintaining date sort
+  const albumsWithMultipleTracks = albumsSortedByDate.filter(album => (album.tracks?.length || 0) > 6);
+  const epsAndSingles = albumsSortedByDate.filter(album => (album.tracks?.length || 0) <= 6);
 
   if (isLoading && !publisherInfo?.title && !publisherInfo?.artist) {
     return (
@@ -849,10 +856,10 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  // Filter and sort albums
+  // Filter albums (they're already sorted by date)
   const getFilteredAlbums = () => {
     let filtered = albums;
-    
+
     switch (activeFilter) {
       case 'albums':
         filtered = albumsWithMultipleTracks;
@@ -864,52 +871,19 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         filtered = epsAndSingles.filter(album => (album.tracks?.length || 0) === 1);
         break;
       default: // 'all'
-        // For &quot;All&quot;, maintain the hierarchical order: Albums, EPs, then Singles
-        filtered = [...albumsWithMultipleTracks, ...epsAndSingles];
+        // For "All", show all albums in date order (already sorted)
+        filtered = albumsSortedByDate;
     }
 
-    // Sort albums
-    return filtered.sort((a, b) => {
-      // For &quot;All&quot; filter, maintain hierarchy first, then apply sorting within each category
-      if (activeFilter === 'all') {
-        const aIsAlbum = (a.tracks?.length || 0) > 6;
-        const bIsAlbum = (b.tracks?.length || 0) > 6;
-        const aIsEP = (a.tracks?.length || 0) > 1 && (a.tracks?.length || 0) <= 6;
-        const bIsEP = (b.tracks?.length || 0) > 1 && (b.tracks?.length || 0) <= 6;
-        const aIsSingle = (a.tracks?.length || 0) === 1;
-        const bIsSingle = (b.tracks?.length || 0) === 1;
-        
-        // Albums come first
-        if (aIsAlbum && !bIsAlbum) return -1;
-        if (!aIsAlbum && bIsAlbum) return 1;
-        
-        // Then EPs (if both are not albums)
-        if (!aIsAlbum && !bIsAlbum) {
-          if (aIsEP && bIsSingle) return -1;
-          if (aIsSingle && bIsEP) return 1;
-        }
-        
-        // Within same category, apply the selected sort
-        switch (sortType) {
-          case 'year':
-            return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
-          case 'tracks':
-            return (b.tracks?.length || 0) - (a.tracks?.length || 0);
-          default: // name
-            return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
-        }
-      } else {
-        // For specific filters, just apply the sort type
-        switch (sortType) {
-          case 'year':
-            return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
-          case 'tracks':
-            return (b.tracks?.length || 0) - (a.tracks?.length || 0);
-          default: // name
-            return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
-        }
-      }
-    });
+    // Apply additional sorting if user changes sort type
+    if (sortType === 'name') {
+      return [...filtered].sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+    } else if (sortType === 'tracks') {
+      return [...filtered].sort((a, b) => (b.tracks?.length || 0) - (a.tracks?.length || 0));
+    }
+
+    // Default is 'year' - already sorted by date, just return filtered
+    return filtered;
   };
 
   const filteredAlbums = getFilteredAlbums();
@@ -950,13 +924,29 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         {/* Hero Section */}
         <div className="container mx-auto px-4 pb-8">
           <div className="flex flex-col lg:flex-row items-start lg:items-end gap-8 mb-12">
-            {/* Artist Avatar - Use latest item artwork first, then publisher artwork as fallback */}
+            {/* Artist Avatar - Use newest album's artwork */}
             <div className="flex-shrink-0">
-              {publisherInfo?.avatarArt ? (
-                // Use latest item's artwork for avatar
+              {albumsSortedByDate.length > 0 && albumsSortedByDate[0].coverArt ? (
+                // Use newest album's artwork for avatar
                 <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white/20">
-                  <Image 
-                    src={getAlbumArtworkUrl(publisherInfo.avatarArt, 'xl')} 
+                  <Image
+                    src={getAlbumArtworkUrl(albumsSortedByDate[0].coverArt, 'xl')}
+                    alt={albumsSortedByDate[0].title || "Latest Release"}
+                    width={256}
+                    height={256}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = getPlaceholderImageUrl('large');
+                    }}
+                  />
+                </div>
+              ) : publisherInfo?.avatarArt ? (
+                // Fallback to publisher avatar art
+                <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white/20">
+                  <Image
+                    src={getAlbumArtworkUrl(publisherInfo.avatarArt, 'xl')}
                     alt={publisherInfo.title || "Artist"}
                     width={256}
                     height={256}
@@ -968,38 +958,8 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                     }}
                   />
                 </div>
-              ) : albums.length > 0 ? (
-                // Fallback to newest release artwork
-                (() => {
-                  const sortedByDate = [...albums].sort((a, b) => {
-                    const dateA = new Date(a.releaseDate || 0);
-                    const dateB = new Date(b.releaseDate || 0);
-                    return dateB.getTime() - dateA.getTime(); // Newest first
-                  });
-                  const newestAlbum = sortedByDate[0];
-                  
-                  return newestAlbum.coverArt ? (
-                    <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-white/20">
-                      <Image 
-                        src={getAlbumArtworkUrl(newestAlbum.coverArt, 'xl')} 
-                        alt={newestAlbum.title || "Latest Release"}
-                        width={256}
-                        height={256}
-                        className="w-full h-full object-cover"
-                        unoptimized
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = getPlaceholderImageUrl('large');
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-48 h-48 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-2xl ring-4 ring-white/20">
-                      <Music className="w-20 h-20 text-white/80" />
-                    </div>
-                  );
-                })()
               ) : (
+                // Final fallback to gradient
                 <div className="w-48 h-48 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-2xl ring-4 ring-white/20">
                   <Music className="w-20 h-20 text-white/80" />
                 </div>
@@ -1076,13 +1036,13 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                   ]}
                   sortType={sortType}
                   onSortChange={setSortType}
-                  showSort={false}
+                  showSort={true}
                   viewType={viewType}
                   onViewChange={setViewType}
                   showShuffle={true}
                   onShuffle={handleShuffle}
                   resultCount={filteredAlbums.length}
-                  resultLabel={activeFilter === 'all' ? 'Releases' : 
+                  resultLabel={activeFilter === 'all' ? 'Releases' :
                     activeFilter === 'albums' ? 'Albums' :
                     activeFilter === 'eps' ? 'EPs' : 'Singles'}
                   className="mb-8"
