@@ -184,8 +184,19 @@ export class NIP46Client {
     
     // If relayUrl is stored separately (for bunker:// connections), use it
     const storedRelayUrl = (this.connection as any).relayUrl;
-    if (storedRelayUrl && storedRelayUrl.startsWith('wss://')) {
-      return storedRelayUrl;
+    if (storedRelayUrl) {
+      // Validate it's a valid WebSocket URL
+      if (storedRelayUrl.startsWith('wss://')) {
+        return storedRelayUrl;
+      }
+      // If it's a bunker:// URI, we need to parse it (shouldn't happen, but handle it)
+      if (storedRelayUrl.startsWith('bunker://')) {
+        console.warn('⚠️ NIP-46: relayUrl field contains bunker:// URI, parsing...');
+        // Fall through to parsing logic below
+      } else {
+        console.error('❌ NIP-46: Invalid relayUrl format:', storedRelayUrl);
+        throw new Error(`Invalid relayUrl format: ${storedRelayUrl}. Expected wss:// URL.`);
+      }
     }
     
     // If signerUrl is a bunker:// URI, parse it to get the relay URL
@@ -194,8 +205,9 @@ export class NIP46Client {
         const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
         const relayUrl = bunkerInfo.relays[0];
         if (relayUrl && relayUrl.startsWith('wss://')) {
-          // Also store it for future use
+          // Store it for future use
           (this.connection as any).relayUrl = relayUrl;
+          console.log('✅ NIP-46: Parsed and stored relay URL from bunker:// URI:', relayUrl);
           return relayUrl;
         }
         throw new Error('No valid relay URL found in bunker:// URI');
@@ -209,6 +221,11 @@ export class NIP46Client {
     // But validate it's a valid WebSocket URL
     if (this.connection.signerUrl && this.connection.signerUrl.startsWith('wss://')) {
       return this.connection.signerUrl;
+    }
+    
+    // Last resort: if signerUrl is a bunker:// URI but we got here, something went wrong
+    if (this.connection.signerUrl?.startsWith('bunker://')) {
+      throw new Error(`Failed to extract relay URL from bunker:// URI: ${this.connection.signerUrl}`);
     }
     
     throw new Error(`Invalid relay URL: ${this.connection.signerUrl}. Expected wss:// URL or bunker:// URI.`);
@@ -320,6 +337,18 @@ export class NIP46Client {
   private async startRelayConnection(relayUrl: string): Promise<void> {
     if (!this.connection) {
       throw new Error('No connection configured');
+    }
+    
+    // CRITICAL: Ensure we're using a valid WebSocket URL, not a bunker:// URI
+    // If relayUrl is a bunker:// URI, extract the actual relay URL
+    if (relayUrl.startsWith('bunker://')) {
+      console.warn('⚠️ NIP-46: startRelayConnection received bunker:// URI, extracting relay URL...');
+      relayUrl = this.getRelayUrl(); // This will parse and return the actual wss:// URL
+    }
+    
+    // Validate it's a valid WebSocket URL
+    if (!relayUrl.startsWith('wss://')) {
+      throw new Error(`Invalid relay URL passed to startRelayConnection: ${relayUrl}. Expected wss:// URL.`);
     }
 
     // Clean up any existing relay subscription first
