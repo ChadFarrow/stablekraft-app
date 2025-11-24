@@ -664,16 +664,16 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       } else {
         // Verify connection is established before requesting pubkey
         if (!isConnected || !connection) {
-          throw new Error(`Not connected to Amber. Connection status: connected=${isConnected}, hasConnection=${!!connection}. Please wait for the connection to be established.`);
+          throw new Error(`Not connected to signer. Connection status: connected=${isConnected}, hasConnection=${!!connection}. Please wait for the connection to be established.`);
         }
         
         console.log('⚠️ LoginModal: No pubkey available yet. Requesting from signer...');
-        console.log('📱 IMPORTANT: Watch your phone - Amber should show a notification or prompt');
-        
-        // Try requesting the public key - this will work if Amber is listening
+        console.log('📱 IMPORTANT: Watch your device - your signer should show a notification or prompt');
+
+        // Try requesting the public key - this will work if the signer is listening
         try {
-          console.log('⏳ LoginModal: Waiting 2 seconds for Amber to be ready...');
-          // Wait a bit for Amber to be ready
+          console.log('⏳ LoginModal: Waiting 2 seconds for signer to be ready...');
+          // Wait a bit for signer to be ready
           await new Promise(resolve => setTimeout(resolve, 2000));
           
           console.log('📤 LoginModal: Requesting public key from Amber via relay...');
