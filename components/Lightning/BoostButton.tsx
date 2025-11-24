@@ -63,6 +63,8 @@ export function BoostButton({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [nostrError, setNostrError] = useState<string | null>(null);
+  const [nostrStatus, setNostrStatus] = useState<'idle' | 'connecting' | 'signing' | 'success' | 'failed'>('idle');
   const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
   const [showSplitDetails, setShowSplitDetails] = useState(false);
   const [fetchedValueSplits, setFetchedValueSplits] = useState<typeof valueSplits>([]);
@@ -187,6 +189,8 @@ export function BoostButton({
     setIsSending(true);
     setError(null);
     setSuccess(false);
+    setNostrError(null);
+    setNostrStatus('idle');
 
     try {
       const amount = parseInt(customAmount);
@@ -326,8 +330,13 @@ export function BoostButton({
           nostrUserNpub: nostrUser?.nostrNpub?.slice(0, 16) + '...',
         });
 
+        // Reset Nostr status
+        setNostrError(null);
+        setNostrStatus('idle');
+
         if (LIGHTNING_CONFIG.features.nostrIntegration && (trackId || feedId) && isNostrAuthenticated && nostrUser) {
           console.log('✅ Boost: All conditions met, proceeding to post to Nostr...');
+          setNostrStatus('connecting');
           try {
             // Check if unified signer is available (supports NIP-07, NIP-46, and NIP-55)
             const { getUnifiedSigner } = await import('@/lib/nostr/signer');
@@ -391,7 +400,8 @@ export function BoostButton({
                     // Validate connection matches current user (if we have both)
                     if (currentUserPubkey && savedConnection.pubkey && savedConnection.pubkey !== currentUserPubkey) {
                       console.warn('⚠️ Stored connection is for different user. Cannot restore.');
-                      console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection mismatch');
+                      setNostrError('Connection mismatch: Please log out and reconnect with Amber.');
+                      setNostrStatus('failed');
                       return;
                     }
                     
@@ -450,7 +460,9 @@ export function BoostButton({
                         console.log('✅ NIP-46 client authenticated after retry');
                       } catch (authError) {
                         console.error('❌ Failed to authenticate NIP-46 client:', authError);
-                        console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 authentication failed');
+                        const errorMsg = authError instanceof Error ? authError.message : String(authError);
+                        setNostrError(`Authentication failed: ${errorMsg}. Please try reconnecting with Amber.`);
+                        setNostrStatus('failed');
                         return;
                       }
                     }
@@ -481,7 +493,8 @@ export function BoostButton({
                       
                       if (!signer.isAvailable()) {
                         console.error('❌ Signer still not available after reinitialize');
-                        console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signer not available after reconnection');
+                        setNostrError('Signer not available after reconnection. Please try logging out and reconnecting with Amber.');
+                        setNostrStatus('failed');
                         return;
                       }
                     }
@@ -489,15 +502,16 @@ export function BoostButton({
                     // Continue to sign the event
                   } else {
                     console.warn('⚠️ No saved NIP-46/nsecBunker connection found');
-                    console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection not available');
-                    console.log('💡 Tip: Try logging out and reconnecting with Amber to restore the connection');
+                    setNostrError('No saved connection found. Please log out and reconnect with Amber.');
+                    setNostrStatus('failed');
                     return;
                   }
                 } catch (reconnectError) {
                   console.warn('⚠️ Failed to restore NIP-46/nsecBunker:', reconnectError);
                   const errorMessage = reconnectError instanceof Error ? reconnectError.message : String(reconnectError);
                   console.error('❌ Reconnection error details:', errorMessage);
-                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker reconnection failed');
+                  setNostrError(`Reconnection failed: ${errorMessage}. Please try reconnecting with Amber.`);
+                  setNostrStatus('failed');
                   return;
                 }
               } else if (loginType === 'nip55') {
@@ -542,7 +556,8 @@ export function BoostButton({
             // Final check: ensure signer is available before attempting to sign
             if (!signer.isAvailable()) {
               console.error('❌ Boost: Signer not available after all reconnection attempts');
-              console.log('ℹ️ Boost payment succeeded but not posted to Nostr: No signer available');
+              setNostrError('Signer not available. Please try logging out and reconnecting with Amber.');
+              setNostrStatus('failed');
               return;
             }
             
@@ -566,25 +581,28 @@ export function BoostButton({
                 
                 if (!isConnected || !connection) {
                   console.error('❌ Boost: NIP-46/nsecBunker client not connected');
-                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Connection not established');
+                  setNostrError('Connection not established. Please try reconnecting with Amber.');
+                  setNostrStatus('failed');
                   return;
                 }
                 
                 if (!pubkey && !connection.pubkey) {
                   console.error('❌ Boost: NIP-46/nsecBunker pubkey not available');
-                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Pubkey not available');
                   // Try to get pubkey
                   try {
                     await nip46Client.getPublicKey();
                     console.log('✅ Boost: Retrieved pubkey after retry');
                   } catch (pubkeyError) {
                     console.error('❌ Boost: Failed to get pubkey:', pubkeyError);
+                    setNostrError('Failed to get public key. Please try reconnecting with Amber.');
+                    setNostrStatus('failed');
                     return;
                   }
                 }
               } else {
                 console.error('❌ Boost: NIP-46/nsecBunker client not available');
-                console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Client not available');
+                setNostrError('Nostr client not available. Please try reconnecting with Amber.');
+                setNostrStatus('failed');
                 return;
               }
             }
@@ -768,6 +786,7 @@ export function BoostButton({
               hasActiveSigner: !!signer,
             });
             
+            setNostrStatus('signing');
             let signedEvent;
             try {
               // Add timeout for signing (30 seconds should be enough)
@@ -800,8 +819,15 @@ export function BoostButton({
                 }
               }
               
-              // Don't throw - just log and return (boost payment already succeeded)
-              console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signing failed');
+              // Set user-visible error
+              if (errorMessage.includes('timeout')) {
+                setNostrError('Signing timed out. Amber may not be responding. Please check that Amber is open and try again.');
+              } else if (errorMessage.includes('not available') || errorMessage.includes('disconnected')) {
+                setNostrError('Connection lost. Please try reconnecting with Amber.');
+              } else {
+                setNostrError(`Signing failed: ${errorMessage}. Please try reconnecting with Amber.`);
+              }
+              setNostrStatus('failed');
               return;
             }
 
@@ -843,15 +869,20 @@ export function BoostButton({
                     published: true,
                     relayResults: zapData.data?.relayResults,
                   });
+                  setNostrStatus('success');
                 } else {
                   console.warn('⚠️ Boost stored but may not have been published to relays:', {
                     eventId: zapData.eventId,
                     published: false,
                     relayResults: zapData.data?.relayResults,
                   });
+                  setNostrError('Boost stored but may not have been published to Nostr relays.');
+                  setNostrStatus('failed');
                 }
               } else {
                 console.error('❌ Boost: API returned success=false:', zapData);
+                setNostrError(zapData.error || 'Failed to post boost to Nostr.');
+                setNostrStatus('failed');
               }
             } else {
               const errorData = await zapResponse.json().catch(() => ({}));
@@ -861,6 +892,8 @@ export function BoostButton({
                 error: errorData.error || 'Unknown error',
                 errorData,
               });
+              setNostrError(errorData.error || `API error: ${zapResponse.statusText}`);
+              setNostrStatus('failed');
             }
           } catch (nostrError) {
             console.error('❌ Boost: Exception during Nostr posting:', {
@@ -872,12 +905,13 @@ export function BoostButton({
             const errorMessage = nostrError instanceof Error ? nostrError.message : String(nostrError);
 
             if (errorMessage.includes('iOS') || errorMessage.includes('not supported')) {
-              console.warn('💡 Boost payment succeeded but not posted to Nostr. NIP-55 is not supported on iOS. Please log out and reconnect using NIP-46 (Nostr Connect) to enable Nostr features on iOS.');
+              setNostrError('NIP-55 is not supported on iOS. Please log out and reconnect using NIP-46 (Nostr Connect).');
             } else if (errorMessage.includes('No signer available')) {
-              console.warn('💡 Boost payment succeeded but not posted to Nostr. No Nostr signer is available. Please connect a Nostr wallet (NIP-07 extension, NIP-46, or NIP-55).');
+              setNostrError('No Nostr signer available. Please connect a Nostr wallet (NIP-07 extension, NIP-46, or NIP-55).');
             } else {
-              console.warn('💡 Boost payment succeeded but failed to post to Nostr. This may be a temporary issue. Check your Nostr connection.');
+              setNostrError(`Failed to post to Nostr: ${errorMessage}. Please try reconnecting with Amber.`);
             }
+            setNostrStatus('failed');
 
             // Don't fail the boost if Nostr posting fails
           }
@@ -1166,6 +1200,8 @@ export function BoostButton({
     // Clear message and error states
     setMessage('');
     setError(null);
+    setNostrError(null);
+    setNostrStatus('idle');
 
     if (onClose) {
       onClose();
@@ -1431,6 +1467,39 @@ export function BoostButton({
             {error && (
               <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
                 {error}
+              </div>
+            )}
+
+            {/* Nostr Status */}
+            {LIGHTNING_CONFIG.features.nostrIntegration && isNostrAuthenticated && nostrUser && (trackId || feedId) && (
+              <div className="mb-4">
+                {nostrStatus === 'connecting' && (
+                  <div className="p-3 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200 text-sm flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    <span>Connecting to Nostr...</span>
+                  </div>
+                )}
+                {nostrStatus === 'signing' && (
+                  <div className="p-3 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200 text-sm flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    <span>Signing boost event...</span>
+                  </div>
+                )}
+                {nostrStatus === 'success' && (
+                  <div className="p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-200 text-sm flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    <span>Boost posted to Nostr successfully!</span>
+                  </div>
+                )}
+                {nostrStatus === 'failed' && nostrError && (
+                  <div className="p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-200 text-sm">
+                    <div className="font-semibold mb-1">⚠️ Boost payment succeeded, but Nostr posting failed:</div>
+                    <div>{nostrError}</div>
+                    <div className="mt-2 text-xs text-yellow-300/80">
+                      Tip: Try logging out and reconnecting with Amber to restore the connection.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

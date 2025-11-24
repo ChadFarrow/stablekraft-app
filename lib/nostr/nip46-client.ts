@@ -2998,11 +2998,29 @@ export class NIP46Client {
       throw new Error('Not connected');
     }
 
-    // If already authenticated (has pubkey), skip the connect request
+    // If already authenticated (has pubkey), verify connection is still active
     // This prevents unnecessary requests that can trigger rate limits
     if (this.connection.connected && this.connection.pubkey) {
-      console.log('✅ NIP-46: Already authenticated, skipping connect request (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
-      return this.connection.pubkey;
+      console.log('✅ NIP-46: Connection appears authenticated, verifying it\'s still active (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
+      
+      // For relay-based connections, verify the relay is actually connected
+      if (this.relayClient && !this.ws) {
+        const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
+        if (connectedRelays.length === 0) {
+          console.warn('⚠️ NIP-46: Relay not connected, reconnecting...');
+          // Reset connection state and continue with normal authentication flow
+          this.connection.connected = false;
+        } else {
+          // For restored connections, we trust the saved pubkey if relay is connected
+          // The connection was already established, so we can skip the connect request
+          console.log('✅ NIP-46: Relay connected and pubkey available, skipping connect request');
+          return this.connection.pubkey;
+        }
+      } else {
+        // For WebSocket connections, if we have pubkey and connected flag, trust it
+        console.log('✅ NIP-46: Already authenticated (WebSocket), skipping connect request');
+        return this.connection.pubkey;
+      }
     }
 
     // CRITICAL: For client-initiated connections (nostrconnect://), do NOT send connect requests

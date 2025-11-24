@@ -9,7 +9,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import Parser from 'rss-parser';
-import { parseV4VFromXML } from '../lib/rss-parser-db';
+import { parseV4VFromXML, parseItemV4VFromXML } from '../lib/rss-parser-db';
 
 const prisma = new PrismaClient();
 const parser = new Parser({
@@ -59,19 +59,19 @@ async function main() {
         // Parse feed with rss-parser to get episodes
         const parsedFeed = await parser.parseString(xmlText);
 
-        // Parse v4v data from XML
-        const parsedV4V = parseV4VFromXML(xmlText);
+        // Parse channel-level v4v data from XML
+        const channelV4V = parseV4VFromXML(xmlText);
 
         // Update feed-level v4v data
-        if (parsedV4V?.channelValue) {
+        if (channelV4V?.value) {
           await prisma.feed.update({
             where: { id: feed.id },
             data: {
               v4vValue: {
-                type: parsedV4V.channelValue.type,
-                method: parsedV4V.channelValue.method,
-                suggested: parsedV4V.channelValue.suggested,
-                recipients: parsedV4V.channelValue.recipients.map(r => ({
+                type: channelV4V.value.type,
+                method: channelV4V.value.method,
+                suggested: channelV4V.value.suggested,
+                recipients: channelV4V.value.recipients.map(r => ({
                   name: r.name,
                   type: r.type,
                   address: r.address,
@@ -81,7 +81,7 @@ async function main() {
                   fee: r.fee || false
                 }))
               },
-              v4vRecipient: parsedV4V.channelValue.recipients[0]?.address || null
+              v4vRecipient: channelV4V.recipient || null
             }
           });
           console.log(`✅ Updated feed-level v4v data`);
@@ -99,33 +99,33 @@ async function main() {
             continue;
           }
 
-          // Get item-level v4v data if available
-          const itemV4V = parsedV4V?.itemValues?.get(episode.guid || '');
+          // Parse item-level v4v data using the corrected parser
+          const itemV4V = parseItemV4VFromXML(xmlText, episode.title || track.title);
 
-          if (itemV4V) {
+          if (itemV4V?.value) {
             // Update track with item-level v4v data
             await prisma.track.update({
               where: { id: track.id },
               data: {
                 v4vValue: {
-                  type: itemV4V.type,
-                  method: itemV4V.method,
-                  suggested: itemV4V.suggested,
-                  recipients: itemV4V.recipients.map(r => ({
+                  type: itemV4V.value.type,
+                  method: itemV4V.value.method,
+                  suggested: itemV4V.value.suggested,
+                  recipients: itemV4V.value.recipients.map(r => ({
                     name: r.name,
                     type: r.type,
                     address: r.address,
-                    split: r.split,
+                    split: parseInt(r.split, 10), // Convert string to number
                     customKey: r.customKey,
                     customValue: r.customValue,
                     fee: r.fee || false
                   }))
                 },
-                v4vRecipient: itemV4V.recipients[0]?.address || null
+                v4vRecipient: itemV4V.recipient || null
               }
             });
 
-            console.log(`✅ Updated "${track.title}" with item-level v4v (${itemV4V.recipients.length} recipients)`);
+            console.log(`✅ Updated "${track.title}" with item-level v4v (${itemV4V.value.recipients.length} recipients)`);
             tracksUpdated++;
             tracksWithItemLevelData++;
           } else {

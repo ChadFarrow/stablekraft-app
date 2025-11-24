@@ -83,7 +83,30 @@ After running the migration:
 
 After deploying the parser fix, you need to refresh all feeds to update tracks with corrected v4v splits:
 
-### Option A: Use the refresh script (Recommended)
+### Option A: Use the Podcast Index API refresh script (Recommended)
+
+```bash
+# Via Railway CLI
+railway run npx tsx scripts/refresh-all-feed-v4v-podcastindex.ts
+
+# Or locally with production database
+npx dotenv -e .env.local -- npx tsx scripts/refresh-all-feed-v4v-podcastindex.ts
+```
+
+This script will:
+- Use Podcast Index API to fetch feed metadata and episodes (no direct feed fetches!)
+- Extract v4v data from structured JSON (no XML parsing needed)
+- Avoid rate limiting from Wavlake and other feed hosts
+- Update tracks with correct item-level splits
+- Clear tracks that don't have item-level splits (they'll use feed-level)
+
+**Why Podcast Index API?**
+- Avoids 429 rate limiting errors (463 feeds failed with direct fetches)
+- Faster - single API call per feed
+- More reliable - structured JSON data
+- Follows project architecture (CLAUDE.md: "Always use Podcast Index API")
+
+### Option B: Use the XML-based refresh script
 
 ```bash
 # Via Railway CLI
@@ -93,13 +116,9 @@ railway run npx tsx scripts/refresh-all-feed-v4v.ts
 npx dotenv -e .env.local -- npx tsx scripts/refresh-all-feed-v4v.ts
 ```
 
-This script will:
-- Re-fetch all active RSS feeds
-- Re-parse v4v data with the fixed parser
-- Update tracks with correct item-level splits
-- Clear tracks that don't have item-level splits (they'll use feed-level)
+This script directly fetches RSS feeds and parses XML with the fixed parser. May hit rate limits on Wavlake feeds.
 
-### Option B: Wait for daily sync
+### Option C: Wait for daily sync
 
 The GitHub Actions workflow runs daily at 2 AM UTC and will automatically refresh feeds with the fixed parser.
 
