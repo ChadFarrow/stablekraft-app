@@ -174,6 +174,34 @@ export class NIP46Client {
   }
 
   /**
+   * Get the actual relay URL from the connection
+   * For bunker:// connections, use relayUrl if available, otherwise parse from signerUrl
+   */
+  private getRelayUrl(): string {
+    if (!this.connection) {
+      throw new Error('No connection configured');
+    }
+    
+    // If relayUrl is stored separately (for bunker:// connections), use it
+    if ((this.connection as any).relayUrl) {
+      return (this.connection as any).relayUrl;
+    }
+    
+    // If signerUrl is a bunker:// URI, parse it to get the relay URL
+    if (this.connection.signerUrl?.startsWith('bunker://')) {
+      try {
+        const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
+        return bunkerInfo.relays[0];
+      } catch (err) {
+        console.warn('⚠️ NIP-46: Failed to parse bunker:// URI to get relay URL:', err);
+      }
+    }
+    
+    // Otherwise, assume signerUrl is the relay URL (for non-bunker connections)
+    return this.connection.signerUrl;
+  }
+
+  /**
    * Connect using bunker:// URI (relay-based for mobile signers like Aegis)
    */
   private async connectBunker(bunkerUri: string): Promise<void> {
@@ -2375,12 +2403,13 @@ export class NIP46Client {
     try {
       const relayManager = (this.relayClient as any).relayManager;
       if (relayManager) {
-        const isRelayConnected = relayManager.isConnected(this.connection.signerUrl);
+        const relayUrl = this.getRelayUrl();
+        const isRelayConnected = relayManager.isConnected(relayUrl);
         if (!isRelayConnected) {
           console.log('⚠️ NIP-46: Relay appears disconnected, reconnecting...', {
-            relayUrl: this.connection.signerUrl,
+            relayUrl: relayUrl,
           });
-          await this.startRelayConnection(this.connection.signerUrl);
+          await this.startRelayConnection(relayUrl);
         }
       }
     } catch (reconnectErr) {
@@ -3104,7 +3133,7 @@ export class NIP46Client {
     // The secret in the bunker:// URI is used for authentication in requests, not for connect
     console.log('🔑 NIP-46: Bunker connection - attempting to get public key (connection already established by signer)...', {
       hasToken: !!this.connection.token,
-      relayUrl: (this.connection as any).relayUrl || this.connection.signerUrl,
+      relayUrl: this.getRelayUrl(),
     });
     
     try {
@@ -3145,7 +3174,7 @@ export class NIP46Client {
           `Bunker connection failed: ${errorMessage}\n` +
           'Please ensure:\n' +
           '1. The connection is approved in Amber/Aegis\n' +
-          '2. Amber/Aegis is connected to the relay: ' + ((this.connection as any).relayUrl || this.connection.signerUrl) + '\n' +
+          '2. Amber/Aegis is connected to the relay: ' + this.getRelayUrl() + '\n' +
           '3. The secret in the bunker:// URI is correct'
         );
       }
