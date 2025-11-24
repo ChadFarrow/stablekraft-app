@@ -300,18 +300,29 @@ export function parsePodcastGuidFromXML(xmlText: string): string | null {
 export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recipient: string | null; value: any } {
   try {
     console.log(`🔍 DEBUG: Parsing V4V for item "${itemTitle}" from XML...`);
-    
-    // Find the specific item by looking for the title
-    const itemRegex = new RegExp(`<item[^>]*>.*?<title>${itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</title>.*?</item>`, 'gs');
-    const itemMatch = itemRegex.exec(xmlText);
-    
-    if (!itemMatch) {
+
+    // Split XML into individual items to avoid regex matching across item boundaries
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
+    const items = [];
+    let itemMatch;
+    while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
+      items.push(itemMatch[0]);
+    }
+
+    console.log(`🔍 DEBUG: Found ${items.length} items in XML`);
+
+    // Find the item with the matching title
+    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titleRegex = new RegExp(`<title>${escapedTitle}</title>`, 'i');
+
+    const itemContent = items.find(item => titleRegex.test(item));
+
+    if (!itemContent) {
       console.log(`ℹ️ DEBUG: Item "${itemTitle}" not found in XML`);
       return { recipient: null, value: null };
     }
-    
-    const itemContent = itemMatch[0];
-    console.log(`🔍 DEBUG: Found item content for "${itemTitle}"`);
+
+    console.log(`🔍 DEBUG: Found item content for "${itemTitle}" (${itemContent.length} chars)`);
     
     // Look for podcast:value tags within this specific item
     const valueRegex = /<podcast:value[^>]*>(.*?)<\/podcast:value>/gs;
