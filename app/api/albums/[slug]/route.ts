@@ -660,9 +660,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           ) === index;
         })
         .map((track: any, index: number) => ({
+        id: track.id,
+        guid: track.guid,
         title: track.title,
-        duration: track.duration ? 
-          Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
+        duration: track.duration ?
+          Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') :
           track.itunesDuration || '0:00',
         url: track.audioUrl,
         trackNumber: index + 1,
@@ -771,9 +773,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           ) === index;
         })
         .map((track: any, index: number) => ({
+          id: track.id,
+          guid: track.guid,
           title: track.title,
-          duration: track.duration ? 
-            Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') : 
+          duration: track.duration ?
+            Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') :
             track.itunesDuration || '0:00',
           url: track.audioUrl,
           trackNumber: index + 1,

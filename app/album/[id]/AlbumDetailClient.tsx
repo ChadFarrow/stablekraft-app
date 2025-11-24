@@ -14,6 +14,7 @@ import BackButton from '@/components/BackButton';
 import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import ShareButton from '@/components/Nostr/ShareButton';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -1038,6 +1039,21 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       <span className="text-xs md:text-sm text-gray-400">
                         {formatDuration(track.duration)}
                       </span>
+
+                      {/* Share Button */}
+                      {track.id && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ShareButton
+                            trackId={track.id}
+                            feedId={album.feedId}
+                            trackTitle={track.title}
+                            albumTitle={album.title}
+                            variant="ghost"
+                            size="sm"
+                            className="text-white hover:text-purple-400 p-1"
+                          />
+                        </div>
+                      )}
 
                       {/* Favorite Button */}
                       {(track.guid || track.url || track.title) && (

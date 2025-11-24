@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNostr } from '@/contexts/NostrContext';
+import { Share2 } from 'lucide-react';
 
 interface ShareButtonProps {
   trackId?: string;
@@ -139,15 +140,17 @@ export default function ShareButton({
     <>
       <button
         onClick={() => setShowModal(true)}
-        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+        className={`rounded-md font-medium transition-colors flex items-center gap-2 ${
           variant === 'outline'
             ? 'border border-gray-300 hover:bg-gray-50'
             : variant === 'ghost'
-            ? 'hover:bg-gray-100'
+            ? 'hover:bg-white/10'
             : 'bg-blue-600 text-white hover:bg-blue-700'
-        } ${size === 'sm' ? 'px-3 py-1 text-xs' : size === 'lg' ? 'px-6 py-3' : ''} ${className}`}
+        } ${size === 'sm' ? 'px-2 py-1 text-xs' : size === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'} ${className}`}
+        title="Share to Nostr"
       >
-        Share to Nostr
+        <Share2 className={size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5'} />
+        {size !== 'sm' && 'Share to Nostr'}
       </button>
 
       {showModal && (
