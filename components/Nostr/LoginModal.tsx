@@ -226,6 +226,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             // Save connection info
             localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
             localStorage.setItem('nostr_login_type', 'nip55');
+            
+            // Save preferred signer for better UX on return visits
+            const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
+            savePreferredSigner(loginData.user.nostrPubkey, 'nip55');
 
             // Update signer in context
             const signer = getUnifiedSigner();
@@ -437,9 +441,27 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         setIsSubmitting(true);
         setError(null);
 
-        // Load the stored connection
-        const storedConnection = loadNIP46Connection();
+        // Get current user pubkey for validation
+        let currentUserPubkey: string | undefined;
+        try {
+          const storedUser = localStorage.getItem('nostr_user');
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            currentUserPubkey = userData.nostrPubkey;
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to get current user pubkey:', err);
+        }
+
+        // Load the stored connection (with user pubkey validation)
+        const storedConnection = loadNIP46Connection(currentUserPubkey);
         if (storedConnection && storedConnection.pubkey) {
+          // Validate connection matches current user
+          if (currentUserPubkey && storedConnection.pubkey !== currentUserPubkey) {
+            setError('Stored connection is for a different user. Please reconnect.');
+            setIsSubmitting(false);
+            return;
+          }
           // Create client and restore connection
           const client = new NIP46Client();
 
@@ -946,14 +968,43 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       const loginData = await loginResponse.json();
       if (loginData.success && loginData.user) {
-        // Save user data
-        localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
-        localStorage.setItem('nostr_login_type', 'nip46');
-        
-        // Save NIP-46 connection
+        // Detect if this is nsecBunker (bunker:// URI)
         const connection = client.getConnection();
-        if (connection) {
-          saveNIP46Connection(connection);
+        const isNsecBunker = connection?.signerUrl?.includes('bunker://') ?? false;
+        const loginType = isNsecBunker ? 'nsecbunker' : 'nip46';
+        
+        // Clear stale connections for other users before saving
+        const { clearNIP46ConnectionForUser } = await import('@/lib/nostr/nip46-storage');
+        // Get all stored connections and clear ones that don't match this user
+        try {
+          const byPubkey = JSON.parse(localStorage.getItem('nostr_nip46_connections_by_pubkey') || '{}');
+          Object.keys(byPubkey).forEach((pubkey) => {
+            if (pubkey !== loginData.user.nostrPubkey) {
+              clearNIP46ConnectionForUser(pubkey);
+            }
+          });
+        } catch (err) {
+          console.warn('⚠️ Failed to clear stale connections:', err);
+        }
+        
+        // Validate connection matches logged-in user before saving
+        if (connection && connection.pubkey && connection.pubkey !== loginData.user.nostrPubkey) {
+          console.warn(`⚠️ LoginModal: Connection pubkey (${connection.pubkey.slice(0, 16)}...) doesn't match logged-in user (${loginData.user.nostrPubkey.slice(0, 16)}...). Not saving connection.`);
+        } else {
+          // Save user data
+          localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
+          localStorage.setItem('nostr_login_type', loginType);
+          
+          // Save preferred signer for better UX on return visits
+          const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
+          savePreferredSigner(loginData.user.nostrPubkey, loginType);
+          
+          // Save NIP-46/nsecBunker connection
+          if (connection) {
+            // Ensure connection has the correct pubkey
+            connection.pubkey = loginData.user.nostrPubkey;
+            saveNIP46Connection(connection);
+          }
         }
         
         // Register with unified signer
@@ -1094,6 +1145,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         try {
           localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
           localStorage.setItem('nostr_login_type', 'nip55');
+          
+          // Save preferred signer for better UX on return visits
+          const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
+          savePreferredSigner(loginData.user.nostrPubkey, 'nip55');
           
           // Store NIP-55 client reference (we'll need to recreate it on reload)
           // For now, just mark that we're using NIP-55
@@ -1271,6 +1326,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         try {
           localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
           localStorage.setItem('nostr_login_type', 'extension'); // Mark as extension login
+          
+          // Save preferred signer for better UX on return visits
+          const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
+          savePreferredSigner(loginData.user.nostrPubkey, 'extension');
           console.log('💾 LoginModal: Saved user to localStorage (extension login)');
           
           // For extension login, we can't store the private key, but we can store a flag

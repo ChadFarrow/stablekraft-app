@@ -183,6 +183,42 @@ export function clearNIP46Connection(): void {
 }
 
 /**
+ * Clear NIP-46 connections for a specific user pubkey
+ * This removes all connections stored for the given user
+ */
+export function clearNIP46ConnectionForUser(userPubkey: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    // Clear from pubkey-indexed storage
+    const byPubkey = JSON.parse(localStorage.getItem(STORAGE_KEY_BY_PUBKEY) || '{}');
+    if (byPubkey[userPubkey]) {
+      delete byPubkey[userPubkey];
+      localStorage.setItem(STORAGE_KEY_BY_PUBKEY, JSON.stringify(byPubkey));
+      console.log(`✅ NIP-46: Cleared connections for user pubkey ${userPubkey.slice(0, 16)}...`);
+    }
+
+    // Also clear default storage if it matches this user
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed: StoredConnection = JSON.parse(stored);
+        if (parsed.pubkey === userPubkey) {
+          localStorage.removeItem(STORAGE_KEY);
+          console.log(`✅ NIP-46: Cleared default connection for user pubkey ${userPubkey.slice(0, 16)}...`);
+        }
+      } catch (err) {
+        // Ignore parse errors
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to clear NIP-46 connections for user:', error);
+  }
+}
+
+/**
  * Check if there's a valid existing NIP-46 connection
  * @returns true if a connection exists with valid pubkey and connection data
  */
@@ -360,6 +396,130 @@ export function clearAppKeyPair(): void {
     console.log('✅ NIP-46: Cleared app key pair');
   } catch (error) {
     console.error('❌ Failed to clear app key pair:', error);
+  }
+}
+
+/**
+ * Device fingerprint storage key
+ */
+const PREFERRED_SIGNER_STORAGE_KEY = 'nostr_preferred_signer';
+
+/**
+ * Generate a stable device fingerprint
+ * Uses browser/device characteristics to create a unique but stable identifier
+ */
+export function getDeviceFingerprint(): string {
+  if (typeof window === 'undefined') {
+    return 'unknown';
+  }
+
+  try {
+    // Check if we already have a device ID stored
+    let deviceId = localStorage.getItem('nostr_device_id');
+    if (deviceId) {
+      return deviceId;
+    }
+
+    // Generate a new device ID based on available characteristics
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx?.fillText('nostr-device-id', 2, 2);
+    const canvasFingerprint = canvas.toDataURL();
+
+    // Combine with other stable characteristics
+    const userAgent = navigator.userAgent;
+    const language = navigator.language;
+    const platform = navigator.platform;
+    const screenResolution = `${screen.width}x${screen.height}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Create a hash-like identifier (simple approach)
+    const combined = `${userAgent}-${language}-${platform}-${screenResolution}-${timezone}-${canvasFingerprint.slice(0, 50)}`;
+    
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    deviceId = `device-${Math.abs(hash).toString(36)}`;
+    
+    // Store for future use
+    localStorage.setItem('nostr_device_id', deviceId);
+    
+    return deviceId;
+  } catch (error) {
+    console.warn('⚠️ Failed to generate device fingerprint:', error);
+    // Fallback to a random ID if fingerprinting fails
+    const fallbackId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('nostr_device_id', fallbackId);
+    return fallbackId;
+  }
+}
+
+/**
+ * Preferred signer preference interface
+ */
+export interface PreferredSigner {
+  userPubkey: string;
+  deviceId: string;
+  signerType: 'extension' | 'nip46' | 'nip55' | 'nsecbunker';
+  lastUsed: number;
+}
+
+/**
+ * Save preferred signer for a user+device combination
+ */
+export function savePreferredSigner(userPubkey: string, signerType: 'extension' | 'nip46' | 'nip55' | 'nsecbunker'): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const deviceId = getDeviceFingerprint();
+    const preferences = JSON.parse(localStorage.getItem(PREFERRED_SIGNER_STORAGE_KEY) || '{}');
+    
+    const key = `${userPubkey}-${deviceId}`;
+    preferences[key] = {
+      userPubkey,
+      deviceId,
+      signerType,
+      lastUsed: Date.now(),
+    };
+
+    localStorage.setItem(PREFERRED_SIGNER_STORAGE_KEY, JSON.stringify(preferences));
+    console.log(`💾 Saved preferred signer: ${signerType} for user ${userPubkey.slice(0, 16)}... on device ${deviceId.slice(0, 16)}...`);
+  } catch (error) {
+    console.error('❌ Failed to save preferred signer:', error);
+  }
+}
+
+/**
+ * Get preferred signer for a user+device combination
+ */
+export function getPreferredSigner(userPubkey: string): 'extension' | 'nip46' | 'nip55' | 'nsecbunker' | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const deviceId = getDeviceFingerprint();
+    const preferences = JSON.parse(localStorage.getItem(PREFERRED_SIGNER_STORAGE_KEY) || '{}');
+    
+    const key = `${userPubkey}-${deviceId}`;
+    const preference = preferences[key] as PreferredSigner | undefined;
+    
+    if (preference && preference.signerType) {
+      console.log(`✅ Found preferred signer: ${preference.signerType} for user ${userPubkey.slice(0, 16)}... on device ${deviceId.slice(0, 16)}...`);
+      return preference.signerType;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Failed to get preferred signer:', error);
+    return null;
   }
 }
 

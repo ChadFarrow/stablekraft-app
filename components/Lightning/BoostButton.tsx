@@ -340,32 +340,52 @@ export function BoostButton({
             });
             
             if (!signer.isAvailable()) {
-              // Check if user logged in with NIP-46 or NIP-55 (Amber) - if so, try to reconnect
+              // Check if user logged in with NIP-46, nsecBunker, or NIP-55 (Amber) - if so, try to reconnect
               const loginType = typeof window !== 'undefined'
-                ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'amber' | null
+                ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | 'amber' | null
                 : null;
 
-              if (loginType === 'nip46' || loginType === 'amber') {
-                console.log('🔄 NIP-46 signer not available, attempting to restore connection...');
+              if (loginType === 'nip46' || loginType === 'nsecbunker' || loginType === 'amber') {
+                console.log('🔄 NIP-46/nsecBunker signer not available, attempting to restore connection...');
                 try {
                   const { loadNIP46Connection } = await import('@/lib/nostr/nip46-storage');
                   const { NIP46Client } = await import('@/lib/nostr/nip46-client');
 
-                  // Load saved NIP-46 connection
-                  const savedConnection = loadNIP46Connection();
+                  // Get current user pubkey for validation
+                  let currentUserPubkey: string | undefined;
+                  try {
+                    const storedUser = localStorage.getItem('nostr_user');
+                    if (storedUser) {
+                      const userData = JSON.parse(storedUser);
+                      currentUserPubkey = userData.nostrPubkey;
+                    }
+                  } catch (err) {
+                    console.warn('⚠️ Failed to get current user pubkey:', err);
+                  }
+
+                  // Load saved NIP-46/nsecBunker connection (with user pubkey validation)
+                  const savedConnection = loadNIP46Connection(currentUserPubkey);
                   if (savedConnection && savedConnection.pubkey) {
-                    console.log('✅ Found saved NIP-46 connection, restoring...');
+                    // Validate connection matches current user
+                    if (currentUserPubkey && savedConnection.pubkey !== currentUserPubkey) {
+                      console.warn('⚠️ Stored connection is for different user. Cannot restore.');
+                      console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection mismatch');
+                      return;
+                    }
+                    
+                    console.log('✅ Found saved NIP-46/nsecBunker connection, restoring...');
                     // Create client and restore connection
                     const client = new NIP46Client();
-                    (client as any).connection = savedConnection;
+                    await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
+                    await client.authenticate();
 
                     // Register with unified signer
                     await signer.setNIP46Signer(client);
-                    console.log('✅ NIP-46 signer restored successfully!');
+                    console.log('✅ NIP-46/nsecBunker signer restored successfully!');
                     // Continue to sign the event
                   } else {
-                    console.warn('⚠️ No saved NIP-46 connection found');
-                    console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46 connection not available');
+                    console.warn('⚠️ No saved NIP-46/nsecBunker connection found');
+                    console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection not available');
                     return;
                   }
                 } catch (reconnectError) {

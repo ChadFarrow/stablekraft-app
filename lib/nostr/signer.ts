@@ -6,10 +6,10 @@
 import { Event, EventTemplate } from 'nostr-tools';
 import { NIP46Client } from './nip46-client';
 import { NIP55Client } from './nip55-client';
-import { loadNIP46Connection, saveNIP46Connection, clearNIP46Connection } from './nip46-storage';
+import { loadNIP46Connection, saveNIP46Connection, clearNIP46Connection, getPreferredSigner, savePreferredSigner } from './nip46-storage';
 import { isAndroid, isIOS } from '@/lib/utils/device';
 
-export type SignerType = 'nip07' | 'nip46' | 'nip55' | null;
+export type SignerType = 'nip07' | 'nip46' | 'nip55' | 'nsecbunker' | null;
 
 export interface Signer {
   type: SignerType;
@@ -174,21 +174,66 @@ export class UnifiedSigner {
   }
 
   /**
-   * Initialize signer - use the signer that matches the user's login choice
-   * Respects what the user selected when they clicked "log in to Nostr"
+   * Get current user's pubkey from localStorage
+   * Returns null if no user is logged in
    */
-  private async initialize(): Promise<void> {
-    // Get the login type the user chose FIRST - before any NIP-07 checks
-    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
-    if (typeof window !== 'undefined') {
-      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
+  private getCurrentUserPubkey(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
     }
 
-    // CRITICAL: If user logged in with NIP-46, skip ALL NIP-07 checks to prevent Alby popups
-    if (userLoginType === 'nip46') {
-      // User logged in with NIP-46 (Amber) - use that, don't check NIP-07 at all
-      const savedConnection = loadNIP46Connection();
+    try {
+      const storedUser = localStorage.getItem('nostr_user');
+      if (!storedUser) {
+        return null;
+      }
+
+      const userData = JSON.parse(storedUser);
+      return userData.nostrPubkey || null;
+    } catch (error) {
+      console.warn('⚠️ UnifiedSigner: Failed to get current user pubkey:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Initialize signer - use the signer that matches the user's login choice
+   * Respects what the user selected when they clicked "log in to Nostr"
+   * Also checks for preferred signer if no explicit login type is set
+   */
+  private async initialize(): Promise<void> {
+    // Get current user's pubkey for validation
+    const currentUserPubkey = this.getCurrentUserPubkey();
+    
+    // Get the login type the user chose FIRST - before any NIP-07 checks
+    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null = null;
+    if (typeof window !== 'undefined') {
+      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
+    }
+
+    // If no explicit login type, check for preferred signer
+    if (!userLoginType && currentUserPubkey) {
+      const preferredSigner = getPreferredSigner(currentUserPubkey);
+      if (preferredSigner) {
+        userLoginType = preferredSigner;
+        console.log(`✅ UnifiedSigner: Using preferred signer: ${preferredSigner}`);
+      }
+    }
+
+    // CRITICAL: If user logged in with NIP-46 or nsecBunker, skip ALL NIP-07 checks to prevent Alby popups
+    if (userLoginType === 'nip46' || userLoginType === 'nsecbunker') {
+      // User logged in with NIP-46/nsecBunker - use that, don't check NIP-07 at all
+      // Always pass current user pubkey to ensure we only load connections for this user
+      const savedConnection = loadNIP46Connection(currentUserPubkey || undefined);
+      
       if (savedConnection) {
+        // Validate that the connection matches the current user
+        if (currentUserPubkey && savedConnection.pubkey && savedConnection.pubkey !== currentUserPubkey) {
+          console.warn(`⚠️ UnifiedSigner: Stored connection is for different user (stored: ${savedConnection.pubkey.slice(0, 16)}..., current: ${currentUserPubkey.slice(0, 16)}...). Clearing stale connection.`);
+          clearNIP46Connection();
+          return;
+        }
+
         try {
           const client = new NIP46Client();
           // Pass saved pubkey to connect() so it's included in the connection object from the start
@@ -200,26 +245,28 @@ export class UnifiedSigner {
           
           this.nip46Signer = new NIP46Signer(client);
           this.activeSigner = this.nip46Signer;
-          this.signerType = 'nip46';
-          console.log('✅ UnifiedSigner: Using NIP-46 remote signer (user chose NIP-46 login - skipping NIP-07 checks)');
+          // Detect nsecBunker by checking if signerUrl is a bunker:// URI or if login type is nsecbunker
+          const isNsecBunker = userLoginType === 'nsecbunker' || savedConnection.signerUrl.includes('bunker://');
+          this.signerType = isNsecBunker ? 'nsecbunker' : 'nip46';
+          console.log(`✅ UnifiedSigner: Using ${isNsecBunker ? 'nsecBunker' : 'NIP-46'} remote signer (user chose ${userLoginType} login - skipping NIP-07 checks)`);
           return;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          console.warn('⚠️ UnifiedSigner: Failed to restore NIP-46 connection:', error);
+          console.warn('⚠️ UnifiedSigner: Failed to restore NIP-46/nsecBunker connection:', error);
           
           // Check if the error is due to p-tag mismatch (old connection)
           if (errorMessage.includes('Signer public key not available') || 
               errorMessage.includes('different app pubkey') ||
               errorMessage.includes('p tag')) {
-            console.warn('⚠️ UnifiedSigner: Detected stale NIP-46 connection. Connection has been cleared. Please reconnect with a fresh QR code.');
+            console.warn('⚠️ UnifiedSigner: Detected stale NIP-46/nsecBunker connection. Connection has been cleared. Please reconnect with a fresh QR code.');
           }
           
           clearNIP46Connection();
-          // Don't fall through - user chose NIP-46, so don't try NIP-07
+          // Don't fall through - user chose NIP-46/nsecBunker, so don't try NIP-07
           return;
         }
       } else {
-        console.warn('⚠️ UnifiedSigner: User chose NIP-46 login but no saved connection found');
+        console.warn(`⚠️ UnifiedSigner: User chose ${userLoginType} login but no saved connection found`);
         return;
       }
     }
@@ -243,26 +290,33 @@ export class UnifiedSigner {
 
       // IMPORTANT: Check if user is on iOS - NIP-55 doesn't work on iOS
       if (isIOS()) {
-        console.warn('⚠️ UnifiedSigner: User chose NIP-55 login but iOS is not supported. Attempting to use NIP-46 fallback...');
-        // Try to use NIP-46 if available (user might have connected via NIP-46)
-        const savedConnection = loadNIP46Connection();
+        console.warn('⚠️ UnifiedSigner: User chose NIP-55 login but iOS is not supported. Attempting to use NIP-46/nsecBunker fallback...');
+        // Try to use NIP-46/nsecBunker if available (user might have connected via NIP-46)
+        const savedConnection = loadNIP46Connection(currentUserPubkey || undefined);
         if (savedConnection) {
-          try {
-            const client = new NIP46Client();
-            await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
-            await client.authenticate();
-
-            this.nip46Signer = new NIP46Signer(client);
-            this.activeSigner = this.nip46Signer;
-            this.signerType = 'nip46';
-            console.log('✅ UnifiedSigner: Using NIP-46 remote signer (iOS fallback from NIP-55)');
-            return;
-          } catch (error) {
-            console.warn('⚠️ UnifiedSigner: Failed to use NIP-46 fallback on iOS:', error);
+          // Validate connection matches current user
+          if (currentUserPubkey && savedConnection.pubkey && savedConnection.pubkey !== currentUserPubkey) {
+            console.warn('⚠️ UnifiedSigner: Stored connection is for different user. Clearing stale connection.');
             clearNIP46Connection();
+          } else {
+            try {
+              const client = new NIP46Client();
+              await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
+              await client.authenticate();
+
+              this.nip46Signer = new NIP46Signer(client);
+              this.activeSigner = this.nip46Signer;
+              const isNsecBunker = savedConnection.signerUrl.includes('bunker://');
+              this.signerType = isNsecBunker ? 'nsecbunker' : 'nip46';
+              console.log(`✅ UnifiedSigner: Using ${isNsecBunker ? 'nsecBunker' : 'NIP-46'} remote signer (iOS fallback from NIP-55)`);
+              return;
+            } catch (error) {
+              console.warn('⚠️ UnifiedSigner: Failed to use NIP-46/nsecBunker fallback on iOS:', error);
+              clearNIP46Connection();
+            }
           }
         }
-        console.warn('⚠️ UnifiedSigner: No NIP-46 connection available for iOS fallback');
+        console.warn('⚠️ UnifiedSigner: No NIP-46/nsecBunker connection available for iOS fallback');
         // Fall through to try other signers
       } else {
         // The user will be prompted to reconnect when they try to perform an action (like boosting)
@@ -288,22 +342,32 @@ export class UnifiedSigner {
       return;
     }
 
-    // Try NIP-46 connection (if available) as last resort
-    const savedConnection = loadNIP46Connection();
-    if (savedConnection) {
-      try {
-        const client = new NIP46Client();
-        await client.connect(savedConnection.signerUrl, savedConnection.token);
-        await client.authenticate();
-        
-        this.nip46Signer = new NIP46Signer(client);
-        this.activeSigner = this.nip46Signer;
-        this.signerType = 'nip46';
-        console.log('✅ UnifiedSigner: Using NIP-46 remote signer (fallback)');
-        return;
-      } catch (error) {
-        console.warn('⚠️ UnifiedSigner: Failed to restore NIP-46 connection:', error);
-        clearNIP46Connection();
+    // Try NIP-46/nsecBunker connection (if available) as last resort
+    // Only load if we have a current user pubkey to validate against
+    if (currentUserPubkey) {
+      const savedConnection = loadNIP46Connection(currentUserPubkey);
+      if (savedConnection) {
+        // Validate connection matches current user
+        if (savedConnection.pubkey && savedConnection.pubkey !== currentUserPubkey) {
+          console.warn('⚠️ UnifiedSigner: Stored connection is for different user. Clearing stale connection.');
+          clearNIP46Connection();
+        } else {
+          try {
+            const client = new NIP46Client();
+            await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
+            await client.authenticate();
+            
+            this.nip46Signer = new NIP46Signer(client);
+            this.activeSigner = this.nip46Signer;
+            const isNsecBunker = savedConnection.signerUrl.includes('bunker://');
+            this.signerType = isNsecBunker ? 'nsecbunker' : 'nip46';
+            console.log(`✅ UnifiedSigner: Using ${isNsecBunker ? 'nsecBunker' : 'NIP-46'} remote signer (fallback)`);
+            return;
+          } catch (error) {
+            console.warn('⚠️ UnifiedSigner: Failed to restore NIP-46/nsecBunker connection:', error);
+            clearNIP46Connection();
+          }
+        }
       }
     }
 
@@ -326,19 +390,22 @@ export class UnifiedSigner {
     this.nip46Signer = new NIP46Signer(client);
     
     // Check what login type the user chose
-    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
+    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null = null;
     if (typeof window !== 'undefined') {
-      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
+      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
     }
     
-    // Use NIP-46 if:
-    // 1. User logged in with NIP-46, OR
+    // Detect if this is nsecBunker by checking the connection URL
+    const isNsecBunker = userLoginType === 'nsecbunker' || (client.getConnection()?.signerUrl?.includes('bunker://') ?? false);
+    
+    // Use NIP-46/nsecBunker if:
+    // 1. User logged in with NIP-46/nsecBunker, OR
     // 2. User didn't choose extension login and NIP-07 is not available
-    const nip07 = userLoginType !== 'nip46' ? this.getNIP07Signer() : null;
-    if (userLoginType === 'nip46' || (userLoginType !== 'extension' && (!nip07 || !nip07.isAvailable()) && !this.nip55Signer)) {
+    const nip07 = (userLoginType !== 'nip46' && userLoginType !== 'nsecbunker') ? this.getNIP07Signer() : null;
+    if (userLoginType === 'nip46' || userLoginType === 'nsecbunker' || (userLoginType !== 'extension' && (!nip07 || !nip07.isAvailable()) && !this.nip55Signer)) {
       this.activeSigner = this.nip46Signer;
-      this.signerType = 'nip46';
-      console.log('✅ UnifiedSigner: Switched to NIP-46 remote signer' + (userLoginType === 'nip46' ? ' (user chose NIP-46 login)' : ''));
+      this.signerType = isNsecBunker ? 'nsecbunker' : 'nip46';
+      console.log(`✅ UnifiedSigner: Switched to ${isNsecBunker ? 'nsecBunker' : 'NIP-46'} remote signer` + ((userLoginType === 'nip46' || userLoginType === 'nsecbunker') ? ` (user chose ${userLoginType} login)` : ''));
     }
   }
 
@@ -354,15 +421,15 @@ export class UnifiedSigner {
 
     this.nip55Signer = new NIP55Signer(client);
 
-    // Check if user logged in with NIP-46 - if so, don't check NIP-07
-    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
+    // Check if user logged in with NIP-46/nsecBunker - if so, don't check NIP-07
+    let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null = null;
     if (typeof window !== 'undefined') {
-      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
+      userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
     }
 
-    // NIP-55 takes priority over NIP-46 on Android, but NIP-07 is still preferred (unless user chose NIP-46)
-    const nip07 = userLoginType !== 'nip46' ? this.getNIP07Signer() : null;
-    if (userLoginType === 'nip46' || !nip07 || !nip07.isAvailable()) {
+    // NIP-55 takes priority over NIP-46/nsecBunker on Android, but NIP-07 is still preferred (unless user chose NIP-46/nsecBunker)
+    const nip07 = (userLoginType !== 'nip46' && userLoginType !== 'nsecbunker') ? this.getNIP07Signer() : null;
+    if (userLoginType === 'nip46' || userLoginType === 'nsecbunker' || !nip07 || !nip07.isAvailable()) {
       this.activeSigner = this.nip55Signer;
       this.signerType = 'nip55';
       console.log('✅ UnifiedSigner: Switched to NIP-55 Android signer');
@@ -426,14 +493,14 @@ export class UnifiedSigner {
       this.nip46Signer = null;
       clearNIP46Connection();
       
-      // Check if user logged in with NIP-46 - if so, don't fall back to NIP-07 (prevents Alby popups)
-      let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
+      // Check if user logged in with NIP-46/nsecBunker - if so, don't fall back to NIP-07 (prevents Alby popups)
+      let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null = null;
       if (typeof window !== 'undefined') {
-        userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
+        userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
       }
 
-      // Only fall back to NIP-07 if user didn't explicitly choose NIP-46
-      if (userLoginType !== 'nip46') {
+      // Only fall back to NIP-07 if user didn't explicitly choose NIP-46/nsecBunker
+      if (userLoginType !== 'nip46' && userLoginType !== 'nsecbunker') {
         const nip07 = this.getNIP07Signer();
         if (nip07.isAvailable()) {
           this.activeSigner = nip07;
@@ -463,17 +530,20 @@ export class UnifiedSigner {
       await this.nip55Signer.getClient().disconnect();
       this.nip55Signer = null;
       
-      // Check if user logged in with NIP-46 - if so, prefer that over NIP-07
-      let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | null = null;
+      // Check if user logged in with NIP-46/nsecBunker - if so, prefer that over NIP-07
+      let userLoginType: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null = null;
       if (typeof window !== 'undefined') {
-        userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null;
+        userLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
       }
 
-      // Prefer NIP-46 if user chose it, otherwise try NIP-07
-      if (userLoginType === 'nip46' && this.nip46Signer && this.nip46Signer.isAvailable()) {
+      // Prefer NIP-46/nsecBunker if user chose it, otherwise try NIP-07
+      if ((userLoginType === 'nip46' || userLoginType === 'nsecbunker') && this.nip46Signer && this.nip46Signer.isAvailable()) {
         this.activeSigner = this.nip46Signer;
-        this.signerType = 'nip46';
-      } else if (userLoginType !== 'nip46') {
+        // Detect nsecBunker type
+        const connection = this.nip46Signer.getClient().getConnection();
+        const isNsecBunker = userLoginType === 'nsecbunker' || connection?.signerUrl?.includes('bunker://');
+        this.signerType = isNsecBunker ? 'nsecbunker' : 'nip46';
+      } else if (userLoginType !== 'nip46' && userLoginType !== 'nsecbunker') {
         const nip07 = this.getNIP07Signer();
         if (nip07.isAvailable()) {
           this.activeSigner = nip07;

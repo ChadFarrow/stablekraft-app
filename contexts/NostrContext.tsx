@@ -14,7 +14,7 @@ export interface NostrUser {
   lightningAddress?: string;
   relays: string[];
   nip05Verified?: boolean;
-  loginType?: 'extension' | 'nip05' | 'nip46'; // Track login method
+  loginType?: 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker'; // Track login method
 }
 
 interface NostrContextType {
@@ -57,7 +57,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
         try {
           const userData = JSON.parse(storedUser);
           // Get login type from localStorage
-          const loginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | null;
+          const loginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
           if (loginType) {
             userData.loginType = loginType;
           }
@@ -103,7 +103,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         if (data.success && data.user) {
           // Preserve loginType from localStorage if not in response
-          const storedLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | null;
+          const storedLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
           if (storedLoginType && !data.user.loginType) {
             data.user.loginType = storedLoginType;
           }
@@ -150,7 +150,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         if (data.success && data.user) {
           // Preserve loginType when updating
-          const currentLoginType = user?.loginType || localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | null;
+          const currentLoginType = user?.loginType || localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
           if (currentLoginType && !data.user.loginType) {
             data.user.loginType = currentLoginType;
           }

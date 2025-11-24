@@ -37,7 +37,7 @@ export default function ShareButton({
 
     // Check if user is NIP-05 (read-only) - they can't post
     const loginType = typeof window !== 'undefined'
-      ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | null
+      ? localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null
       : null;
     
     if (loginType === 'nip05') {
