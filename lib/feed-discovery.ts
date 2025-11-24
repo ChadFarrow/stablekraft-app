@@ -154,7 +154,7 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
     // Handle both singular 'feed' and plural 'feeds' response formats
     const feed = data.feed || (data.feeds && data.feeds[0]);
 
-    if (data.status === 'true' && feed) {
+    if (data.status === 'true' && feed && feed.url) {
       console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
       return {
         url: feed.url,
@@ -163,7 +163,11 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
         image: feed.artwork || feed.image || ''
       };
     } else {
-      console.warn(`⚠️ No feed found for GUID: ${feedGuid}`);
+      if (feed && !feed.url) {
+        console.warn(`⚠️ Feed found but missing URL for GUID: ${feedGuid}`);
+      } else {
+        console.warn(`⚠️ No feed found for GUID: ${feedGuid}`);
+      }
       return null;
     }
   } catch (error) {
