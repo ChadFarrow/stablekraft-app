@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
                 where: { id: track.id },
                 data: {
                   v4vRecipient: v4vRecipient,
-                  v4vValue: v4vValue,
+                  v4vValue: v4vValue ? JSON.stringify(v4vValue) : null,
                 },
               });
 
