@@ -25,10 +25,7 @@ async function main() {
     // Find all active feeds with RSS URLs
     const feeds = await prisma.feed.findMany({
       where: {
-        status: 'active',
-        originalUrl: {
-          not: null
-        }
+        status: 'active'
       },
       include: {
         Track: true
@@ -103,7 +100,7 @@ async function main() {
           }
 
           // Get item-level v4v data if available
-          const itemV4V = parsedV4V?.itemValues.get(episode.guid || '');
+          const itemV4V = parsedV4V?.itemValues?.get(episode.guid || '');
 
           if (itemV4V) {
             // Update track with item-level v4v data
