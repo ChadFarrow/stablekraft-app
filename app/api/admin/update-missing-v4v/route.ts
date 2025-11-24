@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { parseV4VFromXML, parseItemV4VFromXML } from '../../../../lib/rss-parser-db';
+import { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
                 where: { id: track.id },
                 data: {
                   v4vRecipient: v4vRecipient,
-                  v4vValue: v4vValue ? JSON.stringify(v4vValue) : null,
+                  v4vValue: v4vValue ? JSON.stringify(v4vValue) : Prisma.JsonNull,
                 },
               });
 
