@@ -1008,17 +1008,15 @@ export class NIP46Client {
       hasSubscription: !!this.relaySubscription,
     });
 
-    // For bunker:// URIs (Aegis, nsecbunker), immediately request the user's pubkey
-    // This completes the connection and sets connected=true
+    // For bunker:// URIs (Aegis, nsecbunker), wait for the signer to initiate the connection
+    // The signer should send a 'connect' event first, then we can make requests
+    // Don't try to send get_public_key or connect requests immediately - wait for signer to initiate
     if ((this.connection as any).signerPubkey && !this.connection.pubkey) {
-      console.log('🔑 NIP-46: Bunker connection detected, requesting user pubkey to complete connection...');
-      try {
-        const pubkey = await this.getPublicKey();
-        console.log('✅ NIP-46: Bunker connection established with user pubkey:', pubkey.slice(0, 16) + '...');
-      } catch (err) {
-        console.warn('⚠️ NIP-46: Failed to get user pubkey during bunker connection setup:', err);
-        console.warn('⚠️ NIP-46: Connection will continue, but pubkey will be requested later');
-      }
+      console.log('🔑 NIP-46: Bunker connection detected, waiting for signer to initiate connection...');
+      console.log('📱 NIP-46: Please approve the connection in Amber/Aegis. The signer will send a connect event.');
+      console.log('⏳ NIP-46: Once the signer initiates, we can then request the user pubkey.');
+      // Don't try to get pubkey immediately - wait for signer to send connect event
+      // The handleRelayEvent will process the connect event when it arrives
     }
   }
 
@@ -3297,34 +3295,49 @@ export class NIP46Client {
       console.log('✅ NIP-46: Bunker connection authenticated, received pubkey:', pubkey ? pubkey.slice(0, 16) + '...' : 'N/A');
       return pubkey;
     } catch (error) {
-      // If get_public_key fails with "no permission", provide helpful error message
+      // If get_public_key fails with "no permission", the signer hasn't approved yet
+      // For bunker:// connections, we should wait for the signer to send a connect event
+      // Don't try to send connect requests - the signer initiates the connection
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('no permission') || errorMessage.includes('permission')) {
+        console.log('⏳ NIP-46: Bunker connection - waiting for signer to approve and initiate connection...');
+        console.log('📱 NIP-46: Please approve the connection in Amber/Aegis. The signer will send a connect event.');
+        // Wait for the signer to send a connect event (up to 60 seconds)
+        const maxWaitTime = 60000; // 60 seconds
+        const checkInterval = 500; // Check every 500ms
+        const startTime = Date.now();
+        
+        while (!this.connection.pubkey && (Date.now() - startTime) < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, checkInterval));
+          
+          // Log progress every 10 seconds
+          const elapsed = Date.now() - startTime;
+          if (elapsed > 0 && elapsed % 10000 < checkInterval) {
+            console.log(`⏳ NIP-46: Still waiting for signer to approve connection... (${Math.floor(elapsed / 1000)}s)`);
+          }
+        }
+        
+        if (this.connection.pubkey) {
+          console.log('✅ NIP-46: Signer approved connection, received pubkey:', this.connection.pubkey.slice(0, 16) + '...');
+          return this.connection.pubkey;
+        }
+        
+        // If we still don't have a pubkey, throw an error
         throw new Error(
           'Connection not approved: Please approve the connection in Amber/Aegis first.\n' +
-          'The bunker:// connection requires approval in your signer app before it can be used.'
+          'The bunker:// connection requires approval in your signer app before it can be used.\n' +
+          'Make sure Amber/Aegis is connected to the relay: ' + this.getRelayUrl()
         );
       }
-      // For other errors, try the connect request as a fallback
-      console.log('⚠️ NIP-46: get_public_key failed, trying connect request as fallback...', errorMessage);
-      try {
-        const pubkey = await this.sendRequest('connect', [this.connection.token]);
-        if (this.connection) {
-          this.connection.pubkey = pubkey;
-          this.connection.connected = true;
-          this.connection.connectedAt = Date.now();
-        }
-        return pubkey;
-      } catch (connectError) {
-        // If both fail, throw the original error with better context
-        throw new Error(
-          `Bunker connection failed: ${errorMessage}\n` +
-          'Please ensure:\n' +
-          '1. The connection is approved in Amber/Aegis\n' +
-          '2. Amber/Aegis is connected to the relay: ' + this.getRelayUrl() + '\n' +
-          '3. The secret in the bunker:// URI is correct'
-        );
-      }
+      
+      // For other errors (not "no permission"), throw with helpful context
+      throw new Error(
+        `Bunker connection failed: ${errorMessage}\n` +
+        'Please ensure:\n' +
+        '1. The connection is approved in Amber/Aegis\n' +
+        '2. Amber/Aegis is connected to the relay: ' + this.getRelayUrl() + '\n' +
+        '3. The secret in the bunker:// URI is correct'
+      );
     }
   }
 
