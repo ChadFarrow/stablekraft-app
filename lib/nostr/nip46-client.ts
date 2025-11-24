@@ -188,16 +188,20 @@ export class NIP46Client {
       // Use the first relay URL for relay-based communication
       const relayUrl = bunkerInfo.relays[0];
 
-      // Store connection info with signer pubkey from URI
+      // Store connection info
+      // Note: bunkerInfo.pubkey is the signer app's pubkey, not the user's Nostr account pubkey
+      // We'll get the user's pubkey later via get_public_key request
       this.connection = {
         signerUrl: relayUrl,
         token: bunkerInfo.secret || '', // Use empty string if no secret provided
-        pubkey: bunkerInfo.pubkey, // Pubkey is known from URI
+        pubkey: '', // Will be fetched via get_public_key
         connected: false,
-      };
+        signerPubkey: bunkerInfo.pubkey, // Store signer app pubkey separately for targeting messages
+      } as any;
 
       // Use relay-based connection (not direct WebSocket) for mobile signers like Aegis
       console.log('🔌 NIP-46: Connecting via relay for mobile signer:', relayUrl);
+      console.log('🔌 NIP-46: Signer app pubkey:', bunkerInfo.pubkey.slice(0, 16) + '...');
       return this.startRelayConnection(relayUrl);
     } catch (error) {
       console.error('❌ NIP-46: Failed to parse bunker:// URI:', error);
@@ -2304,8 +2308,10 @@ export class NIP46Client {
     if (!connectionInfo || !appPubkey) {
       throw new Error('No valid app key pair found');
     }
-    
-    const signerPubkey = this.connection.pubkey;
+
+    // For bunker:// connections, use signerPubkey (signer app's pubkey) to target messages
+    // For nostrconnect:// connections, use pubkey (will be fetched)
+    const signerPubkey = (this.connection as any).signerPubkey || this.connection.pubkey;
 
     // Ensure relay is still connected - reconnect if needed (before creating Promise)
     try {
@@ -2325,9 +2331,7 @@ export class NIP46Client {
     }
 
     // For 'connect' and 'get_public_key', we can proceed without the signer pubkey
-    // - 'connect' is used to establish the connection (we don't have signer pubkey yet)
-    // - 'get_public_key' is used to request the signer's pubkey
-    // For other methods, we need the pubkey to be available
+    // For other methods, we need the signer pubkey to target the request
     if (method !== 'connect' && method !== 'get_public_key' && !signerPubkey) {
       throw new Error('Signer public key not available. Please wait for the connection to be established.');
     }
@@ -2998,8 +3002,9 @@ export class NIP46Client {
    * Get public key from signer
    */
   async getPublicKey(): Promise<string> {
-    // For relay-based connections, check if we already have the pubkey
-    if (this.connection?.pubkey && !this.ws) {
+    // For relay-based connections that are already connected and have the user's pubkey
+    // (not just the signer pubkey from the bunker URI), return it
+    if (this.connection?.pubkey && this.connection?.connected && !this.ws) {
       return this.connection.pubkey;
     }
 
@@ -3008,13 +3013,16 @@ export class NIP46Client {
       await this.authenticate();
     }
 
-    // For relay-based connections without pubkey, request it via relay
+    // For relay-based connections, request the user's public key via relay
     if (!this.ws && this.relayClient) {
-      // Request the public key via relay
+      console.log('🔑 NIP-46: Requesting user public key from signer via relay...');
+      // Request the public key via relay (this is the user's Nostr pubkey, not the signer app pubkey)
       const pubkey = await this.sendRequest('get_public_key', []);
+      console.log('✅ NIP-46: Received user public key:', pubkey?.slice(0, 16) + '...');
+
       // Store it in the connection
       if (this.connection && pubkey) {
-        this.connection.pubkey = pubkey;
+        this.connection.pubkey = pubkey; // User's Nostr account pubkey
         this.connection.connected = true;
         if (!this.connection.connectedAt) {
           this.connection.connectedAt = Date.now();
