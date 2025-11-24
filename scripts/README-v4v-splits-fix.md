@@ -1,8 +1,14 @@
 # V4V Splits Migration Guide
 
-## Problem Fixed
+## Problems Fixed
+
+### 1. Tracks Storing Channel-Level Splits (Fixed)
 
 Previously, tracks were incorrectly storing channel-level (feed-level) V4V payment splits instead of their track-specific splits. This meant all tracks in an album showed the same payment recipients, even when individual tracks had their own unique splits defined in the RSS feed.
+
+### 2. Parser Regex Bug (Fixed)
+
+The `parseItemV4VFromXML` function had a regex bug where it would match across multiple `<item>` boundaries, causing tracks to extract v4v data from the wrong item. For example, "Like Wine" was showing 50/50 splits (from "Makin' Beans") when it should show 45/45/10 with Boo-bury.
 
 ## Changes Made
 
@@ -15,10 +21,24 @@ Previously, tracks were incorrectly storing channel-level (feed-level) V4V payme
    - Fixed GIF artwork handling to preserve animation
    - GIFs are no longer converted to JPEG (which lost animation)
 
-3. **`scripts/fix-track-v4v-splits.ts`**:
+3. **`lib/rss-parser-db.ts`**:
+   - Fixed `parseItemV4VFromXML` regex bug that was crossing item boundaries
+   - Changed to two-step approach: first split all items, then find the specific item
+   - Now correctly extracts item-level v4v data without cross-contamination
+
+4. **`scripts/fix-track-v4v-splits.ts`**:
    - Migration script to clean up existing database records
    - Identifies tracks with channel-level splits and clears them
    - Allows frontend to correctly fall back to feed-level splits
+   - Successfully cleared 3,309 tracks with channel-level data
+
+5. **`scripts/reimport-stay-awhile.ts`**:
+   - Script to update "Like Wine" track with corrected v4v splits
+   - Demonstrates how to fix individual tracks after parser fix
+
+6. **`scripts/test-v4v-parser.ts`**:
+   - Test script to verify parser correctly extracts v4v splits
+   - Useful for regression testing
 
 ## How to Run the Migration
 
