@@ -235,8 +235,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
         </div>
       </div>
       
-      {/* Close Button */}
-      <div className="flex items-center gap-3">
+      {/* Close Button - Hidden on mobile */}
+      <div className="hidden md:flex items-center gap-3">
         <button
           onClick={onClose}
           className="text-white hover:text-gray-300 transition-colors"
