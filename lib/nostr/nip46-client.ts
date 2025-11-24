@@ -941,6 +941,19 @@ export class NIP46Client {
       appPubkey: appPubkey.slice(0, 16) + '...',
       hasSubscription: !!this.relaySubscription,
     });
+
+    // For bunker:// URIs (Aegis, nsecbunker), immediately request the user's pubkey
+    // This completes the connection and sets connected=true
+    if ((this.connection as any).signerPubkey && !this.connection.pubkey) {
+      console.log('🔑 NIP-46: Bunker connection detected, requesting user pubkey to complete connection...');
+      try {
+        const pubkey = await this.getPublicKey();
+        console.log('✅ NIP-46: Bunker connection established with user pubkey:', pubkey.slice(0, 16) + '...');
+      } catch (err) {
+        console.warn('⚠️ NIP-46: Failed to get user pubkey during bunker connection setup:', err);
+        console.warn('⚠️ NIP-46: Connection will continue, but pubkey will be requested later');
+      }
+    }
   }
 
   /**
