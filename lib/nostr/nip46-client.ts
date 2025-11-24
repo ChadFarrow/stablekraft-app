@@ -2155,11 +2155,13 @@ export class NIP46Client {
     }
 
     // Check if this is a nsecbunker connection (pubkey already known from bunker:// URI)
-    const isNsecbunker = !!this.connection.pubkey && this.connection.signerUrl.startsWith('wss://');
+    // For bunker:// connections, use getRelayUrl() to get the actual relay URL
+    const relayUrl = this.getRelayUrl();
+    const isNsecbunker = !!this.connection.pubkey && relayUrl.startsWith('wss://');
 
     return new Promise((resolve, reject) => {
       try {
-        const ws = new WebSocket(this.connection!.signerUrl);
+        const ws = new WebSocket(relayUrl);
 
         ws.onopen = () => {
           console.log('✅ NIP-46: WebSocket connected');
@@ -2942,7 +2944,7 @@ export class NIP46Client {
               // Retry once after reconnecting
               console.log(`🔄 NIP-46: Connection error detected, retrying (attempt ${attempt + 1}/2)...`);
               try {
-                await this.startRelayConnection(this.connection.signerUrl);
+                await this.startRelayConnection(this.getRelayUrl());
                 await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for reconnection
                 return attemptPublish(attempt + 1);
               } catch (reconnectErr) {
@@ -2974,7 +2976,7 @@ export class NIP46Client {
             // Retry once after reconnecting
             console.log(`🔄 NIP-46: Connection error caught, retrying (attempt ${attempt + 1}/2)...`);
             try {
-              await this.startRelayConnection(this.connection.signerUrl);
+              await this.startRelayConnection(this.getRelayUrl());
               await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for reconnection
               return attemptPublish(attempt + 1);
             } catch (reconnectErr) {
@@ -3030,7 +3032,8 @@ export class NIP46Client {
       console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey.slice(0, 16) + '...');
       
       // For relay-based connections, ensure the relay client is initialized and connected
-      if (!this.ws && this.connection.signerUrl && this.connection.signerUrl.startsWith('wss://')) {
+      const relayUrl = this.getRelayUrl();
+      if (!this.ws && relayUrl && relayUrl.startsWith('wss://')) {
         // If relay client doesn't exist yet, wait for it to be initialized
         // This can happen if authenticate() is called before startRelayConnection() completes
         if (!this.relayClient) {
@@ -3047,7 +3050,7 @@ export class NIP46Client {
           // If still not initialized, try to initialize it now
           if (!this.relayClient) {
             console.log('⚠️ NIP-46: Relay client still not initialized, initializing now...');
-            await this.startRelayConnection(this.connection.signerUrl);
+            await this.startRelayConnection(relayUrl);
           }
         }
         
