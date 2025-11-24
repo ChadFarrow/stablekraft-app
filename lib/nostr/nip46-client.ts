@@ -1336,12 +1336,6 @@ export class NIP46Client {
       }
 
       // Process response event
-        resultType: typeof content.result,
-        resultLength: content.result ? (typeof content.result === 'string' ? content.result.length : 'N/A') : 'N/A',
-        resultPreview: content.result ? (typeof content.result === 'string' ? content.result.slice(0, 100) : JSON.stringify(content.result).slice(0, 100)) : 'N/A',
-        pendingRequests: Array.from(this.pendingRequests.keys()),
-        pendingMethods: Array.from(this.pendingRequests.values()).map(p => p.method),
-      });
 
       // 🔵 Amber-compatible response handling
       // Amber sends responses without a 'method' field, so we need to infer the response type
