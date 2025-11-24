@@ -10,7 +10,7 @@ export default function AboutPage() {
       <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b backdrop-blur-sm bg-black/30 pt-safe-plus pt-12" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-        <div className="container mx-auto px-6 py-4 pr-48">
+        <div className="container mx-auto pl-6 pr-32 sm:pr-48 py-4">
           <div className="flex items-center gap-4 mb-8">
             <Link href="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 relative border border-gray-700 rounded-lg overflow-hidden">
