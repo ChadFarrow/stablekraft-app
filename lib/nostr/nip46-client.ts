@@ -2954,13 +2954,16 @@ export class NIP46Client {
     // The client should NEVER send connect requests - only wait for Amber's response
     // Reference: https://github.com/nostr-protocol/nips/blob/master/46.md
 
-    // Check if this is a relay-based connection (nostrconnect://)
-    const isClientInitiated = !this.ws && this.relayClient;
+    // Check if this is a nostrconnect:// (client-initiated) connection
+    // For bunker:// URIs, we have signerPubkey set and should send connect request
+    // For nostrconnect://, we don't have signerPubkey and should wait for response
+    const isBunkerConnection = !!(this.connection as any).signerPubkey;
+    const isClientInitiated = !this.ws && this.relayClient && !isBunkerConnection;
 
     if (isClientInitiated) {
-      console.log('⏳ NIP-46: Client-initiated connection - waiting for Amber to send connect response...');
+      console.log('⏳ NIP-46: Client-initiated connection (nostrconnect://) - waiting for signer to send connect response...');
       console.log('ℹ️ NIP-46: Client does NOT send connect requests per NIP-46 spec');
-      console.log('ℹ️ NIP-46: Please ensure Amber has scanned the QR code and is connected');
+      console.log('ℹ️ NIP-46: Please ensure the signer has scanned the QR code and is connected');
 
       // Wait for connection to be established by Amber/Aegis
       // The handleRelayEvent method will process the signer's connect response and set pubkey
