@@ -2803,7 +2803,32 @@ export class NIP46Client {
           // CRITICAL: Get the actual relay URL (not bunker:// URI)
           // For bunker:// connections, signerUrl is the bunker:// URI, not the relay URL
           // We need to use getRelayUrl() to get the actual wss:// URL
-          const primaryRelay = this.getRelayUrl();
+          let primaryRelay = this.getRelayUrl();
+          
+          // CRITICAL SAFETY CHECK: Ensure primaryRelay is never a bunker:// URI
+          if (primaryRelay.startsWith('bunker://')) {
+            console.error('❌ NIP-46: getRelayUrl() returned bunker:// URI! This should never happen. Attempting to fix...');
+            // Try to get relayUrl from connection object directly
+            const storedRelayUrl = (this.connection as any).relayUrl;
+            if (storedRelayUrl && storedRelayUrl.startsWith('wss://')) {
+              primaryRelay = storedRelayUrl;
+              console.log('✅ NIP-46: Fixed primaryRelay from connection object:', primaryRelay);
+            } else {
+              // Parse from signerUrl as last resort
+              try {
+                const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
+                primaryRelay = bunkerInfo.relays[0];
+                console.log('✅ NIP-46: Fixed primaryRelay by parsing bunker:// URI:', primaryRelay);
+              } catch (parseErr) {
+                throw new Error(`Failed to extract relay URL from bunker:// URI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+              }
+            }
+          }
+          
+          // Final validation
+          if (!primaryRelay.startsWith('wss://') && !primaryRelay.startsWith('ws://')) {
+            throw new Error(`Invalid primaryRelay URL: ${primaryRelay}. Expected wss:// or ws:// URL.`);
+          }
           
           // For 'connect' requests, only use primary relay (Amber is listening here)
           // Publishing to multiple relays causes rate limits and doesn't help
@@ -2895,6 +2920,34 @@ export class NIP46Client {
             } else {
               publishRelays = [primaryRelay, ...backupRelays];
             }
+          }
+          
+          // CRITICAL SAFETY CHECK: Ensure all relay URLs are valid wss:// URLs, not bunker:// URIs
+          const invalidRelays = publishRelays.filter(relay => !relay.startsWith('wss://') && !relay.startsWith('ws://'));
+          if (invalidRelays.length > 0) {
+            console.error('❌ NIP-46: Invalid relay URLs detected in publishRelays!', {
+              invalidRelays,
+              allRelays: publishRelays,
+              primaryRelay,
+            });
+            // Fix invalid relays by using getRelayUrl() or parsing bunker:// URIs
+            publishRelays = publishRelays.map(relay => {
+              if (relay.startsWith('bunker://')) {
+                console.warn(`⚠️ NIP-46: Found bunker:// URI in publishRelays, fixing: ${relay}`);
+                const fixedRelay = this.getRelayUrl();
+                console.log(`✅ NIP-46: Fixed relay URL: ${relay} -> ${fixedRelay}`);
+                return fixedRelay;
+              }
+              if (!relay.startsWith('wss://') && !relay.startsWith('ws://')) {
+                console.error(`❌ NIP-46: Invalid relay URL format: ${relay}`);
+                // Use primaryRelay as fallback
+                return primaryRelay;
+              }
+              return relay;
+            });
+            // Remove duplicates after fixing
+            publishRelays = Array.from(new Set(publishRelays));
+            console.log('✅ NIP-46: Fixed publishRelays:', publishRelays);
           }
           
           console.log('📡 NIP-46: Publishing to relays:', {
