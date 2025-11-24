@@ -2450,7 +2450,7 @@ export class NIP46Client {
     try {
       const relayManager = (this.relayClient as any).relayManager;
       if (relayManager) {
-        const relayUrl = this.getRelayUrl();
+        let relayUrl = this.getRelayUrl();
         // Debug: Log what we're checking
         console.log('🔍 NIP-46: Checking relay connection status:', {
           relayUrl: relayUrl,
@@ -2458,6 +2458,34 @@ export class NIP46Client {
           hasRelayUrlField: !!(this.connection as any).relayUrl,
           relayUrlField: (this.connection as any).relayUrl,
         });
+        
+        // CRITICAL: Double-check that relayUrl is valid - if getRelayUrl() somehow returned bunker://, fix it
+        if (relayUrl.startsWith('bunker://')) {
+          console.error('❌ NIP-46: getRelayUrl() returned bunker:// URI! This should never happen. Attempting to fix...');
+          // Try to get relayUrl from connection object directly
+          const storedRelayUrl = (this.connection as any).relayUrl;
+          if (storedRelayUrl && storedRelayUrl.startsWith('wss://')) {
+            relayUrl = storedRelayUrl;
+            console.log('✅ NIP-46: Fixed relayUrl from connection object:', relayUrl);
+          } else {
+            // Parse from signerUrl
+            try {
+              const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
+              relayUrl = bunkerInfo.relays[0];
+              // Store it for future use
+              (this.connection as any).relayUrl = relayUrl;
+              console.log('✅ NIP-46: Fixed relayUrl by parsing bunker:// URI:', relayUrl);
+            } catch (parseErr) {
+              throw new Error(`Failed to extract relay URL from bunker:// URI: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+            }
+          }
+        }
+        
+        // Final validation
+        if (!relayUrl.startsWith('wss://')) {
+          throw new Error(`Invalid relay URL: ${relayUrl}. Expected wss:// URL.`);
+        }
+        
         const isRelayConnected = relayManager.isConnected(relayUrl);
         if (!isRelayConnected) {
           console.log('⚠️ NIP-46: Relay appears disconnected, reconnecting...', {
