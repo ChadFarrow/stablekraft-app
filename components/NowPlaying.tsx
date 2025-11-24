@@ -95,7 +95,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
           }
         }}
       >
-        <CDNImage 
+        <CDNImage
           key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}`}
           src={track.albumArt || ''}
           alt={track.title}
@@ -121,8 +121,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
           <button
             onClick={onToggleShuffle}
             className={`rounded-full p-2 transition-colors ${
-              isShuffleMode 
-                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+              isShuffleMode
+                ? 'bg-orange-500 hover:bg-orange-600 text-white'
                 : 'bg-gray-600 hover:bg-gray-500 text-white'
             }`}
             title={isShuffleMode ? 'Disable shuffle' : 'Enable shuffle'}
@@ -132,7 +132,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             </svg>
           </button>
         )}
-        
+
         <button
           onClick={onPrevious}
           className="bg-gray-600 hover:bg-gray-500 text-white rounded-full p-2 transition-colors"
@@ -196,35 +196,35 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
       
       {/* Progress Bar - Right Side */}
       <div className="flex items-center gap-3 flex-1 max-w-md">
-        <span className="text-xs text-white w-12 text-right">
-          {formatTime(currentTime)}
+        <span className="text-xs text-white whitespace-nowrap">
+          {formatTime(currentTime)} / {formatTime(track.duration)}
         </span>
-        <div 
+        <div
           className="flex-1 h-2 bg-gray-600 rounded-full cursor-pointer relative group"
           onClick={handleProgressClick}
           onMouseMove={handleProgressHover}
           onMouseLeave={handleProgressLeave}
         >
           {/* Current progress */}
-          <div 
+          <div
             className="h-full bg-orange-500 rounded-full transition-all duration-100"
             style={{ width: `${track.duration ? (currentTime / track.duration) * 100 : 0}%` }}
           />
-          
+
           {/* Hover preview */}
           {hoverPosition !== null && (
-            <div 
+            <div
               className="absolute top-0 left-0 h-full bg-orange-400/60 rounded-full pointer-events-none transition-all duration-75"
               style={{ width: `${hoverPosition * 100}%` }}
             />
           )}
-          
+
           {/* Hover time tooltip */}
           {hoverPosition !== null && (
-            <div 
+            <div
               className="absolute -top-8 bg-gray-900 text-white text-xs px-2 py-1 rounded pointer-events-none"
-              style={{ 
-                left: `${hoverPosition * 100}%`, 
+              style={{
+                left: `${hoverPosition * 100}%`,
                 transform: 'translateX(-50%)',
                 minWidth: 'max-content'
               }}
@@ -233,9 +233,6 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             </div>
           )}
         </div>
-        <span className="text-xs text-white w-12 text-left">
-          {formatTime(track.duration)}
-        </span>
       </div>
       
       {/* Close Button */}
