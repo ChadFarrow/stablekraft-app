@@ -727,7 +727,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
 
   if (isLoading && !publisherInfo?.title && !publisherInfo?.artist) {
     return (
-      <div className="min-h-screen text-white relative overflow-hidden">
+      <div className="min-h-screen text-white relative">
         {/* Fallback background - use artist image or gradient */}
         {publisherInfo?.coverArt ? (
           <div className="fixed inset-0 z-0">
@@ -766,7 +766,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
 
   if (error) {
     return (
-      <div className="min-h-screen text-white relative overflow-hidden">
+      <div className="min-h-screen text-white relative">
         {/* Fallback background - use artist image or gradient */}
         {publisherInfo?.coverArt ? (
           <div className="fixed inset-0 z-0">
@@ -891,7 +891,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const filteredAlbums = getFilteredAlbums();
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden">
+    <div className="min-h-screen text-white relative">
       {/* Enhanced Background */}
       {publisherInfo?.coverArt ? (
         <div className="fixed inset-0 z-0">

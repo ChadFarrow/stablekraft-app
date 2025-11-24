@@ -540,6 +540,13 @@ async function loadPublisherData(publisherId: string) {
 
     console.log(`🏢 Server-side: Found ${albums.length} related albums`);
 
+    // Sort albums by release date to get the actual newest album
+    const albumsSortedByDate = albums.length > 0 ? [...albums].sort((a, b) => {
+      const dateA = new Date(a.releaseDate || 0);
+      const dateB = new Date(b.releaseDate || 0);
+      return dateB.getTime() - dateA.getTime(); // Newest first
+    }) : [];
+
     // Create publisher items (this might be empty for some publishers)
     const publisherItems: any[] = []; // TODO: Extract from publisher feed if needed
 
@@ -550,12 +557,12 @@ async function loadPublisherData(publisherId: string) {
         description: publisherFeed.description || `${albums.length} releases`,
         image: feedImage || null, // ONLY use publisher feed image, don't fall back to database image
         publisherFeedImage: feedImage || null, // Explicit publisher feed image
-        newestAlbumImage: albums.length > 0 ? albums[0].coverArt : null, // Newest album for hero
+        newestAlbumImage: albumsSortedByDate.length > 0 ? albumsSortedByDate[0].coverArt : null, // Newest album by release date for hero
         feedUrl: publisherFeed.originalUrl,
         feedGuid: publisherFeed.id
       },
       publisherItems,
-      albums,
+      albums, // Send original album order (client will sort as needed)
       feedId: publisherFeed.id
     };
     
