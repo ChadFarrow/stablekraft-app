@@ -173,7 +173,7 @@ export class NIP46Client {
   }
 
   /**
-   * Connect using bunker:// URI (nsecbunker WebSocket)
+   * Connect using bunker:// URI (relay-based for mobile signers like Aegis)
    */
   private async connectBunker(bunkerUri: string): Promise<void> {
     try {
@@ -185,20 +185,20 @@ export class NIP46Client {
         hasSecret: !!bunkerInfo.secret,
       });
 
-      // Use the first relay URL as the WebSocket endpoint
-      const wsUrl = bunkerInfo.relays[0];
-      
+      // Use the first relay URL for relay-based communication
+      const relayUrl = bunkerInfo.relays[0];
+
       // Store connection info with signer pubkey from URI
       this.connection = {
-        signerUrl: wsUrl,
+        signerUrl: relayUrl,
         token: bunkerInfo.secret || '', // Use empty string if no secret provided
         pubkey: bunkerInfo.pubkey, // Pubkey is known from URI
         connected: false,
       };
 
-      // Connect immediately via WebSocket for nsecbunker
-      console.log('🔌 NIP-46: Connecting to nsecbunker via WebSocket:', wsUrl);
-      return this.establishConnection();
+      // Use relay-based connection (not direct WebSocket) for mobile signers like Aegis
+      console.log('🔌 NIP-46: Connecting via relay for mobile signer:', relayUrl);
+      return this.startRelayConnection(relayUrl);
     } catch (error) {
       console.error('❌ NIP-46: Failed to parse bunker:// URI:', error);
       throw new Error(`Failed to parse bunker:// URI: ${error instanceof Error ? error.message : String(error)}`);
@@ -2945,29 +2945,35 @@ export class NIP46Client {
       console.log('ℹ️ NIP-46: Client does NOT send connect requests per NIP-46 spec');
       console.log('ℹ️ NIP-46: Please ensure Amber has scanned the QR code and is connected');
 
-      // Wait for connection to be established by Amber
-      // The handleRelayEvent method will process Amber's connect response and set pubkey
-      const maxWaitTime = 30000; // 30 seconds
+      // Wait for connection to be established by Amber/Aegis
+      // The handleRelayEvent method will process the signer's connect response and set pubkey
+      const maxWaitTime = 120000; // 120 seconds (mobile signers can take time to respond)
       const checkInterval = 500; // Check every 500ms
       const startTime = Date.now();
 
       while (!this.connection.pubkey && (Date.now() - startTime) < maxWaitTime) {
         await new Promise(resolve => setTimeout(resolve, checkInterval));
 
+        // Log progress every 15 seconds
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 0 && elapsed % 15000 < 500) {
+          console.log(`⏳ NIP-46: Still waiting for signer response... (${Math.floor(elapsed / 1000)}s elapsed)`);
+        }
+
         // Check if connection was established
         if (this.connection.pubkey) {
-          console.log('✅ NIP-46: Connection established by Amber, pubkey:', this.connection.pubkey.slice(0, 16) + '...');
+          console.log('✅ NIP-46: Connection established by signer, pubkey:', this.connection.pubkey.slice(0, 16) + '...');
           return this.connection.pubkey;
         }
       }
 
       // Timeout - connection not established
       throw new Error(
-        'Connection timeout: Amber did not respond within 30 seconds.\n' +
+        'Connection timeout: Signer did not respond within 120 seconds.\n' +
         'Please ensure:\n' +
-        '1. Amber has scanned the QR code\n' +
-        '2. Amber is connected to the relay specified in the QR code\n' +
-        '3. The relay is accessible from both your app and Amber'
+        '1. The signer (Aegis/Amber) is running and has approved the connection\n' +
+        '2. The signer is connected to the relay specified in the connection string\n' +
+        '3. The relay is accessible from both your app and the signer'
       );
     }
 
