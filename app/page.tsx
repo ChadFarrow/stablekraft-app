@@ -202,15 +202,9 @@ function HomePageContent() {
   const handleShuffle = async () => {
     try {
       console.log('🎲 Shuffle button clicked - starting shuffle all tracks');
-      const success = await shuffleAllTracks();
-      if (success) {
-        toast.success('🎲 Shuffle started!');
-      } else {
-        toast.error('Failed to start shuffle');
-      }
+      await shuffleAllTracks();
     } catch (error) {
       console.error('Error starting shuffle:', error);
-      toast.error('Error starting shuffle');
     }
   };
 
