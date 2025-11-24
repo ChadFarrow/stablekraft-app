@@ -2800,13 +2800,10 @@ export class NIP46Client {
             return;
           }
           
-          const connectionRelay = this.connection.signerUrl;
-          
-          // CRITICAL: Publish to the primary relay (the one in the QR code) first
-          // Amber will listen on this relay, so we must publish here
-          // For 'connect' requests, ONLY publish to primary relay to avoid rate limits
-          // For other requests, we can use backup relays for redundancy
-          const primaryRelay = connectionRelay;
+          // CRITICAL: Get the actual relay URL (not bunker:// URI)
+          // For bunker:// connections, signerUrl is the bunker:// URI, not the relay URL
+          // We need to use getRelayUrl() to get the actual wss:// URL
+          const primaryRelay = this.getRelayUrl();
           
           // For 'connect' requests, only use primary relay (Amber is listening here)
           // Publishing to multiple relays causes rate limits and doesn't help
