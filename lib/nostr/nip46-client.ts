@@ -393,21 +393,36 @@ export class NIP46Client {
     // Log that we're waiting for connection
     console.log('⏳ NIP-46: Waiting for connection event from signer...');
 
-    // Subscribe to primary relay (from QR code) AND backup relays
-    // Primary relay is what Amber SHOULD use, but we also listen to backups in case
-    // Amber is connected to a different relay than expected
-    // This increases the chance of receiving events if relay connectivity is inconsistent
+    // Check if this is a bunker:// connection (has signerPubkey)
+    // Bunker connections (like Aegis) use a local relay bridge that ONLY works with the specified relay
+    const isBunkerConnection = !!(this.connection as any).signerPubkey;
+
+    // Get backup relays (will be empty array for bunker connections)
     const { getDefaultRelays } = await import('./relay');
     const defaultRelays = getDefaultRelays();
-    const backupRelays = defaultRelays.filter(url => url !== relayUrl).slice(0, 2); // Use up to 2 backup relays
-    const subscribeRelays = [relayUrl, ...backupRelays]; // Primary first, then backups
-    
-    console.log(`✅ NIP-46: Subscribing to MULTIPLE RELAYS for better connectivity:`, {
-      primary: relayUrl,
-      backups: backupRelays,
-      total: subscribeRelays.length,
-      note: 'Primary relay is from QR code. Backup relays help if primary fails or Amber uses a different relay.',
-    });
+    const backupRelays = isBunkerConnection ? [] : defaultRelays.filter(url => url !== relayUrl).slice(0, 2);
+
+    let subscribeRelays: string[];
+    if (isBunkerConnection) {
+      // For bunker connections, ONLY subscribe to the primary relay
+      // Local relay bridges (Aegis, etc) only work with their specific relay
+      subscribeRelays = [relayUrl];
+      console.log(`✅ NIP-46: Bunker connection - subscribing ONLY to primary relay:`, {
+        primary: relayUrl,
+        note: 'Bunker signers (Aegis) use local relay bridges. Backup relays would not work.',
+      });
+    } else {
+      // For other connections (nostrconnect://), subscribe to primary relay AND backup relays
+      // This increases the chance of receiving events if relay connectivity is inconsistent
+      subscribeRelays = [relayUrl, ...backupRelays]; // Primary first, then backups
+
+      console.log(`✅ NIP-46: Subscribing to MULTIPLE RELAYS for better connectivity:`, {
+        primary: relayUrl,
+        backups: backupRelays,
+        total: subscribeRelays.length,
+        note: 'Primary relay is from QR code. Backup relays help if primary fails or signer uses a different relay.',
+      });
+    }
     
     // CRITICAL: Verify primary relay is connected before subscribing
     // If this relay fails, connection will not work because Amber publishes to this relay
@@ -2654,13 +2669,23 @@ export class NIP46Client {
             'wss://relay.damus.io',       // Damus relay (moved to end due to frequent rate limiting)
           ].filter(r => r !== primaryRelay); // Remove primary if it's in the backup list
           
+          // Check if this is a bunker:// connection (has signerPubkey)
+          // Bunker connections (like Aegis) use a local relay bridge that ONLY works with the specified relay
+          // We must NOT use backup relays for bunker connections
+          const isBunkerConnection = !!(this.connection as any).signerPubkey;
+
           let publishRelays: string[];
-          if (method === 'connect') {
-            // Connect requests: ONLY primary relay
+          if (method === 'connect' || isBunkerConnection) {
+            // Connect requests OR bunker connections: ONLY primary relay
+            // Bunker signers (Aegis, etc) only listen to their specific relay, not backup relays
             publishRelays = [primaryRelay];
-            console.log('📤 NIP-46: Connect request - publishing ONLY to primary relay to avoid rate limits:', primaryRelay);
+            if (isBunkerConnection) {
+              console.log('📤 NIP-46: Bunker connection - publishing ONLY to primary relay (signer only listens here):', primaryRelay);
+            } else {
+              console.log('📤 NIP-46: Connect request - publishing ONLY to primary relay to avoid rate limits:', primaryRelay);
+            }
           } else {
-            // Other requests: primary + backups for redundancy
+            // Other requests (nostrconnect://): primary + backups for redundancy
             publishRelays = [primaryRelay, ...backupRelays];
           }
           
