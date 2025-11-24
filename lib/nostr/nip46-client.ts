@@ -222,12 +222,15 @@ export class NIP46Client {
       signerUrl: nostrConnectUri, // Will be parsed in startRelayConnection if needed
       token,
       pubkey: savedPubkey, // Include saved pubkey if provided (for restoring connections)
-      connected: !!savedPubkey, // Mark as connected if we have a saved pubkey
-      connectedAt: savedPubkey ? Date.now() : undefined,
+      // CRITICAL: Don't set connected=true immediately - wait for relay to actually connect
+      // The authenticate() method will verify the connection is still active
+      connected: false, // Will be set to true after relay connects and we verify it's active
+      connectedAt: undefined, // Will be set after successful authentication
     };
     
     if (savedPubkey) {
-      console.log('✅ NIP-46: Restored connection with saved pubkey:', savedPubkey.slice(0, 16) + '...');
+      console.log('✅ NIP-46: Restoring connection with saved user pubkey:', savedPubkey.slice(0, 16) + '...');
+      console.log('ℹ️ NIP-46: Connection will be verified after relay connects');
     }
 
     // Extract relay URL from URI if it's a full nostrconnect:// URI
@@ -2998,25 +3001,93 @@ export class NIP46Client {
       throw new Error('Not connected');
     }
 
-    // If already authenticated (has pubkey), verify connection is still active
+    // If we have a saved pubkey (from restored connection), verify it's still valid
     // This prevents unnecessary requests that can trigger rate limits
-    if (this.connection.connected && this.connection.pubkey) {
-      console.log('✅ NIP-46: Connection appears authenticated, verifying it\'s still active (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
+    if (this.connection.pubkey) {
+      console.log('✅ NIP-46: Found saved user pubkey, verifying connection is still active (pubkey:', this.connection.pubkey.slice(0, 16) + '...)');
       
       // For relay-based connections, verify the relay is actually connected
       if (this.relayClient && !this.ws) {
         const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
         if (connectedRelays.length === 0) {
-          console.warn('⚠️ NIP-46: Relay not connected, reconnecting...');
-          // Reset connection state and continue with normal authentication flow
-          this.connection.connected = false;
+          console.warn('⚠️ NIP-46: Relay not connected yet, waiting for connection...');
+          // Wait a bit for relay to connect (startRelayConnection might still be in progress)
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const connectedRelaysRetry = this.relayClient.getConnectedRelays?.() || [];
+          if (connectedRelaysRetry.length === 0) {
+            console.warn('⚠️ NIP-46: Relay still not connected, will need to re-authenticate');
+            // Clear pubkey so we go through normal authentication flow
+            this.connection.pubkey = undefined;
+          } else {
+            // Relay is now connected, verify the saved pubkey is still valid
+            console.log('✅ NIP-46: Relay connected, verifying saved user pubkey is still valid...');
+            try {
+              // Request the user's pubkey directly (this is the user's Nostr account pubkey from Amber)
+              const currentPubkey = await this.sendRequest('get_public_key', []);
+              if (currentPubkey && currentPubkey === this.connection.pubkey) {
+                console.log('✅ NIP-46: Saved user pubkey verified, connection is active');
+                console.log('✅ NIP-46: Using user pubkey (not app pubkey):', currentPubkey.slice(0, 16) + '...');
+                this.connection.connected = true;
+                this.connection.connectedAt = Date.now();
+                // Ensure we're using the user's pubkey (from get_public_key response)
+                this.connection.pubkey = currentPubkey;
+                return this.connection.pubkey;
+              } else if (currentPubkey) {
+                console.warn('⚠️ NIP-46: Pubkey mismatch - saved pubkey does not match current pubkey');
+                console.warn('⚠️ NIP-46: Saved:', this.connection.pubkey?.slice(0, 16) + '..., Current:', currentPubkey.slice(0, 16) + '...');
+                console.warn('⚠️ NIP-46: Updating to use current user pubkey');
+                // Update to use the current pubkey (user may have switched accounts)
+                this.connection.pubkey = currentPubkey;
+                this.connection.connected = true;
+                this.connection.connectedAt = Date.now();
+                return this.connection.pubkey;
+              } else {
+                console.warn('⚠️ NIP-46: No pubkey returned from get_public_key, will re-authenticate');
+                // Clear pubkey and continue with normal authentication
+                this.connection.pubkey = undefined;
+              }
+            } catch (verifyError) {
+              console.warn('⚠️ NIP-46: Failed to verify saved pubkey, will re-authenticate:', verifyError);
+              // Clear pubkey and continue with normal authentication
+              this.connection.pubkey = undefined;
+            }
+          }
         } else {
-          // For restored connections, we trust the saved pubkey if relay is connected
-          // The connection was already established, so we can skip the connect request
-          console.log('✅ NIP-46: Relay connected and pubkey available, skipping connect request');
-          return this.connection.pubkey;
+          // Relay is connected, verify the saved pubkey is still valid by requesting it
+          // This ensures we're using the user's pubkey, not the app's pubkey
+          console.log('✅ NIP-46: Relay connected, verifying saved user pubkey is still valid...');
+          try {
+            // Request the user's pubkey directly (this is the user's Nostr account pubkey from Amber)
+            const currentPubkey = await this.sendRequest('get_public_key', []);
+            if (currentPubkey && currentPubkey === this.connection.pubkey) {
+              console.log('✅ NIP-46: Saved user pubkey verified, connection is active');
+              console.log('✅ NIP-46: Using user pubkey (not app pubkey):', currentPubkey.slice(0, 16) + '...');
+              this.connection.connected = true;
+              this.connection.connectedAt = Date.now();
+              // Ensure we're using the user's pubkey (from get_public_key response)
+              this.connection.pubkey = currentPubkey;
+              return this.connection.pubkey;
+            } else if (currentPubkey) {
+              console.warn('⚠️ NIP-46: Pubkey mismatch - saved pubkey does not match current pubkey');
+              console.warn('⚠️ NIP-46: Saved:', this.connection.pubkey?.slice(0, 16) + '..., Current:', currentPubkey.slice(0, 16) + '...');
+              console.warn('⚠️ NIP-46: Updating to use current user pubkey');
+              // Update to use the current pubkey (user may have switched accounts)
+              this.connection.pubkey = currentPubkey;
+              this.connection.connected = true;
+              this.connection.connectedAt = Date.now();
+              return this.connection.pubkey;
+            } else {
+              console.warn('⚠️ NIP-46: No pubkey returned from get_public_key, will re-authenticate');
+              // Clear pubkey and continue with normal authentication
+              this.connection.pubkey = undefined;
+            }
+          } catch (verifyError) {
+            console.warn('⚠️ NIP-46: Failed to verify saved pubkey, will re-authenticate:', verifyError);
+            // Clear pubkey and continue with normal authentication
+            this.connection.pubkey = undefined;
+          }
         }
-      } else {
+      } else if (this.connection.connected && this.ws) {
         // For WebSocket connections, if we have pubkey and connected flag, trust it
         console.log('✅ NIP-46: Already authenticated (WebSocket), skipping connect request');
         return this.connection.pubkey;
