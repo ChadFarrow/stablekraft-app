@@ -1071,7 +1071,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         <div onClick={(e) => e.stopPropagation()}>
                           <BoostButton
                             key={track.guid || track.url || `boost-${track.title}-${displayIndex}`}
-                            trackId={track.guid}
+                            trackId={track.id}
                             feedId={album.feedId}
                             trackTitle={track.title}
                             artistName={album.artist}
