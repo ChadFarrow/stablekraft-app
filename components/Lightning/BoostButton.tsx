@@ -415,15 +415,35 @@ export function BoostButton({
                       }
                     }
                     
+                    // Save the connection to ensure it persists
+                    const { saveNIP46Connection } = await import('@/lib/nostr/nip46-storage');
+                    const connection = client.getConnection();
+                    if (connection) {
+                      connection.pubkey = currentUserPubkey || connection.pubkey;
+                      saveNIP46Connection(connection);
+                      console.log('💾 Boost: Saved restored connection to localStorage');
+                    }
+                    
                     // Register with unified signer
                     await signer.setNIP46Signer(client);
                     console.log('✅ NIP-46/nsecBunker signer restored successfully!');
                     
+                    // Give it a moment to fully establish
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
                     // Verify signer is now available before proceeding
                     if (!signer.isAvailable()) {
                       console.warn('⚠️ Signer restored but still not available');
-                      console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signer not available after reconnection');
-                      return;
+                      // Try one more reinitialize
+                      console.log('🔄 Boost: Attempting final reinitialize...');
+                      await signer.reinitialize();
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                      
+                      if (!signer.isAvailable()) {
+                        console.error('❌ Signer still not available after reinitialize');
+                        console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signer not available after reconnection');
+                        return;
+                      }
                     }
                     console.log('✅ Signer verified available, proceeding to sign event');
                     // Continue to sign the event
@@ -485,8 +505,50 @@ export function BoostButton({
               return;
             }
             
-            // Sign event using unified signer (works with NIP-07, NIP-46, and NIP-55)
+            // For NIP-46/nsecBunker, verify the client is actually connected
             const signerType = signer.getSignerType();
+            if (signerType === 'nip46' || signerType === 'nsecbunker') {
+              const nip46Client = signer.getNIP46Client();
+              if (nip46Client) {
+                const isConnected = nip46Client.isConnected();
+                const connection = nip46Client.getConnection();
+                const pubkey = nip46Client.getPubkey();
+                
+                console.log('🔍 Boost: NIP-46/nsecBunker connection verification:', {
+                  isConnected,
+                  hasConnection: !!connection,
+                  hasPubkey: !!pubkey,
+                  pubkey: pubkey?.slice(0, 16) + '...' || 'N/A',
+                  connectionPubkey: connection?.pubkey?.slice(0, 16) + '...' || 'N/A',
+                  signerUrl: connection?.signerUrl || 'N/A',
+                });
+                
+                if (!isConnected || !connection) {
+                  console.error('❌ Boost: NIP-46/nsecBunker client not connected');
+                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Connection not established');
+                  return;
+                }
+                
+                if (!pubkey && !connection.pubkey) {
+                  console.error('❌ Boost: NIP-46/nsecBunker pubkey not available');
+                  console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Pubkey not available');
+                  // Try to get pubkey
+                  try {
+                    await nip46Client.getPublicKey();
+                    console.log('✅ Boost: Retrieved pubkey after retry');
+                  } catch (pubkeyError) {
+                    console.error('❌ Boost: Failed to get pubkey:', pubkeyError);
+                    return;
+                  }
+                }
+              } else {
+                console.error('❌ Boost: NIP-46/nsecBunker client not available');
+                console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Client not available');
+                return;
+              }
+            }
+            
+            // Sign event using unified signer (works with NIP-07, NIP-46, and NIP-55)
             console.log(`🔗 Signing boost event with ${signerType || 'unified'} signer...`);
             
             let trackData: any = null;
@@ -667,7 +729,13 @@ export function BoostButton({
             
             let signedEvent;
             try {
-              signedEvent = await signer.signEvent(noteTemplate as any);
+              // Add timeout for signing (30 seconds should be enough)
+              const signPromise = signer.signEvent(noteTemplate as any);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Signing timeout after 30 seconds')), 30000)
+              );
+              
+              signedEvent = await Promise.race([signPromise, timeoutPromise]) as any;
             } catch (signError) {
               console.error('❌ Boost: Failed to sign event:', signError);
               const errorMessage = signError instanceof Error ? signError.message : String(signError);
@@ -675,8 +743,25 @@ export function BoostButton({
                 message: errorMessage,
                 signerType: signer.getSignerType(),
                 isAvailable: signer.isAvailable(),
+                errorName: signError instanceof Error ? signError.name : 'Unknown',
+                errorStack: signError instanceof Error ? signError.stack : undefined,
               });
-              throw signError;
+              
+              // If it's a NIP-46/nsecBunker signer, check connection status
+              if (signerType === 'nip46' || signerType === 'nsecbunker') {
+                const nip46Client = signer.getNIP46Client();
+                if (nip46Client) {
+                  console.error('❌ Boost: NIP-46/nsecBunker connection status after error:', {
+                    isConnected: nip46Client.isConnected(),
+                    hasConnection: !!nip46Client.getConnection(),
+                    pubkey: nip46Client.getPubkey()?.slice(0, 16) + '...' || 'N/A',
+                  });
+                }
+              }
+              
+              // Don't throw - just log and return (boost payment already succeeded)
+              console.log('ℹ️ Boost payment succeeded but not posted to Nostr: Signing failed');
+              return;
             }
 
             console.log('✅ Boost: Event signed successfully:', {
