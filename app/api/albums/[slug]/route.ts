@@ -652,6 +652,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const feed = bestMatchData.feed;
       console.log(`✅ Selected best match: "${feed.title}" with ${feed.Track.length} tracks`);
       
+      // Helper function to parse v4vValue from JSON string to object
+      const parseV4VValue = (v4vValue: any): any => {
+        if (!v4vValue) return null;
+        if (typeof v4vValue === 'string') {
+          try {
+            return JSON.parse(v4vValue);
+          } catch (e) {
+            console.warn('Failed to parse v4vValue JSON string:', e);
+            return null;
+          }
+        }
+        return v4vValue;
+      };
+
       const tracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
@@ -674,7 +688,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         explicit: track.explicit || false,
         keywords: track.itunesKeywords || [],
         v4vRecipient: track.v4vRecipient,
-        v4vValue: track.v4vValue
+        v4vValue: parseV4VValue(track.v4vValue)
       }));
       
       // Determine if this is a playlist based on track variety
@@ -719,7 +733,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         feedUrl: feed.originalUrl,
         lastUpdated: feed.updatedAt,
         v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
-        v4vValue: feed.v4vValue || feed.Track?.[0]?.v4vValue || null
+        v4vValue: parseV4VValue(feed.v4vValue) || parseV4VValue(feed.Track?.[0]?.v4vValue) || null
       };
     }
     
@@ -765,6 +779,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         const feed = bestFlexibleMatch.feed;
         console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.Track.length} tracks`);
         
+        // Helper function to parse v4vValue from JSON string to object
+        const parseV4VValue = (v4vValue: any): any => {
+          if (!v4vValue) return null;
+          if (typeof v4vValue === 'string') {
+            try {
+              return JSON.parse(v4vValue);
+            } catch (e) {
+              console.warn('Failed to parse v4vValue JSON string:', e);
+              return null;
+            }
+          }
+          return v4vValue;
+        };
+
         const tracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
@@ -773,21 +801,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           ) === index;
         })
         .map((track: any, index: number) => ({
-          id: track.id,
-          guid: track.guid,
-          title: track.title,
-          duration: track.duration ?
-            Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') :
-            track.itunesDuration || '0:00',
-          url: track.audioUrl,
-          trackNumber: index + 1,
-          subtitle: track.subtitle || '',
-          summary: track.description || '',
-          image: track.image || feed.image || '',
-          explicit: track.explicit || false,
-          keywords: track.itunesKeywords || [],
-          v4vRecipient: track.v4vRecipient,
-          v4vValue: track.v4vValue
+        id: track.id,
+        guid: track.guid,
+        title: track.title,
+        duration: track.duration ?
+          Math.floor(track.duration / 60) + ':' + String(track.duration % 60).padStart(2, '0') :
+          track.itunesDuration || '0:00',
+        url: track.audioUrl,
+        trackNumber: index + 1,
+        subtitle: track.subtitle || '',
+        summary: track.description || '',
+        image: track.image || feed.image || '',
+        explicit: track.explicit || false,
+        keywords: track.itunesKeywords || [],
+        v4vRecipient: track.v4vRecipient,
+        v4vValue: parseV4VValue(track.v4vValue)
         }));
         
         const isPlaylist = tracks.length > 1 && 
@@ -830,8 +858,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           feedId: feed.id,
           feedUrl: feed.originalUrl,
           lastUpdated: feed.updatedAt,
-          v4vRecipient: feed.Track?.[0]?.v4vRecipient || null,
-          v4vValue: feed.Track?.[0]?.v4vValue || null
+          v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
+          v4vValue: parseV4VValue(feed.v4vValue) || parseV4VValue(feed.Track?.[0]?.v4vValue) || null
         };
       }
     }

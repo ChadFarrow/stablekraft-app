@@ -324,6 +324,20 @@ export async function GET(request: Request) {
       return Array.from(albumMap.values());
     }).flat();
     
+    // Helper function to parse v4vValue from JSON string to object
+    const parseV4VValue = (v4vValue: any): any => {
+      if (!v4vValue) return null;
+      if (typeof v4vValue === 'string') {
+        try {
+          return JSON.parse(v4vValue);
+        } catch (e) {
+          console.warn('Failed to parse v4vValue JSON string:', e);
+          return null;
+        }
+      }
+      return v4vValue;
+    };
+
     // Transform to consistent album format
     const transformedAlbums = albums.map((album: any) => {
       const feed = album.feed;
@@ -348,7 +362,7 @@ export async function GET(request: Request) {
         keywords: track.itunesKeywords || [],
         // V4V fields for Lightning payments
         v4vRecipient: track.v4vRecipient,
-        v4vValue: track.v4vValue,
+        v4vValue: parseV4VValue(track.v4vValue),
         // Additional fields for track identification and time segments
         guid: track.guid,
         id: track.id,
@@ -390,7 +404,7 @@ export async function GET(request: Request) {
         const trackWithV4V = album.tracks.find((t: any) => t.v4vRecipient || t.v4vValue);
         if (trackWithV4V) {
           v4vRecipient = trackWithV4V.v4vRecipient;
-          v4vValue = trackWithV4V.v4vValue;
+          v4vValue = parseV4VValue(trackWithV4V.v4vValue);
         }
       }
 
