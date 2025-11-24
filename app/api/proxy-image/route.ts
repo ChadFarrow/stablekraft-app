@@ -236,20 +236,26 @@ export async function GET(request: NextRequest) {
           }
           
           finalContentType = 'image/jpeg';
-        } else if (!metadata.format || metadata.format === 'gif') {
-          // For GIFs or unsupported formats, convert to high-quality JPEG for backgrounds
+        } else if (metadata.format === 'gif') {
+          // For GIFs, keep original format to preserve animation
+          // Don't convert to JPEG as that loses the animation
+          console.log(`🎬 Preserving GIF animation for ${imageUrl}`);
+          processedBuffer = imageBuffer;
+          finalContentType = 'image/gif';
+        } else if (!metadata.format) {
+          // For unknown formats, convert to high-quality JPEG for backgrounds
           processedBuffer = await sharp(imageBuffer)
-            .jpeg({ 
+            .jpeg({
               quality: 95,
-              mozjpeg: true 
+              mozjpeg: true
             })
             .toBuffer();
-          
+
           // Validate processed buffer
           if (!processedBuffer || processedBuffer.length === 0) {
             throw new Error('Sharp processing returned empty buffer');
           }
-          
+
           finalContentType = 'image/jpeg';
         } else {
           // Just optimize existing image without resizing

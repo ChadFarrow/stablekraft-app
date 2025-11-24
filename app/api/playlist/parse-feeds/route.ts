@@ -145,6 +145,28 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
       }
     }
 
+    // Prepare channel-level v4v data for feed storage
+    let feedV4vData = null;
+    let feedV4vRecipient = null;
+    if (parsedV4V?.channelValue) {
+      feedV4vData = {
+        type: parsedV4V.channelValue.type,
+        method: parsedV4V.channelValue.method,
+        suggested: parsedV4V.channelValue.suggested,
+        recipients: parsedV4V.channelValue.recipients.map(r => ({
+          name: r.name,
+          type: r.type,
+          address: r.address,
+          split: r.split,
+          customKey: r.customKey,
+          customValue: r.customValue,
+          fee: r.fee || false
+        }))
+      };
+      feedV4vRecipient = parsedV4V.channelValue.recipients[0]?.address || null;
+      console.log(`📊 Storing channel-level v4v data on feed ${feedId}: ${parsedV4V.channelValue.recipients.length} recipients`);
+    }
+
     // Check if feed already exists by GUID (id)
     let feed = await prisma.feed.findUnique({
       where: { id: feedId }
@@ -173,7 +195,9 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
           explicit: feedData.explicit === 1,
           status: 'active',
           lastFetched: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          ...(feedV4vData && { v4vValue: feedV4vData }),
+          ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
         }
       });
     } else {
@@ -189,7 +213,9 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
           category: feedData.categories ? Object.keys(feedData.categories)[0] : feed.category,
           explicit: feedData.explicit === 1 ? true : feed.explicit,
           status: 'active',
-          lastFetched: new Date()
+          lastFetched: new Date(),
+          ...(feedV4vData && { v4vValue: feedV4vData }),
+          ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
         }
       });
     }
@@ -234,17 +260,20 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
           console.log(`✅ Found v4v data from API for track "${episode.title}": ${episode.v4vValue.destinations.length} recipients`);
         }
         // Fallback to parsed XML v4v data if available
+        // IMPORTANT: Only use item-level value tags, not channel-level
+        // Channel-level splits should be stored on the Feed, not on individual Tracks
+        // Frontend will handle the fallback to channel-level when displaying
         else if (parsedV4V && episode.guid) {
           const itemV4V = parsedV4V.itemValues.get(episode.guid);
-          const valueTag = itemV4V || parsedV4V.channelValue; // Use item-level or fall back to channel-level
 
-          if (valueTag) {
+          // Only use item-level v4v data - don't fall back to channel level
+          if (itemV4V) {
             // Format v4v data for database storage
             v4vData = {
-              type: valueTag.type,
-              method: valueTag.method,
-              suggested: valueTag.suggested,
-              recipients: valueTag.recipients.map(r => ({
+              type: itemV4V.type,
+              method: itemV4V.method,
+              suggested: itemV4V.suggested,
+              recipients: itemV4V.recipients.map(r => ({
                 name: r.name,
                 type: r.type,
                 address: r.address,
@@ -255,8 +284,10 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               }))
             };
             // Extract lightning address from first recipient
-            v4vRecipient = valueTag.recipients[0]?.address || null;
-            console.log(`✅ Found v4v data from RSS for track "${episode.title}": ${valueTag.recipients.length} recipients`);
+            v4vRecipient = itemV4V.recipients[0]?.address || null;
+            console.log(`✅ Found item-level v4v data from RSS for track "${episode.title}": ${itemV4V.recipients.length} recipients`);
+          } else {
+            console.log(`ℹ️ No item-level v4v data for track "${episode.title}" - will use channel-level at display time`);
           }
         }
 
