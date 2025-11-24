@@ -18,6 +18,7 @@ export interface NIP46Connection {
   pubkey?: string;
   connected: boolean;
   connectedAt?: number;
+  relayUrl?: string; // For bunker:// connections, store the actual relay URL separately
 }
 
 const STORAGE_KEY = 'nostr_nip46_connection';
@@ -30,6 +31,7 @@ export interface StoredConnection {
   pubkey?: string; // User's Nostr account pubkey (from Amber)
   connectedAt?: number;
   expiresAt: number;
+  relayUrl?: string; // For bunker:// connections, store the actual relay URL separately
 }
 
 /**
@@ -48,6 +50,7 @@ export function saveNIP46Connection(connection: NIP46Connection): void {
       pubkey: connection.pubkey, // User's Nostr account pubkey (from Amber)
       connectedAt: connection.connectedAt || Date.now(),
       expiresAt: Date.now() + TOKEN_EXPIRY_MS,
+      relayUrl: connection.relayUrl, // Store relay URL separately for bunker:// connections
     };
 
     // Store the most recent connection (for backward compatibility)
@@ -124,6 +127,7 @@ export function loadNIP46Connection(userPubkey?: string): NIP46Connection | null
               pubkey: mostRecent.pubkey,
               connected: false, // Always start disconnected, need to reconnect
               connectedAt: mostRecent.connectedAt,
+              relayUrl: mostRecent.relayUrl, // Restore relay URL for bunker:// connections
             };
           }
         }
@@ -160,6 +164,7 @@ export function loadNIP46Connection(userPubkey?: string): NIP46Connection | null
       pubkey: parsed.pubkey,
       connected: false, // Always start disconnected, need to reconnect
       connectedAt: parsed.connectedAt,
+      relayUrl: parsed.relayUrl, // Restore relay URL for bunker:// connections
     };
   } catch (error) {
     console.error('❌ Failed to load NIP-46 connection:', error);

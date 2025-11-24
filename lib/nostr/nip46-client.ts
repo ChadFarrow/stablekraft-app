@@ -183,22 +183,35 @@ export class NIP46Client {
     }
     
     // If relayUrl is stored separately (for bunker:// connections), use it
-    if ((this.connection as any).relayUrl) {
-      return (this.connection as any).relayUrl;
+    const storedRelayUrl = (this.connection as any).relayUrl;
+    if (storedRelayUrl && storedRelayUrl.startsWith('wss://')) {
+      return storedRelayUrl;
     }
     
     // If signerUrl is a bunker:// URI, parse it to get the relay URL
     if (this.connection.signerUrl?.startsWith('bunker://')) {
       try {
         const bunkerInfo = parseBunkerUri(this.connection.signerUrl);
-        return bunkerInfo.relays[0];
+        const relayUrl = bunkerInfo.relays[0];
+        if (relayUrl && relayUrl.startsWith('wss://')) {
+          // Also store it for future use
+          (this.connection as any).relayUrl = relayUrl;
+          return relayUrl;
+        }
+        throw new Error('No valid relay URL found in bunker:// URI');
       } catch (err) {
-        console.warn('⚠️ NIP-46: Failed to parse bunker:// URI to get relay URL:', err);
+        console.error('❌ NIP-46: Failed to parse bunker:// URI to get relay URL:', err);
+        throw new Error(`Failed to get relay URL from bunker:// URI: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
     
     // Otherwise, assume signerUrl is the relay URL (for non-bunker connections)
-    return this.connection.signerUrl;
+    // But validate it's a valid WebSocket URL
+    if (this.connection.signerUrl && this.connection.signerUrl.startsWith('wss://')) {
+      return this.connection.signerUrl;
+    }
+    
+    throw new Error(`Invalid relay URL: ${this.connection.signerUrl}. Expected wss:// URL or bunker:// URI.`);
   }
 
   /**
@@ -1904,6 +1917,7 @@ export class NIP46Client {
                 signerUrl: this.connection.signerUrl,
                 connected: true,
                 connectedAt: Date.now(),
+                relayUrl: (this.connection as any).relayUrl, // Save relay URL for bunker:// connections
               });
               console.log('💾 NIP-46: Saved connection to localStorage:', {
                 userPubkey: pubkey.slice(0, 16) + '...',
@@ -1998,6 +2012,7 @@ export class NIP46Client {
               signerUrl: this.connection.signerUrl,
               connected: true,
               connectedAt: Date.now(),
+              relayUrl: (this.connection as any).relayUrl, // Save relay URL for bunker:// connections
             });
             console.log('💾 NIP-46: Saved connection to localStorage:', {
               userPubkey: pubkey.slice(0, 16) + '...',
@@ -2078,6 +2093,7 @@ export class NIP46Client {
               signerUrl: this.connection.signerUrl,
               connected: true,
               connectedAt: Date.now(),
+              relayUrl: (this.connection as any).relayUrl, // Save relay URL for bunker:// connections
             });
             console.log('💾 NIP-46: Saved connection to localStorage:', {
               userPubkey: signerPubkey.slice(0, 16) + '...',
@@ -2406,10 +2422,18 @@ export class NIP46Client {
       const relayManager = (this.relayClient as any).relayManager;
       if (relayManager) {
         const relayUrl = this.getRelayUrl();
+        // Debug: Log what we're checking
+        console.log('🔍 NIP-46: Checking relay connection status:', {
+          relayUrl: relayUrl,
+          signerUrl: this.connection.signerUrl,
+          hasRelayUrlField: !!(this.connection as any).relayUrl,
+          relayUrlField: (this.connection as any).relayUrl,
+        });
         const isRelayConnected = relayManager.isConnected(relayUrl);
         if (!isRelayConnected) {
           console.log('⚠️ NIP-46: Relay appears disconnected, reconnecting...', {
             relayUrl: relayUrl,
+            checkedUrl: relayUrl,
           });
           await this.startRelayConnection(relayUrl);
         }
