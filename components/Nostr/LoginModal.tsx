@@ -353,15 +353,18 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       const client = new NIP46Client();
       // connect() signature: (signerUrl, token, connectImmediately?, signerPubkey?)
-      await client.connect(pastedConnectionUri, token, false);
+      // For bunker:// URIs, connect immediately without showing QR code UI
+      await client.connect(pastedConnectionUri, token, true);
 
       setNip46Client(client);
       nip46ClientRef.current = client;
 
-      // Show the connection UI to wait for approval
-      setNip46ConnectionToken(pastedConnectionUri);
-      setNip46SignerUrl(pastedConnectionUri);
-      setShowNip46Connect(true);
+      // Connection successful, authenticate to get pubkey
+      const pubkey = await client.getPublicKey();
+
+      // Save to context and localStorage
+      onLoginSuccess(pubkey, 'nip46', client);
+      setIsSubmitting(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect with URI');
       setIsSubmitting(false);
