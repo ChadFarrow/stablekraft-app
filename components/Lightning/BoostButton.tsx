@@ -502,7 +502,7 @@ export function BoostButton({
                     // Continue to sign the event
                   } else {
                     console.warn('⚠️ No saved NIP-46/nsecBunker connection found');
-                    setNostrError('No saved connection found. Please log out and reconnect with Amber.');
+                    setNostrError('Nostr connection lost. Boost payment succeeded, but Nostr posting requires reconnection. Please log out and reconnect with Amber to post boosts to Nostr.');
                     setNostrStatus('failed');
                     return;
                   }
