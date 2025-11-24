@@ -1291,16 +1291,22 @@ export class NIP46Client {
                   // This is an established connection that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
-                  try {
-                    const { clearNIP46ConnectionForUser } = await import('./nip46-storage');
-                    clearNIP46ConnectionForUser(this.connection.pubkey);
-                    console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
-                    // Disconnect this client so it can be re-established fresh
-                    this.connection.connected = false;
-                    this.connection.pubkey = undefined;
-                  } catch (clearError) {
-                    console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
-                  }
+                  // Use .then() instead of await since this function is not async
+                  import('./nip46-storage').then(({ clearNIP46ConnectionForUser }) => {
+                    try {
+                      clearNIP46ConnectionForUser(this.connection!.pubkey!);
+                      console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
+                      // Disconnect this client so it can be re-established fresh
+                      if (this.connection) {
+                        this.connection.connected = false;
+                        this.connection.pubkey = undefined;
+                      }
+                    } catch (clearError) {
+                      console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
+                    }
+                  }).catch((importError) => {
+                    console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
+                  });
                 } else {
                   // Initial connection phase - just ignore old cached events silently
                   // These are expected when showing QR code before scanning
@@ -1328,16 +1334,22 @@ export class NIP46Client {
                   // This is an established connection that can't decrypt - clear it
                   console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
                   console.warn(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
-                  try {
-                    const { clearNIP46ConnectionForUser } = await import('./nip46-storage');
-                    clearNIP46ConnectionForUser(this.connection.pubkey);
-                    console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
-                    // Disconnect this client so it can be re-established fresh
-                    this.connection.connected = false;
-                    this.connection.pubkey = undefined;
-                  } catch (clearError) {
-                    console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
-                  }
+                  // Use .then() instead of await since this function is not async
+                  import('./nip46-storage').then(({ clearNIP46ConnectionForUser }) => {
+                    try {
+                      clearNIP46ConnectionForUser(this.connection!.pubkey!);
+                      console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
+                      // Disconnect this client so it can be re-established fresh
+                      if (this.connection) {
+                        this.connection.connected = false;
+                        this.connection.pubkey = undefined;
+                      }
+                    } catch (clearError) {
+                      console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
+                    }
+                  }).catch((importError) => {
+                    console.error(`[NIP46-SIGNER-CACHE] Failed to import storage module:`, importError);
+                  });
                 } else {
                   // Initial connection phase - just ignore old cached events silently
                   // These are expected when showing QR code before scanning
@@ -3085,19 +3097,41 @@ export class NIP46Client {
       console.log('✅ NIP-46: Found saved user pubkey, ensuring relay is ready (will verify on first use)');
       console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey.slice(0, 16) + '...');
       
-      // For relay-based connections, ensure the relay client is set up
-      if (this.relayClient && !this.ws) {
-        // Check if relay is connected, wait briefly if not
-        const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
-        if (connectedRelays.length === 0) {
-          console.log('⏳ NIP-46: Relay not connected yet, waiting briefly...');
-          // Wait up to 3 seconds for relay to connect
-          for (let i = 0; i < 30; i++) {
+      // For relay-based connections, ensure the relay client is initialized and connected
+      if (!this.ws && this.connection.signerUrl && this.connection.signerUrl.startsWith('wss://')) {
+        // If relay client doesn't exist yet, wait for it to be initialized
+        // This can happen if authenticate() is called before startRelayConnection() completes
+        if (!this.relayClient) {
+          console.log('⏳ NIP-46: Relay client not initialized yet, waiting for connection setup...');
+          // Wait up to 5 seconds for relay client to be initialized
+          for (let i = 0; i < 50; i++) {
             await new Promise(resolve => setTimeout(resolve, 100));
-            const retryRelays = this.relayClient.getConnectedRelays?.() || [];
-            if (retryRelays.length > 0) {
-              console.log('✅ NIP-46: Relay connected');
+            if (this.relayClient) {
+              console.log('✅ NIP-46: Relay client initialized');
               break;
+            }
+          }
+          
+          // If still not initialized, try to initialize it now
+          if (!this.relayClient) {
+            console.log('⚠️ NIP-46: Relay client still not initialized, initializing now...');
+            await this.startRelayConnection(this.connection.signerUrl);
+          }
+        }
+        
+        // Now ensure relay is connected
+        if (this.relayClient) {
+          const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
+          if (connectedRelays.length === 0) {
+            console.log('⏳ NIP-46: Relay not connected yet, waiting briefly...');
+            // Wait up to 3 seconds for relay to connect
+            for (let i = 0; i < 30; i++) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+              const retryRelays = this.relayClient.getConnectedRelays?.() || [];
+              if (retryRelays.length > 0) {
+                console.log('✅ NIP-46: Relay connected');
+                break;
+              }
             }
           }
         }
