@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">DoerfelVerse</string>
-    <string name="asset_statements">[{"include": "https://re.podtards.com/*"}]</string>
+    <string name="asset_statements">[{"include": "https://stablekraft.app/*"}]</string>
 </resources> 

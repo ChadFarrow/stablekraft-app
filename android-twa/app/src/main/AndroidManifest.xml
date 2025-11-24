@@ -32,7 +32,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https"
-                      android:host="re.podtards.com" />
+                      android:host="stablekraft.app" />
             </intent-filter>
             <!-- NIP-46 callback handler for Amber -->
             <intent-filter>
@@ -57,7 +57,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="https://re.podtards.com" />
+                android:value="https://stablekraft.app" />
             <meta-data
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
                 android:resource="@color/colorPrimary" />

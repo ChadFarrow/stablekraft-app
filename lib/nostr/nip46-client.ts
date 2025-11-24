@@ -25,14 +25,14 @@ function hexToBytes(hex: string): Uint8Array {
 
 /**
  * Parse bunker:// URI to extract connection information
- * Format: bunker://<pubkey>?relay=<relay_url>&relay=<relay_url2>&secret=<secret>
+ * Format: bunker://<pubkey>?relay=<relay_url>&relay=<relay_url2>&secret=<optional_secret>
  * @param uri - The bunker:// URI string
- * @returns Parsed connection info with pubkey, relay URLs, and secret
+ * @returns Parsed connection info with pubkey, relay URLs, and optional secret
  */
 export interface BunkerConnectionInfo {
   pubkey: string;
   relays: string[];
-  secret: string;
+  secret?: string; // Optional per NIP-46 spec
 }
 
 export function parseBunkerUri(uri: string): BunkerConnectionInfo {
@@ -52,25 +52,23 @@ export function parseBunkerUri(uri: string): BunkerConnectionInfo {
 
   const pubkey = pubkeyPart;
   const relays: string[] = [];
-  let secret = '';
+  let secret: string | undefined = undefined;
 
   // Parse query parameters
   if (queryString) {
     const params = new URLSearchParams(queryString);
-    
+
     // Get all relay parameters (can be multiple)
     params.getAll('relay').forEach(relay => {
       if (relay) {
         relays.push(decodeURIComponent(relay));
       }
     });
-    
-    // Get secret parameter (required)
+
+    // Get secret parameter (optional per NIP-46 spec)
     const secretParam = params.get('secret');
     if (secretParam) {
       secret = decodeURIComponent(secretParam);
-    } else {
-      throw new Error('Invalid bunker:// URI - secret parameter is required');
     }
   } else {
     throw new Error('Invalid bunker:// URI - query parameters are required');
@@ -193,7 +191,7 @@ export class NIP46Client {
       // Store connection info with signer pubkey from URI
       this.connection = {
         signerUrl: wsUrl,
-        token: bunkerInfo.secret,
+        token: bunkerInfo.secret || '', // Use empty string if no secret provided
         pubkey: bunkerInfo.pubkey, // Pubkey is known from URI
         connected: false,
       };

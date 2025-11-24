@@ -135,7 +135,7 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Domain configuration for re.podtards.com deployment
+  // Domain configuration for stablekraft.app deployment
   basePath: '',
   
   // Inject version from package.json as environment variable
@@ -277,10 +277,10 @@ const nextConfig = {
                   port: '',
                   pathname: '/**',
                 },
-      // re.podtards.com domain
+      // stablekraft.app domain
       {
         protocol: 'https',
-        hostname: 're.podtards.com',
+        hostname: 'stablekraft.app',
         port: '',
         pathname: '/**',
       },
