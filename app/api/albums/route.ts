@@ -73,17 +73,9 @@ async function getPlaylistAlbums(requestUrl?: string) {
   try {
     const playlistAlbums = [];
 
-    // Use the correct base URL - prefer env var, fallback to request origin, then localhost
-    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-
-    if (!baseUrl && requestUrl) {
-      const url = new URL(requestUrl);
-      baseUrl = `${url.protocol}//${url.host}`;
-    }
-
-    if (!baseUrl) {
-      baseUrl = 'http://localhost:3000';
-    }
+    // For server-side internal API calls, always use localhost HTTP
+    // This avoids SSL errors when the container listens on HTTP but has external HTTPS URL
+    const baseUrl = 'http://localhost:8080';
 
     // Fetch HGH playlist
     const hghResponse = await fetch(`${baseUrl}/api/playlist/hgh`);
