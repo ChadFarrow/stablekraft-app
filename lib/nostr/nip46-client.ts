@@ -672,7 +672,6 @@ export class NIP46Client {
 
             // Only log once for aggressive mode to reduce spam
             if (!this.aggressiveModeLogged) {
-              console.log(`[NIP46] Using aggressive mode: Processing untagged events from signer (bunker connection)...`);
               this.aggressiveModeLogged = true;
             }
 
@@ -723,16 +722,7 @@ export class NIP46Client {
 
             // Only attempt to process if mismatch not detected
             if (!this.mismatchDetected && (mightBeFromAmber || hasEncryptedContent || hasPendingRequests)) {
-              if (this.pubkeyMismatchCount < 3) {
-                console.log('🔍 NIP-46: Attempting to process event (aggressive mode - might be from Amber)', {
-                  eventId: event.id.slice(0, 16) + '...',
-                  eventPubkey: event.pubkey.slice(0, 16) + '...',
-                  contentLength: event.content.length,
-                  hasPendingRequests,
-                  mightBeFromAmber,
-                  hasEncryptedContent,
-                });
-              }
+              // Process untagged event
               // Double-check mismatch before calling handleRelayEvent
               if (!this.mismatchDetected) {
                 this.handleRelayEvent(event, connectionInfo);
@@ -765,7 +755,6 @@ export class NIP46Client {
 
           // Event not tagged for us - but if we have pending requests, try to process it anyway
           if (hasPendingRequests && !this.aggressiveModeLogged) {
-            console.log(`[NIP46] Using aggressive mode: Processing untagged events (${this.pendingRequests.size} pending requests)...`);
             this.aggressiveModeLogged = true;
           }
 
@@ -792,20 +781,15 @@ export class NIP46Client {
                 const decryptedContent = nip44.decrypt(event.content, conversationKey);
                 content = JSON.parse(decryptedContent);
                 decrypted = true;
-                console.error(`[NIP46-UNTAGGED-DECRYPT] Event #${this.eventCounter} decrypted with event pubkey ${event.pubkey.slice(0, 16)}...`);
-                console.log('📋 NIP-46: Successfully decrypted untagged event content');
               } catch (decryptErr) {
                 // If decryption failed and we have Amber's pubkey from connection, try with that
                 if (this.connection?.pubkey && this.connection.pubkey !== event.pubkey) {
                   try {
-                    console.error(`[NIP46-UNTAGGED-DECRYPT] Trying to decrypt Event #${this.eventCounter} with Amber's pubkey ${this.connection.pubkey.slice(0, 16)}...`);
                     const appPrivateKeyBytes = hexToBytes(connectionInfo.privateKey);
                     const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, this.connection.pubkey);
                     const decryptedContent = nip44.decrypt(event.content, conversationKey);
                     content = JSON.parse(decryptedContent);
                     decrypted = true;
-                    console.error(`[NIP46-UNTAGGED-DECRYPT] Successfully decrypted with Amber's pubkey!`);
-                    console.log('📋 NIP-46: Successfully decrypted untagged event content with Amber pubkey');
                   } catch (amberDecryptErr) {
                     // Still failed, try plain JSON
                     try {
@@ -852,7 +836,6 @@ export class NIP46Client {
               const mightBeSignEventResponse = looksLikeSignature && hasPendingSignEvent;
               
               if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse || mightBeSignEventResponse) {
-                console.log(`[NIP46] Processing untagged event #${this.eventCounter} that looks like a response`);
                 console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
                   mightBeConnection,
                   isResponseToPending,
@@ -868,11 +851,9 @@ export class NIP46Client {
                 this.handleRelayEvent(event, connectionInfo);
               } else if (hasPendingGetPublicKey && content.result) {
                 // AGGRESSIVE: If we have pending get_public_key and this has ANY result, try processing it
-                console.log(`[NIP46] Event #${this.eventCounter} has result field and we have pending get_public_key. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
               } else if (hasPendingSignEvent && content.result && looksLikeSignature) {
                 // AGGRESSIVE: If we have pending sign_event and this looks like a signature, try processing it
-                console.log(`[NIP46] Event #${this.eventCounter} has signature-like result and we have pending sign_event. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
               } else {
                 const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
@@ -892,15 +873,6 @@ export class NIP46Client {
             } catch (e) {
               // Not JSON or can't decrypt, but might still be a response we need
               const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
-              console.error(`[NIP46-UNTAGGED] Event #${this.eventCounter} not parseable, but checking if it's a response anyway:`, {
-                eventId: event.id.slice(0, 16) + '...',
-                error: e instanceof Error ? e.message : String(e),
-                contentLength: event.content.length,
-                contentPreview: event.content.substring(0, 100),
-                hasPendingGetPublicKey: Array.from(this.pendingRequests.values()).some(p => p.method === 'get_public_key'),
-                hasPendingSignEvent,
-                note: hasPendingSignEvent && event.content.length > 500 ? 'Large content might be a full signed event from Amber (old connection)' : undefined,
-              });
               
               // If we have a pending sign_event and this is a large encrypted event, it might be from an old connection
               if (hasPendingSignEvent && event.content.length > 500 && e instanceof Error && e.message.includes('invalid MAC')) {
@@ -908,15 +880,7 @@ export class NIP46Client {
                 if (pTags.length > 0) {
                   const pTagPubkey = pTags[0][1];
                   // Get current app pubkey from storage
-                  const keyPair = getOrCreateAppKeyPair();
-                  const currentAppPubkey = keyPair.publicKey;
-                  console.error('❌ [NIP46-OLD-CONNECTION] Amber is responding to an OLD connection!', {
-                    currentAppPubkey: currentAppPubkey?.slice(0, 16) + '...',
-                    oldAppPubkey: pTagPubkey?.slice(0, 16) + '...',
-                    eventPubkey: event.pubkey.slice(0, 16) + '...',
-                    contentLength: event.content.length,
-                    solution: 'Clear Amber\'s connection cache and scan a fresh QR code',
-                  });
+                  // Amber is responding to an old connection - skip this event
                 }
               }
               
@@ -924,13 +888,10 @@ export class NIP46Client {
             }
           }
         } catch (eventError) {
-          console.error('[NIP46-ERROR] Error in onEvent callback:', eventError);
-          console.error('[NIP46-ERROR] Event that caused error:', {
-            id: event.id,
-            pubkey: event.pubkey,
-            kind: event.kind,
-            contentLength: event.content.length,
-          });
+          // Log error but don't spam console with verbose details
+          if (this.connection?.connected && this.connection?.pubkey) {
+            console.warn('⚠️ NIP-46: Error processing relay event:', eventError instanceof Error ? eventError.message : String(eventError));
+          }
         }
       },
       onEose: () => {
@@ -1126,15 +1087,7 @@ export class NIP46Client {
         }
       }
 
-      // CRITICAL: Always log when processing events - use console.error to ensure visibility
-      console.log(`[NIP46-PROCESS] Processing event ${event.id.slice(0, 16)}... at ${new Date().toISOString()}`);
-      console.log('🔍 NIP-46: Processing relay event:', {
-        id: event.id.slice(0, 16) + '...',
-        pubkey: event.pubkey.slice(0, 16) + '...',
-        kind: event.kind,
-        tags: event.tags,
-        contentLength: event.content.length,
-      });
+      // Process relay event
 
       // Parse NIP-46 event content
       // According to NIP-46 spec, content is NIP-44 encrypted JSON-RPC message
@@ -1166,35 +1119,9 @@ export class NIP46Client {
           
           // Decrypt using the conversation key
           decryptedContent = nip44.decrypt(event.content, conversationKey);
-          console.log('✅ NIP-46: Successfully decrypted NIP-44 content');
           
           // Now parse the decrypted JSON
           content = JSON.parse(decryptedContent);
-          console.log(`[NIP46-DECRYPT] Event #${this.eventCounter} decrypted successfully:`, {
-            hasId: 'id' in content,
-            hasResult: 'result' in content,
-            hasError: 'error' in content,
-            hasMethod: 'method' in content,
-            id: content.id,
-            resultType: typeof content.result,
-            resultValue: typeof content.result === 'string' ? content.result.substring(0, 64) + '...' : content.result,
-            resultLength: typeof content.result === 'string' ? content.result.length : 'N/A',
-            error: content.error,
-            method: content.method,
-            fullContent: JSON.stringify(content, null, 2),
-          });
-          console.log('📋 NIP-46: Parsed decrypted content (JSON):', {
-            hasId: 'id' in content,
-            hasResult: 'result' in content,
-            hasError: 'error' in content,
-            hasMethod: 'method' in content,
-            id: content.id,
-            resultType: typeof content.result,
-            resultValue: content.result,
-            error: content.error,
-            method: content.method,
-            fullContent: JSON.stringify(content, null, 2),
-          });
         } catch (decryptError) {
           // Only log decryption failures if we have an established connection
           // During initial connection (QR code shown), old cached events are expected
@@ -1216,48 +1143,27 @@ export class NIP46Client {
 
             // Check if p tag matches our current app pubkey
             if (pTagPubkey === currentAppPubkey) {
-              console.error(`[NIP46-DECRYPT-RETRY] Trying to decrypt with p tag pubkey (matches our app pubkey): ${pTagPubkey.slice(0, 16)}...`);
               try {
                 const appPrivateKeyBytes = hexToBytes(appPrivateKey);
                 const conversationKey = nip44.getConversationKey(appPrivateKeyBytes, pTagPubkey);
                 decryptedContent = nip44.decrypt(event.content, conversationKey);
                 content = JSON.parse(decryptedContent);
-                console.error(`[NIP46-DECRYPT-SUCCESS] Successfully decrypted with p tag pubkey!`);
-                console.log('✅ NIP-46: Successfully decrypted NIP-44 content using p tag pubkey');
               } catch (pTagDecryptErr) {
-                console.error(`[NIP46-DECRYPT-FAIL] Failed to decrypt with p tag pubkey: ${pTagDecryptErr instanceof Error ? pTagDecryptErr.message : String(pTagDecryptErr)}`);
+                // Failed to decrypt with p tag pubkey, continue to try historical keypairs
               }
             } else {
               // P tag doesn't match - signer is using a cached old app pubkey!
               // Try to decrypt with historical keypairs
-              // Only log if we have an established connection (not during initial QR code phase)
-              if (this.connection?.connected && this.connection?.pubkey) {
-                console.warn(`[NIP46-SIGNER-CACHE] ⚠️ P tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match current app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...)`);
-                console.warn(`[NIP46-SIGNER-CACHE] Remote signer appears to be using a cached connection. Trying historical keypairs...`);
-              }
-
               const keyPairHistory = getAppKeyPairHistory();
-              if (this.connection?.connected && this.connection?.pubkey) {
-                console.log(`[NIP46-SIGNER-CACHE] 📚 Found ${keyPairHistory.length} historical keypair(s) to try`);
-              }
 
               // Try each historical keypair
               for (const oldKeyPair of keyPairHistory) {
                 if (pTagPubkey === oldKeyPair.publicKey) {
-                  const isEstablishedConnection = this.connection?.connected && this.connection?.pubkey;
-                  if (isEstablishedConnection) {
-                    console.log(`[NIP46-SIGNER-CACHE] 🔑 Found matching historical keypair! (pubkey: ${oldKeyPair.publicKey.slice(0, 16)}...)`);
-                  }
                   try {
                     const oldAppPrivateKeyBytes = hexToBytes(oldKeyPair.privateKey);
                     const conversationKey = nip44.getConversationKey(oldAppPrivateKeyBytes, signerPubkey);
                     decryptedContent = nip44.decrypt(event.content, conversationKey);
                     content = JSON.parse(decryptedContent);
-
-                    if (isEstablishedConnection) {
-                      console.log(`[NIP46-SIGNER-CACHE] ✅ Successfully decrypted with old keypair!`);
-                      console.log(`[NIP46-SIGNER-CACHE] 🔄 Updating current app keypair to match signer's cached version`);
-                    }
 
                     // Update localStorage to use this old keypair so future events work
                     localStorage.setItem('nostr_nip46_app_keypair', JSON.stringify(oldKeyPair));
@@ -1268,16 +1174,8 @@ export class NIP46Client {
                       connectionInfo.publicKey = oldKeyPair.publicKey;
                     }
 
-                    if (isEstablishedConnection) {
-                      console.log(`[NIP46-SIGNER-CACHE] ℹ️ Workaround applied: Now using the keypair that the signer has cached`);
-                      console.log(`[NIP46-SIGNER-CACHE] ℹ️ To use a fresh keypair, clear the signer's connection cache and scan a new QR code`);
-                    }
-
                     break; // Successfully decrypted, stop trying
                   } catch (oldKeyErr) {
-                    if (isEstablishedConnection) {
-                      console.warn(`[NIP46-SIGNER-CACHE] Failed to decrypt with old keypair ${oldKeyPair.publicKey.slice(0, 16)}:`, oldKeyErr);
-                    }
                     // Continue to next keypair
                   }
                 }
@@ -1437,13 +1335,7 @@ export class NIP46Client {
         return;
       }
 
-      // DEBUG: Log ALL responses for debugging boost signing issues
-      console.log('🔍 [NIP46-DEBUG] Received response event:', {
-        eventId: event.id.slice(0, 16) + '...',
-        responseId: content.id,
-        hasMethod: !!content.method,
-        hasResult: !!content.result,
-        hasError: !!content.error,
+      // Process response event
         resultType: typeof content.result,
         resultLength: content.result ? (typeof content.result === 'string' ? content.result.length : 'N/A') : 'N/A',
         resultPreview: content.result ? (typeof content.result === 'string' ? content.result.slice(0, 100) : JSON.stringify(content.result).slice(0, 100)) : 'N/A',
@@ -1470,7 +1362,6 @@ export class NIP46Client {
             if (parsed && typeof parsed === 'object' && 'sig' in parsed && typeof parsed.sig === 'string') {
               // This is a sign_event response - don't treat it as get_public_key
               looksLikeSignEventResponse = true;
-              console.log('🔵 [NIP46Client] Detected sign_event response (JSON with sig field), skipping get_public_key detection');
             }
           } catch (e) {
             // Not valid JSON, continue with other checks
@@ -1487,16 +1378,13 @@ export class NIP46Client {
           if (!isAmberPubkey) {
             looksLikeGetPublicKeyResponse = true;
             extractedPubkey = content.result;
-            console.log(`[NIP46-GETPUBKEY] Found direct hex pubkey (not signer's): ${content.result.slice(0, 16)}...`);
           } else {
-            console.log(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it\'s the signer\'s pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
           }
         }
         // Check if it's a JSON string that might contain a pubkey (only if not a sign_event response)
         else if (!looksLikeSignEventResponse && content.result.length > 64 && content.result.startsWith('{')) {
           try {
             const parsed = JSON.parse(content.result);
-            console.log(`[NIP46-GETPUBKEY] Parsed JSON result:`, JSON.stringify(parsed, null, 2));
             if (typeof parsed === 'object' && parsed !== null) {
               // Amber returns the user's pubkey in the 'id' field, and the signer's pubkey in 'pubkey'
               // Check 'id' first, then 'pubkey' (but skip if it's Amber's pubkey)
@@ -1543,7 +1431,6 @@ export class NIP46Client {
               if (possiblePubkey) {
                 looksLikeGetPublicKeyResponse = true;
                 extractedPubkey = possiblePubkey;
-                console.log(`[NIP46-GETPUBKEY] Found user's pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${fieldName})`);
                 
                 // Verify the pubkey by converting to npub for user verification
                 try {
@@ -1867,14 +1754,6 @@ export class NIP46Client {
               // Remove from pending requests
               this.pendingRequests.delete(reqId);
 
-              // DEBUG: Log successful sign_event resolution
-              console.log('✅ [NIP46-DEBUG] sign_event response received and resolved!', {
-                requestId: reqId,
-                responseId: content.id,
-                signatureLength: signatureValue.length,
-                signaturePreview: signatureValue.slice(0, 100) + '...',
-                remainingPendingRequests: this.pendingRequests.size,
-              });
 
               // Resolve with the signature/event (signEvent method will parse it)
               pending.resolve(signatureValue);
@@ -2961,15 +2840,6 @@ export class NIP46Client {
             }
           }
           
-          // DEBUG: Special logging for sign_event to track the full lifecycle
-          if (method === 'sign_event') {
-            console.log('📤 [NIP46-DEBUG] sign_event request published, now waiting for response...', {
-              requestId: id,
-              relay: primaryRelay,
-              timeout: '120 seconds',
-              pendingRequests: this.pendingRequests.size,
-            });
-          }
 
           console.log('✅ NIP-46: Request event published:', {
             requestId: id,
