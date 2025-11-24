@@ -325,11 +325,11 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     console.log(`🔍 DEBUG: Found podcast:value tag in item "${itemTitle}":`, valueMatch[0]);
 
     let valueContent = valueMatch[1];
-    const typeMatch = valueMatch[0].match(/type="([^"]*)"/);
-    const methodMatch = valueMatch[0].match(/method="([^"]*)"/);
+    const valueTypeMatch = valueMatch[0].match(/type="([^"]*)"/);
+    const valueMethodMatch = valueMatch[0].match(/method="([^"]*)"/);
 
-    console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
-    console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
+    console.log('🔍 DEBUG: Type:', valueTypeMatch ? valueTypeMatch[1] : 'not found');
+    console.log('🔍 DEBUG: Method:', valueMethodMatch ? valueMethodMatch[1] : 'not found');
 
     // Remove podcast:valueTimeSplit blocks to avoid duplicating their recipients
     // These are for time-based payment splits (e.g., live shows), not track-level payments
@@ -347,14 +347,14 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       
       const nameMatch = recipientTag.match(/name="([^"]*)"/);
       const addressMatch = recipientTag.match(/address="([^"]*)"/);
-      const typeMatch = recipientTag.match(/type="([^"]*)"/);
+      const recipientTypeMatch = recipientTag.match(/type="([^"]*)"/);
       const splitMatch = recipientTag.match(/split="([^"]*)"/);
       const feeMatch = recipientTag.match(/fee="([^"]*)"/);
       
       const recipient = {
         name: nameMatch ? nameMatch[1] : null,
         address: addressMatch ? addressMatch[1] : null,
-        type: typeMatch ? typeMatch[1] : 'node',
+        type: recipientTypeMatch ? recipientTypeMatch[1] : 'node',
         split: splitMatch ? splitMatch[1] : '100',
         fee: feeMatch ? feeMatch[1] : null
       };
@@ -376,8 +376,8 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       return {
         recipient: primaryRecipient.address,
         value: {
-          type: typeMatch ? typeMatch[1] : 'lightning',
-          method: methodMatch ? methodMatch[1] : 'keysend',
+          type: valueTypeMatch ? valueTypeMatch[1] : 'lightning',
+          method: valueMethodMatch ? valueMethodMatch[1] : 'keysend',
           recipients: nonFeeRecipients
         }
       };
