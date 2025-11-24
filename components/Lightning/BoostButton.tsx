@@ -378,20 +378,45 @@ export function BoostButton({
                     console.warn('⚠️ Failed to get current user pubkey:', err);
                   }
 
-                  // Load saved NIP-46/nsecBunker connection (with user pubkey validation)
-                  const savedConnection = loadNIP46Connection(currentUserPubkey);
-                  if (savedConnection && savedConnection.pubkey) {
-                    // Validate connection matches current user
-                    if (currentUserPubkey && savedConnection.pubkey !== currentUserPubkey) {
+                  // Load saved NIP-46/nsecBunker connection
+                  // Try with user pubkey first, but fall back to loading without it if needed
+                  let savedConnection = currentUserPubkey ? loadNIP46Connection(currentUserPubkey) : null;
+                  if (!savedConnection) {
+                    // Fall back to loading without pubkey validation (for backward compatibility)
+                    console.log('⚠️ Boost: No connection found with user pubkey, trying without validation...');
+                    savedConnection = loadNIP46Connection();
+                  }
+                  
+                  if (savedConnection) {
+                    // Validate connection matches current user (if we have both)
+                    if (currentUserPubkey && savedConnection.pubkey && savedConnection.pubkey !== currentUserPubkey) {
                       console.warn('⚠️ Stored connection is for different user. Cannot restore.');
                       console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection mismatch');
                       return;
                     }
                     
+                    // If connection doesn't have pubkey but we have current user pubkey, set it
+                    if (!savedConnection.pubkey && currentUserPubkey) {
+                      savedConnection.pubkey = currentUserPubkey;
+                      console.log('✅ Boost: Set pubkey on connection from current user');
+                    }
+                    
                     console.log('✅ Found saved NIP-46/nsecBunker connection, restoring...');
+                    console.log('🔍 Boost: Connection details:', {
+                      signerUrl: savedConnection.signerUrl,
+                      hasToken: !!savedConnection.token,
+                      hasPubkey: !!savedConnection.pubkey,
+                      pubkey: savedConnection.pubkey?.slice(0, 16) + '...' || 'N/A',
+                    });
+                    
                     // Create client and restore connection
+                    // Don't pass pubkey to connect() - let authenticate() establish the connection properly
+                    // Passing pubkey can cause authenticate() to skip the connection establishment
                     const client = new NIP46Client();
-                    await client.connect(savedConnection.signerUrl, savedConnection.token, false, savedConnection.pubkey);
+                    await client.connect(savedConnection.signerUrl, savedConnection.token, false);
+                    
+                    // Now authenticate - this will establish the connection and get the pubkey
+                    console.log('🔐 Boost: Authenticating NIP-46/nsecBunker connection...');
                     await client.authenticate();
 
                     // Verify client is connected before registering
@@ -450,6 +475,7 @@ export function BoostButton({
                   } else {
                     console.warn('⚠️ No saved NIP-46/nsecBunker connection found');
                     console.log('ℹ️ Boost payment succeeded but not posted to Nostr: NIP-46/nsecBunker connection not available');
+                    console.log('💡 Tip: Try logging out and reconnecting with Amber to restore the connection');
                     return;
                   }
                 } catch (reconnectError) {
