@@ -2269,6 +2269,24 @@ export class NIP46Client {
   private async sendRequest(method: string, params: any[]): Promise<any> {
     // For relay-based connections, we need to publish a NIP-46 request event
     if (!this.ws && this.relayClient && this.connection) {
+      // Ensure relay is actually connected before sending request
+      const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
+      if (connectedRelays.length === 0) {
+        console.warn('⚠️ NIP-46: Relay client exists but not connected, waiting...');
+        // Wait up to 2 seconds for relay to connect
+        for (let i = 0; i < 20; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const retryRelays = this.relayClient.getConnectedRelays?.() || [];
+          if (retryRelays.length > 0) {
+            console.log('✅ NIP-46: Relay connected, proceeding with request');
+            break;
+          }
+        }
+        const finalRelays = this.relayClient.getConnectedRelays?.() || [];
+        if (finalRelays.length === 0) {
+          throw new Error('Relay not connected. Please try reconnecting with Amber.');
+        }
+      }
       return this.sendRelayRequest(method, params);
     }
 
@@ -2277,6 +2295,10 @@ export class NIP46Client {
       if (this.connection && !this.connection.connected) {
         await this.establishConnection();
       } else {
+        // Check if this should be a relay connection but relay client isn't set
+        if (this.connection && !this.ws && !this.relayClient) {
+          throw new Error('Relay client not initialized. Please try reconnecting with Amber.');
+        }
         throw new Error('WebSocket not connected');
       }
     }
@@ -3001,12 +3023,31 @@ export class NIP46Client {
       throw new Error('Not connected');
     }
 
-    // If we have a saved pubkey (from restored connection), use it immediately
-    // We'll verify it when we actually need to use it (e.g., when signing)
+    // If we have a saved pubkey (from restored connection), ensure relay is ready
+    // We'll verify the pubkey when we actually need to use it (e.g., when signing)
     // This avoids timeouts when restoring connections
     if (this.connection.pubkey) {
-      console.log('✅ NIP-46: Found saved user pubkey, using it immediately (will verify on first use)');
+      console.log('✅ NIP-46: Found saved user pubkey, ensuring relay is ready (will verify on first use)');
       console.log('✅ NIP-46: Using saved user pubkey (not app pubkey):', this.connection.pubkey.slice(0, 16) + '...');
+      
+      // For relay-based connections, ensure the relay client is set up
+      if (this.relayClient && !this.ws) {
+        // Check if relay is connected, wait briefly if not
+        const connectedRelays = this.relayClient.getConnectedRelays?.() || [];
+        if (connectedRelays.length === 0) {
+          console.log('⏳ NIP-46: Relay not connected yet, waiting briefly...');
+          // Wait up to 3 seconds for relay to connect
+          for (let i = 0; i < 30; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const retryRelays = this.relayClient.getConnectedRelays?.() || [];
+            if (retryRelays.length > 0) {
+              console.log('✅ NIP-46: Relay connected');
+              break;
+            }
+          }
+        }
+      }
+      
       this.connection.connected = true;
       this.connection.connectedAt = Date.now();
       return this.connection.pubkey;
