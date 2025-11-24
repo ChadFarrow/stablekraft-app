@@ -256,12 +256,13 @@ async function loadPublisherData(publisherId: string) {
           console.log(`✅ Found albums by mapped artist: "${artistName}"`);
           
           // Create a synthetic publisher feed from the first album
+          // NOTE: Don't set image here - we'll fetch it from the actual feed XML below
           publisherFeed = {
             id: `publisher-${publisherId}`,
             title: artistName || publisherId,
             artist: artistName || null,
             description: `Albums by ${artistName || publisherId}`,
-            image: firstAlbumFeed.image || null,
+            image: null, // Will be populated from feed XML fetch below
             originalUrl: publisherInfo.feedUrl || '',
             type: 'publisher' as any,
             status: 'active' as any,
@@ -286,31 +287,31 @@ async function loadPublisherData(publisherId: string) {
     // Try to fetch and parse publisher feed to get remote items and artwork
     let remoteItemGuids: string[] = [];
     let feedImage: string | null = publisherFeed.image || null;
-    
+
     if (publisherFeed.originalUrl && publisherFeed.originalUrl.trim() !== '') {
       try {
         console.log(`📡 Fetching publisher feed XML to extract remote items: ${publisherFeed.originalUrl}`);
         const feedResponse = await fetch(publisherFeed.originalUrl, {
-          signal: AbortSignal.timeout(5000), // 5 second timeout
+          signal: AbortSignal.timeout(10000), // 10 second timeout (increased from 5)
         });
-        
+
         if (feedResponse.ok) {
           const xmlText = await feedResponse.text();
-          
-          // Extract artwork/image from feed if missing
-          if (!feedImage) {
-            // Try iTunes image first
-            const itunesImageMatch = xmlText.match(/<itunes:image[^>]*href=["']([^"']+)["']/i);
-            if (itunesImageMatch && itunesImageMatch[1]) {
-              feedImage = itunesImageMatch[1].trim();
-              console.log(`🎨 Found iTunes image in feed: ${feedImage}`);
+
+          // ALWAYS extract artwork/image from feed (prioritize feed over database)
+          // Try iTunes image first
+          const itunesImageMatch = xmlText.match(/<itunes:image[^>]*href=["']([^"']+)["']/i);
+          if (itunesImageMatch && itunesImageMatch[1]) {
+            feedImage = itunesImageMatch[1].trim();
+            console.log(`🎨 Found iTunes image in feed: ${feedImage}`);
+          } else {
+            // Try standard image tag
+            const imageMatch = xmlText.match(/<image>[\s\S]*?<url>([^<]+)<\/url>/i);
+            if (imageMatch && imageMatch[1]) {
+              feedImage = imageMatch[1].trim();
+              console.log(`🎨 Found image in feed: ${feedImage}`);
             } else {
-              // Try standard image tag
-              const imageMatch = xmlText.match(/<image>[\s\S]*?<url>([^<]+)<\/url>/i);
-              if (imageMatch && imageMatch[1]) {
-                feedImage = imageMatch[1].trim();
-                console.log(`🎨 Found image in feed: ${feedImage}`);
-              }
+              console.warn(`⚠️ No image found in publisher feed XML`);
             }
           }
           
@@ -547,7 +548,9 @@ async function loadPublisherData(publisherId: string) {
       publisherInfo: {
         name: publisherInfo?.name || publisherFeed.title || publisherId,
         description: publisherFeed.description || `${albums.length} releases`,
-        image: feedImage || publisherFeed.image || null, // Use fetched image if available
+        image: feedImage || null, // ONLY use publisher feed image, don't fall back to database image
+        publisherFeedImage: feedImage || null, // Explicit publisher feed image
+        newestAlbumImage: albums.length > 0 ? albums[0].coverArt : null, // Newest album for hero
         feedUrl: publisherFeed.originalUrl,
         feedGuid: publisherFeed.id
       },

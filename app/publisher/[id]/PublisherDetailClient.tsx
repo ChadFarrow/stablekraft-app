@@ -114,13 +114,14 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   });
   const [publisherItems, setPublisherItems] = useState<RSSPublisherItem[]>(initialData?.publisherItems || []);
   const [error, setError] = useState<string | null>(null);
-  const [publisherInfo, setPublisherInfo] = useState<{ title?: string; description?: string; artist?: string; coverArt?: string; avatarArt?: string } | null>(
+  const [publisherInfo, setPublisherInfo] = useState<{ title?: string; description?: string; artist?: string; coverArt?: string; avatarArt?: string; publisherFeedImage?: string } | null>(
     initialData?.publisherInfo ? {
       title: initialData.publisherInfo.name || initialData.publisherInfo.title,
       description: initialData.publisherInfo.description,
       artist: initialData.publisherInfo.name,
-      coverArt: initialData.publisherInfo.image,
-      avatarArt: initialData.publisherInfo.image
+      coverArt: initialData.publisherInfo.publisherFeedImage || initialData.publisherInfo.image, // Use publisher feed image for background
+      avatarArt: initialData.publisherInfo.newestAlbumImage || initialData.publisherInfo.image, // Use newest album for hero
+      publisherFeedImage: initialData.publisherInfo.publisherFeedImage || initialData.publisherInfo.image
     } : null
   );
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -209,8 +210,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           title: initialData.publisherInfo.name || initialData.publisherInfo.title || publisherId,
           description: initialData.publisherInfo.description || '',
           artist: initialData.publisherInfo.name || initialData.publisherInfo.artist || publisherId,
-          coverArt: initialData.publisherInfo.image,
-          avatarArt: initialData.publisherInfo.image
+          coverArt: initialData.publisherInfo.publisherFeedImage || initialData.publisherInfo.image, // Publisher feed image for background
+          avatarArt: initialData.publisherInfo.newestAlbumImage || initialData.publisherInfo.image, // Newest album for hero
+          publisherFeedImage: initialData.publisherInfo.publisherFeedImage || initialData.publisherInfo.image
         });
         setIsLoading(false);
       }
@@ -892,9 +894,9 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
     <div className="min-h-screen text-white relative overflow-hidden">
       {/* Enhanced Background */}
       {publisherInfo?.coverArt ? (
-        <div className="fixed inset-0">
-          <Image 
-            src={getAlbumArtworkUrl(publisherInfo.coverArt, 'large')} 
+        <div className="fixed inset-0 z-0">
+          <Image
+            src={getAlbumArtworkUrl(publisherInfo.coverArt, 'large')}
             alt={publisherInfo.title || "Publisher background"}
             width={1920}
             height={1080}
