@@ -40,10 +40,18 @@ export async function GET() {
       where: {
         type: 'album',
         status: 'active',
-        image: {
-          not: null,
-          not: ''
-        }
+        AND: [
+          {
+            image: {
+              not: null
+            }
+          },
+          {
+            image: {
+              not: ''
+            }
+          }
+        ]
       }
     });
 
