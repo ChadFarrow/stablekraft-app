@@ -1099,7 +1099,7 @@ export class NIP46Client {
       }
 
       // CRITICAL: Always log when processing events - use console.error to ensure visibility
-      console.error(`[NIP46-PROCESS] Processing event ${event.id.slice(0, 16)}... at ${new Date().toISOString()}`);
+      console.log(`[NIP46-PROCESS] Processing event ${event.id.slice(0, 16)}... at ${new Date().toISOString()}`);
       console.log('🔍 NIP-46: Processing relay event:', {
         id: event.id.slice(0, 16) + '...',
         pubkey: event.pubkey.slice(0, 16) + '...',
@@ -1142,7 +1142,7 @@ export class NIP46Client {
           
           // Now parse the decrypted JSON
           content = JSON.parse(decryptedContent);
-          console.error(`[NIP46-DECRYPT] Event #${this.eventCounter} decrypted successfully:`, {
+          console.log(`[NIP46-DECRYPT] Event #${this.eventCounter} decrypted successfully:`, {
             hasId: 'id' in content,
             hasResult: 'result' in content,
             hasError: 'error' in content,
@@ -1347,16 +1347,16 @@ export class NIP46Client {
           if (!isAmberPubkey) {
             looksLikeGetPublicKeyResponse = true;
             extractedPubkey = content.result;
-            console.error(`[NIP46-GETPUBKEY] Found direct hex pubkey (not Amber's): ${content.result.slice(0, 16)}...`);
+            console.log(`[NIP46-GETPUBKEY] Found direct hex pubkey (not signer's): ${content.result.slice(0, 16)}...`);
           } else {
-            console.error(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it's Amber's pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
+            console.log(`[NIP46-GETPUBKEY] Ignoring direct hex pubkey - it\'s the signer\'s pubkey (${content.result.slice(0, 16)}...), not user's pubkey`);
           }
         }
         // Check if it's a JSON string that might contain a pubkey (only if not a sign_event response)
         else if (!looksLikeSignEventResponse && content.result.length > 64 && content.result.startsWith('{')) {
           try {
             const parsed = JSON.parse(content.result);
-            console.error(`[NIP46-GETPUBKEY] Parsed JSON result:`, JSON.stringify(parsed, null, 2));
+            console.log(`[NIP46-GETPUBKEY] Parsed JSON result:`, JSON.stringify(parsed, null, 2));
             if (typeof parsed === 'object' && parsed !== null) {
               // Amber returns the user's pubkey in the 'id' field, and the signer's pubkey in 'pubkey'
               // Check 'id' first, then 'pubkey' (but skip if it's Amber's pubkey)
@@ -1403,12 +1403,12 @@ export class NIP46Client {
               if (possiblePubkey) {
                 looksLikeGetPublicKeyResponse = true;
                 extractedPubkey = possiblePubkey;
-                console.error(`[NIP46-GETPUBKEY] Found user's pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${fieldName})`);
+                console.log(`[NIP46-GETPUBKEY] Found user's pubkey in JSON result: ${extractedPubkey.slice(0, 16)}... (from field: ${fieldName})`);
                 
                 // Verify the pubkey by converting to npub for user verification
                 try {
                   const npub = publicKeyToNpub(extractedPubkey);
-                  console.error(`[NIP46-GETPUBKEY] User's pubkey converts to npub: ${npub}`);
+                  console.log(`[NIP46-GETPUBKEY] User\'s pubkey converts to npub: ${npub}`);
                 } catch (e) {
                   console.error(`[NIP46-GETPUBKEY] Failed to convert pubkey to npub:`, e);
                 }
@@ -1424,7 +1424,7 @@ export class NIP46Client {
       }
       
       if (isAmberCompatible) {
-        console.error(`[NIP46-AMBER] Event #${this.eventCounter} is Amber-compatible response`);
+        console.log(`[NIP46-SIGNER] Event #${this.eventCounter} is Amber-compatible response`);
         console.log('🔵 [NIP46Client] Amber-compatible response (no method field), inferring type from context');
         console.log('🔵 [NIP46Client] Handling Amber-compatible response', {
           hasResult: !!content.result,
@@ -1442,7 +1442,7 @@ export class NIP46Client {
         if (content.result) {
           // Check if this is a connect response (result matches the secret)
           if (this.connection?.token && content.result === this.connection.token) {
-            console.error(`[NIP46-CONNECT] Event #${this.eventCounter} is CONNECT response - secret matches!`);
+            console.log(`[NIP46-CONNECT] Event #${this.eventCounter} is CONNECT response - secret matches!`);
             console.log('🔵 [NIP46Client] Inferred connect response from secret match');
             // This is a connect response - the result is the secret, which confirms connection
             // We still need to get the public key, so we'll handle this in the connection event section
@@ -1460,7 +1460,7 @@ export class NIP46Client {
             if (pendingGetPublicKeyRequest && extractedPubkey) {
               const [reqId, pending] = pendingGetPublicKeyRequest;
               
-              console.error(`[NIP46-GETPUBKEY] Resolving get_public_key with pubkey: ${extractedPubkey.slice(0, 16)}...`);
+              console.log(`[NIP46-GETPUBKEY] Resolving get_public_key with pubkey: ${extractedPubkey.slice(0, 16)}...`);
               console.log('🔵 [NIP46Client] Found pending get_public_key request, resolving immediately:', {
                 requestId: reqId,
                 responseId: content.id || 'no-id',
@@ -1794,7 +1794,7 @@ export class NIP46Client {
       const hasUserPubkey = this.connection?.pubkey && this.connection.pubkey !== event.pubkey;
       const alreadyProcessedConnect = this.connection?.connected && this.connection.pubkey === event.pubkey;
       if (isConnectResponse && !hasUserPubkey && !alreadyProcessedConnect) {
-        console.error(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
+        console.log(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
         
         // CRITICAL: Store Amber's pubkey from the connect response event so we can identify responses from Amber
