@@ -125,6 +125,7 @@ export class NIP46Client {
   private mismatchDetected: boolean = false; // Flag to stop processing after mismatch
   private detectedOldPubkey: string | null = null; // Store the old pubkey we detected
   private connectionStartTime: number = 0; // Track when connection attempt started to filter old events
+  private aggressiveModeLogged: boolean = false; // Track if we've already logged aggressive mode message
   // Known Amber pubkey from user's npub: npub12xwrqqxuee2k3452uuae7kp0g5yxgpapjrrrz2r0wx7v8pdqynqqc0ez5k
   private readonly knownAmberPubkey: string | null = (() => {
     try {
@@ -651,9 +652,10 @@ export class NIP46Client {
               return; // Stop processing to prevent thousands of log entries
             }
 
-            // Only log for the first 3 aggressive attempts to reduce spam
-            if (this.pubkeyMismatchCount < 3) {
-              console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} not tagged for us, but ${hasPendingRequests ? `we have ${this.pendingRequests.size} pending requests` : 'it might be from Amber'}. Attempting to decrypt and process...`);
+            // Only log once for aggressive mode to reduce spam
+            if (!this.aggressiveModeLogged) {
+              console.log(`[NIP46] Using aggressive mode: Processing untagged events from signer (bunker connection)...`);
+              this.aggressiveModeLogged = true;
             }
 
             // CRITICAL: Check the p tag value to detect pubkey mismatch
@@ -744,8 +746,9 @@ export class NIP46Client {
           }
 
           // Event not tagged for us - but if we have pending requests, try to process it anyway
-          if (hasPendingRequests && this.pubkeyMismatchCount < 3) {
-            console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} not tagged for us, but we have ${this.pendingRequests.size} pending requests. Attempting to process...`);
+          if (hasPendingRequests && !this.aggressiveModeLogged) {
+            console.log(`[NIP46] Using aggressive mode: Processing untagged events (${this.pendingRequests.size} pending requests)...`);
+            this.aggressiveModeLogged = true;
           }
 
           if (this.pubkeyMismatchCount < 3) {
@@ -831,7 +834,7 @@ export class NIP46Client {
               const mightBeSignEventResponse = looksLikeSignature && hasPendingSignEvent;
               
               if (mightBeConnection || isResponseToPending || mightBeGetPublicKeyResponse || mightBeSignEventResponse) {
-                console.error(`[NIP46-AGGRESSIVE] Processing untagged event #${this.eventCounter} that looks like a response`);
+                console.log(`[NIP46] Processing untagged event #${this.eventCounter} that looks like a response`);
                 console.log('⚠️ NIP-46: Event looks like a connection/response event but not tagged for us. Processing anyway...', {
                   mightBeConnection,
                   isResponseToPending,
@@ -847,11 +850,11 @@ export class NIP46Client {
                 this.handleRelayEvent(event, connectionInfo);
               } else if (hasPendingGetPublicKey && content.result) {
                 // AGGRESSIVE: If we have pending get_public_key and this has ANY result, try processing it
-                console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} has result field and we have pending get_public_key. Processing anyway...`);
+                console.log(`[NIP46] Event #${this.eventCounter} has result field and we have pending get_public_key. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
               } else if (hasPendingSignEvent && content.result && looksLikeSignature) {
                 // AGGRESSIVE: If we have pending sign_event and this looks like a signature, try processing it
-                console.error(`[NIP46-AGGRESSIVE] Event #${this.eventCounter} has signature-like result and we have pending sign_event. Processing anyway...`);
+                console.log(`[NIP46] Event #${this.eventCounter} has signature-like result and we have pending sign_event. Processing anyway...`);
                 this.handleRelayEvent(event, connectionInfo);
               } else {
                 const hasPendingSignEvent = Array.from(this.pendingRequests.values()).some(p => p.method === 'sign_event');
