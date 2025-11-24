@@ -79,13 +79,29 @@ After running the migration:
 - Tracks without item-specific splits will fall back to feed-level recipients (handled by frontend)
 - Albums like "Stay Awhile", "The Heycitizen Experience", and "12 Rods Tour Eclipse" will show correct splits per track
 
-## Re-importing Feeds (Alternative)
+## Re-importing Feeds to Apply Parser Fix
 
-Instead of running the migration, you can trigger a re-import of the affected feeds:
+After deploying the parser fix, you need to refresh all feeds to update tracks with corrected v4v splits:
 
-1. Go to: `https://stablekraft.app/api/playlist-cache?refresh=all`
-2. This will clear the cache and trigger a fresh parse of all feeds
-3. New imports will use the fixed logic
+### Option A: Use the refresh script (Recommended)
+
+```bash
+# Via Railway CLI
+railway run npx tsx scripts/refresh-all-feed-v4v.ts
+
+# Or locally with production database
+npx dotenv -e .env.local -- npx tsx scripts/refresh-all-feed-v4v.ts
+```
+
+This script will:
+- Re-fetch all active RSS feeds
+- Re-parse v4v data with the fixed parser
+- Update tracks with correct item-level splits
+- Clear tracks that don't have item-level splits (they'll use feed-level)
+
+### Option B: Wait for daily sync
+
+The GitHub Actions workflow runs daily at 2 AM UTC and will automatically refresh feeds with the fixed parser.
 
 ## Testing
 
