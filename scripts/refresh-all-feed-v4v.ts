@@ -146,8 +146,8 @@ async function main() {
         feedsProcessed++;
         console.log(`✅ Completed feed "${feed.title}"`);
 
-        // Add delay to avoid overwhelming the servers
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Add small delay to avoid overwhelming the servers (100ms)
+        await new Promise(resolve => setTimeout(resolve, 100));
 
       } catch (error) {
         console.error(`❌ Error processing feed "${feed.title}":`, error);
