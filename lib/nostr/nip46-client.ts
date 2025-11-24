@@ -193,11 +193,12 @@ export class NIP46Client {
       // Note: bunkerInfo.pubkey is the signer app's pubkey, not the user's Nostr account pubkey
       // We'll get the user's pubkey later via get_public_key request
       this.connection = {
-        signerUrl: relayUrl,
+        signerUrl: bunkerUri, // Store original bunker:// URI for restoration
         token: bunkerInfo.secret || '', // Use empty string if no secret provided
         pubkey: '', // Will be fetched via get_public_key
         connected: false,
         signerPubkey: bunkerInfo.pubkey, // Store signer app pubkey separately for targeting messages
+        relayUrl: relayUrl, // Store relay URL separately for actual connection
       } as any;
 
       // Use relay-based connection (not direct WebSocket) for mobile signers like Aegis

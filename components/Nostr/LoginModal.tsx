@@ -1004,6 +1004,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             // Ensure connection has the correct pubkey
             connection.pubkey = loginData.user.nostrPubkey;
             
+            // Detect if this is a bunker:// connection
+            // Bunker connections have signerPubkey set and signerUrl is the bunker:// URI
+            const isBunkerConnection = isNsecBunker || (connection as any).signerPubkey || connection.signerUrl?.startsWith('bunker://');
+            
             // Log connection details before saving
             console.log('💾 LoginModal: Saving NIP-46 connection:', {
               signerUrl: connection.signerUrl,
@@ -1012,11 +1016,23 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               pubkey: connection.pubkey?.slice(0, 16) + '...' || 'N/A',
               connected: connection.connected,
               connectedAt: connection.connectedAt,
+              isBunkerConnection,
             });
             
             // Validate connection has required fields
-            if (!connection.signerUrl || !connection.token) {
+            // For bunker:// connections, token is optional (may be empty)
+            if (!connection.signerUrl) {
               console.error('❌ LoginModal: Connection missing required fields:', {
+                hasSignerUrl: !!connection.signerUrl,
+                hasToken: !!connection.token,
+                isBunkerConnection,
+              });
+              throw new Error('Connection missing required fields. Cannot save.');
+            }
+            
+            // Token is required for non-bunker connections
+            if (!isBunkerConnection && !connection.token) {
+              console.error('❌ LoginModal: Non-bunker connection missing token:', {
                 hasSignerUrl: !!connection.signerUrl,
                 hasToken: !!connection.token,
               });
