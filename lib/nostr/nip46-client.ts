@@ -672,7 +672,7 @@ export class NIP46Client {
 
                 // Log first mismatch only
                 if (this.pubkeyMismatchCount === 1) {
-                  console.warn('NIP-46: Pubkey mismatch detected. Amber may be using a cached connection.');
+                  console.warn('NIP-46: Pubkey mismatch detected. Signer may be using a cached connection.');
                 }
 
                 // On first detection, store the old pubkey
@@ -1095,7 +1095,7 @@ export class NIP46Client {
           pTagMismatch = true;
           // Log the mismatch but continue to try decryption
           if (this.pubkeyMismatchCount < 3) {
-            console.warn(`[NIP46-PTAG-WARNING] Event ${event.id.slice(0, 16)}... has p tag for different app pubkey (${pTagPubkey.slice(0, 16)}... vs ${currentAppPubkey.slice(0, 16)}...). Will attempt decryption anyway - Amber may have cached old pubkey.`);
+            console.warn(`[NIP46-PTAG-WARNING] Event ${event.id.slice(0, 16)}... has p tag for different app pubkey (${pTagPubkey.slice(0, 16)}... vs ${currentAppPubkey.slice(0, 16)}...). Will attempt decryption anyway - signer may have cached old pubkey.`);
           }
           this.pubkeyMismatchCount++;
         }
@@ -1656,7 +1656,7 @@ export class NIP46Client {
                 responseId: content.id || 'no-id',
                 requestId: reqId,
                 pubkey: content.result.slice(0, 16) + '...',
-                note: 'Amber may use different ID format, but response is valid pubkey',
+                note: 'Signer may use different ID format, but response is valid pubkey',
               });
               
               // Clear timeout and interval if they exist
@@ -1716,7 +1716,7 @@ export class NIP46Client {
                 requestId: reqId,
                 resultLength: content.result?.length || 0,
                 resultPreview: typeof content.result === 'string' ? content.result.slice(0, 100) + '...' : 'N/A',
-                note: 'Amber may use different ID format, but response looks like a valid signature or signed event',
+                note: 'Signer may use different ID format, but response looks like a valid signature or signed event',
               });
               
               // Clear timeout and interval if they exist
@@ -2538,8 +2538,8 @@ export class NIP46Client {
       if ((method === 'connect' || method === 'get_public_key') && !signerPubkey) {
         console.log(`ℹ️ NIP-46: Calling ${method} without signer pubkey (this is expected for initial connection)`);
         console.log('   - Request will be published without p tag (or with app pubkey as placeholder)');
-        console.log('   - Amber should find it by listening to all kind 24133 events');
-        console.log('   - Encryption uses app pubkey as placeholder (Amber may not decrypt, but should still respond)');
+        console.log('   - Signer should find it by listening to all kind 24133 events');
+        console.log('   - Encryption uses app pubkey as placeholder (signer may not decrypt, but should still respond)');
       }
       
       // For 'connect' and 'get_public_key' without signer pubkey, don't tag with specific signer
@@ -2818,20 +2818,20 @@ export class NIP46Client {
             console.log('   5. Event pubkey (your app):', requestEvent.pubkey);
             console.log('   6. Event tags:', JSON.stringify(requestEvent.tags, null, 2));
             console.log('   7. Request ID (for matching response):', id);
-            console.log('   8. ⚠️ CRITICAL: Amber must be subscribed to events with:');
+            console.log('   8. ⚠️ CRITICAL: Signer must be subscribed to events with:');
             console.log('      - kind: 24133');
-            console.log('      - #p tag matching Amber\'s pubkey:', signerPubkey ? signerPubkey : 'N/A');
-            console.log('   9. Check Amber app on your phone RIGHT NOW:');
-            console.log('      - Open Amber app');
+            console.log('      - #p tag matching signer\'s pubkey:', signerPubkey ? signerPubkey : 'N/A');
+            console.log('   9. Check signer app on your phone RIGHT NOW:');
+            console.log('      - Open signer app (Amber/Aegis/etc)');
             console.log('      - Check for notifications');
             console.log('      - Look for approval prompts');
             console.log('      - Check "Recent Requests" or activity log');
-            console.log('   10. If Amber doesn\'t show anything:');
-            console.log('      - Amber might not be connected to any of these relays:', successfulRelays.join(', '));
-            console.log('      - Amber might not be subscribed to events tagged with its pubkey');
-            console.log('      - Check Amber\'s relay connection status');
+            console.log('   10. If signer doesn\'t show anything:');
+            console.log('      - Signer might not be connected to any of these relays:', successfulRelays.join(', '));
+            console.log('      - Signer might not be subscribed to events tagged with its pubkey');
+            console.log('      - Check signer\'s relay connection status');
             console.log('   11. We\'re waiting for a response event with request ID:', id);
-            console.log('   12. Response should come within 120 seconds if Amber received and processed the request');
+            console.log('   12. Response should come within 120 seconds if signer received and processed the request');
           }
           
           // Log a reminder about what we're waiting for
@@ -3148,21 +3148,21 @@ export class NIP46Client {
       note: 'This is the event structure being sent to Amber for signing. Compare with working app examples.',
     });
 
-    console.log('📱 NIP-46: Sending sign_event request to Amber. Check your phone for:');
-    console.log('   1. Notification from Amber app');
-    console.log('   2. Approval prompt in Amber (if set to manual)');
+    console.log('📱 NIP-46: Sending sign_event request to signer. Check your phone for:');
+    console.log('   1. Notification from signer app');
+    console.log('   2. Approval prompt in signer (if set to manual)');
     console.log('   3. Event is being published to multiple relays (see logs above)');
-    console.log('   4. ⚠️ If Amber crashes, the event format might be incompatible - try a different event kind');
+    console.log('   4. ⚠️ If signer crashes, the event format might be incompatible - try a different event kind');
     console.log('   5. If you don\'t see a prompt, check:');
-    console.log('      - Amber is connected to at least one of the relays we published to');
-    console.log('      - Amber notification permissions are enabled');
-    console.log('      - Amber is not auto-approving (check settings)');
-    console.log('   6. The working app prompts every time - if ours doesn\'t, events may not be reaching Amber');
-    
+    console.log('      - Signer is connected to at least one of the relays we published to');
+    console.log('      - Signer notification permissions are enabled');
+    console.log('      - Signer is not auto-approving (check settings)');
+    console.log('   6. The working app prompts every time - if ours doesn\'t, events may not be reaching signer');
+
     // Log the exact JSON being sent to help debug
     const eventJson = JSON.stringify(eventForSigner);
-    console.log('📋 NIP-46: Exact event JSON being sent to Amber:', eventJson);
-    console.log('📋 NIP-46: This will be sent as sign_event([eventJson]) to Amber via NIP-46');
+    console.log('📋 NIP-46: Exact event JSON being sent to signer:', eventJson);
+    console.log('📋 NIP-46: This will be sent as sign_event([eventJson]) to signer via NIP-46');
 
     const signatureResponse = await this.sendRequest('sign_event', [eventJson]);
 
@@ -3179,7 +3179,7 @@ export class NIP46Client {
     });
 
     // Handle different response formats
-    // Amber may return:
+    // Signer may return:
     // 1. Just the signature (64-char hex string)
     // 2. A full signed event JSON string (Amber's format)
     // 3. An object with sig/signature field
@@ -3205,7 +3205,7 @@ export class NIP46Client {
           const parsed = JSON.parse(trimmed);
           // Check if it looks like a full event (has id, sig, pubkey, kind, etc.)
           if (parsed && typeof parsed === 'object' && 'sig' in parsed && 'id' in parsed && 'kind' in parsed) {
-            console.log('✅ NIP-46: Amber returned a full signed event JSON string');
+            console.log('✅ NIP-46: Signer returned a full signed event JSON string');
             console.log('✅ NIP-46: Parsed full event structure:', {
               hasId: !!parsed.id,
               hasSig: !!parsed.sig,
@@ -3269,9 +3269,9 @@ export class NIP46Client {
     // Normalize signature (remove any whitespace)
     signature = signature.trim();
 
-    // If we got a full signed event from Amber, validate and use it directly
+    // If we got a full signed event from signer, validate and use it directly
     if (fullSignedEvent && fullSignedEvent.id && fullSignedEvent.sig && fullSignedEvent.kind) {
-      console.log('✅ NIP-46: Using full signed event from Amber (early return):', {
+      console.log('✅ NIP-46: Using full signed event from signer (early return):', {
         id: fullSignedEvent.id.slice(0, 16) + '...',
         kind: fullSignedEvent.kind,
         hasSig: !!fullSignedEvent.sig,
@@ -3279,13 +3279,13 @@ export class NIP46Client {
         sigPreview: fullSignedEvent.sig.slice(0, 16) + '...',
         fullEvent: fullSignedEvent,
       });
-      
+
       // Validate the event structure
       if (fullSignedEvent.sig && typeof fullSignedEvent.sig === 'string' && fullSignedEvent.sig.length >= 64 && /^[a-f0-9]+$/i.test(fullSignedEvent.sig)) {
-        console.log('✅ NIP-46: Full event signature is valid, returning complete event from Amber');
+        console.log('✅ NIP-46: Full event signature is valid, returning complete event from signer');
         return fullSignedEvent as Event;
       } else {
-        console.warn('⚠️ NIP-46: Full event from Amber has invalid signature, falling back to reconstruction:', {
+        console.warn('⚠️ NIP-46: Full event from signer has invalid signature, falling back to reconstruction:', {
           sigLength: fullSignedEvent.sig?.length,
           sigType: typeof fullSignedEvent.sig,
           sigPreview: fullSignedEvent.sig?.slice(0, 32),
