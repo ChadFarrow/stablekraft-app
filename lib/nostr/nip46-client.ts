@@ -1329,6 +1329,20 @@ export class NIP46Client {
         return;
       }
 
+      // DEBUG: Log ALL responses for debugging boost signing issues
+      console.log('🔍 [NIP46-DEBUG] Received response event:', {
+        eventId: event.id.slice(0, 16) + '...',
+        responseId: content.id,
+        hasMethod: !!content.method,
+        hasResult: !!content.result,
+        hasError: !!content.error,
+        resultType: typeof content.result,
+        resultLength: content.result ? (typeof content.result === 'string' ? content.result.length : 'N/A') : 'N/A',
+        resultPreview: content.result ? (typeof content.result === 'string' ? content.result.slice(0, 100) : JSON.stringify(content.result).slice(0, 100)) : 'N/A',
+        pendingRequests: Array.from(this.pendingRequests.keys()),
+        pendingMethods: Array.from(this.pendingRequests.values()).map(p => p.method),
+      });
+
       // 🔵 Amber-compatible response handling
       // Amber sends responses without a 'method' field, so we need to infer the response type
       const isAmberCompatible = !content.method && (content.result !== undefined || content.error !== undefined);
@@ -1744,7 +1758,16 @@ export class NIP46Client {
               
               // Remove from pending requests
               this.pendingRequests.delete(reqId);
-              
+
+              // DEBUG: Log successful sign_event resolution
+              console.log('✅ [NIP46-DEBUG] sign_event response received and resolved!', {
+                requestId: reqId,
+                responseId: content.id,
+                signatureLength: signatureValue.length,
+                signaturePreview: signatureValue.slice(0, 100) + '...',
+                remainingPendingRequests: this.pendingRequests.size,
+              });
+
               // Resolve with the signature/event (signEvent method will parse it)
               pending.resolve(signatureValue);
               return; // Don't process further
@@ -2808,6 +2831,16 @@ export class NIP46Client {
             }
           }
           
+          // DEBUG: Special logging for sign_event to track the full lifecycle
+          if (method === 'sign_event') {
+            console.log('📤 [NIP46-DEBUG] sign_event request published, now waiting for response...', {
+              requestId: id,
+              relay: primaryRelay,
+              timeout: '120 seconds',
+              pendingRequests: this.pendingRequests.size,
+            });
+          }
+
           console.log('✅ NIP-46: Request event published:', {
             requestId: id,
             method,
