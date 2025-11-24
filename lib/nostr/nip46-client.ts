@@ -1112,10 +1112,17 @@ export class NIP46Client {
         if (pTagPubkey !== currentAppPubkey) {
           pTagMismatch = true;
           // Log the mismatch but continue to try decryption
-          if (this.pubkeyMismatchCount < 3) {
-            console.warn(`[NIP46-PTAG-WARNING] Event ${event.id.slice(0, 16)}... has p tag for different app pubkey (${pTagPubkey.slice(0, 16)}... vs ${currentAppPubkey.slice(0, 16)}...). Will attempt decryption anyway - signer may have cached old pubkey.`);
+          // Only log if we have an established connection (not during initial QR code phase)
+          if (this.connection?.connected && this.connection?.pubkey) {
+            if (this.pubkeyMismatchCount < 3) {
+              console.warn(`[NIP46-PTAG-WARNING] Event ${event.id.slice(0, 16)}... has p tag for different app pubkey (${pTagPubkey.slice(0, 16)}... vs ${currentAppPubkey.slice(0, 16)}...). Will attempt decryption anyway - signer may have cached old pubkey.`);
+            }
+            this.pubkeyMismatchCount++;
+          } else {
+            // During initial connection, these are expected - don't spam logs
+            // Just increment counter silently
+            this.pubkeyMismatchCount++;
           }
-          this.pubkeyMismatchCount++;
         }
       }
 
@@ -1189,12 +1196,16 @@ export class NIP46Client {
             fullContent: JSON.stringify(content, null, 2),
           });
         } catch (decryptError) {
-          console.warn('⚠️ NIP-46: Failed to decrypt as NIP-44, trying alternatives:', {
-            decryptError: decryptError instanceof Error ? decryptError.message : String(decryptError),
-            contentPreview: event.content.substring(0, 100),
-            signerPubkey: signerPubkey.slice(0, 16) + '...',
-            appPubkey: connectionInfo.publicKey ? connectionInfo.publicKey.slice(0, 16) + '...' : 'N/A',
-          });
+          // Only log decryption failures if we have an established connection
+          // During initial connection (QR code shown), old cached events are expected
+          if (this.connection?.connected && this.connection?.pubkey) {
+            console.warn('⚠️ NIP-46: Failed to decrypt as NIP-44, trying alternatives:', {
+              decryptError: decryptError instanceof Error ? decryptError.message : String(decryptError),
+              contentPreview: event.content.substring(0, 100),
+              signerPubkey: signerPubkey.slice(0, 16) + '...',
+              appPubkey: connectionInfo.publicKey ? connectionInfo.publicKey.slice(0, 16) + '...' : 'N/A',
+            });
+          }
 
           // CRITICAL: If decryption failed, try with the pubkey from the p tag if it exists
           // BUT: Only if the p tag matches our current app pubkey (otherwise we can't decrypt)
@@ -1219,24 +1230,34 @@ export class NIP46Client {
             } else {
               // P tag doesn't match - signer is using a cached old app pubkey!
               // Try to decrypt with historical keypairs
-              console.warn(`[NIP46-SIGNER-CACHE] ⚠️ P tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match current app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...)`);
-              console.warn(`[NIP46-SIGNER-CACHE] Remote signer appears to be using a cached connection. Trying historical keypairs...`);
+              // Only log if we have an established connection (not during initial QR code phase)
+              if (this.connection?.connected && this.connection?.pubkey) {
+                console.warn(`[NIP46-SIGNER-CACHE] ⚠️ P tag pubkey (${pTagPubkey.slice(0, 16)}...) does not match current app pubkey (${currentAppPubkey?.slice(0, 16) || 'N/A'}...)`);
+                console.warn(`[NIP46-SIGNER-CACHE] Remote signer appears to be using a cached connection. Trying historical keypairs...`);
+              }
 
               const keyPairHistory = getAppKeyPairHistory();
-              console.log(`[NIP46-SIGNER-CACHE] 📚 Found ${keyPairHistory.length} historical keypair(s) to try`);
+              if (this.connection?.connected && this.connection?.pubkey) {
+                console.log(`[NIP46-SIGNER-CACHE] 📚 Found ${keyPairHistory.length} historical keypair(s) to try`);
+              }
 
               // Try each historical keypair
               for (const oldKeyPair of keyPairHistory) {
                 if (pTagPubkey === oldKeyPair.publicKey) {
-                  console.log(`[NIP46-SIGNER-CACHE] 🔑 Found matching historical keypair! (pubkey: ${oldKeyPair.publicKey.slice(0, 16)}...)`);
+                  const isEstablishedConnection = this.connection?.connected && this.connection?.pubkey;
+                  if (isEstablishedConnection) {
+                    console.log(`[NIP46-SIGNER-CACHE] 🔑 Found matching historical keypair! (pubkey: ${oldKeyPair.publicKey.slice(0, 16)}...)`);
+                  }
                   try {
                     const oldAppPrivateKeyBytes = hexToBytes(oldKeyPair.privateKey);
                     const conversationKey = nip44.getConversationKey(oldAppPrivateKeyBytes, signerPubkey);
                     decryptedContent = nip44.decrypt(event.content, conversationKey);
                     content = JSON.parse(decryptedContent);
 
-                    console.log(`[NIP46-SIGNER-CACHE] ✅ Successfully decrypted with old keypair!`);
-                    console.log(`[NIP46-SIGNER-CACHE] 🔄 Updating current app keypair to match signer's cached version`);
+                    if (isEstablishedConnection) {
+                      console.log(`[NIP46-SIGNER-CACHE] ✅ Successfully decrypted with old keypair!`);
+                      console.log(`[NIP46-SIGNER-CACHE] 🔄 Updating current app keypair to match signer's cached version`);
+                    }
 
                     // Update localStorage to use this old keypair so future events work
                     localStorage.setItem('nostr_nip46_app_keypair', JSON.stringify(oldKeyPair));
@@ -1247,12 +1268,16 @@ export class NIP46Client {
                       connectionInfo.publicKey = oldKeyPair.publicKey;
                     }
 
-                    console.log(`[NIP46-SIGNER-CACHE] ℹ️ Workaround applied: Now using the keypair that the signer has cached`);
-                    console.log(`[NIP46-SIGNER-CACHE] ℹ️ To use a fresh keypair, clear the signer's connection cache and scan a new QR code`);
+                    if (isEstablishedConnection) {
+                      console.log(`[NIP46-SIGNER-CACHE] ℹ️ Workaround applied: Now using the keypair that the signer has cached`);
+                      console.log(`[NIP46-SIGNER-CACHE] ℹ️ To use a fresh keypair, clear the signer's connection cache and scan a new QR code`);
+                    }
 
                     break; // Successfully decrypted, stop trying
                   } catch (oldKeyErr) {
-                    console.warn(`[NIP46-SIGNER-CACHE] Failed to decrypt with old keypair ${oldKeyPair.publicKey.slice(0, 16)}:`, oldKeyErr);
+                    if (isEstablishedConnection) {
+                      console.warn(`[NIP46-SIGNER-CACHE] Failed to decrypt with old keypair ${oldKeyPair.publicKey.slice(0, 16)}:`, oldKeyErr);
+                    }
                     // Continue to next keypair
                   }
                 }
@@ -1260,10 +1285,26 @@ export class NIP46Client {
 
               // If we still haven't decrypted after trying all historical keypairs
               if (!decryptedContent) {
-                console.error(`[NIP46-SIGNER-CACHE] ❌ Could not decrypt with any historical keypair`);
-                console.error(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}...`);
-                console.error(`[NIP46-SIGNER-CACHE] Historical pubkeys we have:`, keyPairHistory.map(kp => kp.publicKey.slice(0, 16) + '...'));
-                console.error(`[NIP46-SIGNER-CACHE] SOLUTION: Clear signer's app data or reinstall to completely clear its cache`);
+                // Only clear connection if we have an established connection (not just listening for new connections)
+                // During initial connection (QR code shown), Amber may send old cached events - ignore them silently
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined') {
+                  // This is an established connection that can't decrypt - clear it
+                  console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
+                  console.warn(`[NIP46-SIGNER-CACHE] Signer's cached pubkey: ${pTagPubkey.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
+                  try {
+                    const { clearNIP46ConnectionForUser } = await import('./nip46-storage');
+                    clearNIP46ConnectionForUser(this.connection.pubkey);
+                    console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
+                    // Disconnect this client so it can be re-established fresh
+                    this.connection.connected = false;
+                    this.connection.pubkey = undefined;
+                  } catch (clearError) {
+                    console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
+                  }
+                } else {
+                  // Initial connection phase - just ignore old cached events silently
+                  // These are expected when showing QR code before scanning
+                }
               }
             }
           }
@@ -1281,13 +1322,27 @@ export class NIP46Client {
             } catch (jsonErr) {
               // If we have a p tag mismatch and decryption failed even with historical keypairs
               if (pTagMismatch) {
-                console.error(`[NIP46-SIGNER-CACHE] ❌ Cannot decrypt event - all decryption attempts failed.`);
-                console.error(`[NIP46-SIGNER-CACHE] This event was encrypted for a pubkey we don't have the private key for.`);
-                console.error(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}...`);
-                console.error(`[NIP46-SIGNER-CACHE] Current app pubkey: ${connectionInfo.publicKey?.slice(0, 16)}...`);
-                const keyPairHistory = getAppKeyPairHistory();
-                console.error(`[NIP46-SIGNER-CACHE] Historical pubkeys checked: ${keyPairHistory.length} keypair(s)`);
-                console.error(`[NIP46-SIGNER-CACHE] SOLUTION: Uninstall/reinstall signer or clear signer's app data to completely reset its cache.`);
+                // Only clear connection if we have an established connection (not just listening for new connections)
+                // During initial connection (QR code shown), Amber may send old cached events - ignore them silently
+                if (this.connection?.connected && this.connection?.pubkey && typeof window !== 'undefined') {
+                  // This is an established connection that can't decrypt - clear it
+                  console.warn(`[NIP46-SIGNER-CACHE] ⚠️ Cannot decrypt event from established connection - clearing saved connection`);
+                  console.warn(`[NIP46-SIGNER-CACHE] Event p tag: ${pTags[0]?.slice(0, 16)}... vs current: ${connectionInfo.publicKey?.slice(0, 16)}...`);
+                  try {
+                    const { clearNIP46ConnectionForUser } = await import('./nip46-storage');
+                    clearNIP46ConnectionForUser(this.connection.pubkey);
+                    console.log(`[NIP46-SIGNER-CACHE] ✅ Cleared saved connection - user will need to reconnect`);
+                    // Disconnect this client so it can be re-established fresh
+                    this.connection.connected = false;
+                    this.connection.pubkey = undefined;
+                  } catch (clearError) {
+                    console.error(`[NIP46-SIGNER-CACHE] Failed to clear connection:`, clearError);
+                  }
+                } else {
+                  // Initial connection phase - just ignore old cached events silently
+                  // These are expected when showing QR code before scanning
+                }
+                
                 // Don't throw - just return to skip this event
                 return;
               }
