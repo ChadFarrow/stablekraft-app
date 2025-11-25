@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
 import { getPublisherInfo } from '@/lib/url-utils';
+import { podcastIndexAPI } from '@/lib/podcast-index-api';
 
 /**
  * GET /api/favorites/albums
@@ -59,16 +60,24 @@ export async function GET(request: NextRequest) {
       if (feed) {
         // Feed exists in database - check if we need to resolve artist name from publisher mapping
         let artistName = feed.artist;
-        if (!artistName || artistName === 'Unknown Artist') {
-          // Try to resolve from publisher mapping
-          const publisherInfo = getPublisherInfo(favorite.feedId);
-          if (publisherInfo?.name) {
-            artistName = publisherInfo.name;
+        let feedType = feed.type;
+
+        // Check if this is a known publisher (even if DB type says 'album')
+        const publisherInfo = getPublisherInfo(favorite.feedId);
+        if (publisherInfo) {
+          // This is a known publisher - ensure type is 'publisher'
+          feedType = 'publisher';
+          if (!artistName || artistName === 'Unknown Artist') {
+            artistName = publisherInfo.name ?? null;
           }
+        } else if (!artistName || artistName === 'Unknown Artist') {
+          // Not a known publisher, just try to resolve artist name
+          artistName = feed.title;
         }
-        
+
         return {
           ...feed,
+          type: feedType,
           artist: artistName || feed.artist,
           favoritedAt: favorite.createdAt
         };
@@ -77,19 +86,54 @@ export async function GET(request: NextRequest) {
         // Try to resolve artist name from publisher mapping
         const publisherInfo = getPublisherInfo(favorite.feedId);
         const resolvedTitle = publisherInfo?.name || favorite.feedId;
-        const resolvedArtist = publisherInfo?.name || null;
-        
+        const resolvedArtist = publisherInfo?.name ?? null;
+
+        // This will be populated below for publishers
         return {
           id: favorite.feedId,
           title: resolvedTitle,
           artist: resolvedArtist,
           type: publisherInfo ? 'publisher' : null,
+          image: null as string | null, // Will be populated below
+          itemCount: 0, // Will be populated below
           favoritedAt: favorite.createdAt,
           createdAt: favorite.createdAt,
           updatedAt: favorite.createdAt
         };
       }
     });
+
+    // For publisher favorites without images, try to fetch from Podcast Index
+    const publisherFavorites = feedsWithFavorites.filter(f => f.type === 'publisher' && !f.image);
+    if (publisherFavorites.length > 0) {
+      // Fetch publisher images from Podcast Index using their feedGuid
+      for (const publisher of publisherFavorites) {
+        const publisherInfo = getPublisherInfo(publisher.id);
+        if (publisherInfo?.feedGuid) {
+          try {
+            const feed = await podcastIndexAPI.getFeedByGuid(publisherInfo.feedGuid);
+            if (feed) {
+              (publisher as any).image = feed.artwork || feed.image || null;
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch publisher image from Podcast Index for ${publisher.id}:`, error);
+          }
+        }
+
+        // Also get album count for this publisher
+        if (publisher.artist) {
+          const artistAlbums = await prisma.feed.findMany({
+            where: {
+              artist: publisher.artist,
+              type: { not: 'publisher' }
+            },
+            select: { id: true },
+            take: 100
+          });
+          (publisher as any).itemCount = artistAlbums.length;
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

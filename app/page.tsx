@@ -16,6 +16,7 @@ import SearchBar from '@/components/SearchBar';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { Play, Pause } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 
 
@@ -1515,15 +1516,20 @@ function HomePageContent() {
                                   <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
 
-                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
-                                  <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Album</span>
-                                  {album.explicit && (
-                                    <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
-                                      E
-                                    </span>
-                                  )}
+                                <div className="flex items-center gap-2 sm:gap-4">
+                                  <div onClick={(e) => e.preventDefault()}>
+                                    <FavoriteButton feedId={album.feedId || album.feedGuid} size={20} />
+                                  </div>
+                                  <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                                    <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Album</span>
+                                    {album.explicit && (
+                                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                                        E
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </Link>
                             ))}
@@ -1590,17 +1596,22 @@ function HomePageContent() {
                                   <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                                 </div>
 
-                                <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
-                                  <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                  <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                                    {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
-                                  </span>
-                                  {album.explicit && (
-                                    <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
-                                      E
+                                <div className="flex items-center gap-2 sm:gap-4">
+                                  <div onClick={(e) => e.preventDefault()}>
+                                    <FavoriteButton feedId={album.feedId || album.feedGuid} size={20} />
+                                  </div>
+                                  <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                                    <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
+                                      {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
                                     </span>
-                                  )}
+                                    {album.explicit && (
+                                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                                        E
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </Link>
                             ))}
@@ -1667,20 +1678,23 @@ function HomePageContent() {
                           <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
                         </div>
 
-                        <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
-                          <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                          <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                          <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                            {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
-                          </span>
-                          {album.explicit && (
-                            <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
-                              E
+                        <div className="flex items-center gap-2 sm:gap-4">
+                          <div onClick={(e) => e.preventDefault()}>
+                            <FavoriteButton feedId={album.feedId || album.feedGuid} size={20} />
+                          </div>
+                          <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                            <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                            <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                            <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
+                              {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
                             </span>
-                          )}
+                            {album.explicit && (
+                              <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                                E
+                              </span>
+                            )}
+                          </div>
                         </div>
-
-                        {/* Play button removed - now handled by global audio context */}
                       </Link>
                     ))}
                   </div>

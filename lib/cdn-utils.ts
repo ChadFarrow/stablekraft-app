@@ -31,24 +31,73 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
     originalUrl = originalUrl.replace('http://', 'https://');
   }
 
-  // Check if URL is from a domain that requires CORS proxying
-  const corsProblematicImageDomains = [
-    'f.strangetextures.com',
-    'strangetextures.com',
-    'raw.githubusercontent.com', // GitHub raw content can have CORS issues
-    'githubusercontent.com',
+  // List of domains that are configured in next.config.js remotePatterns
+  // Images from these domains can be served directly by next/image
+  const allowedImageDomains = [
+    'www.doerfelverse.com',
+    'feed.bowlafterbowl.com',
+    'www.thisisjdog.com',
+    'www.sirtjthewrathful.com',
+    'wavlake.com',
+    'www.wavlake.com',
+    'd12wklypp119aj.cloudfront.net',
+    'ableandthewolf.com',
+    'music.behindthesch3m3s.com',
+    'whiterabbitrecords.org',
+    'feed.falsefinish.club',
+    'f4.bcbits.com',
+    'stablekraft.app',
+    'localhost',
+    'static.wixstatic.com',
+    'noagendaassets.com',
+    'media.rssblue.com',
+    'files.heycitizen.xyz',
+    'files.bitpunk.fm',
+    'www.bitpunk.fm',
+    'annipowellmusic.com',
+    'rocknrollbreakheart.com',
+    'via.placeholder.com',
+    'i.nostr.build',
+    'raw.githubusercontent.com',
+    'megaphone.imgix.net',
+    'cdn-images.owltail.com',
+    'www.haciendoelsueco.com',
+    'destinys-music.nyc3.cdn.digitaloceanspaces.com',
+    'dtnmusic1w.sfo3.cdn.digitaloceanspaces.com',
+    'dtnmusic1w.sfo3.digitaloceanspaces.com',
+    'jimmiebratcher.s3.us-west-1.amazonaws.com',
+    'thesynthesatsers.nyc3.cdn.digitaloceanspaces.com',
+    'thebearsnare.com',
+    'socialmedia101pro.com',
+    'bobcatindex.us-southeast-1.linodeobjects.com',
+    'homegrownhits.xyz',
+    'lightningthrashes.com',
+    'picsum.photos',
+    'podcastindex.org',
+    'deow9bq0xqvbj.cloudfront.net',
+    'binauralsubliminal.com',
+    'shop.basspistol.com',
+    'feeds.fountain.fm',
+    'assets.podhome.fm',
   ];
 
-  const needsProxy = corsProblematicImageDomains.some(domain =>
-    originalUrl.toLowerCase().includes(domain.toLowerCase())
-  );
+  // Check if URL is from an allowed domain
+  const isAllowedDomain = allowedImageDomains.some(domain => {
+    try {
+      const urlHostname = new URL(originalUrl).hostname.toLowerCase();
+      return urlHostname === domain.toLowerCase() || urlHostname.endsWith('.' + domain.toLowerCase());
+    } catch {
+      return false;
+    }
+  });
 
-  // If proxy is explicitly requested OR domain requires CORS proxy, use image proxy
-  if ((useProxy || needsProxy) && !originalUrl.includes('re.podtards.com') && !originalUrl.startsWith('data:') && !originalUrl.startsWith('/')) {
+  // If proxy is explicitly requested OR domain is NOT in allowed list, use image proxy
+  // Skip proxy for data URLs, relative URLs, and already-proxied URLs
+  if ((useProxy || !isAllowedDomain) && !originalUrl.includes('re.podtards.com') && !originalUrl.includes('/api/proxy-image') && !originalUrl.startsWith('data:') && !originalUrl.startsWith('/')) {
     return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
   }
 
-  // Use original URLs directly for best quality since RSS feeds provide high-res images
+  // Use original URLs directly for allowed domains
   return originalUrl;
 }
 

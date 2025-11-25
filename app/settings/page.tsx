@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import SettingsLayout from '@/components/Settings/SettingsLayout';
 import NostrSettings from '@/components/Settings/NostrSettings';
 import UserSettings from '@/components/Settings/UserSettings';
+import DangerSettings from '@/components/Settings/DangerSettings';
 import AppLayout from '@/components/AppLayout';
 
 export default function SettingsPage() {
@@ -42,6 +43,7 @@ export default function SettingsPage() {
         {/* Settings Sections */}
         <NostrSettings />
         <UserSettings />
+        <DangerSettings />
 
         {/* Save Button */}
         <div className="mt-8 flex justify-center">

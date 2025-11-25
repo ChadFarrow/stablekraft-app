@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
             title: true,
             artist: true,
             image: true,
-            id: true
+            id: true,
+            v4vValue: true,
+            v4vRecipient: true,
+            originalUrl: true
           }
         }
       }
@@ -72,7 +75,10 @@ export async function GET(request: NextRequest) {
               title: true,
               artist: true,
               image: true,
-              id: true
+              id: true,
+              v4vValue: true,
+              v4vRecipient: true,
+              originalUrl: true
             }
           }
         }
@@ -95,7 +101,10 @@ export async function GET(request: NextRequest) {
                 title: true,
                 artist: true,
                 image: true,
-                id: true
+                id: true,
+                v4vValue: true,
+                v4vRecipient: true,
+                originalUrl: true
               }
             }
           }

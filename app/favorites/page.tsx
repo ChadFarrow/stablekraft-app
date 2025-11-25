@@ -14,6 +14,7 @@ import { RSSAlbum } from '@/lib/rss-parser';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import { BoostButton } from '@/components/Lightning/BoostButton';
 import { Heart, Music, Disc, Users, Play, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import AppLayout from '@/components/AppLayout';
@@ -27,11 +28,17 @@ interface FavoriteTrack {
   audioUrl: string;
   duration: number | null;
   favoritedAt: string;
+  v4vValue?: any;
+  v4vRecipient?: string | null;
+  guid?: string | null;
   Feed?: {
     title: string;
     artist: string | null;
     image: string | null;
     id: string;
+    v4vValue?: any;
+    v4vRecipient?: string | null;
+    originalUrl?: string | null;
   };
 }
 
@@ -43,6 +50,9 @@ interface FavoriteAlbum {
   image: string | null;
   type: string;
   favoritedAt: string;
+  v4vValue?: any;
+  v4vRecipient?: string | null;
+  originalUrl?: string | null;
   Track?: Array<{
     id: string;
     title: string;
@@ -56,7 +66,7 @@ export default function FavoritesPage() {
   const router = useRouter();
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  const { playAlbum: globalPlayAlbum, playTrack, setFullscreenMode } = useAudio();
+  const { playAlbum: globalPlayAlbum, setFullscreenMode } = useAudio();
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
@@ -422,7 +432,26 @@ export default function FavoritesPage() {
     }
 
     try {
-      const success = await playTrack(track.audioUrl);
+      // Create a single-track album with proper metadata
+      const singleTrackAlbum: RSSAlbum = {
+        id: track.id,
+        title: track.album || track.Feed?.title || 'Single Track',
+        artist: track.artist || track.Feed?.artist || 'Unknown Artist',
+        description: '',
+        coverArt: track.image || track.Feed?.image || '',
+        releaseDate: track.favoritedAt,
+        tracks: [{
+          title: track.title,
+          url: track.audioUrl,
+          duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+          image: track.image || track.Feed?.image || '',
+          id: track.id,
+        }],
+        link: '',
+        feedUrl: ''
+      };
+
+      const success = await globalPlayAlbum(singleTrackAlbum, 0);
       if (success) {
         // Playback started successfully
       } else {
@@ -564,6 +593,10 @@ export default function FavoritesPage() {
                     })),
                     feedId: album.id, // Use album.id as feedId for lookup
                     type: album.type,
+                    // V4V data for boost button
+                    v4vValue: album.v4vValue,
+                    v4vRecipient: album.v4vRecipient,
+                    feedUrl: album.originalUrl,
                     // Store original album data for better lookup
                     originalAlbum: album
                   };
@@ -670,44 +703,83 @@ export default function FavoritesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {sortedTracks.map((track) => (
-                  <div
-                    key={track.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto flex-shrink-0">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={getAlbumArtworkUrl(track.image || track.Feed?.image || '', 'thumbnail')}
-                          alt={track.title}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = getPlaceholderImageUrl('thumbnail');
-                          }}
-                        />
-                      </div>
+                  {sortedTracks.map((track) => {
+                    // Get v4v data from track or feed
+                    const v4vValue = track.v4vValue || track.Feed?.v4vValue;
+                    const v4vRecipient = track.v4vRecipient || track.Feed?.v4vRecipient;
+                    const hasV4v = !!(v4vValue || v4vRecipient);
+                    const valueSplits = v4vValue?.recipients || v4vValue?.destinations || [];
 
-                      <div className="flex-1 min-w-0 sm:flex-none sm:flex-1">
-                        <h3 className="font-semibold text-base sm:text-lg truncate">{track.title}</h3>
-                        <p className="text-gray-400 text-xs sm:text-sm truncate">
-                          {track.artist || track.Feed?.artist || 'Unknown Artist'}
-                        </p>
-                        {track.album && (
-                          <p className="text-gray-500 text-xs truncate">from {track.album}</p>
-                        )}
-                      </div>
-                    </div>
+                    return (
+                      <div
+                        key={track.id}
+                        className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
+                      >
+                        {/* Album Art */}
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={getAlbumArtworkUrl(track.image || track.Feed?.image || '', 'thumbnail')}
+                            alt={track.title}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = getPlaceholderImageUrl('thumbnail');
+                            }}
+                          />
+                        </div>
 
-                    <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end flex-shrink-0">
-                      {track.duration && (
-                        <span className="text-gray-400 text-xs sm:text-sm">
-                          {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
+                        {/* Track Info */}
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-base sm:text-lg truncate">{track.title}</h3>
+                          <p className="text-gray-400 text-xs sm:text-sm truncate">
+                            {track.artist || track.Feed?.artist || 'Unknown Artist'}
+                          </p>
+                          {track.album && (
+                            <p className="text-gray-500 text-xs truncate">from {track.album}</p>
+                          )}
+                        </div>
+
+                        {/* Duration */}
+                        <span className="text-gray-400 text-xs sm:text-sm w-10 sm:w-12 text-right">
+                          {track.duration
+                            ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}`
+                            : '--:--'}
                         </span>
-                      )}
-                      <div className="flex items-center gap-2">
+
+                        {/* Boost Button */}
+                        {hasV4v ? (
+                          <BoostButton
+                            trackId={track.id}
+                            feedId={track.Feed?.id}
+                            trackTitle={track.title}
+                            artistName={track.artist || track.Feed?.artist || 'Unknown Artist'}
+                            lightningAddress={v4vRecipient || undefined}
+                            valueSplits={valueSplits.filter((r: any) => !r.fee).map((r: any) => ({
+                              name: r.name,
+                              address: r.address,
+                              split: r.split,
+                              type: r.type || (r.address?.includes('@') ? 'lnaddress' : 'node')
+                            }))}
+                            feedUrl={track.Feed?.originalUrl || undefined}
+                            episodeGuid={track.guid || track.id}
+                            albumName={track.album || track.Feed?.title}
+                            iconOnly={true}
+                            className="w-8 h-8 sm:w-9 sm:h-9"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9" />
+                        )}
+
+                        {/* Favorite Button */}
+                        <FavoriteButton
+                          trackId={track.id}
+                          onToggle={handleFavoriteToggle}
+                          isFavorite={true}
+                        />
+
+                        {/* Play Button */}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -721,15 +793,9 @@ export default function FavoritesPage() {
                           <Play className="w-3 h-3 sm:w-4 sm:h-4" />
                           <span className="hidden sm:inline">Play</span>
                         </button>
-                        <FavoriteButton
-                          trackId={track.id}
-                          onToggle={handleFavoriteToggle}
-                          isFavorite={true}
-                        />
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
                 </div>
               </>
             )}
