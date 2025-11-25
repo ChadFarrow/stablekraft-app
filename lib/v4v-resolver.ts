@@ -333,6 +333,109 @@ export class V4VResolver {
   }
 
   /**
+   * Resolve V4V track information using Podcast Index API directly
+   * This uses the episodes/byguid endpoint for cleaner resolution
+   */
+  static async resolveV4VTrackWithPodcastIndex(
+    feedGuid: string,
+    itemGuid: string
+  ): Promise<{
+    title?: string;
+    artist?: string;
+    image?: string;
+    audioUrl?: string;
+    duration?: number;
+    resolved: boolean;
+  }> {
+    try {
+      const apiKey = process.env.PODCAST_INDEX_API_KEY;
+      const apiSecret = process.env.PODCAST_INDEX_API_SECRET;
+
+      if (!apiKey || !apiSecret) {
+        console.warn('Podcast Index API credentials not configured for V4V resolution');
+        return { resolved: false };
+      }
+
+      const crypto = require('crypto');
+      const timestamp = Math.floor(Date.now() / 1000);
+      const authString = apiKey + apiSecret + timestamp;
+      const authHash = crypto.createHash('sha1').update(authString).digest('hex');
+
+      const headers = {
+        'User-Agent': 're.podtards.com',
+        'X-Auth-Key': apiKey,
+        'X-Auth-Date': timestamp.toString(),
+        'Authorization': authHash
+      };
+
+      // Get feed information from Podcast Index API
+      const feedUrl = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;
+      const feedResponse = await fetch(feedUrl, { headers });
+
+      if (feedResponse.ok) {
+        const feedData = await feedResponse.json();
+        if (feedData.status === 'true' && feedData.feed) {
+          const feed = feedData.feed;
+
+          // Get the specific episode
+          const episodeUrl = `https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${itemGuid}&feedid=${feed.id}`;
+          const episodeResponse = await fetch(episodeUrl, { headers });
+
+          if (episodeResponse.ok) {
+            const episodeData = await episodeResponse.json();
+            if (episodeData.status === 'true' && episodeData.episode) {
+              const episode = episodeData.episode;
+
+              return {
+                resolved: true,
+                title: episode.title || feed.title,
+                artist: feed.author || feed.title,
+                image: episode.image || feed.image || feed.artwork,
+                audioUrl: episode.enclosureUrl,
+                duration: episode.duration,
+              };
+            }
+          }
+
+          // If episode lookup fails, return feed-level information
+          return {
+            resolved: true,
+            title: feed.title,
+            artist: feed.author || feed.title,
+            image: feed.image || feed.artwork,
+            audioUrl: undefined,
+            duration: undefined,
+          };
+        }
+      }
+
+      console.warn('Failed to resolve V4V track with Podcast Index', { feedGuid, itemGuid });
+      return { resolved: false };
+
+    } catch (error) {
+      console.error('Error resolving V4V track with Podcast Index', {
+        feedGuid,
+        itemGuid,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return { resolved: false };
+    }
+  }
+
+  /**
+   * Resolve a remote track (placeholder - uses resolveV4VTrackWithPodcastIndex internally)
+   */
+  static async resolveRemoteTrack(
+    feedGuid: string,
+    itemGuid: string,
+    _playlistTitle: string,
+    _playlistFeedUrl: string
+  ): Promise<any> {
+    const result = await this.resolveV4VTrackWithPodcastIndex(feedGuid, itemGuid);
+    return result.resolved ? result : null;
+  }
+
+  /**
    * Clear the feed cache
    */
   static clearCache(): void {

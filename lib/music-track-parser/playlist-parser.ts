@@ -3,7 +3,7 @@
  */
 import { createErrorLogger } from '../error-utils';
 import { ParserUtils } from './utils';
-import { V4VResolver } from './v4v-resolver';
+import { V4VResolver } from '../v4v-resolver';
 import type { MusicTrack, MusicFeed, MusicTrackExtractionResult } from './types';
 
 export class PlaylistParser {

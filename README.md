@@ -297,6 +297,12 @@ The codebase follows these conventions:
 
 ## Recent Updates
 
+**Code Cleanup & Consolidation (2025-11-24):**
+- Removed dead code: `feed-parser-optimized.ts`, `PlaylistAlbumProgressive.tsx`
+- Consolidated duplicate V4V resolvers into single `lib/v4v-resolver.ts`
+- Deduplicated `hexToBytes` function in Nostr signer code (now exported from `lib/nostr/keys.ts`)
+- Updated imports in music-track-parser module to use consolidated resolver
+
 **Admin Panel & Feed Management (2025-11-20):**
 - Added Nostr-based admin authentication system
 - RSS feed management interface with add/refresh/view features
@@ -325,4 +331,4 @@ The codebase follows these conventions:
 
 ---
 
-*Last Updated: November 2025*
+*Last Updated: November 24, 2025*

@@ -4,7 +4,7 @@
 import { createErrorLogger } from '../error-utils';
 import { RSSValueRecipient } from '../rss-parser';
 import { ParserUtils } from './utils';
-import { V4VResolver } from './v4v-resolver';
+import { V4VResolver } from '../v4v-resolver';
 import type { MusicTrack, EpisodeContext, ChapterData } from './types';
 
 export class TrackExtractors {
