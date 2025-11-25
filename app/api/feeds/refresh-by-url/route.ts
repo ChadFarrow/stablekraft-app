@@ -152,37 +152,55 @@ export async function POST(request: NextRequest) {
         parsedFeed.items.map((item, index) => [item.guid, { item, order: index + 1 }])
       );
       
-      // Update trackOrder for ALL existing tracks based on current RSS feed order
+      // Update trackOrder AND v4v data for ALL existing tracks based on current RSS feed
       // Match tracks by GUID first, then by title+audioUrl for tracks without GUIDs
       const updatePromises: Promise<any>[] = [];
-      
+      let v4vUpdatedCount = 0;
+
       for (const track of existingTracks) {
         let order: number | null = null;
-        
+        let matchedItem: typeof parsedFeed.items[0] | null = null;
+
         // First try to match by GUID
         if (track.guid) {
-          const parsedItem = parsedItemsByGuid.get(track.guid);
-          if (parsedItem) {
-            order = parsedItem.order;
+          const parsedData = parsedItemsByGuid.get(track.guid);
+          if (parsedData) {
+            order = parsedData.order;
+            matchedItem = parsedData.item;
           }
         }
-        
+
         // If no GUID match, try to match by title and audioUrl
         if (order === null && track.title && track.audioUrl) {
-          const matchingIndex = parsedFeed.items.findIndex(item => 
+          const matchingIndex = parsedFeed.items.findIndex(item =>
             (item.title === track.title && item.audioUrl === track.audioUrl) ||
             item.audioUrl === track.audioUrl
           );
           if (matchingIndex >= 0) {
             order = matchingIndex + 1; // Preserve RSS feed order (newest-first)
+            matchedItem = parsedFeed.items[matchingIndex];
           }
         }
-        
+
         if (order !== null) {
+          // Build update data with trackOrder and v4v data if available
+          const updateData: any = { trackOrder: order };
+
+          // Update v4v data from the parsed feed item
+          if (matchedItem) {
+            if (matchedItem.v4vRecipient) {
+              updateData.v4vRecipient = matchedItem.v4vRecipient;
+              v4vUpdatedCount++;
+            }
+            if (matchedItem.v4vValue) {
+              updateData.v4vValue = matchedItem.v4vValue;
+            }
+          }
+
           updatePromises.push(
             prisma.track.update({
               where: { id: track.id },
-              data: { trackOrder: order }
+              data: updateData
             })
           );
         }
@@ -190,9 +208,21 @@ export async function POST(request: NextRequest) {
       
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
-        console.log(`✅ Updated trackOrder for ${updatePromises.length} existing tracks`);
+        console.log(`✅ Updated ${updatePromises.length} existing tracks (${v4vUpdatedCount} with v4v data)`);
       } else {
-        console.log(`⚠️ No tracks matched for trackOrder update`);
+        console.log(`⚠️ No tracks matched for update`);
+      }
+
+      // Also update feed-level v4v data if present in parsed feed
+      if (parsedFeed.v4vRecipient || parsedFeed.v4vValue) {
+        await prisma.feed.update({
+          where: { id: feed.id },
+          data: {
+            v4vRecipient: parsedFeed.v4vRecipient,
+            v4vValue: parsedFeed.v4vValue
+          }
+        });
+        console.log(`✅ Updated feed-level v4v data: ${parsedFeed.v4vRecipient}`);
       }
       
       // Filter out tracks that already exist
@@ -265,7 +295,9 @@ export async function POST(request: NextRequest) {
         message: 'Feed refreshed successfully',
         feed: updatedFeed,
         newTracks: newItems.length,
-        totalTracks: updatedFeed?._count.Track || 0
+        totalTracks: updatedFeed?._count.Track || 0,
+        updatedTracks: updatePromises.length,
+        v4vUpdated: v4vUpdatedCount
       });
       
     } catch (parseError) {

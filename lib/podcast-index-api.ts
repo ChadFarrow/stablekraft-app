@@ -145,16 +145,138 @@ class PodcastIndexAPI {
       }
 
       const data = await response.json();
-      
+
       if (data.status === 'true' && data.feed) {
         return data.feed as PodcastIndexFeed;
       }
-      
+
       console.warn(`No feed found for GUID: ${guid}`);
       return null;
     } catch (error) {
       console.error(`Error fetching feed by GUID ${guid}:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Get feed by URL, preferring the newest entry (highest ID) when duplicates exist
+   */
+  async getFeedByUrl(feedUrl: string): Promise<PodcastIndexFeed | null> {
+    try {
+      // Try exact URL match first
+      const url = `${this.baseUrl}/podcasts/byfeedurl?url=${encodeURIComponent(feedUrl)}`;
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        console.error(`Podcast Index API error for URL ${feedUrl}: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'true' && data.feed) {
+        const feed = data.feed as PodcastIndexFeed;
+
+        // Search for duplicate feeds with similar URLs (URL encoding differences)
+        const duplicates = await this.searchForDuplicateFeeds(feed.title, feedUrl);
+
+        if (duplicates.length > 1) {
+          // Sort by ID descending and pick the newest
+          duplicates.sort((a, b) => b.id - a.id);
+          const newest = duplicates[0];
+
+          if (newest.id !== feed.id) {
+            console.log(`🔄 Found newer feed entry: ID ${newest.id} vs ${feed.id}, using newer`);
+            // Fetch full feed data by ID to get complete info including value
+            return this.getFeedById(newest.id);
+          }
+        }
+
+        return feed;
+      }
+
+      console.warn(`No feed found for URL: ${feedUrl}`);
+      return null;
+    } catch (error) {
+      console.error(`Error fetching feed by URL ${feedUrl}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get feed by ID (internal helper to fetch full feed data)
+   */
+  async getFeedById(id: number): Promise<PodcastIndexFeed | null> {
+    try {
+      const url = `${this.baseUrl}/podcasts/byfeedid?id=${id}`;
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      return data.status === 'true' && data.feed ? data.feed : null;
+    } catch (error) {
+      console.error(`Error fetching feed by ID ${id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Search for duplicate feeds by title to find all entries for the same content
+   */
+  private async searchForDuplicateFeeds(title: string, originalUrl: string): Promise<PodcastIndexFeed[]> {
+    try {
+      // Extract the base filename without URL encoding differences
+      const urlPath = new URL(originalUrl).pathname;
+      const filename = urlPath.split('/').pop()?.replace(/%20/g, ' ').replace(/\s+/g, ' ') || '';
+
+      // Search by title
+      const searchUrl = `${this.baseUrl}/search/byterm?q=${encodeURIComponent(title)}`;
+      const response = await fetch(searchUrl, {
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'true' && data.feeds) {
+        // Filter to feeds with matching title and similar URL path
+        const matches = (data.feeds as PodcastIndexFeed[]).filter(feed => {
+          if (feed.title !== title) return false;
+
+          // Check if URLs are similar (same path, different encoding)
+          try {
+            const feedPath = new URL(feed.url).pathname;
+            const feedFilename = feedPath.split('/').pop()?.replace(/%20/g, ' ').replace(/\s+/g, ' ') || '';
+            return feedFilename === filename;
+          } catch {
+            return false;
+          }
+        });
+
+        if (matches.length > 1) {
+          console.log(`📋 Found ${matches.length} duplicate entries for "${title}": IDs ${matches.map(f => f.id).join(', ')}`);
+        }
+
+        return matches;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error searching for duplicate feeds:', error);
+      return [];
     }
   }
 
@@ -230,11 +352,11 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 const cacheTimestamps = new Map<string, number>();
 
 export async function resolveArtworkFromPodcastIndex(
-  feedGuid: string, 
+  feedGuid: string,
   itemGuid?: string
 ): Promise<string | null> {
   const cacheKey = `${feedGuid}:${itemGuid || 'feed'}`;
-  
+
   // Check cache first
   if (artworkCache.has(cacheKey)) {
     const timestamp = cacheTimestamps.get(cacheKey) || 0;
@@ -245,10 +367,22 @@ export async function resolveArtworkFromPodcastIndex(
 
   // Resolve from API
   const artwork = await podcastIndexAPI.resolveArtworkForTrack(feedGuid, itemGuid);
-  
+
   // Cache the result
   artworkCache.set(cacheKey, artwork);
   cacheTimestamps.set(cacheKey, Date.now());
-  
+
   return artwork;
 }
+
+/**
+ * Get feed by URL, preferring the newest Podcast Index entry when duplicates exist
+ * This handles cases where the same feed was indexed multiple times with different URLs
+ * (e.g., URL encoding differences like "pony up daddy.xml" vs "pony%20up%20daddy.xml")
+ */
+export async function getFeedByUrlPreferNewest(feedUrl: string): Promise<PodcastIndexFeed | null> {
+  return podcastIndexAPI.getFeedByUrl(feedUrl);
+}
+
+// Re-export the PodcastIndexFeed type for use in other modules
+export type { PodcastIndexFeed };

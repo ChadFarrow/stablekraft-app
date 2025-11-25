@@ -151,7 +151,12 @@ export default function AdminPanel() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(`Feed reparsed successfully! ${data.newTracks > 0 ? `Added ${data.newTracks} new tracks.` : 'No new tracks found.'} ${data.updatedTracks > 0 ? `Updated ${data.updatedTracks} existing tracks.` : ''}`);
+        const msgs = [];
+        if (data.newTracks > 0) msgs.push(`Added ${data.newTracks} new tracks`);
+        if (data.updatedTracks > 0) msgs.push(`Updated ${data.updatedTracks} existing tracks`);
+        if (data.v4vUpdated > 0) msgs.push(`Refreshed ${data.v4vUpdated} payment splits`);
+        if (msgs.length === 0) msgs.push('No changes needed');
+        toast.success(`Feed reparsed! ${msgs.join('. ')}.`);
         // Refresh the recent feeds list
         fetchRecentFeeds();
       } else {
@@ -216,7 +221,12 @@ export default function AdminPanel() {
           }
         }
 
-        toast.success(`Feed reparsed successfully! ${data.newTracks > 0 ? `Added ${data.newTracks} new tracks.` : 'No new tracks found.'} Total tracks: ${data.totalTracks}`);
+        const messages = [];
+        if (data.newTracks > 0) messages.push(`Added ${data.newTracks} new tracks`);
+        if (data.updatedTracks > 0) messages.push(`Updated ${data.updatedTracks} existing tracks`);
+        if (data.v4vUpdated > 0) messages.push(`Refreshed ${data.v4vUpdated} payment splits`);
+        if (messages.length === 0) messages.push('No changes needed');
+        toast.success(`Feed reparsed! ${messages.join('. ')}. Total: ${data.totalTracks} tracks`);
         setReparseFeedUrl('');
         // Refresh the recent feeds list
         fetchRecentFeeds();
@@ -500,7 +510,7 @@ export default function AdminPanel() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-400">
-                Paste the URL of an existing feed to refresh it from the source. This will update metadata and add any new tracks.
+                Paste the URL of an existing feed to refresh it from the source. This will update metadata, add any new tracks, and sync all lightning payment splits with the feed.
               </p>
             </div>
           </form>

@@ -287,13 +287,14 @@ export class V4VResolver {
 
   /**
    * Look up a feedGuid via Podcast Index API
+   * Prefers the newest entry when duplicates exist (higher ID = newer)
    */
   private static async lookupFeedGuid(feedGuid: string): Promise<string | null> {
     try {
       // Use environment variables for API credentials
       const apiKey = process.env.PODCAST_INDEX_API_KEY;
       const apiSecret = process.env.PODCAST_INDEX_API_SECRET;
-      
+
       if (!apiKey || !apiSecret) {
         console.error('PODCAST_INDEX_API_KEY or PODCAST_INDEX_API_SECRET not set in environment variables.');
         return null;
@@ -314,12 +315,21 @@ export class V4VResolver {
       };
 
       const url = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;
-      
+
       console.log(`📡 Looking up feedGuid ${feedGuid} via Podcast Index API...`);
       const response = await fetch(url, { headers });
       const data = await response.json();
-      
+
       if (data.status === 'true' && data.feed && data.feed.url) {
+        // Check for duplicate feeds and prefer the newest entry
+        const { getFeedByUrlPreferNewest } = await import('./podcast-index-api');
+        const newestFeed = await getFeedByUrlPreferNewest(data.feed.url);
+
+        if (newestFeed && newestFeed.id !== data.feed.id) {
+          console.log(`✅ Found newer feed entry: ${newestFeed.title} (ID ${newestFeed.id}) at ${newestFeed.url}`);
+          return newestFeed.url;
+        }
+
         console.log(`✅ Found feed: ${data.feed.title} by ${data.feed.author} at ${data.feed.url}`);
         return data.feed.url;
       } else {
