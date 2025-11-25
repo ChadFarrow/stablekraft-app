@@ -39,7 +39,7 @@ export const LIGHTNING_CONFIG = {
     nwc: true,
     lightningAddress: true,
     keysend: true,
-    autoBoost: false, // Disabled by default, user must enable
+    autoBoost: true, // Feature enabled, user controls via settings
     boostagrams: true,
     nostrIntegration: true, // Enabled for Nostr boost posting
     helipadIntegration: false, // Disabled until configured

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getPublicKey, nip19 } from 'nostr-tools';
 import { getPublicKeyFromPrivate, publicKeyToNpub } from '@/lib/nostr/keys';
+import { fetchAndStoreUserRelays, clearStoredUserRelays } from '@/lib/nostr/nip65';
 
 export interface NostrUser {
   id: string;
@@ -70,6 +71,17 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
               loginType: userData.loginType || 'extension',
             });
           }
+
+          // Fetch user's NIP-65 relay list in the background
+          if (userData.nostrPubkey) {
+            fetchAndStoreUserRelays(userData.nostrPubkey).then((relays) => {
+              if (relays) {
+                console.log(`✅ NostrContext: Fetched ${relays.write.length} write relays for user`);
+              }
+            }).catch((err) => {
+              console.warn('⚠️ NostrContext: Failed to fetch user relays:', err);
+            });
+          }
         } catch (parseError) {
           console.error('❌ NostrContext: Failed to parse user data:', parseError);
         }
@@ -121,6 +133,7 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(NOSTR_USER_KEY);
     localStorage.removeItem('nostr_login_type'); // Remove login type
+    clearStoredUserRelays(); // Clear NIP-65 relay list
     setUser(null);
 
     // Call logout API

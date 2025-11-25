@@ -1310,24 +1310,22 @@ export function BoostButton({
                         // Pre-calculate split amounts using the same service that handles payments
                         const totalAmount = customAmount && parseInt(customAmount) > 0 ? parseInt(customAmount) : 0;
 
-                        // Merge the original splits with calculated amounts BEFORE sorting
-                        // This ensures each split is paired with its correct calculated amount
-                        const splitsWithAmounts = totalAmount > 0
+                        // Sort splits by percentage FIRST (largest first), then calculate amounts
+                        // This ensures calculated amounts stay aligned with display order
+                        const sortedActiveValueSplits = [...activeValueSplits].sort((a, b) => b.split - a.split);
+
+                        const sortedSplits = totalAmount > 0
                           ? ValueSplitsService.calculateSplitAmounts(
-                              activeValueSplits.map(s => ({ ...s, fee: false })),
+                              sortedActiveValueSplits.map(s => ({ ...s, fee: false })),
                               totalAmount
                             ).map(calculated => ({
-                              // Use data from the calculated result's recipient (which has the original split data)
                               name: calculated.recipient.name,
                               type: calculated.recipient.type,
                               address: calculated.recipient.address,
                               split: calculated.recipient.split,
                               calculatedAmount: calculated.amount
                             }))
-                          : activeValueSplits.map(s => ({ ...s, calculatedAmount: 0 }));
-
-                        // NOW sort by split percentage (largest first)
-                        const sortedSplits = splitsWithAmounts.sort((a, b) => b.split - a.split);
+                          : sortedActiveValueSplits.map(s => ({ ...s, calculatedAmount: 0 }));
 
                         return (
                           <div className="flex flex-col gap-1">

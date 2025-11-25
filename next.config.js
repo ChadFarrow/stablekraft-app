@@ -526,6 +526,20 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Fountain.fm podcast feed images
+      {
+        protocol: 'https',
+        hostname: 'feeds.fountain.fm',
+        port: '',
+        pathname: '/**',
+      },
+      // Podhome.fm podcast assets
+      {
+        protocol: 'https',
+        hostname: 'assets.podhome.fm',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 

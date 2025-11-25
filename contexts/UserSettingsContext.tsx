@@ -10,6 +10,10 @@ export interface UserSettings {
   defaultBoostAmount?: number;
   defaultBoostName?: string;
 
+  // Auto-boost settings
+  autoBoostEnabled: boolean;   // Send boost automatically when track ends
+  autoBoostAmount: number;     // Amount in sats for auto-boosts
+
   // Future settings can be added here
   // theme?: 'light' | 'dark' | 'auto';
   // notifications?: boolean;
@@ -26,6 +30,8 @@ const defaultSettings: UserSettings = {
   nip38AutoStatus: false, // Default to disabled (opt-in)
   defaultBoostAmount: 21, // Default boost amount in sats
   defaultBoostName: '', // Default boost name (empty, will use "StableKraft.app user" as fallback)
+  autoBoostEnabled: false, // Default to disabled (opt-in)
+  autoBoostAmount: 50, // Default auto-boost amount in sats
 };
 
 const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);

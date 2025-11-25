@@ -7,6 +7,7 @@
 import { Event } from 'nostr-tools';
 import { EventTemplate } from './events';
 import { RelayManager, getDefaultRelays } from './relay';
+import { getUserWriteRelays } from './nip65';
 
 export interface UserStatusOptions {
   trackTitle?: string;
@@ -144,8 +145,8 @@ export async function publishUserStatus(
     // Sign event using unified signer
     const signedEvent = await signer.signEvent(template as any);
 
-    // Publish to relays
-    const relayUrls = relays || getDefaultRelays();
+    // Publish to relays - use user's write relays if available
+    const relayUrls = relays || getUserWriteRelays();
     const relayManager = new RelayManager();
 
     await Promise.all(
