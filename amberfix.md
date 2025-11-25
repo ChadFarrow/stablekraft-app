@@ -57,9 +57,12 @@ The core issue was being too aggressive about clearing connections when encounte
 
 ## Testing Status
 
-- ✅ **Web (Firefox)**: Tested and working - boosts post successfully
-- ✅ **Android (Amber)**: Tested and working - boosts post successfully
-- ✅ **bunker:// URI**: Tested and working - Amber receives notifications and login completes
+- ✅ **Web (Alby extension)**: Tested and working - NIP-07 signing works
+- ✅ **Android (Amber)**: Tested and working - bunker:// connections work
+- ✅ **iOS (Aegis)**: Tested and working - bunker:// connections work
+- ✅ **iOS Safari (Nostore)**: Tested and working - NIP-07 extension works
+- ✅ **bunker:// URI**: Tested and working - both Amber and Aegis receive notifications and login completes
 
-Both platforms confirmed working as of the fixes.
+All NIP-46 bunker:// signers confirmed working on both Android and iOS.
+NIP-07 browser extensions working on desktop and iOS Safari.
 
