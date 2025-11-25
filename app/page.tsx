@@ -1017,10 +1017,41 @@ function HomePageContent() {
   const playAlbum = async (album: RSSAlbum, e: React.MouseEvent | React.TouchEvent) => {
     // Only prevent default/propagation for the play button, not the entire card
     e.stopPropagation();
-    
+
+    // Check if this is a playlist card with no tracks (from playlists-fast API)
+    // Playlist feedIds end with '-playlist' (e.g., 'hgh-playlist', 'b4ts-playlist')
+    const isPlaylistCard = album.feedId?.endsWith('-playlist');
+    const hasNoPlayableTracks = !album.tracks.length || !album.tracks.some(track => track.url);
+
+    // If it's a playlist card with no tracks, fetch full data from individual API
+    if (isPlaylistCard && hasNoPlayableTracks) {
+      console.log('📥 Playlist card detected with no tracks, fetching full data...');
+      try {
+        // Extract playlist ID from feedId (e.g., 'hgh-playlist' -> 'hgh')
+        const playlistId = album.feedId?.replace('-playlist', '');
+        const response = await fetch(`/api/playlist/${playlistId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.albums?.[0]?.tracks?.length > 0) {
+            // Use the full album data with tracks
+            album = {
+              ...album,
+              tracks: data.albums[0].tracks.map((track: any) => ({
+                ...track,
+                url: track.url || track.audioUrl // Ensure url field is set
+              }))
+            };
+            console.log(`✅ Fetched ${album.tracks.length} tracks for playlist`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch playlist tracks:', error);
+      }
+    }
+
     // Find the first playable track
     const firstTrack = album.tracks.find(track => track.url);
-    
+
     if (!firstTrack || !firstTrack.url) {
       console.warn('Cannot play album: missing track');
       setError('No playable tracks found in this album');
