@@ -237,7 +237,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         paddingRight: 'env(safe-area-inset-right)'
       }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 pb-2">
+        <div className="relative flex items-center justify-between p-4 pb-2">
           <button
             onClick={() => {
               if (onClose) {
@@ -246,11 +246,12 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 setFullscreenMode(false);
               }
             }}
-            className="p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+            className="p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200 z-10"
           >
             <ChevronDown className="w-6 h-6" />
           </button>
 
+          {/* Playing from button - absolutely centered */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -264,7 +265,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
               router.push(albumUrl);
             }}
-            className="text-center rounded-lg py-2 px-4 max-w-xs mx-auto cursor-pointer hover:bg-black/50 active:scale-95 transition-all duration-200 relative z-10"
+            className="absolute left-1/2 -translate-x-1/2 text-center rounded-lg py-2 px-4 max-w-xs cursor-pointer hover:bg-black/50 active:scale-95 transition-all duration-200 z-10"
             style={{
               backgroundColor: 'rgba(0,0,0,0.4)',
               backdropFilter: 'blur(8px)',

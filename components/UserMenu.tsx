@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useNostr } from '@/contexts/NostrContext';
 import { useBitcoinConnect } from '@/components/Lightning/BitcoinConnectProvider';
+import { useAudio } from '@/contexts/AudioContext';
 import Link from 'next/link';
 import { Menu, Zap, Settings, LogOut, User, Wallet, Info } from 'lucide-react';
 
@@ -27,6 +28,7 @@ interface UserMenuProps {
 export default function UserMenu({ className = '' }: UserMenuProps) {
   const { user, isAuthenticated, logout } = useNostr();
   const { isConnected, connect, disconnect, isLoading } = useBitcoinConnect();
+  const { setFullscreenMode } = useAudio();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -213,7 +215,7 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
                 <div className="space-y-2">
                   <Link
                     href="/settings"
-                    onClick={() => setShowDropdown(false)}
+                    onClick={() => { setShowDropdown(false); setFullscreenMode(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     <Settings className="w-4 h-4" />
@@ -222,7 +224,7 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
 
                   <Link
                     href="/about"
-                    onClick={() => setShowDropdown(false)}
+                    onClick={() => { setShowDropdown(false); setFullscreenMode(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     <Info className="w-4 h-4" />

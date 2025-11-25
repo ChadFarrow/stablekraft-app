@@ -1381,7 +1381,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         onClose();
         // Preserve wallet connection before reload (Android fix)
         await preserveWalletConnection();
-        window.location.reload(); // Refresh to update context
+        // Small delay to let UI update before reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } else {
         throw new Error(loginData.error || 'Login failed');
       }
