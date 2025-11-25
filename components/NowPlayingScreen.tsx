@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAudio } from '@/contexts/AudioContext';
-import { SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap } from 'lucide-react';
+import { SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap, Share2 } from 'lucide-react';
+import { toast } from '@/components/Toast';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
@@ -515,6 +516,56 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Share Button - Bottom-left of screen */}
+      <div
+        className="absolute bottom-4 left-4 z-20"
+        style={{
+          bottom: 'max(env(safe-area-inset-bottom), 16px)',
+          left: 'max(env(safe-area-inset-left), 16px)'
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <button
+          onClick={async () => {
+            try {
+              const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
+              const shareUrl = `${window.location.origin}${albumUrl}`;
+
+              // Try native share first (mobile)
+              if (navigator.share) {
+                await navigator.share({
+                  title: currentTrack.title,
+                  text: `${currentTrack.title} by ${currentTrack.artist || currentPlayingAlbum.artist}`,
+                  url: shareUrl,
+                });
+              } else {
+                // Fallback to clipboard
+                await navigator.clipboard.writeText(shareUrl);
+              }
+            } catch (error) {
+              // User cancelled share or error
+              if ((error as Error).name !== 'AbortError') {
+                toast.error('Failed to share');
+              }
+            }
+          }}
+          className="p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            color: '#ffffff',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+          }}
+          title="Share this track"
+        >
+          <Share2 className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Boost Modal */}
