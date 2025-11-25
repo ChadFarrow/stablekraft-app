@@ -729,8 +729,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           (currentMediaElement as HTMLAudioElement).volume = 0.8;
         }
         
-        // Wait a bit for the media to load before attempting to play
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait briefly for media to load before playing
+        // Reduced from 100ms to 10ms to prevent iOS from releasing audio session
+        // in background playback. HLS streams may need slightly longer but seamless
+        // playback handles track transitions anyway.
+        await new Promise(resolve => setTimeout(resolve, 10));
         
         // Ensure media is not muted for playback
         currentMediaElement.muted = false;
@@ -800,8 +803,45 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     
     // Clear retry flag
     isRetryingRef.current = false;
-    
+
     return false; // All attempts failed
+  };
+
+  // Seamless playback for track transitions - keeps iOS audio session warm
+  // by directly swapping source without pause/clear/delay
+  const attemptSeamlessPlayback = async (audioUrl: string, context: string): Promise<boolean> => {
+    const isVideo = isVideoUrl(audioUrl);
+    const currentElement = isVideo ? videoRef.current : audioRef.current;
+
+    if (!currentElement) {
+      console.warn('⚠️ No media element for seamless playback');
+      return false;
+    }
+
+    // Upgrade HTTP to HTTPS
+    let secureUrl = audioUrl.startsWith('http://')
+      ? audioUrl.replace(/^http:/, 'https:')
+      : audioUrl;
+
+    try {
+      console.log(`🔄 Attempting seamless playback: ${context}`);
+
+      // Direct source swap - no pause, no clearing, no delay
+      // This keeps the audio session "warm" on iOS
+      currentElement.src = secureUrl;
+
+      // Attempt immediate play
+      const playPromise = currentElement.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        console.log(`✅ Seamless playback started: ${context}`);
+        return true;
+      }
+      return true;
+    } catch (error) {
+      console.warn(`⚠️ Seamless playback failed, will fall back: ${error}`);
+      return false;
+    }
   };
 
   // Media event listeners
@@ -830,8 +870,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     };
 
     const handleEnded = async () => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎵 Track ended, attempting to play next track');
+      console.log('🎵 Track ended, attempting to play next track');
+
+      // CRITICAL for iOS PWA: Keep audio session warm by maintaining 'playing' state
+      // before triggering next track. This prevents iOS from releasing the audio session.
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.playbackState = 'playing';
       }
 
       try {
@@ -847,6 +891,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         console.error('❌ Error in auto-play:', error);
         // Don't let errors in auto-play crash the application
         setIsPlaying(false);
+        if ('mediaSession' in navigator && navigator.mediaSession) {
+          navigator.mediaSession.playbackState = 'paused';
+        }
       }
     };
 
@@ -1115,7 +1162,26 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     setShuffledPlaylist([]);
     setCurrentShuffleIndex(0);
 
-    // Try to play the track immediately
+    // Detect if this is a track transition (same album, different track while playing)
+    // This is critical for iOS PWA background playback
+    const isTrackTransition = currentPlayingAlbum?.id === album.id &&
+                               currentTrackIndex !== trackIndex &&
+                               isPlaying;
+
+    if (isTrackTransition) {
+      console.log('🔄 Track transition detected, using seamless playback for iOS');
+      // Try seamless playback first for iOS background compatibility
+      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Track transition');
+      if (seamlessSuccess) {
+        updateMediaSession(album, track);
+        console.log('✅ Seamless track transition successful');
+        return true;
+      }
+      // If seamless fails, fall through to normal playback
+      console.log('⚠️ Seamless playback failed, trying full playback');
+    }
+
+    // Try to play the track (full playback for fresh starts or fallback)
     const success = await attemptAudioPlayback(track.url, 'Album playback');
     if (success) {
       // Update media session for lockscreen display
@@ -1155,6 +1221,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     setCurrentTrackIndex(trackData.trackIndex);
     setCurrentShuffleIndex(index);
     setHasUserInteracted(true);
+
+    // In shuffle mode, if we're playing, use seamless playback for iOS background
+    if (isPlaying) {
+      console.log('🔄 Shuffle track transition, using seamless playback for iOS');
+      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Shuffle track transition');
+      if (seamlessSuccess) {
+        updateMediaSession(album, track);
+        console.log('✅ Seamless shuffle transition successful');
+        return true;
+      }
+      console.log('⚠️ Seamless playback failed, trying full playback');
+    }
 
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
     if (success) {
