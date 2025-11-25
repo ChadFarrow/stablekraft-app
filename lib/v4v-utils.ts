@@ -65,8 +65,8 @@ export function hasV4V(item: V4VItem | null | undefined): boolean {
  * Get the primary recipient address from v4v data
  * Prefers v4vValue recipients over v4vRecipient for consistency
  */
-export function getPrimaryRecipient(item: V4VItem | null | undefined): string | null {
-  if (!item) return null;
+export function getPrimaryRecipient(item: V4VItem | null | undefined): string | undefined {
+  if (!item) return undefined;
 
   // First try v4vValue for structured data
   if (item.v4vValue) {
@@ -85,7 +85,7 @@ export function getPrimaryRecipient(item: V4VItem | null | undefined): string | 
   }
 
   // Fall back to simple v4vRecipient
-  return item.v4vRecipient || null;
+  return item.v4vRecipient || undefined;
 }
 
 /**
