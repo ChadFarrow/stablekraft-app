@@ -133,7 +133,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     <>
     <Link 
       href={albumUrl}
-      className={`group relative bg-black/40 backdrop-blur-md rounded-xl border border-gray-700/50 overflow-hidden transition-all duration-300 hover:bg-black/50 hover:border-cyan-400/30 hover:scale-[1.02] active:scale-[0.98] block shadow-lg hover:shadow-xl hover:shadow-cyan-400/10 ${className}`}
+      className={`group relative bg-gray-900/95 rounded-xl border border-gray-700/50 overflow-hidden transition-all duration-300 hover:bg-gray-900 hover:border-cyan-400/30 hover:scale-[1.02] active:scale-[0.98] block shadow-lg hover:shadow-xl hover:shadow-cyan-400/10 ${className}`}
       onClick={(e) => {
         // Prevent navigation if user was scrolling
         if (shouldPreventClick()) {
@@ -238,7 +238,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
                 }, 150);
               }
             }}
-            className="w-16 h-16 md:w-12 md:h-12 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 touch-manipulation pointer-events-auto border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
+            className="w-16 h-16 md:w-12 md:h-12 bg-cyan-500/40 rounded-full flex items-center justify-center hover:bg-cyan-400/50 active:bg-cyan-400/60 transition-colors duration-200 touch-manipulation pointer-events-auto border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
@@ -251,7 +251,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
 
         {/* Track count badge or album count for publishers */}
         {((album.tracks?.length || 0) > 0 || isPublisherCard) && (
-          <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/80 backdrop-blur-sm rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white border border-gray-600">
+          <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/90 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white border border-gray-600">
             {isPublisherCard 
               ? `${(album as any).albumCount || 0} ${((album as any).albumCount || 0) !== 1 ? 'releases' : 'release'}`
               : `${album.tracks?.length || 0} ${(album.tracks?.length || 0) !== 1 ? 'tracks' : 'track'}`
@@ -270,7 +270,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
               e.stopPropagation();
             }}
           >
-            <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
+            <div className="bg-black/80 rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/90 transition-colors">
               <FavoriteButton
                 feedId={(album as any).feedId}
                 size={18}
@@ -282,7 +282,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
 
         {/* HGH Music badge - positioned below boost button if both exist */}
         {(album as any).isHGHMusic && (
-          <div className={`absolute ${((album as any).v4vRecipient || (album as any).v4vValue) ? 'top-10 sm:top-12' : 'top-1 sm:top-2'} left-1 sm:left-2 bg-green-600/90 backdrop-blur-sm rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50 z-10`}>
+          <div className={`absolute ${((album as any).v4vRecipient || (album as any).v4vValue) ? 'top-10 sm:top-12' : 'top-1 sm:top-2'} left-1 sm:left-2 bg-green-600 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50 z-10`}>
             HGH
           </div>
         )}
@@ -314,7 +314,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
                 e.stopPropagation();
                 setShowBoostModal(true);
               }}
-              className="w-8 h-8 sm:w-9 sm:h-9 bg-yellow-500/90 hover:bg-yellow-400 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-yellow-400/50 pointer-events-auto touch-manipulation"
+              className="w-8 h-8 sm:w-9 sm:h-9 bg-yellow-500 hover:bg-yellow-400 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-yellow-400/50 pointer-events-auto touch-manipulation"
               aria-label="Boost this album"
               title="Send a Lightning boost"
             >
@@ -325,7 +325,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
       </div>
 
       {/* Album Info */}
-      <div className="p-2 sm:p-3 bg-black/60 backdrop-blur-sm">
+      <div className="p-2 sm:p-3 bg-gray-900/95">
         <h3 className="font-bold text-white text-xs sm:text-sm leading-tight line-clamp-2 group-hover:text-cyan-400 transition-colors duration-200">
           {album.title}
         </h3>
