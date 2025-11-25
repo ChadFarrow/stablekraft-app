@@ -1631,11 +1631,24 @@ export class NIP46Client {
             }
             
             if (content.error) {
-              console.error('❌ NIP-46: Error in response:', content.error);
-              if ((pending as any).statusInterval) {
-                clearInterval((pending as any).statusInterval);
+              const errorMessage = content.error.message || content.error || '';
+              const errorStr = typeof errorMessage === 'string' ? errorMessage.toLowerCase() : String(errorMessage).toLowerCase();
+
+              // "already connected" is actually success for connect requests
+              // Amber returns this when the connection is already approved
+              if (pending.method === 'connect' && errorStr.includes('already connected')) {
+                console.log('✅ NIP-46: "already connected" response - treating as success for connect request');
+                if ((pending as any).statusInterval) {
+                  clearInterval((pending as any).statusInterval);
+                }
+                pending.resolve('ack'); // Treat as ACK
+              } else {
+                console.error('❌ NIP-46: Error in response:', content.error);
+                if ((pending as any).statusInterval) {
+                  clearInterval((pending as any).statusInterval);
+                }
+                pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
               }
-              pending.reject(new Error(`NIP-46 error: ${content.error.message || content.error} (code: ${content.error.code || 'unknown'})`));
             } else {
               console.log('✅ NIP-46: Resolving pending request:', {
                 id: content.id,
@@ -1688,15 +1701,16 @@ export class NIP46Client {
                 }
                 pending.reject(new Error('Response result is undefined - no signature received from signer'));
               } else {
-                // CRITICAL: For connect requests, if the result is "ack", don't resolve with "ack"
-                // Instead, wait for get_public_key to complete (handled separately)
+                // For connect requests with "ack" result, resolve immediately so authenticate() can proceed
                 if (pending.method === 'connect' && content.result === 'ack') {
-                  console.log('🔵 [NIP46Client] Connect request received "ack" - this will be handled by connection event handler, not resolving promise yet');
-                  // Don't resolve the promise - the connection event handler will call get_public_key
-                  // and we'll resolve the connect promise with the actual pubkey later
-                  return; // Don't resolve with "ack"
+                  console.log('✅ NIP-46: Connect request received "ack" - resolving to proceed with get_public_key');
+                  if ((pending as any).statusInterval) {
+                    clearInterval((pending as any).statusInterval);
+                  }
+                  pending.resolve('ack');
+                  return;
                 }
-                
+
                 // CRITICAL: For get_public_key requests, ONLY resolve if this is actually a get_public_key response
                 // Don't resolve get_public_key promises with connect responses
                 if (pending.method === 'get_public_key') {
@@ -1897,10 +1911,14 @@ export class NIP46Client {
       // Also check if we've already processed a connect response to avoid duplicate processing
       const hasUserPubkey = this.connection?.pubkey && this.connection.pubkey !== event.pubkey;
       const alreadyProcessedConnect = this.connection?.connected && this.connection.pubkey === event.pubkey;
-      if (isConnectResponse && !hasUserPubkey && !alreadyProcessedConnect) {
+
+      // Check if there's already a pending get_public_key request (authenticate() already sent one)
+      const hasPendingGetPublicKey = Array.from(this.pendingRequests.values()).some(req => req.method === 'get_public_key');
+
+      if (isConnectResponse && !hasUserPubkey && !alreadyProcessedConnect && !hasPendingGetPublicKey) {
         console.log(`[NIP46-CONNECT] Event #${this.eventCounter} - CONNECT response detected! Requesting public key...`);
         console.log('🔵 [NIP46Client] Connect response received, requesting public key from', event.pubkey.slice(0, 16) + '...');
-        
+
         // CRITICAL: Store Amber's pubkey from the connect response event so we can identify responses from Amber
         // This is Amber's pubkey (the signer who sent the connect response)
         if (this.connection) {
@@ -1908,7 +1926,7 @@ export class NIP46Client {
           this.connection.connected = true; // Mark as connected
           console.error(`[NIP46-CONNECT] Stored Amber's pubkey from connect response: ${event.pubkey.slice(0, 16)}...`);
         }
-        
+
         // Request public key and wait for it to complete
         // CRITICAL: We need to resolve any pending connect requests with the actual pubkey, not "ack"
         this.sendRequest('get_public_key', []).then((pubkey: string) => {
@@ -2016,6 +2034,9 @@ export class NIP46Client {
           }
         });
         return; // Don't process as regular connection event yet
+      } else if (isConnectResponse && hasPendingGetPublicKey) {
+        // authenticate() already sent get_public_key, skip duplicate request from event handler
+        console.log('ℹ️ NIP-46: Skipping duplicate get_public_key request (authenticate() already sent one)');
       }
       
       // Handle Amber get_public_key response - complete connection
@@ -2707,19 +2728,18 @@ export class NIP46Client {
         console.log('   - Encryption uses app pubkey as placeholder (signer may not decrypt, but should still respond)');
       }
       
-      // For 'connect' and 'get_public_key' without signer pubkey, don't tag with specific signer
-      // This allows Amber to find it by listening to all kind 24133 events
-      // Amber can then decrypt and check if it matches the connection token/secret
-      const pubkeyForRequest = (method === 'connect' || method === 'get_public_key') && !signerPubkey 
-        ? undefined  // No p tag - Amber finds it by listening to all events
-        : (signerPubkey || appPubkey);  // Use signer pubkey if available, otherwise app pubkey
-      
+      // Per NIP-46 spec and nostrify implementation:
+      // - ALWAYS tag events with signer pubkey when we have it (from bunker:// URI)
+      // - This is how Amber/signers find the requests meant for them
+      // - For bunker:// connections, signerPubkey comes from the URI itself
+      const pubkeyForRequest = signerPubkey;  // Tag with signer pubkey if we have it
+
       console.log('📋 NIP-46: Request details:', {
         method,
         hasSignerPubkey: !!signerPubkey,
-        usingPubkeyForRequest: pubkeyForRequest === signerPubkey ? 'signer' : (pubkeyForRequest === appPubkey ? 'app (placeholder)' : 'none (untagged)'),
+        usingPubkeyForRequest: pubkeyForRequest ? 'signer' : 'none (no p tag)',
         pubkeyForRequest: pubkeyForRequest ? pubkeyForRequest.slice(0, 16) + '...' : 'N/A (no p tag)',
-        note: !pubkeyForRequest ? 'Request will be published without p tag - Amber should find it by listening to all kind 24133 events' : undefined,
+        signerUrl: this.connection?.signerUrl?.slice(0, 50) + '...',
       });
 
       // For other methods, publish a request event and wait for response
@@ -3273,70 +3293,59 @@ export class NIP46Client {
     }
 
     // For bunker:// (remote-signer-initiated) connections
-    // The connection is already established by the signer (that's what the bunker:// URI represents)
-    // We should try to get the public key directly, not send a connect request
-    // The secret in the bunker:// URI is used for authentication in requests, not for connect
-    console.log('🔑 NIP-46: Bunker connection - attempting to get public key (connection already established by signer)...', {
+    // Per NIP-46 spec and nostrify implementation:
+    // 1. Send a 'connect' request with [appPubkey, secret] as params
+    // 2. Signer responds with 'ack' if secret matches
+    // 3. Then call 'get_public_key' to get user's npub
+    console.log('🔑 NIP-46: Bunker connection - sending connect request to signer...', {
       hasToken: !!this.connection.token,
       relayUrl: this.getRelayUrl(),
+      signerPubkey: (this.connection as any).signerPubkey?.slice(0, 16) + '...',
     });
-    
+
+    // Get app pubkey for connect request params
+    const { getOrCreateAppKeyPair } = await import('./nip46-storage');
+    const appKeyPair = getOrCreateAppKeyPair();
+    const appPubkey = appKeyPair.publicKey;
+
     try {
-      // Try to get the public key directly
-      // If we get "no permission", the user needs to approve the connection in Amber/Aegis first
-      const pubkey = await this.getPublicKey();
-      
-      if (this.connection) {
+      // Step 1: Send connect request with [appPubkey, secret]
+      // This is how the signer knows to show a notification to approve the connection
+      const connectParams = [appPubkey];
+      if (this.connection.token) {
+        connectParams.push(this.connection.token);
+      }
+
+      console.log('📤 NIP-46: Sending connect request with params:', {
+        appPubkey: appPubkey.slice(0, 16) + '...',
+        hasSecret: !!this.connection.token,
+      });
+
+      const connectResult = await this.sendRequest('connect', connectParams);
+      console.log('✅ NIP-46: Connect request acknowledged:', connectResult);
+
+      // Step 2: Get the user's public key
+      const pubkey = await this.sendRequest('get_public_key', []);
+      console.log('✅ NIP-46: Received user public key:', pubkey?.slice(0, 16) + '...');
+
+      if (this.connection && pubkey) {
         this.connection.pubkey = pubkey;
         this.connection.connected = true;
         this.connection.connectedAt = Date.now();
       }
-      
-      console.log('✅ NIP-46: Bunker connection authenticated, received pubkey:', pubkey ? pubkey.slice(0, 16) + '...' : 'N/A');
+
       return pubkey;
     } catch (error) {
-      // If get_public_key fails with "no permission", the signer hasn't approved yet
-      // For bunker:// connections, we should wait for the signer to send a connect event
-      // Don't try to send connect requests - the signer initiates the connection
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('no permission') || errorMessage.includes('permission')) {
-        console.log('⏳ NIP-46: Bunker connection - waiting for signer to approve and initiate connection...');
-        console.log('📱 NIP-46: Please approve the connection in Amber/Aegis. The signer will send a connect event.');
-        // Wait for the signer to send a connect event (up to 60 seconds)
-        const maxWaitTime = 60000; // 60 seconds
-        const checkInterval = 500; // Check every 500ms
-        const startTime = Date.now();
-        
-        while (!this.connection.pubkey && (Date.now() - startTime) < maxWaitTime) {
-          await new Promise(resolve => setTimeout(resolve, checkInterval));
-          
-          // Log progress every 10 seconds
-          const elapsed = Date.now() - startTime;
-          if (elapsed > 0 && elapsed % 10000 < checkInterval) {
-            console.log(`⏳ NIP-46: Still waiting for signer to approve connection... (${Math.floor(elapsed / 1000)}s)`);
-          }
-        }
-        
-        if (this.connection.pubkey) {
-          console.log('✅ NIP-46: Signer approved connection, received pubkey:', this.connection.pubkey.slice(0, 16) + '...');
-          return this.connection.pubkey;
-        }
-        
-        // If we still don't have a pubkey, throw an error
-        throw new Error(
-          'Connection not approved: Please approve the connection in Amber/Aegis first.\n' +
-          'The bunker:// connection requires approval in your signer app before it can be used.\n' +
-          'Make sure Amber/Aegis is connected to the relay: ' + this.getRelayUrl()
-        );
-      }
-      
-      // For other errors (not "no permission"), throw with helpful context
+
+      // Provide helpful error message
       throw new Error(
-        `Bunker connection failed: ${errorMessage}\n` +
+        `Bunker connection failed: ${errorMessage}\n\n` +
         'Please ensure:\n' +
-        '1. The connection is approved in Amber/Aegis\n' +
-        '2. Amber/Aegis is connected to the relay: ' + this.getRelayUrl() + '\n' +
-        '3. The secret in the bunker:// URI is correct'
+        '1. Amber app is open on your device\n' +
+        '2. Amber is connected to the relay: ' + this.getRelayUrl() + '\n' +
+        '3. Approve the connection request when it appears in Amber\n' +
+        '4. The secret in the bunker:// URI is correct'
       );
     }
   }
@@ -3359,19 +3368,41 @@ export class NIP46Client {
     // For relay-based connections, request the user's public key via relay
     if (!this.ws && this.relayClient) {
       console.log('🔑 NIP-46: Requesting user public key from signer via relay...');
-      // Request the public key via relay (this is the user's Nostr pubkey, not the signer app pubkey)
-      const pubkey = await this.sendRequest('get_public_key', []);
-      console.log('✅ NIP-46: Received user public key:', pubkey?.slice(0, 16) + '...');
+      
+      // For bunker:// connections, NEVER try connect as fallback
+      // The connection is already established by the signer
+      const isBunkerConnection = !!(this.connection as any)?.signerPubkey || 
+                                  (this.connection?.signerUrl && this.connection.signerUrl.startsWith('bunker://'));
+      
+      try {
+        // Request the public key via relay (this is the user's Nostr pubkey, not the signer app pubkey)
+        const pubkey = await this.sendRequest('get_public_key', []);
+        console.log('✅ NIP-46: Received user public key:', pubkey?.slice(0, 16) + '...');
 
-      // Store it in the connection
-      if (this.connection && pubkey) {
-        this.connection.pubkey = pubkey; // User's Nostr account pubkey
-        this.connection.connected = true;
-        if (!this.connection.connectedAt) {
-          this.connection.connectedAt = Date.now();
+        // Store it in the connection
+        if (this.connection && pubkey) {
+          this.connection.pubkey = pubkey; // User's Nostr account pubkey
+          this.connection.connected = true;
+          if (!this.connection.connectedAt) {
+            this.connection.connectedAt = Date.now();
+          }
         }
+        return pubkey;
+      } catch (error) {
+        // For bunker:// connections, do NOT try connect as fallback
+        // Just re-throw the error - the authenticate() method will handle it properly
+        if (isBunkerConnection) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // If it's a rate limit error, provide helpful message
+          if (errorMessage.includes('Rate limit') || errorMessage.includes('rate limit')) {
+            throw new Error(`Rate limit: Please wait before requesting public key again. For bunker:// connections, do not use connect as fallback - just wait for approval in Amber.`);
+          }
+          // Re-throw the original error
+          throw error;
+        }
+        // For non-bunker connections, re-throw (let caller handle fallback if needed)
+        throw error;
       }
-      return pubkey;
     }
 
     // For WebSocket connections, request it

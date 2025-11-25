@@ -1485,12 +1485,6 @@ export function BoostButton({
             {/* Nostr Status */}
             {LIGHTNING_CONFIG.features.nostrIntegration && isNostrAuthenticated && nostrUser && (trackId || feedId) && (
               <div className="mb-4">
-                {nostrStatus === 'connecting' && (
-                  <div className="p-3 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200 text-sm flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                    <span>Connecting to Nostr...</span>
-                  </div>
-                )}
                 {nostrStatus === 'signing' && (
                   <div className="p-3 bg-blue-900/50 border border-blue-700 rounded-lg text-blue-200 text-sm flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
