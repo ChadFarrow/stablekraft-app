@@ -307,23 +307,21 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               }}
             />
 
-            {/* Boost Button - Top-left corner overlay */}
-            {(currentTrack?.v4vRecipient || currentTrack?.v4vValue) && (
-              <button
-                onClick={() => setShowBoostModal(true)}
-                className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg z-20"
-                style={{
-                  backgroundColor: '#FBBF24', // Yellow color
-                  color: '#000000',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                }}
-                title="Send a boost"
-              >
-                <Zap className="w-6 h-6" fill="#000000" />
-              </button>
-            )}
+            {/* Boost Button - Top-left corner overlay - always show */}
+            <button
+              onClick={() => setShowBoostModal(true)}
+              className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg z-20"
+              style={{
+                backgroundColor: '#FBBF24', // Yellow color
+                color: '#000000',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              }}
+              title="Send a boost"
+            >
+              <Zap className="w-6 h-6" fill="#000000" />
+            </button>
 
             {/* Favorite Button - Top-right corner overlay */}
             {currentTrack?.id && (
