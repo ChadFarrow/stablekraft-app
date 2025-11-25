@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAudio } from '@/contexts/AudioContext';
-import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap } from 'lucide-react';
+import { X, SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap, MoreVertical, Disc, Share2, ListMusic, User } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { colorCache } from '@/lib/color-cache';
@@ -42,6 +43,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
   const [dominantColor, setDominantColor] = useState('#1A252F');
   const [contrastColors, setContrastColors] = useState({ backgroundColor: '#1A252F', textColor: '#ffffff' });
   const [showBoostModal, setShowBoostModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   const progressRef = useRef<HTMLDivElement>(null);
 
@@ -292,7 +294,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             </p>
           </button>
 
-          <div className="w-10" /> {/* Spacer for center alignment */}
+          {/* Menu Button */}
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+          >
+            <MoreVertical className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Album Art */}
@@ -505,6 +513,100 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           </div>
         </div>
       </div>
+
+      {/* Menu Dropdown */}
+      {showMenu && typeof window !== 'undefined' && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0"
+            style={{ zIndex: 60 }}
+            onClick={() => setShowMenu(false)}
+          />
+
+          {/* Menu */}
+          <div
+            className="fixed right-4 bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+            style={{
+              zIndex: 61,
+              top: 'max(env(safe-area-inset-top), 40px)',
+              marginTop: '60px',
+              minWidth: '200px'
+            }}
+          >
+            <div className="py-2">
+              {/* Go to Album */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  if (onClose) onClose();
+                  else setFullscreenMode(false);
+                  const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
+                  router.push(albumUrl);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors"
+              >
+                <Disc className="w-5 h-5 text-gray-400" />
+                <span>Go to Album</span>
+              </button>
+
+              {/* Go to Artist */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  if (onClose) onClose();
+                  else setFullscreenMode(false);
+                  router.push(`/search?q=${encodeURIComponent(currentPlayingAlbum.artist || '')}`);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors"
+              >
+                <User className="w-5 h-5 text-gray-400" />
+                <span>Search Artist</span>
+              </button>
+
+              {/* View Queue */}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  // TODO: Implement queue view
+                  console.log('View queue - not yet implemented');
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors"
+              >
+                <ListMusic className="w-5 h-5 text-gray-400" />
+                <span>View Queue</span>
+              </button>
+
+              {/* Share */}
+              <button
+                onClick={async () => {
+                  setShowMenu(false);
+                  const albumUrl = `${window.location.origin}${generateAlbumUrl(currentPlayingAlbum.title)}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: currentTrack?.title || currentPlayingAlbum.title,
+                        text: `Listen to ${currentTrack?.title || currentPlayingAlbum.title} by ${currentPlayingAlbum.artist}`,
+                        url: albumUrl
+                      });
+                    } catch (e) {
+                      // User cancelled or share failed
+                    }
+                  } else {
+                    await navigator.clipboard.writeText(albumUrl);
+                    alert('Link copied to clipboard!');
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-white/10 transition-colors"
+              >
+                <Share2 className="w-5 h-5 text-gray-400" />
+                <span>Share</span>
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Boost Modal */}
       {showBoostModal && currentTrack && (
