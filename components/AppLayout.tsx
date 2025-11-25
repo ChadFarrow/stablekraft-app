@@ -2,6 +2,7 @@
 
 import React, { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
+import ShareLinkButton from './ShareLinkButton';
 
 // Dynamically import UserMenu to avoid SSR issues
 const UserMenu = dynamic(() => import('./UserMenu'), {
@@ -22,6 +23,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <div className="fixed top-4 right-4 z-40">
         <UserMenu className="bg-gray-900/80 backdrop-blur-sm" />
       </div>
+
+      {/* Share Link Button - Bottom Left */}
+      <ShareLinkButton />
 
       {children}
     </>
