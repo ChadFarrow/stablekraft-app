@@ -1,4 +1,5 @@
 import { finalizeEvent, Event, EventTemplate as NostrEventTemplate } from 'nostr-tools';
+import { hexToBytes } from './keys';
 
 // Use numeric constants instead of importing from kinds to avoid module resolution issues
 const ShortTextNote = 1;
@@ -15,17 +16,6 @@ export interface EventTemplate {
   tags: string[][];
   content: string;
   created_at: number;
-}
-
-/**
- * Convert hex string to Uint8Array
- */
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return bytes;
 }
 
 /**

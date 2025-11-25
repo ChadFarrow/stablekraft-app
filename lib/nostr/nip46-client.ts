@@ -10,18 +10,7 @@ import { nip44 } from 'nostr-tools';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
 import { saveNIP46Connection, loadNIP46Connection, getOrCreateAppKeyPair, clearNIP46Connection, NIP46Connection, getAppKeyPairHistory, AppKeyPair } from './nip46-storage';
-import { npubToPublicKey, publicKeyToNpub } from './keys';
-
-/**
- * Convert hex string to Uint8Array
- */
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return bytes;
-}
+import { npubToPublicKey, publicKeyToNpub, hexToBytes } from './keys';
 
 /**
  * Parse bunker:// URI to extract connection information
