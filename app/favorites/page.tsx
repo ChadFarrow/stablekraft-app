@@ -594,9 +594,9 @@ export default function FavoritesPage() {
                     feedId: album.id, // Use album.id as feedId for lookup
                     type: album.type,
                     // V4V data for boost button
-                    v4vValue: album.v4vValue,
-                    v4vRecipient: album.v4vRecipient,
-                    feedUrl: album.originalUrl,
+                    v4vValue: album.v4vValue || undefined,
+                    v4vRecipient: album.v4vRecipient || undefined,
+                    feedUrl: album.originalUrl || undefined,
                     // Store original album data for better lookup
                     originalAlbum: album
                   };
