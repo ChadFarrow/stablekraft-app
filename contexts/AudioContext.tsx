@@ -1411,6 +1411,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }> = [];
 
     albums.forEach(album => {
+      // Skip playlist albums from global shuffle (playlists have feedId ending with '-playlist')
+      if (album.feedId?.endsWith('-playlist')) {
+        return;
+      }
       if (album.tracks && album.tracks.length > 0) {
         album.tracks.forEach((track, trackIndex) => {
           allTracks.push({
