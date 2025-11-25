@@ -66,14 +66,13 @@ export async function POST(request: NextRequest) {
       batch: batch.length
     };
 
-    console.log(`🎨 Processing batch of ${batch.length} images...`);
+    console.log(`🎨 Processing batch of ${batch.length} images in parallel...`);
 
-    for (const imageUrl of batch) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+
+    // Process all images in parallel
+    const processPromises = batch.map(async (imageUrl) => {
       try {
-        console.log(`🎨 Processing: ${imageUrl}`);
-
-        // Call our own API to process the color
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
         const response = await fetch(`${baseUrl}/api/artwork-colors`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -86,23 +85,22 @@ export async function POST(request: NextRequest) {
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            results.processed++;
-            console.log(`✅ Processed: ${imageUrl}`);
-          } else {
-            results.failed++;
-            console.log(`❌ Failed: ${imageUrl} - ${result.error}`);
+            return { success: true, imageUrl };
           }
-        } else {
-          results.failed++;
-          console.log(`❌ Failed: ${imageUrl} - HTTP ${response.status}`);
         }
-
-        // Small delay between requests to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 100));
-
+        return { success: false, imageUrl };
       } catch (error) {
+        return { success: false, imageUrl, error };
+      }
+    });
+
+    const batchResults = await Promise.all(processPromises);
+
+    for (const result of batchResults) {
+      if (result.success) {
+        results.processed++;
+      } else {
         results.failed++;
-        console.error(`❌ Error processing ${imageUrl}:`, error);
       }
     }
 
