@@ -155,12 +155,30 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
     const feed = data.feed || (data.feeds && data.feeds[0]);
 
     if (data.status === 'true' && feed && feed.url) {
-      console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
+      let finalFeed = feed;
+
+      // For behindthesch3m3s.com feeds, always check for newer Podcast Index entries
+      // This handles cases where feeds were re-indexed with different URLs (URL encoding)
+      if (feed.url.includes('behindthesch3m3s.com')) {
+        try {
+          const { getFeedByUrlPreferNewest } = await import('./podcast-index-api');
+          const newestFeed = await getFeedByUrlPreferNewest(feed.url);
+
+          if (newestFeed && newestFeed.id !== feed.id) {
+            console.log(`🔄 Using newer Podcast Index entry for ${feed.title}: ID ${newestFeed.id} vs ${feed.id}`);
+            finalFeed = newestFeed;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not check for newer feed entry: ${error}`);
+        }
+      }
+
+      console.log(`✅ Resolved feed GUID ${feedGuid} to: ${finalFeed.title} - ${finalFeed.url}`);
       return {
-        url: feed.url,
-        title: feed.title || 'Unknown Feed',
-        artist: feed.author || feed.ownerName || 'Unknown Artist',
-        image: feed.artwork || feed.image || ''
+        url: finalFeed.url,
+        title: finalFeed.title || 'Unknown Feed',
+        artist: finalFeed.author || finalFeed.ownerName || 'Unknown Artist',
+        image: finalFeed.artwork || finalFeed.image || ''
       };
     } else {
       if (feed && !feed.url) {
