@@ -11,6 +11,7 @@ import { generateAlbumUrl } from '@/lib/url-utils';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
 
 interface AlbumCardProps {
   album: RSSAlbum;
@@ -111,7 +112,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
     return { isPlaylistCard, isPublisherCard, albumUrl };
   }, [album.title, album.id, (album as any).isPlaylistCard, (album as any).playlistUrl, (album as any).isPublisherCard, (album as any).publisherUrl]);
 
-  const hasV4V = !!((album as any).v4vRecipient || (album as any).v4vValue);
+  const hasV4V = checkHasV4V(album as any);
   
   // Debug: Log album data for first few albums to see what fields are available
   if (typeof window !== 'undefined' && Math.random() < 0.1) {  // ~10% of albums
@@ -282,13 +283,13 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
 
         {/* HGH Music badge - positioned below boost button if both exist */}
         {(album as any).isHGHMusic && (
-          <div className={`absolute ${((album as any).v4vRecipient || (album as any).v4vValue) ? 'top-10 sm:top-12' : 'top-1 sm:top-2'} left-1 sm:left-2 bg-green-600 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50 z-10`}>
+          <div className={`absolute ${hasV4V ? 'top-10 sm:top-12' : 'top-1 sm:top-2'} left-1 sm:left-2 bg-green-600 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white font-semibold border border-green-500/50 z-10`}>
             HGH
           </div>
         )}
 
         {/* Boost Button - Lightning bolt in top-left corner */}
-        {((album as any).v4vRecipient || (album as any).v4vValue) && (
+        {hasV4V && (
           <div
             className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20"
             onClick={(e) => {

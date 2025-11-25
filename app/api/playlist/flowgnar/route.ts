@@ -60,7 +60,9 @@ export async function GET() {
         endTime: track.endTime,
         publishedAt: track.publishedAt?.toISOString(),
         feedTitle: track.Feed.title,
-        position: pt.position
+        position: pt.position,
+        v4vRecipient: track.v4vRecipient,
+        v4vValue: track.v4vValue
       };
     }).filter(Boolean); // Remove null entries
 

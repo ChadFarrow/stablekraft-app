@@ -8,7 +8,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
-import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface BoostButtonProps {
@@ -168,6 +168,9 @@ export function BoostButton({
 
   // Use fetched value splits if available, otherwise use prop value splits
   const activeValueSplits = fetchedValueSplits.length > 0 ? fetchedValueSplits : valueSplits;
+
+  // Check if valid V4V payment info exists
+  const hasValidV4V = (activeValueSplits && activeValueSplits.length > 0) || !!lightningAddress;
 
   // Don't render on server-side
   if (!isClient) {
@@ -1409,14 +1412,15 @@ export function BoostButton({
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-yellow-400">
-                        <Zap className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                      <div className="flex items-center gap-2 text-red-400">
+                        <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
                         <span className="flex-1">
-                          {customAmount && parseInt(customAmount) > 0
-                            ? `Sending ${customAmount} sats to StableKraft Platform`
-                            : 'Sending to StableKraft Platform'}
+                          No V4V payment info available for this track
                         </span>
                       </div>
+                      <p className="text-xs text-gray-400">
+                        This track is missing Value4Value payment configuration. Boosting is not available.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1519,13 +1523,18 @@ export function BoostButton({
               </button>
               <button
                 onClick={sendBoost}
-                disabled={isSending || !customAmount || parseInt(customAmount) < 1}
+                disabled={isSending || !customAmount || parseInt(customAmount) < 1 || !hasValidV4V}
                 className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-700 disabled:text-gray-500 text-black rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
               >
                 {isSending ? (
                   <>
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                     <span>Sending...</span>
+                  </>
+                ) : !hasValidV4V ? (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>No V4V Info</span>
                   </>
                 ) : (
                   <>

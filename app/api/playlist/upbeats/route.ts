@@ -294,6 +294,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
           feedId: track.Feed.id,
           guid: track.guid,
           v4vRecipient: track.v4vRecipient, // Include V4V payment data
+          v4vValue: track.v4vValue, // Include full V4V value splits for BoostButton
           // Add playlist context
           playlistContext: {
             feedGuid: remoteItem.feedGuid,

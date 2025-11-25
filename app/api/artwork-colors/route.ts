@@ -256,14 +256,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Remove a color entry (for debugging/reprocessing)
+// DELETE: Remove color entries (for debugging/reprocessing)
+// Use ?all=true to delete all entries, or ?imageUrl=<url> for single entry
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const imageUrl = searchParams.get('imageUrl');
+    const deleteAll = searchParams.get('all') === 'true';
+
+    // Delete all entries if ?all=true
+    if (deleteAll) {
+      const result = await prisma.artworkColor.deleteMany({});
+      console.log(`🗑️ Deleted all ${result.count} artwork color entries`);
+      return NextResponse.json({
+        success: true,
+        message: `Deleted all artwork color entries`,
+        deleted: result.count
+      });
+    }
 
     if (!imageUrl) {
-      return NextResponse.json({ error: 'imageUrl parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'imageUrl parameter is required (or use ?all=true to delete all)' }, { status: 400 });
     }
 
     await prisma.artworkColor.delete({

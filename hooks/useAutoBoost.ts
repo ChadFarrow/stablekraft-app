@@ -6,6 +6,7 @@ import { useUserSettings } from '@/contexts/UserSettingsContext';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
 import { ValueRecipient } from '@/lib/lightning/value-parser';
 import { toast } from '@/components/Toast';
+import { hasV4V as checkHasV4V, getV4VRecipients, getPrimaryRecipient } from '@/lib/v4v-utils';
 
 interface TrackInfo {
   id?: string;
@@ -57,8 +58,7 @@ export function useAutoBoost() {
     }
 
     // Check if track has V4V data
-    const hasV4V = track.v4vValue || track.v4vRecipient;
-    if (!hasV4V) {
+    if (!checkHasV4V(track)) {
       console.log('⚡ Auto-boost skipped: no V4V data for track');
       return { success: false, error: 'No V4V data' };
     }
@@ -107,15 +107,14 @@ export function useAutoBoost() {
       let result: { preimage?: string; error?: string } | null = null;
 
       // Check if we have value splits (multiple recipients)
-      if (track.v4vValue?.recipients && Array.isArray(track.v4vValue.recipients) && track.v4vValue.recipients.length > 0) {
+      const v4vRecipients = getV4VRecipients(track);
+      if (v4vRecipients.length > 0) {
         // Multi-recipient payment via value splits
-        const recipients: ValueRecipient[] = track.v4vValue.recipients.map((r: any) => ({
+        const recipients: ValueRecipient[] = v4vRecipients.map((r) => ({
           name: r.name || 'Unknown',
           type: r.type === 'lnaddress' ? 'lnaddress' : 'node',
           address: r.address,
           split: r.split || 100,
-          customKey: r.customKey,
-          customValue: r.customValue,
         }));
 
         console.log(`⚡ Auto-boost: sending to ${recipients.length} recipients`);
@@ -134,10 +133,13 @@ export function useAutoBoost() {
         } else {
           result = { error: multiResult.errors.join(', ') };
         }
-      } else if (track.v4vRecipient) {
-        // Single recipient keysend
-        console.log(`⚡ Auto-boost: sending to single recipient ${track.v4vRecipient}`);
-        result = await sendKeysend(track.v4vRecipient, boostAmount, undefined, helipadMetadata);
+      } else {
+        // Single recipient keysend (fallback to v4vRecipient)
+        const primaryRecipient = getPrimaryRecipient(track);
+        if (primaryRecipient) {
+          console.log(`⚡ Auto-boost: sending to single recipient ${primaryRecipient}`);
+          result = await sendKeysend(primaryRecipient, boostAmount, undefined, helipadMetadata);
+        }
       }
 
       if (result?.preimage) {
@@ -156,7 +158,7 @@ export function useAutoBoost() {
               senderName: settings.defaultBoostName || 'StableKraft.app user',
               preimage: result.preimage,
               type: 'auto', // Mark as auto-boost
-              recipient: track.v4vRecipient || 'value-splits'
+              recipient: getPrimaryRecipient(track) || 'value-splits'
             })
           });
         } catch (logError) {

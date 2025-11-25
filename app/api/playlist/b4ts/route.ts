@@ -249,7 +249,9 @@ export async function GET(request: NextRequest) {
           description: dbTrack.description || `${dbTrack.title} by ${dbTrack.artist || dbTrack.feed?.title} - Featured in B4TS podcast`,
           albumTitle: dbTrack.feed?.title || 'Unknown Album',
           feedTitle: dbTrack.feed?.title || 'Unknown Feed',
-          guid: dbTrack.guid
+          guid: dbTrack.guid,
+          v4vRecipient: dbTrack.v4vRecipient,
+          v4vValue: dbTrack.v4vValue
         };
       }
 

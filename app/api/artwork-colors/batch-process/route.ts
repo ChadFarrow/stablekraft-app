@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { batchSize = 10, forceReprocess = false } = await request.json();
+    const { batchSize = 10, forceReprocess = false, delayMs = 500 } = await request.json();
 
-    console.log('🎨 Starting batch artwork color processing...');
+    console.log(`🎨 Starting batch artwork color processing (batchSize: ${batchSize}, delay: ${delayMs}ms)...`);
 
     // Get all unique artwork URLs from feeds and tracks
     const feedImages = await prisma.feed.findMany({
@@ -66,12 +66,13 @@ export async function POST(request: NextRequest) {
       batch: batch.length
     };
 
-    console.log(`🎨 Processing batch of ${batch.length} images in parallel...`);
+    console.log(`🎨 Processing batch of ${batch.length} images sequentially with ${delayMs}ms delay...`);
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
 
-    // Process all images in parallel
-    const processPromises = batch.map(async (imageUrl) => {
+    // Process images sequentially with delay to prevent overwhelming the server
+    for (let i = 0; i < batch.length; i++) {
+      const imageUrl = batch[i];
       try {
         const response = await fetch(`${baseUrl}/api/artwork-colors`, {
           method: 'POST',
@@ -85,22 +86,24 @@ export async function POST(request: NextRequest) {
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            return { success: true, imageUrl };
+            results.processed++;
+            console.log(`✅ [${i + 1}/${batch.length}] Processed: ${imageUrl.substring(0, 60)}...`);
+          } else {
+            results.failed++;
+            console.log(`⚠️ [${i + 1}/${batch.length}] Failed: ${imageUrl.substring(0, 60)}...`);
           }
+        } else {
+          results.failed++;
+          console.log(`❌ [${i + 1}/${batch.length}] HTTP error: ${imageUrl.substring(0, 60)}...`);
         }
-        return { success: false, imageUrl };
       } catch (error) {
-        return { success: false, imageUrl, error };
-      }
-    });
-
-    const batchResults = await Promise.all(processPromises);
-
-    for (const result of batchResults) {
-      if (result.success) {
-        results.processed++;
-      } else {
         results.failed++;
+        console.log(`❌ [${i + 1}/${batch.length}] Error: ${imageUrl.substring(0, 60)}...`);
+      }
+
+      // Add delay between requests (except after the last one)
+      if (delayMs > 0 && i < batch.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
 

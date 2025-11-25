@@ -15,6 +15,7 @@ import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import ShareButton from '@/components/Nostr/ShareButton';
+import { hasV4V as checkHasV4V, formatValueSplitsForBoost, getPrimaryRecipient } from '@/lib/v4v-utils';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -844,20 +845,15 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             {/* Lightning Boost and Funding Information */}
             <div className="space-y-4">
               {/* Lightning Boost Button - only show if v4v data exists */}
-              {(album.v4vRecipient || (album.v4vValue?.recipients?.length > 0 || album.v4vValue?.destinations?.length > 0)) ? (
+              {checkHasV4V(album) ? (
                 <div className="flex justify-center lg:justify-start">
                   <BoostButton
                     trackId={`album-${album.id}`}
                     feedId={album.feedId}
                     trackTitle={album.title}
                     artistName={album.artist}
-                    lightningAddress={album.v4vRecipient}
-                    valueSplits={(album.v4vValue?.recipients || album.v4vValue?.destinations) ? (album.v4vValue.recipients || album.v4vValue.destinations).map((recipient: any) => ({
-                      name: recipient.name || album.artist,
-                      address: recipient.address || '',
-                      split: parseInt(recipient.split) || 100,
-                      type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
-                    })) : undefined}
+                    lightningAddress={getPrimaryRecipient(album)}
+                    valueSplits={formatValueSplitsForBoost(album, album.artist)}
                     publisherGuid={album.publisher?.feedGuid}
                     publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
                     className="flex items-center gap-2 px-6 py-3 text-base"
@@ -1066,8 +1062,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         </div>
                       )}
 
-                      {/* Boost Button - only show if v4v data exists */}
-                      {(track.v4vRecipient || album.v4vRecipient || (track.v4vValue?.recipients?.length > 0 || album.v4vValue?.recipients?.length > 0)) && (
+                      {/* Boost Button - only show if v4v data exists (track or album level) */}
+                      {(checkHasV4V(track) || checkHasV4V(album)) && (
                         <div onClick={(e) => e.stopPropagation()}>
                           <BoostButton
                             key={track.guid || track.url || `boost-${track.title}-${displayIndex}`}
@@ -1075,18 +1071,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                             feedId={album.feedId}
                             trackTitle={track.title}
                             artistName={album.artist}
-                            valueSplits={(() => {
-                              const trackRecipients = track.v4vValue?.recipients || track.v4vValue?.destinations;
-                              const albumRecipients = album.v4vValue?.recipients || album.v4vValue?.destinations;
-                              const recipients = trackRecipients || albumRecipients;
-                              return recipients ? recipients.map((recipient: any) => ({
-                                name: recipient.name || album.artist,
-                                address: recipient.address || '',
-                                split: parseInt(recipient.split) || 100,
-                                type: recipient.type === 'lnaddress' ? 'lnaddress' : 'node'
-                              })) : undefined;
-                            })()}
-                            lightningAddress={track.v4vRecipient || album.v4vRecipient}
+                            valueSplits={formatValueSplitsForBoost(track, album.artist) || formatValueSplitsForBoost(album, album.artist)}
+                            lightningAddress={getPrimaryRecipient(track) || getPrimaryRecipient(album)}
                             episodeGuid={track.v4vValue?.itemGuid || track.guid}
                             remoteFeedGuid={track.v4vValue?.feedGuid}
                             publisherGuid={album.publisher?.feedGuid}
