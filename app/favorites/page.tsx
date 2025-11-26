@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -89,7 +89,7 @@ interface CommunityFavorite {
   originalItemId: string;
 }
 
-export default function FavoritesPage() {
+function FavoritesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { sessionId, isLoading: sessionLoading } = useSession();
@@ -1458,3 +1458,10 @@ export default function FavoritesPage() {
   );
 }
 
+export default function FavoritesPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <FavoritesPageContent />
+    </Suspense>
+  );
+}
