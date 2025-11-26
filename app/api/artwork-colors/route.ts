@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
 
     // Convert relative URL to absolute for server-side processing
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
     const fullProxiedUrl = proxiedUrl.startsWith('/') ? `${baseUrl}${proxiedUrl}` : proxiedUrl;
 
     console.log('🎨 Extracting color from image:', fullProxiedUrl);
