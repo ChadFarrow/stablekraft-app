@@ -147,7 +147,9 @@ export async function GET(request: NextRequest) {
         });
 
         for (const track of tracksByGuidRaw) {
-          tracksMap.set(track.guid, track);
+          if (track.guid) {
+            tracksMap.set(track.guid, track);
+          }
         }
       }
     }
