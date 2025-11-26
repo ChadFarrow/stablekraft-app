@@ -281,6 +281,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
                   title: album.tracks[0].title,
                   artist: album.artist
                 } : undefined}
+                favoriteType={isPublisherCard ? 'publisher' : isPlaylistCard ? 'playlist' : 'album'}
               />
             </div>
           </div>

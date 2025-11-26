@@ -224,6 +224,7 @@ model FavoriteAlbum {
   sessionId    String?
   userId       String?
   feedId       String
+  type         String   @default("album")  // 'album', 'publisher', or 'playlist' - determines which favorites tab it appears in
   nostrEventId String?  // ID of the Nostr event published to relays
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)

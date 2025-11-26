@@ -58,21 +58,24 @@ export async function GET(request: NextRequest) {
     const feedsWithFavorites = favoriteAlbums.map(favorite => {
       const feed = feedMap.get(favorite.feedId);
       if (feed) {
-        // Feed exists in database - check if we need to resolve artist name from publisher mapping
+        // Feed exists in database
         let artistName = feed.artist;
-        let feedType = feed.type;
 
-        // Check if this is a known publisher (even if DB type says 'album')
-        const publisherInfo = getPublisherInfo(favorite.feedId);
-        if (publisherInfo) {
-          // This is a known publisher - ensure type is 'publisher'
-          feedType = 'publisher';
-          if (!artistName || artistName === 'Unknown Artist') {
-            artistName = publisherInfo.name ?? null;
+        // Use the stored favorite type - this determines which tab it appears in
+        // The type is set when the favorite is created based on where it was favorited from
+        // (publisher page -> 'publisher', album page -> 'album', etc.)
+        // For legacy favorites without a type, fall back to the Feed's type
+        const feedType = favorite.type || feed.type;
+
+        // Resolve artist name for display
+        if (!artistName || artistName === 'Unknown Artist') {
+          // Try to get artist name from publisher info for display purposes only
+          const publisherInfo = getPublisherInfo(favorite.feedId);
+          if (publisherInfo?.name) {
+            artistName = publisherInfo.name;
+          } else {
+            artistName = feed.title;
           }
-        } else if (!artistName || artistName === 'Unknown Artist') {
-          // Not a known publisher, just try to resolve artist name
-          artistName = feed.title;
         }
 
         return {
@@ -82,18 +85,20 @@ export async function GET(request: NextRequest) {
           favoritedAt: favorite.createdAt
         };
       } else {
-        // Feed doesn't exist (e.g., publisher not yet indexed)
-        // Try to resolve artist name from publisher mapping
+        // Feed doesn't exist (e.g., not yet indexed)
+        // Use the stored favorite type, or try to infer from publisher mapping
         const publisherInfo = getPublisherInfo(favorite.feedId);
         const resolvedTitle = publisherInfo?.name || favorite.feedId;
         const resolvedArtist = publisherInfo?.name ?? null;
 
-        // This will be populated below for publishers
+        // Use stored type, fall back to 'publisher' only if publisher info exists
+        const feedType = favorite.type || (publisherInfo ? 'publisher' : 'album');
+
         return {
           id: favorite.feedId,
           title: resolvedTitle,
           artist: resolvedArtist,
-          type: publisherInfo ? 'publisher' : null,
+          type: feedType,
           image: null as string | null, // Will be populated below
           itemCount: 0, // Will be populated below
           favoritedAt: favorite.createdAt,
@@ -185,7 +190,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { feedId, nostrEventId } = body;
+    const { feedId, nostrEventId, type } = body;
+    // Validate type if provided, default to 'album'
+    const favoriteType = ['album', 'publisher', 'playlist'].includes(type) ? type : 'album';
 
     if (!feedId || typeof feedId !== 'string') {
       return NextResponse.json(
@@ -267,6 +274,7 @@ export async function POST(request: NextRequest) {
         ...(userId ? { userId } : {}),
         ...(sessionId ? { sessionId } : {}),
         feedId,
+        type: favoriteType,
         ...(nostrEventId ? { nostrEventId } : {})
       }
     });

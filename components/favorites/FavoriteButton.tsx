@@ -22,6 +22,9 @@ interface FavoriteButtonProps {
     title?: string;    // For Nostr publishing
     artist?: string;   // For Nostr publishing
   };
+  // Determines which favorites tab the item appears in
+  // Only 'publisher' if favoriting from the publishers filter page
+  favoriteType?: 'album' | 'publisher' | 'playlist';
 }
 
 export default function FavoriteButton({
@@ -31,7 +34,8 @@ export default function FavoriteButton({
   size = 24,
   onToggle,
   isFavorite: initialIsFavorite,
-  singleTrackData
+  singleTrackData,
+  favoriteType = 'album'
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
   const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
@@ -201,7 +205,9 @@ export default function FavoriteButton({
           headers,
           body: JSON.stringify({
             [isTrack ? 'trackId' : 'feedId']: itemId,
-            ...(nostrEventId ? { nostrEventId } : {})
+            ...(nostrEventId ? { nostrEventId } : {}),
+            // Include type for album favorites to determine which tab it appears in
+            ...(!isTrack ? { type: favoriteType } : {})
           })
         });
 
