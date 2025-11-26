@@ -312,28 +312,24 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             />
 
             {/* Boost Button - Top-left corner overlay - always show */}
-            <div
-              className="absolute top-4 left-4 z-20"
+            <button
+              className="absolute top-4 left-4 z-20 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                setShowBoostModal(true);
               }}
+              style={{
+                backgroundColor: '#FBBF24', // Yellow color
+                color: '#000000',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              }}
+              title="Send a boost"
             >
-              <button
-                onClick={() => setShowBoostModal(true)}
-                className="p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
-                style={{
-                  backgroundColor: '#FBBF24', // Yellow color
-                  color: '#000000',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                }}
-                title="Send a boost"
-              >
-                <Zap className="w-6 h-6" fill="#000000" />
-              </button>
-            </div>
+              <Zap className="w-6 h-6" fill="#000000" />
+            </button>
 
             {/* Favorite Button - Top-right corner overlay */}
             {currentTrack?.id && (
@@ -417,8 +413,45 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Controls */}
-        <div className="px-8 pb-8">
-          {/* All Controls in Single Row */}
+        <div className="px-8 pb-4 relative">
+          {/* Share Button - Bottom left, floating */}
+          <button
+            onClick={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              try {
+                const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
+                const shareUrl = `${window.location.origin}${albumUrl}`;
+
+                // Try native share first (mobile)
+                if (navigator.share) {
+                  await navigator.share({
+                    title: currentTrack.title,
+                    text: `${currentTrack.title} by ${currentTrack.artist || currentPlayingAlbum.artist}`,
+                    url: shareUrl,
+                  });
+                } else {
+                  // Fallback to clipboard
+                  await navigator.clipboard.writeText(shareUrl);
+                }
+              } catch (error) {
+                // User cancelled share or error
+                if ((error as Error).name !== 'AbortError') {
+                  toast.error('Failed to share');
+                }
+              }
+            }}
+            className="absolute left-8 bottom-4 p-2 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation"
+            style={{
+              backgroundColor: `${contrastColors.textColor}15`,
+              color: `${contrastColors.textColor}90`
+            }}
+            title="Share this track"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+
+          {/* Center Controls */}
           <div className="flex items-center justify-center gap-4">
             {/* Shuffle Button */}
             <button
@@ -447,7 +480,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               <SkipBack className="w-6 h-6" />
             </button>
-            
+
             {/* Play/Pause Button */}
             <button
               onClick={isPlaying ? pause : resume}
@@ -463,7 +496,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 <Play className="w-8 h-8 ml-1" style={{ color: contrastColors.backgroundColor }} />
               )}
             </button>
-            
+
             {/* Next Button */}
             <button
               onClick={playNextTrack}
@@ -475,13 +508,13 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             >
               <SkipForward className="w-6 h-6" />
             </button>
-            
+
             {/* Repeat Button */}
             <button
               onClick={() => {
                 // Cycle through repeat modes: none -> all -> one -> none
-                const nextMode = repeatMode === 'none' ? 'all' : 
-                                repeatMode === 'all' ? 'one' : 
+                const nextMode = repeatMode === 'none' ? 'all' :
+                                repeatMode === 'all' ? 'one' :
                                 'none';
                 console.log('🔂 Fullscreen repeat button clicked:', { currentMode: repeatMode, nextMode });
                 setRepeatMode(nextMode);
@@ -489,21 +522,21 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               className="p-2 rounded-full transition-all duration-200 relative"
               style={{
                 backgroundColor: repeatMode !== 'none'
-                  ? `${contrastColors.textColor}30` 
+                  ? `${contrastColors.textColor}30`
                   : `${contrastColors.textColor}10`,
                 color: repeatMode !== 'none'
-                  ? contrastColors.textColor 
+                  ? contrastColors.textColor
                   : `${contrastColors.textColor}60`
               }}
               title={
-                repeatMode === 'none' ? 'Enable repeat' : 
-                repeatMode === 'one' ? 'Repeat one' : 
+                repeatMode === 'none' ? 'Enable repeat' :
+                repeatMode === 'one' ? 'Repeat one' :
                 'Repeat all'
               }
             >
               <Repeat className="w-5 h-5" />
               {repeatMode === 'one' && (
-                <span 
+                <span
                   className="absolute -top-1 -right-1 text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold"
                   style={{
                     backgroundColor: contrastColors.textColor,
@@ -516,56 +549,6 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Share Button - Bottom-left of screen */}
-      <div
-        className="absolute bottom-4 left-4 z-20"
-        style={{
-          bottom: 'max(env(safe-area-inset-bottom), 16px)',
-          left: 'max(env(safe-area-inset-left), 16px)'
-        }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-      >
-        <button
-          onClick={async () => {
-            try {
-              const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
-              const shareUrl = `${window.location.origin}${albumUrl}`;
-
-              // Try native share first (mobile)
-              if (navigator.share) {
-                await navigator.share({
-                  title: currentTrack.title,
-                  text: `${currentTrack.title} by ${currentTrack.artist || currentPlayingAlbum.artist}`,
-                  url: shareUrl,
-                });
-              } else {
-                // Fallback to clipboard
-                await navigator.clipboard.writeText(shareUrl);
-              }
-            } catch (error) {
-              // User cancelled share or error
-              if ((error as Error).name !== 'AbortError') {
-                toast.error('Failed to share');
-              }
-            }
-          }}
-          className="p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
-          style={{
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            color: '#ffffff',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-          }}
-          title="Share this track"
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Boost Modal */}
