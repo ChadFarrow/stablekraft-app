@@ -77,6 +77,11 @@ interface CommunityFavorite {
     feedId?: string;
     trackCount?: number;
     type?: string;
+    // For single-track albums, include track data to favorite as track
+    singleTrack?: {
+      id: string;
+      title: string;
+    };
   };
   favoritedBy: {
     pubkey: string;
@@ -242,6 +247,21 @@ function FavoritesPageContent() {
       const currentSessionId = sessionId || getSessionId();
       if (currentSessionId) {
         loadFavorites(currentSessionId, null);
+      }
+    }
+  };
+
+  // Handler for community favorites - removes item when unfavorited
+  const handleCommunityFavoriteToggle = (nostrEventId: string) => (isFavorite: boolean) => {
+    // Also trigger the regular favorite reload
+    handleFavoriteToggle();
+
+    // If unfavorited, remove from community list immediately
+    if (!isFavorite) {
+      setCommunityFavorites(prev => prev.filter(fav => fav.nostrEventId !== nostrEventId));
+      // Clear cache so next load gets fresh data
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(COMMUNITY_CACHE_KEY);
       }
     }
   };
@@ -1235,7 +1255,7 @@ function FavoritesPageContent() {
             <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-1">
                 <p className="text-sm text-gray-400">
-                  Discover what others are favoriting on Nostr
+                  Discover what others are favoriting
                 </p>
               </div>
               <div className="flex items-center gap-2 sm:gap-4">
@@ -1341,12 +1361,22 @@ function FavoritesPageContent() {
                             width={16}
                             height={16}
                             className="w-4 h-4 rounded-full"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
                         )}
                         <span className="text-gray-500 text-xs truncate">
-                          {formatNpub(fav.favoritedBy.npub, fav.favoritedBy.displayName)} • {formatRelativeTime(fav.favoritedAt)}
+                          <a
+                            href={`https://njump.me/${fav.favoritedBy.npub}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-stablekraft-teal hover:underline transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {formatNpub(fav.favoritedBy.npub, fav.favoritedBy.displayName)}
+                          </a>
+                          {' '}• {formatRelativeTime(fav.favoritedAt)}
                         </span>
                       </div>
                     </div>
@@ -1354,19 +1384,17 @@ function FavoritesPageContent() {
                     {/* Favorite Button - Add to own favorites */}
                     <FavoriteButton
                       trackId={fav.type === 'track' ? fav.originalItemId : undefined}
-                      feedId={fav.type === 'album' ? fav.originalItemId : undefined}
-                      onToggle={handleFavoriteToggle}
+                      feedId={fav.type === 'album' && !fav.item.singleTrack ? fav.originalItemId : undefined}
+                      onToggle={handleCommunityFavoriteToggle(fav.nostrEventId)}
+                      singleTrackData={fav.item.singleTrack ? {
+                        id: fav.item.singleTrack.id,
+                        title: fav.item.singleTrack.title,
+                        artist: fav.item.artist,
+                      } : undefined}
                     />
 
-                    {/* View Button */}
-                    <Link
-                      href={fav.type === 'album' ? `/album/${fav.item.id}` : `/album/${fav.item.feedId}`}
-                      className="px-2.5 sm:px-3 py-1.5 bg-stablekraft-teal hover:bg-stablekraft-orange rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
-                    >
-                      <Disc className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="hidden sm:inline">View</span>
-                    </Link>
-
+                    {/* Play and View Buttons */}
+                    <div className="flex items-center gap-2">
                     {/* Play Button */}
                     <button
                       onClick={async () => {
@@ -1446,6 +1474,16 @@ function FavoritesPageContent() {
                       <Play className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="hidden sm:inline">Play</span>
                     </button>
+
+                    {/* View Button */}
+                    <Link
+                      href={fav.type === 'album' ? `/album/${fav.item.id}` : `/album/${fav.item.feedId}`}
+                      className="px-2.5 sm:px-3 py-1.5 bg-stablekraft-teal hover:bg-stablekraft-orange rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
+                    >
+                      <Disc className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">View</span>
+                    </Link>
+                    </div>
                   </div>
                 ))}
               </div>
