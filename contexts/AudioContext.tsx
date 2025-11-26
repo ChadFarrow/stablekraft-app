@@ -1150,15 +1150,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const handleError = (event: Event) => {
       const mediaError = (event.target as HTMLMediaElement)?.error;
       console.error(`🚫 ${isVideoMode ? 'Video' : 'Audio'} error:`, mediaError);
-      
+
       // Don't interfere if we're in the middle of retrying
       if (isRetryingRef.current) {
         console.log('🔄 Error during retry process - letting retry logic handle it');
         return;
       }
-      
+
       setIsPlaying(false);
-      
+
       // Don't clear the source immediately - let the retry logic in attemptAudioPlayback handle it
       // Only log the error for debugging
       if (mediaError?.code === 4) {
@@ -1172,6 +1172,39 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     };
 
+    // iOS-specific: Handle stalled event - iOS fires this when buffering
+    // Without this handler, iOS may pause playback and not resume
+    const handleStalled = (event: Event) => {
+      const element = event.target as HTMLMediaElement;
+      console.log('⏸️ Media stalled (buffering) - iOS may need help resuming');
+
+      // If we're supposed to be playing, try to resume
+      // Check readyState: 4 = HAVE_ENOUGH_DATA, 3 = HAVE_FUTURE_DATA
+      if (!element.paused && element.readyState >= 3) {
+        console.log('🔄 Stalled but have data - attempting to continue playback');
+        element.play().catch(err => {
+          console.warn('⚠️ Failed to resume after stall:', err);
+        });
+      }
+    };
+
+    // iOS-specific: Handle waiting event - playback stopped due to lack of data
+    const handleWaiting = (event: Event) => {
+      const element = event.target as HTMLMediaElement;
+      console.log('⏳ Media waiting for data (buffering)');
+
+      // This is informational - playback should auto-resume when data is available
+      // But on iOS, sometimes it doesn't, so we'll set a timeout to check
+      setTimeout(() => {
+        if (element.paused && element.readyState >= 3 && !element.ended) {
+          console.log('🔄 Waiting timeout - attempting to resume playback');
+          element.play().catch(err => {
+            console.warn('⚠️ Failed to resume after waiting:', err);
+          });
+        }
+      }, 1000);
+    };
+
     // Add event listeners to both audio and video elements
     const elements = [audio, video];
     elements.forEach(element => {
@@ -1181,6 +1214,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       element.addEventListener('timeupdate', handleTimeUpdate);
       element.addEventListener('loadedmetadata', handleLoadedMetadata);
       element.addEventListener('error', handleError);
+      element.addEventListener('stalled', handleStalled);
+      element.addEventListener('waiting', handleWaiting);
     });
 
     // Cleanup
@@ -1192,6 +1227,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         element.removeEventListener('timeupdate', handleTimeUpdate);
         element.removeEventListener('loadedmetadata', handleLoadedMetadata);
         element.removeEventListener('error', handleError);
+        element.removeEventListener('stalled', handleStalled);
+        element.removeEventListener('waiting', handleWaiting);
       });
       
       // Clean up HLS instance
