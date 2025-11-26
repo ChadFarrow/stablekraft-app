@@ -300,7 +300,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Album Art */}
-        <div className="flex-1 flex items-start justify-center px-8 pt-4">
+        <div className="flex items-start justify-center px-8 pt-12">
           <div className="relative w-full max-w-sm aspect-square">
             <img
               src={albumArt}
@@ -368,7 +368,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Track Info */}
-        <div className="px-8 pb-6 text-center">
+        <div className="px-8 pt-16 pb-6 text-center">
           <h1 className="text-2xl font-bold mb-2 truncate">
             {currentTrack.title || 'Unknown Track'}
           </h1>
@@ -441,7 +441,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 }
               }
             }}
-            className="absolute left-8 bottom-4 p-2 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation"
+            className="absolute left-8 -bottom-8 p-2 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation"
             style={{
               backgroundColor: `${contrastColors.textColor}15`,
               color: `${contrastColors.textColor}90`
