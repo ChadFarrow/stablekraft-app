@@ -74,6 +74,7 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
     'lightningthrashes.com',
     'picsum.photos',
     'podcastindex.org',
+    'f.strangetextures.com',
     'deow9bq0xqvbj.cloudfront.net',
     'binauralsubliminal.com',
     'shop.basspistol.com',

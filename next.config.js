@@ -291,12 +291,6 @@ const nextConfig = {
         port: '3000',
         pathname: '/**',
       },
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3000',
-        pathname: '/**',
-      },
       // Additional CDN and image hosting domains
       {
         protocol: 'https',
@@ -347,12 +341,6 @@ const nextConfig = {
       // Additional music domains
       {
         protocol: 'https',
-        hostname: 'rocknrollbreakheart.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
         hostname: 'rocknrollbreakheart.com',
         port: '',
         pathname: '/**',
@@ -431,31 +419,19 @@ const nextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'thebearsnare.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
         protocol: 'https',
         hostname: 'thebearsnare.com',
         port: '',
         pathname: '/**',
       },
       {
-        protocol: 'http',
+        protocol: 'https',
         hostname: 'socialmedia101pro.com',
         port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'bobcatindex.us-southeast-1.linodeobjects.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
         hostname: 'bobcatindex.us-southeast-1.linodeobjects.com',
         port: '',
         pathname: '/**',
@@ -524,13 +500,6 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'assets.podhome.fm',
-        port: '',
-        pathname: '/**',
-      },
-      // Nostr profile image hosting (podtards)
-      {
-        protocol: 'https',
-        hostname: 'podtards.com',
         port: '',
         pathname: '/**',
       },
