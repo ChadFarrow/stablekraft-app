@@ -244,9 +244,29 @@
   .fixed.bottom-0 {
     bottom: env(safe-area-inset-bottom);
   }
-  
+
   /* Add padding to body for standalone mode */
   body {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Marquee Animation for scrolling text */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  padding-right: 2rem;
+  animation: marquee 10s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 } 

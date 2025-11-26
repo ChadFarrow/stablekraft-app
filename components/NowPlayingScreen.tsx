@@ -369,9 +369,11 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
         {/* Track Info */}
         <div className="px-8 pt-16 pb-6 text-center">
-          <h1 className="text-2xl font-bold mb-2 truncate">
-            {currentTrack.title || 'Unknown Track'}
-          </h1>
+          <div className="overflow-hidden">
+            <h1 className="text-2xl font-bold mb-2 whitespace-nowrap animate-marquee hover:animate-none">
+              {currentTrack.title || 'Unknown Track'}
+            </h1>
+          </div>
           <p className="text-lg opacity-80 truncate">
             {currentTrack.artist || currentPlayingAlbum.artist || 'Unknown Artist'}
           </p>

@@ -13,7 +13,7 @@ import { SidebarProvider } from '@/contexts/SidebarContext'
 import LightningWrapper from '@/components/LightningWrapper'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
-import PerformanceMonitor from '@/components/PerformanceMonitor'
+// import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
 import GlobalErrorHandler from '@/components/GlobalErrorHandler'
 
@@ -147,7 +147,7 @@ export default function RootLayout({
               </UserSettingsProvider>
             </NostrProvider>
           </ErrorBoundary>
-          <PerformanceMonitor />
+          {/* <PerformanceMonitor /> */}
         </ClientErrorBoundary>
       </body>
     </html>
