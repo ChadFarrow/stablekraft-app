@@ -123,6 +123,9 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             <p className="text-sm whitespace-nowrap animate-marquee hover:animate-none">
               <span className="font-bold text-white">{track.title}</span>
               <span className="text-gray-400"> - {track.artist}</span>
+              <span className="px-8" />
+              <span className="font-bold text-white">{track.title}</span>
+              <span className="text-gray-400"> - {track.artist}</span>
             </p>
           </div>
           <span className="text-xs text-gray-400">
@@ -131,12 +134,12 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
         </div>
 
         {/* RIGHT: Playback controls - Prev, Play, Next */}
-        <div className="flex-shrink-0 flex items-center gap-1">
+        <div className="flex-shrink-0 flex items-center gap-0.5">
           <button
             onClick={onPrevious}
-            className="bg-gray-600 hover:bg-gray-500 text-white rounded-full p-2 transition-colors"
+            className="bg-gray-600 hover:bg-gray-500 text-white rounded-full p-2.5 transition-colors"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
             </svg>
           </button>
@@ -157,9 +160,9 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
           </button>
           <button
             onClick={onNext}
-            className="bg-gray-600 hover:bg-gray-500 text-white rounded-full p-2 transition-colors"
+            className="bg-gray-600 hover:bg-gray-500 text-white rounded-full p-2.5 transition-colors"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
             </svg>
           </button>

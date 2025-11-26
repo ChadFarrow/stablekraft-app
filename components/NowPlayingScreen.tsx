@@ -385,6 +385,12 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee hover:animate-none' : ''}`}
             >
               {currentTrack.title || 'Unknown Track'}
+              {titleOverflows && (
+                <>
+                  <span className="px-8" />
+                  {currentTrack.title || 'Unknown Track'}
+                </>
+              )}
             </h1>
           </div>
           <p className="text-lg opacity-80 truncate">
