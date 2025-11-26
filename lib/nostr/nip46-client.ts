@@ -3760,7 +3760,27 @@ export class NIP46Client {
     if (this.ws) {
       return this.connection?.connected === true && this.ws.readyState === WebSocket.OPEN;
     }
-    // For relay-based connections
+
+    // For relay-based connections, also check if relay is actually connected
+    // This is important for iOS Safari which kills WebSocket connections when backgrounded
+    if (this.relayClient && this.connection?.connected) {
+      try {
+        const relayManager = (this.relayClient as any).relayManager;
+        if (relayManager) {
+          const relayUrl = this.getRelayUrl();
+          const isRelayConnected = relayManager.isConnected(relayUrl);
+          if (!isRelayConnected) {
+            console.log('⚠️ NIP-46: Relay connection lost (iOS background?), marking as disconnected');
+            // Don't update the flag here - let the reconnection logic handle it
+            return false;
+          }
+        }
+      } catch (err) {
+        // If we can't check relay status, fall back to connection flag
+        console.warn('⚠️ NIP-46: Could not check relay connection status:', err);
+      }
+    }
+
     return this.connection?.connected === true;
   }
 
