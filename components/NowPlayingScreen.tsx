@@ -232,7 +232,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       {/* Content */}
       <div className="relative flex flex-col h-full" style={{
         color: contrastColors.textColor,
-        paddingTop: 'max(env(safe-area-inset-top), 40px)',
+        paddingTop: 'max(env(safe-area-inset-top), 16px)',
         paddingBottom: 'max(env(safe-area-inset-bottom), 20px)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)'
@@ -300,7 +300,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Album Art */}
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex items-center justify-center px-8 pt-2 pb-4">
           <div className="relative w-full max-w-sm aspect-square">
             <img
               src={albumArt}
