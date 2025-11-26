@@ -1256,7 +1256,7 @@ function HomePageContent() {
               {/* Right side - Action buttons */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Search Button */}
-                <SearchBar className="w-full sm:w-auto sm:min-w-[300px]" />
+                <SearchBar className="w-full sm:w-auto md:min-w-[200px] lg:min-w-[300px]" />
 
                 {/* Favorites Button */}
                 <Link
