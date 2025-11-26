@@ -44,8 +44,10 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
   const [dominantColor, setDominantColor] = useState('#1A252F');
   const [contrastColors, setContrastColors] = useState({ backgroundColor: '#1A252F', textColor: '#ffffff' });
   const [showBoostModal, setShowBoostModal] = useState(false);
+  const [titleOverflows, setTitleOverflows] = useState(false);
 
   const progressRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // Get current track info
   const currentTrack = currentPlayingAlbum?.tracks?.[currentTrackIndex];
@@ -66,6 +68,14 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       });
     }
   }, [currentTrack]);
+
+  // Check if title overflows its container
+  useEffect(() => {
+    if (titleRef.current) {
+      const overflows = titleRef.current.scrollWidth > titleRef.current.clientWidth;
+      setTitleOverflows(overflows);
+    }
+  }, [currentTrack?.title]);
 
   // Helper function to proxy external image URLs (same as GlobalNowPlayingBar)
   const getProxiedImageUrl = (imageUrl: string): string => {
@@ -370,7 +380,10 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         {/* Track Info */}
         <div className="px-8 pt-16 pb-6 text-center">
           <div className="overflow-hidden">
-            <h1 className="text-2xl font-bold mb-2 whitespace-nowrap animate-marquee hover:animate-none">
+            <h1
+              ref={titleRef}
+              className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee hover:animate-none' : ''}`}
+            >
               {currentTrack.title || 'Unknown Track'}
             </h1>
           </div>
@@ -454,7 +467,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
           </button>
 
           {/* Center Controls */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-between w-full max-w-xs mx-auto">
             {/* Shuffle Button */}
             <button
               onClick={toggleShuffle}
@@ -486,7 +499,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             {/* Play/Pause Button */}
             <button
               onClick={isPlaying ? pause : resume}
-              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg mx-2"
+              className="p-4 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
               style={{
                 backgroundColor: contrastColors.textColor,
                 boxShadow: `0 8px 25px rgba(0,0,0,0.3)`
