@@ -274,8 +274,8 @@ export default function FavoritesPage() {
 
     try {
       const headers: HeadersInit = {};
-      if (nostrUser?.pubkey) {
-        headers['x-nostr-pubkey'] = nostrUser.pubkey;
+      if (nostrUser?.nostrPubkey) {
+        headers['x-nostr-pubkey'] = nostrUser.nostrPubkey;
       }
 
       const response = await fetch(
