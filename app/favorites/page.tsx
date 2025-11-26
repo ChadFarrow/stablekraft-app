@@ -97,7 +97,7 @@ export default function FavoritesPage() {
   const { playAlbum: globalPlayAlbum, setFullscreenMode } = useAudio();
 
   // Get tab from URL or default to 'albums'
-  const tabFromUrl = searchParams.get('tab') as 'albums' | 'tracks' | 'publishers' | 'playlists' | 'community' | null;
+  const tabFromUrl = searchParams?.get('tab') as 'albums' | 'tracks' | 'publishers' | 'playlists' | 'community' | null;
   const validTabs = ['albums', 'tracks', 'publishers', 'playlists', 'community'];
   const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'albums';
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers' | 'playlists' | 'community'>(initialTab);
@@ -1315,9 +1315,17 @@ export default function FavoritesPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          fav.type === 'track' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                          fav.type === 'track' || (fav.item.trackCount || 0) <= 1
+                            ? 'bg-green-500/20 text-green-400'
+                            : (fav.item.trackCount || 0) <= 6
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-blue-500/20 text-blue-400'
                         }`}>
-                          {fav.type === 'track' ? 'Track' : 'Album'}
+                          {fav.type === 'track' || (fav.item.trackCount || 0) <= 1
+                            ? 'Track'
+                            : (fav.item.trackCount || 0) <= 6
+                              ? 'EP'
+                              : 'Album'}
                         </span>
                       </div>
                       <h3 className="font-semibold text-base sm:text-lg truncate">{fav.item.title}</h3>
@@ -1350,19 +1358,51 @@ export default function FavoritesPage() {
                       onToggle={handleFavoriteToggle}
                     />
 
-                    {/* View/Play Button */}
-                    {fav.type === 'album' ? (
-                      <Link
-                        href={`/album/${fav.item.id}`}
-                        className="px-2.5 sm:px-3 py-1.5 bg-stablekraft-teal hover:bg-stablekraft-orange rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
-                      >
-                        <span className="hidden sm:inline">View</span>
-                        <Disc className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </Link>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          // Try to play the track
+                    {/* View Button */}
+                    <Link
+                      href={fav.type === 'album' ? `/album/${fav.item.id}` : `/album/${fav.item.feedId}`}
+                      className="px-2.5 sm:px-3 py-1.5 bg-stablekraft-teal hover:bg-stablekraft-orange rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
+                    >
+                      <Disc className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">View</span>
+                    </Link>
+
+                    {/* Play Button */}
+                    <button
+                      onClick={async () => {
+                        if (fav.type === 'album') {
+                          // Play album from the beginning
+                          try {
+                            const response = await fetch(`/api/albums/${fav.item.id}`);
+                            if (response.ok) {
+                              const data = await response.json();
+                              if (data.album && data.album.tracks) {
+                                const rssAlbum: RSSAlbum = {
+                                  id: data.album.id,
+                                  title: data.album.title,
+                                  artist: data.album.artist || 'Unknown Artist',
+                                  description: data.album.description || '',
+                                  coverArt: data.album.coverArt || '',
+                                  releaseDate: data.album.releaseDate,
+                                  tracks: data.album.tracks.map((track: any) => ({
+                                    title: track.title,
+                                    duration: track.duration || '0:00',
+                                    url: track.url || '',
+                                    id: track.id,
+                                  })),
+                                  link: '',
+                                  feedUrl: ''
+                                };
+                                await globalPlayAlbum(rssAlbum, 0);
+                                return;
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Error playing album:', err);
+                          }
+                          toast.error('Could not play album');
+                        } else {
+                          // Play specific track
                           if (fav.item.feedId) {
                             try {
                               const response = await fetch(`/api/albums/${fav.item.feedId}`);
@@ -1399,13 +1439,13 @@ export default function FavoritesPage() {
                             }
                           }
                           toast.error('Could not play track');
-                        }}
-                        className="px-2.5 sm:px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
-                      >
-                        <Play className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">Play</span>
-                      </button>
-                    )}
+                        }
+                      }}
+                      className="px-2.5 sm:px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
+                    >
+                      <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Play</span>
+                    </button>
                   </div>
                 ))}
               </div>
