@@ -15,7 +15,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { BoostButton } from '@/components/Lightning/BoostButton';
-import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle } from 'lucide-react';
+import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle, ListMusic } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import AppLayout from '@/components/AppLayout';
 
@@ -67,13 +67,17 @@ export default function FavoritesPage() {
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
   const { playAlbum: globalPlayAlbum, setFullscreenMode, toggleShuffle, isShuffleMode } = useAudio();
-  const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
+  const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers' | 'playlists'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
   const [favoritePublishers, setFavoritePublishers] = useState<FavoriteAlbum[]>([]);
+  const [favoritePlaylists, setFavoritePlaylists] = useState<FavoriteAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trackSortBy, setTrackSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc'>('date-desc');
+  const [albumSortBy, setAlbumSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc'>('artist-asc');
+  const [publisherSortBy, setPublisherSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'>('title-asc');
+  const [playlistSortBy, setPlaylistSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'>('title-asc');
 
   useEffect(() => {
     if (sessionLoading || nostrLoading) return;
@@ -124,29 +128,53 @@ export default function FavoritesPage() {
 
       if (albumsData.success) {
         const allAlbums = albumsData.data || [];
-        // Separate publishers from regular albums
-        // Publishers have type === 'publisher', everything else is an album
-        const albums = allAlbums.filter((album: any) => album.type !== 'publisher');
-        const publishers = allAlbums.filter((album: any) => album.type === 'publisher');
-        
-        // Sort albums by artist, then by title
-        albums.sort((a: any, b: any) => {
-          const artistA = (a.artist || 'Unknown Artist').toLowerCase();
-          const artistB = (b.artist || 'Unknown Artist').toLowerCase();
-          
-          // First sort by artist
-          if (artistA !== artistB) {
-            return artistA.localeCompare(artistB);
+        // Separate publishers, playlists, and regular albums
+        const playlistTitles = ['hgh', 'mmm', 'sas', 'iam', 'itdv', 'mmt', 'b4ts', 'upbeats', 'flowgnar'];
+
+        const isPlaylist = (album: any) => {
+          if (album.type === 'playlist') return true;
+          const titleLower = (album.title || '').toLowerCase();
+          if (titleLower.includes('playlist')) return true;
+          if (playlistTitles.some(p => titleLower === p || titleLower.startsWith(`${p}-`) || titleLower.startsWith(`${p} `))) return true;
+          return false;
+        };
+
+        // Fallback playlist images when not in database (playlists are hardcoded, not in Feed table)
+        const playlistImageFallbacks: Record<string, string> = {
+          'hgh': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-playlist-art.webp',
+          'mmm': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-playlist-art.webp',
+          'sas': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-playlist-art%20.webp',
+          'iam': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.webp',
+          'itdv': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.webp',
+          'mmt': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-playlist-art.webp',
+          'b4ts': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-playlist-art.webp',
+          'upbeats': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/UpBEATs-music-playlist.webp',
+          'flowgnar': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-playlist-art.webp'
+        };
+
+        const getPlaylistImageFallback = (album: any) => {
+          if (album.image) return album.image; // Use database image if available
+          const titleLower = (album.title || '').toLowerCase();
+          for (const [name, url] of Object.entries(playlistImageFallbacks)) {
+            if (titleLower.includes(name)) {
+              return url;
+            }
           }
-          
-          // If same artist, sort by title
-          const titleA = (a.title || '').toLowerCase();
-          const titleB = (b.title || '').toLowerCase();
-          return titleA.localeCompare(titleB);
-        });
-        
+          return null;
+        };
+
+        const albums = allAlbums.filter((album: any) =>
+          album.type !== 'publisher' && !isPlaylist(album)
+        );
+        const publishers = allAlbums.filter((album: any) => album.type === 'publisher');
+        const playlists = allAlbums.filter((album: any) => isPlaylist(album)).map((album: any) => ({
+          ...album,
+          image: getPlaylistImageFallback(album)
+        }));
+
         setFavoriteAlbums(albums);
         setFavoritePublishers(publishers);
+        setFavoritePlaylists(playlists);
       }
 
       if (tracksData.success) {
@@ -425,6 +453,74 @@ export default function FavoritesPage() {
     }
   }, [favoriteTracks, trackSortBy]);
 
+  // Sort albums based on selected sort option
+  const sortedAlbums = useMemo(() => {
+    const albums = [...favoriteAlbums];
+
+    switch (albumSortBy) {
+      case 'date-desc':
+        return albums.sort((a, b) => new Date(b.favoritedAt).getTime() - new Date(a.favoritedAt).getTime());
+      case 'date-asc':
+        return albums.sort((a, b) => new Date(a.favoritedAt).getTime() - new Date(b.favoritedAt).getTime());
+      case 'title-asc':
+        return albums.sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
+      case 'title-desc':
+        return albums.sort((a, b) => (b.title || '').toLowerCase().localeCompare((a.title || '').toLowerCase()));
+      case 'artist-asc':
+        return albums.sort((a, b) => {
+          const artistA = (a.artist || 'Unknown Artist').toLowerCase();
+          const artistB = (b.artist || 'Unknown Artist').toLowerCase();
+          if (artistA !== artistB) return artistA.localeCompare(artistB);
+          return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+        });
+      case 'artist-desc':
+        return albums.sort((a, b) => {
+          const artistA = (a.artist || 'Unknown Artist').toLowerCase();
+          const artistB = (b.artist || 'Unknown Artist').toLowerCase();
+          if (artistA !== artistB) return artistB.localeCompare(artistA);
+          return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+        });
+      default:
+        return albums;
+    }
+  }, [favoriteAlbums, albumSortBy]);
+
+  // Sort publishers based on selected sort option
+  const sortedPublishers = useMemo(() => {
+    const publishers = [...favoritePublishers];
+
+    switch (publisherSortBy) {
+      case 'date-desc':
+        return publishers.sort((a, b) => new Date(b.favoritedAt).getTime() - new Date(a.favoritedAt).getTime());
+      case 'date-asc':
+        return publishers.sort((a, b) => new Date(a.favoritedAt).getTime() - new Date(b.favoritedAt).getTime());
+      case 'title-asc':
+        return publishers.sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
+      case 'title-desc':
+        return publishers.sort((a, b) => (b.title || '').toLowerCase().localeCompare((a.title || '').toLowerCase()));
+      default:
+        return publishers;
+    }
+  }, [favoritePublishers, publisherSortBy]);
+
+  // Sort playlists based on selected sort option
+  const sortedPlaylists = useMemo(() => {
+    const playlists = [...favoritePlaylists];
+
+    switch (playlistSortBy) {
+      case 'date-desc':
+        return playlists.sort((a, b) => new Date(b.favoritedAt).getTime() - new Date(a.favoritedAt).getTime());
+      case 'date-asc':
+        return playlists.sort((a, b) => new Date(a.favoritedAt).getTime() - new Date(b.favoritedAt).getTime());
+      case 'title-asc':
+        return playlists.sort((a, b) => (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase()));
+      case 'title-desc':
+        return playlists.sort((a, b) => (b.title || '').toLowerCase().localeCompare((a.title || '').toLowerCase()));
+      default:
+        return playlists;
+    }
+  }, [favoritePlaylists, playlistSortBy]);
+
   const handleShufflePlay = async () => {
     if (favoriteTracks.length === 0) {
       toast.error('No tracks to shuffle');
@@ -569,7 +665,7 @@ export default function FavoritesPage() {
             }`}
           >
             <Disc className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-sm sm:text-base">Albums</span>
+            <span className="text-sm sm:text-base">Albums & EPs</span>
             <span className="text-xs sm:text-sm text-gray-500">({favoriteAlbums.length})</span>
           </button>
           <button
@@ -596,6 +692,18 @@ export default function FavoritesPage() {
             <span className="text-sm sm:text-base">Tracks</span>
             <span className="text-xs sm:text-sm text-gray-500">({favoriteTracks.length})</span>
           </button>
+          <button
+            onClick={() => setActiveTab('playlists')}
+            className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+              activeTab === 'playlists'
+                ? 'text-white border-b-2 border-stablekraft-teal'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <ListMusic className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Playlists</span>
+            <span className="text-xs sm:text-sm text-gray-500">({favoritePlaylists.length})</span>
+          </button>
         </div>
 
         {error && (
@@ -610,18 +718,37 @@ export default function FavoritesPage() {
             {favoriteAlbums.length === 0 ? (
               <div className="text-center py-12">
                 <Disc className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-2xl font-bold mb-2">No Favorite Albums</h2>
+                <h2 className="text-2xl font-bold mb-2">No Favorite Albums & EPs</h2>
                 <p className="text-gray-400 mb-4">Start favoriting albums to see them here!</p>
                 <Link
                   href="/"
                   className="inline-block px-4 py-2 bg-stablekraft-teal text-white rounded-lg hover:bg-stablekraft-orange transition-colors"
                 >
-                  Browse Albums
+                  Browse Albums & EPs
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {favoriteAlbums.map((album) => {
+              <>
+                <div className="mb-6 flex items-center gap-2 sm:gap-4">
+                  <select
+                    id="album-sort"
+                    value={albumSortBy}
+                    onChange={(e) => setAlbumSortBy(e.target.value as typeof albumSortBy)}
+                    className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                  >
+                    <option value="date-desc">Date Favorited (Newest)</option>
+                    <option value="date-asc">Date Favorited (Oldest)</option>
+                    <option value="title-asc">Title (A-Z)</option>
+                    <option value="title-desc">Title (Z-A)</option>
+                    <option value="artist-asc">Artist (A-Z)</option>
+                    <option value="artist-desc">Artist (Z-A)</option>
+                  </select>
+                  <label htmlFor="album-sort" className="text-xs sm:text-sm text-gray-400">
+                    Sort by
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {sortedAlbums.map((album) => {
                   const albumForCard = {
                     id: album.id,
                     title: album.title,
@@ -654,7 +781,8 @@ export default function FavoritesPage() {
                     />
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -675,8 +803,25 @@ export default function FavoritesPage() {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {favoritePublishers.map((publisher) => {
+              <>
+                <div className="mb-6 flex items-center gap-2 sm:gap-4">
+                  <select
+                    id="publisher-sort"
+                    value={publisherSortBy}
+                    onChange={(e) => setPublisherSortBy(e.target.value as typeof publisherSortBy)}
+                    className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                  >
+                    <option value="date-desc">Date Favorited (Newest)</option>
+                    <option value="date-asc">Date Favorited (Oldest)</option>
+                    <option value="title-asc">Name (A-Z)</option>
+                    <option value="title-desc">Name (Z-A)</option>
+                  </select>
+                  <label htmlFor="publisher-sort" className="text-xs sm:text-sm text-gray-400">
+                    Sort by
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {sortedPublishers.map((publisher) => {
                   const publisherForCard = {
                     id: publisher.id,
                     title: publisher.title,
@@ -705,7 +850,8 @@ export default function FavoritesPage() {
                     />
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -729,18 +875,7 @@ export default function FavoritesPage() {
               <>
                 {/* Sort Selector and Shuffle Button */}
                 <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-                  <button
-                    onClick={handleShufflePlay}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg text-sm font-medium transition-all"
-                    title="Shuffle play all tracks"
-                  >
-                    <Shuffle className="w-4 h-4" />
-                    <span>Shuffle All</span>
-                  </button>
-                  <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
-                    <label htmlFor="track-sort" className="text-xs sm:text-sm text-gray-400">
-                      Sort by:
-                    </label>
+                  <div className="flex items-center gap-2 sm:gap-4">
                     <select
                       id="track-sort"
                       value={trackSortBy}
@@ -754,7 +889,18 @@ export default function FavoritesPage() {
                       <option value="artist-asc">Artist (A-Z)</option>
                       <option value="artist-desc">Artist (Z-A)</option>
                     </select>
+                    <label htmlFor="track-sort" className="text-xs sm:text-sm text-gray-400">
+                      Sort by
+                    </label>
                   </div>
+                  <button
+                    onClick={handleShufflePlay}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg text-sm font-medium transition-all sm:ml-auto"
+                    title="Shuffle play all tracks"
+                  >
+                    <Shuffle className="w-4 h-4" />
+                    <span>Shuffle All</span>
+                  </button>
                 </div>
 
                 <div className="space-y-2">
@@ -849,6 +995,78 @@ export default function FavoritesPage() {
                           <span className="hidden sm:inline">Play</span>
                         </button>
                       </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Playlists Tab */}
+        {activeTab === 'playlists' && (
+          <div>
+            {favoritePlaylists.length === 0 ? (
+              <div className="text-center py-12">
+                <ListMusic className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                <h2 className="text-2xl font-bold mb-2">No Favorite Playlists</h2>
+                <p className="text-gray-400 mb-4">Start favoriting playlists to see them here!</p>
+                <Link
+                  href="/?filter=playlist"
+                  className="inline-block px-4 py-2 bg-stablekraft-teal text-white rounded-lg hover:bg-stablekraft-orange transition-colors"
+                >
+                  Browse Playlists
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6 flex items-center gap-2 sm:gap-4">
+                  <select
+                    id="playlist-sort"
+                    value={playlistSortBy}
+                    onChange={(e) => setPlaylistSortBy(e.target.value as typeof playlistSortBy)}
+                    className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                  >
+                    <option value="date-desc">Date Favorited (Newest)</option>
+                    <option value="date-asc">Date Favorited (Oldest)</option>
+                    <option value="title-asc">Name (A-Z)</option>
+                    <option value="title-desc">Name (Z-A)</option>
+                  </select>
+                  <label htmlFor="playlist-sort" className="text-xs sm:text-sm text-gray-400">
+                    Sort by
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {sortedPlaylists.map((playlist) => {
+                    // Extract playlist slug from ID (e.g., 'hgh-playlist' -> 'hgh')
+                    const playlistSlug = playlist.id.replace('-playlist', '').toLowerCase();
+
+                    const playlistForCard = {
+                      id: playlist.id,
+                      title: playlist.title,
+                      artist: playlist.artist || 'Playlist',
+                      description: playlist.description || '',
+                      coverArt: playlist.image || '',
+                      releaseDate: playlist.favoritedAt,
+                      tracks: (playlist.Track || []).map(track => ({
+                        title: track.title,
+                        artist: track.artist || undefined,
+                        duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+                        url: '',
+                        id: track.id
+                      })),
+                      feedId: playlist.id,
+                      type: 'playlist',
+                      isPlaylistCard: true,
+                      playlistUrl: `/playlist/${playlistSlug}`
+                    };
+
+                    return (
+                      <AlbumCard
+                        key={playlist.id}
+                        album={playlistForCard}
+                        onPlay={handlePlayAlbum}
+                      />
                     );
                   })}
                 </div>

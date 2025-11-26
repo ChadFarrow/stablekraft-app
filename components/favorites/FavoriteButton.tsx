@@ -15,6 +15,13 @@ interface FavoriteButtonProps {
   size?: number;
   onToggle?: (isFavorite: boolean) => void;
   isFavorite?: boolean; // Optional prop to set initial favorite state (useful on favorites page)
+  // When feedId is provided and album has only 1 track, pass the track data here
+  // The component will save as a track favorite instead of album favorite
+  singleTrackData?: {
+    id: string;        // Track ID (guid, url, or composite)
+    title?: string;    // For Nostr publishing
+    artist?: string;   // For Nostr publishing
+  };
 }
 
 export default function FavoriteButton({
@@ -23,7 +30,8 @@ export default function FavoriteButton({
   className = '',
   size = 24,
   onToggle,
-  isFavorite: initialIsFavorite
+  isFavorite: initialIsFavorite,
+  singleTrackData
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
   const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
@@ -32,8 +40,10 @@ export default function FavoriteButton({
   const [isToggling, setIsToggling] = useState(false);
 
   // Determine the API endpoint and ID
-  const itemId = trackId || feedId;
-  const isTrack = !!trackId;
+  // If singleTrackData is provided, treat this as a track favorite (for single-track albums)
+  const effectiveTrackId = singleTrackData?.id || trackId;
+  const itemId = effectiveTrackId || feedId;
+  const isTrack = !!effectiveTrackId;
   const apiBase = isTrack ? '/api/favorites/tracks' : '/api/favorites/albums';
 
   // Check if item is favorited on mount (skip if isFavorite prop is provided)
@@ -69,7 +79,7 @@ export default function FavoriteButton({
           method: 'POST',
           headers,
           body: JSON.stringify({
-            trackIds: isTrack ? [trackId] : [],
+            trackIds: isTrack ? [effectiveTrackId] : [],
             feedIds: !isTrack ? [feedId] : []
           })
         });
@@ -78,7 +88,7 @@ export default function FavoriteButton({
           const data = await response.json();
           if (data.success) {
             const favoriteStatus = isTrack
-              ? data.data.tracks[trackId!] || false
+              ? data.data.tracks[effectiveTrackId!] || false
               : data.data.albums[feedId!] || false;
             setIsFavorite(favoriteStatus);
           }
@@ -93,7 +103,7 @@ export default function FavoriteButton({
     };
 
     checkFavorite();
-  }, [sessionId, itemId, trackId, feedId, isTrack, isLoading, isNostrAuthenticated, user]);
+  }, [sessionId, itemId, effectiveTrackId, feedId, isTrack, isLoading, isNostrAuthenticated, user]);
 
   const toggleFavorite = async () => {
     if (isToggling || isLoadingState || !itemId) {
@@ -151,12 +161,12 @@ export default function FavoriteButton({
             // Use extension-based signing (no private key needed)
             const userRelays = user.relays && user.relays.length > 0 ? user.relays : undefined;
             
-            if (isTrack && trackId) {
+            if (isTrack && effectiveTrackId) {
               nostrEventId = await publishFavoriteTrackToNostr(
-                trackId,
+                effectiveTrackId,
                 null, // No private key - use extension
-                undefined, // Track title - could be fetched if needed
-                undefined, // Artist name - could be fetched if needed
+                singleTrackData?.title, // Track title from single-track album
+                singleTrackData?.artist, // Artist name from single-track album
                 userRelays
               );
             } else if (feedId) {

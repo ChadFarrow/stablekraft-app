@@ -276,6 +276,11 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
                 feedId={(album as any).feedId}
                 size={18}
                 className="text-white"
+                singleTrackData={album.tracks?.length === 1 ? {
+                  id: album.tracks[0].guid || album.tracks[0].url || album.tracks[0].id || `${(album as any).feedId}-${album.tracks[0].title}`,
+                  title: album.tracks[0].title,
+                  artist: album.artist
+                } : undefined}
               />
             </div>
           </div>

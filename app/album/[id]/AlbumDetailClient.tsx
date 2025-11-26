@@ -797,6 +797,11 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     feedId={album.feedId}
                     size={18}
                     className="text-white"
+                    singleTrackData={album.tracks.length === 1 ? {
+                      id: album.tracks[0].guid || album.tracks[0].url || `${album.feedId}-${album.tracks[0].title}`,
+                      title: album.tracks[0].title,
+                      artist: album.artist
+                    } : undefined}
                   />
                 </div>
               </div>
