@@ -15,7 +15,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { BoostButton } from '@/components/Lightning/BoostButton';
-import { Heart, Music, Disc, Users, Play, ArrowLeft } from 'lucide-react';
+import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import AppLayout from '@/components/AppLayout';
 
@@ -66,7 +66,7 @@ export default function FavoritesPage() {
   const router = useRouter();
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  const { playAlbum: globalPlayAlbum, setFullscreenMode } = useAudio();
+  const { playAlbum: globalPlayAlbum, setFullscreenMode, toggleShuffle, isShuffleMode } = useAudio();
   const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers'>('albums');
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
@@ -425,6 +425,51 @@ export default function FavoritesPage() {
     }
   }, [favoriteTracks, trackSortBy]);
 
+  const handleShufflePlay = async () => {
+    if (favoriteTracks.length === 0) {
+      toast.error('No tracks to shuffle');
+      return;
+    }
+
+    // Shuffle the tracks array
+    const shuffled = [...favoriteTracks].sort(() => Math.random() - 0.5);
+
+    // Create a playlist album from all shuffled tracks
+    const shuffleAlbum: RSSAlbum = {
+      id: 'favorites-shuffle',
+      title: 'Favorite Tracks (Shuffled)',
+      artist: 'Various Artists',
+      description: 'Your favorite tracks shuffled',
+      coverArt: shuffled[0]?.image || shuffled[0]?.Feed?.image || '',
+      releaseDate: new Date().toISOString(),
+      tracks: shuffled
+        .filter(track => track.audioUrl)
+        .map((track, index) => ({
+          title: track.title,
+          url: track.audioUrl,
+          duration: track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '0:00',
+          image: track.image || track.Feed?.image || '',
+          id: track.id,
+          trackNumber: index + 1,
+          artist: track.artist || track.Feed?.artist || undefined,
+        })),
+      link: '',
+      feedUrl: ''
+    };
+
+    if (shuffleAlbum.tracks.length === 0) {
+      toast.error('No playable tracks found');
+      return;
+    }
+
+    const success = await globalPlayAlbum(shuffleAlbum, 0);
+    if (success) {
+      setFullscreenMode(true);
+    } else {
+      toast.error('Failed to start shuffle playback');
+    }
+  };
+
   const handlePlayTrack = async (track: FavoriteTrack) => {
     if (!track.audioUrl) {
       toast.error('No audio URL available for this track');
@@ -682,24 +727,34 @@ export default function FavoritesPage() {
               </div>
             ) : (
               <>
-                {/* Sort Selector */}
+                {/* Sort Selector and Shuffle Button */}
                 <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-                  <label htmlFor="track-sort" className="text-xs sm:text-sm text-gray-400">
-                    Sort by:
-                  </label>
-                  <select
-                    id="track-sort"
-                    value={trackSortBy}
-                    onChange={(e) => setTrackSortBy(e.target.value as typeof trackSortBy)}
-                    className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                  <button
+                    onClick={handleShufflePlay}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg text-sm font-medium transition-all"
+                    title="Shuffle play all tracks"
                   >
-                    <option value="date-desc">Date Favorited (Newest)</option>
-                    <option value="date-asc">Date Favorited (Oldest)</option>
-                    <option value="title-asc">Title (A-Z)</option>
-                    <option value="title-desc">Title (Z-A)</option>
-                    <option value="artist-asc">Artist (A-Z)</option>
-                    <option value="artist-desc">Artist (Z-A)</option>
-                  </select>
+                    <Shuffle className="w-4 h-4" />
+                    <span>Shuffle All</span>
+                  </button>
+                  <div className="flex items-center gap-2 sm:gap-4 sm:ml-auto">
+                    <label htmlFor="track-sort" className="text-xs sm:text-sm text-gray-400">
+                      Sort by:
+                    </label>
+                    <select
+                      id="track-sort"
+                      value={trackSortBy}
+                      onChange={(e) => setTrackSortBy(e.target.value as typeof trackSortBy)}
+                      className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                    >
+                      <option value="date-desc">Date Favorited (Newest)</option>
+                      <option value="date-asc">Date Favorited (Oldest)</option>
+                      <option value="title-asc">Title (A-Z)</option>
+                      <option value="title-desc">Title (Z-A)</option>
+                      <option value="artist-asc">Artist (A-Z)</option>
+                      <option value="artist-desc">Artist (Z-A)</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
