@@ -3,21 +3,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '@/contexts/SessionContext';
 import { useNostr } from '@/contexts/NostrContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { getSessionId } from '@/lib/session-utils';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
-import { generateAlbumUrl, generateAlbumSlug } from '@/lib/url-utils';
+import { generateAlbumSlug } from '@/lib/url-utils';
 import { RSSAlbum } from '@/lib/rss-parser';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { BoostButton } from '@/components/Lightning/BoostButton';
-import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle, ListMusic } from 'lucide-react';
+import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle, ListMusic, Globe, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import AppLayout from '@/components/AppLayout';
+
+// Cache key for community favorites in sessionStorage
+const COMMUNITY_CACHE_KEY = 'community-favorites-cache';
+const COMMUNITY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface FavoriteTrack {
   id: string;
@@ -62,16 +66,58 @@ interface FavoriteAlbum {
   }>;
 }
 
+interface CommunityFavorite {
+  type: 'track' | 'album';
+  item: {
+    id: string;
+    title: string;
+    artist?: string;
+    image?: string;
+    duration?: number;
+    feedId?: string;
+    trackCount?: number;
+    type?: string;
+  };
+  favoritedBy: {
+    pubkey: string;
+    npub: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  favoritedAt: number;
+  nostrEventId: string;
+  originalItemId: string;
+}
+
 export default function FavoritesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
-  const { playAlbum: globalPlayAlbum, setFullscreenMode, toggleShuffle, isShuffleMode } = useAudio();
-  const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers' | 'playlists'>('albums');
+  const { playAlbum: globalPlayAlbum, setFullscreenMode } = useAudio();
+
+  // Get tab from URL or default to 'albums'
+  const tabFromUrl = searchParams.get('tab') as 'albums' | 'tracks' | 'publishers' | 'playlists' | 'community' | null;
+  const validTabs = ['albums', 'tracks', 'publishers', 'playlists', 'community'];
+  const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : 'albums';
+  const [activeTab, setActiveTab] = useState<'albums' | 'tracks' | 'publishers' | 'playlists' | 'community'>(initialTab);
+
+  // Update URL when tab changes (without full navigation)
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    // Update URL without triggering navigation
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState({}, '', url.toString());
+  };
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [favoriteTracks, setFavoriteTracks] = useState<FavoriteTrack[]>([]);
   const [favoritePublishers, setFavoritePublishers] = useState<FavoriteAlbum[]>([]);
   const [favoritePlaylists, setFavoritePlaylists] = useState<FavoriteAlbum[]>([]);
+  const [communityFavorites, setCommunityFavorites] = useState<CommunityFavorite[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityError, setCommunityError] = useState<string | null>(null);
+  const [communityFilter, setCommunityFilter] = useState<'all' | 'tracks' | 'albums'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trackSortBy, setTrackSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc'>('date-desc');
@@ -198,6 +244,102 @@ export default function FavoritesPage() {
         loadFavorites(currentSessionId, null);
       }
     }
+  };
+
+  const loadCommunityFavorites = async (forceRefresh = false) => {
+    if (communityLoading && !forceRefresh) return;
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh && typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(COMMUNITY_CACHE_KEY);
+        if (cached) {
+          const { data, timestamp, filter } = JSON.parse(cached);
+          const isExpired = Date.now() - timestamp > COMMUNITY_CACHE_TTL;
+          const sameFilter = filter === communityFilter;
+
+          if (!isExpired && sameFilter && data && data.length > 0) {
+            console.log('📦 Using cached community favorites');
+            setCommunityFavorites(data);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to read community cache:', e);
+      }
+    }
+
+    setCommunityLoading(true);
+    setCommunityError(null);
+
+    try {
+      const headers: HeadersInit = {};
+      if (nostrUser?.pubkey) {
+        headers['x-nostr-pubkey'] = nostrUser.pubkey;
+      }
+
+      const response = await fetch(
+        `/api/nostr/global-favorites?type=${communityFilter}&limit=50&excludeSelf=true`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch community favorites');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        const favorites = data.data || [];
+        setCommunityFavorites(favorites);
+
+        // Cache the results
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify({
+              data: favorites,
+              timestamp: Date.now(),
+              filter: communityFilter
+            }));
+            console.log('💾 Cached community favorites');
+          } catch (e) {
+            console.warn('Failed to cache community favorites:', e);
+          }
+        }
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Error loading community favorites:', err);
+      setCommunityError(err instanceof Error ? err.message : 'Failed to load community favorites');
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
+
+  // Load community favorites when tab is selected or filter changes
+  useEffect(() => {
+    if (activeTab === 'community') {
+      loadCommunityFavorites();
+    }
+  }, [activeTab, communityFilter]);
+
+  // Helper to format relative time
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return new Date(timestamp * 1000).toLocaleDateString();
+  };
+
+  // Helper to truncate npub for display
+  const formatNpub = (npub: string, displayName?: string) => {
+    if (displayName) return displayName;
+    return `${npub.slice(0, 8)}...${npub.slice(-4)}`;
   };
 
   const handlePlayAlbum = async (album: any, e: React.MouseEvent | React.TouchEvent) => {
@@ -657,7 +799,7 @@ export default function FavoritesPage() {
         {/* Tabs */}
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-gray-700 overflow-x-auto scrollbar-hide -mx-4 px-4">
           <button
-            onClick={() => setActiveTab('albums')}
+            onClick={() => handleTabChange('albums')}
             className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'albums'
                 ? 'text-white border-b-2 border-stablekraft-teal'
@@ -669,7 +811,7 @@ export default function FavoritesPage() {
             <span className="text-xs sm:text-sm text-gray-500">({favoriteAlbums.length})</span>
           </button>
           <button
-            onClick={() => setActiveTab('publishers')}
+            onClick={() => handleTabChange('publishers')}
             className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'publishers'
                 ? 'text-white border-b-2 border-stablekraft-teal'
@@ -681,7 +823,7 @@ export default function FavoritesPage() {
             <span className="text-xs sm:text-sm text-gray-500">({favoritePublishers.length})</span>
           </button>
           <button
-            onClick={() => setActiveTab('tracks')}
+            onClick={() => handleTabChange('tracks')}
             className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'tracks'
                 ? 'text-white border-b-2 border-stablekraft-teal'
@@ -693,7 +835,7 @@ export default function FavoritesPage() {
             <span className="text-xs sm:text-sm text-gray-500">({favoriteTracks.length})</span>
           </button>
           <button
-            onClick={() => setActiveTab('playlists')}
+            onClick={() => handleTabChange('playlists')}
             className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'playlists'
                 ? 'text-white border-b-2 border-stablekraft-teal'
@@ -703,6 +845,17 @@ export default function FavoritesPage() {
             <ListMusic className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="text-sm sm:text-base">Playlists</span>
             <span className="text-xs sm:text-sm text-gray-500">({favoritePlaylists.length})</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('community')}
+            className={`px-3 sm:px-4 py-2 font-medium transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+              activeTab === 'community'
+                ? 'text-white border-b-2 border-stablekraft-teal'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Community</span>
           </button>
         </div>
 
@@ -1071,6 +1224,191 @@ export default function FavoritesPage() {
                   })}
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* Community Tab */}
+        {activeTab === 'community' && (
+          <div>
+            {/* Header with description and controls */}
+            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">
+                  Discover what others are favoriting on Nostr
+                </p>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <select
+                  id="community-filter"
+                  value={communityFilter}
+                  onChange={(e) => setCommunityFilter(e.target.value as typeof communityFilter)}
+                  className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all"
+                >
+                  <option value="all">All</option>
+                  <option value="tracks">Tracks Only</option>
+                  <option value="albums">Albums Only</option>
+                </select>
+                <button
+                  onClick={() => loadCommunityFavorites(true)}
+                  disabled={communityLoading}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${communityLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Error state */}
+            {communityError && (
+              <div className="mb-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-400">
+                {communityError}
+              </div>
+            )}
+
+            {/* Loading state */}
+            {communityLoading && communityFavorites.length === 0 && (
+              <div className="text-center py-12">
+                <LoadingSpinner size="large" text="Fetching from Nostr relays..." />
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!communityLoading && communityFavorites.length === 0 && !communityError && (
+              <div className="text-center py-12">
+                <Globe className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                <h2 className="text-2xl font-bold mb-2">No Community Favorites Found</h2>
+                <p className="text-gray-400 mb-4">
+                  No one has published favorites to Nostr yet, or they couldn&apos;t be resolved.
+                </p>
+                <p className="text-gray-500 text-sm">
+                  Start favoriting music and it will appear here for others!
+                </p>
+              </div>
+            )}
+
+            {/* Community favorites list */}
+            {communityFavorites.length > 0 && (
+              <div className="space-y-3">
+                {communityFavorites.map((fav) => (
+                  <div
+                    key={fav.nostrEventId}
+                    className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
+                  >
+                    {/* Album Art */}
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
+                      <Image
+                        src={getAlbumArtworkUrl(fav.item.image || '', 'thumbnail')}
+                        alt={fav.item.title}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = getPlaceholderImageUrl('thumbnail');
+                        }}
+                      />
+                    </div>
+
+                    {/* Item Info */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          fav.type === 'track' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {fav.type === 'track' ? 'Track' : 'Album'}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-base sm:text-lg truncate">{fav.item.title}</h3>
+                      <p className="text-gray-400 text-xs sm:text-sm truncate">
+                        {fav.item.artist || 'Unknown Artist'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {/* User avatar */}
+                        {fav.favoritedBy.avatar ? (
+                          <Image
+                            src={fav.favoritedBy.avatar}
+                            alt=""
+                            width={16}
+                            height={16}
+                            className="w-4 h-4 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                        )}
+                        <span className="text-gray-500 text-xs truncate">
+                          {formatNpub(fav.favoritedBy.npub, fav.favoritedBy.displayName)} • {formatRelativeTime(fav.favoritedAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Favorite Button - Add to own favorites */}
+                    <FavoriteButton
+                      trackId={fav.type === 'track' ? fav.originalItemId : undefined}
+                      feedId={fav.type === 'album' ? fav.originalItemId : undefined}
+                      onToggle={handleFavoriteToggle}
+                    />
+
+                    {/* View/Play Button */}
+                    {fav.type === 'album' ? (
+                      <Link
+                        href={`/album/${fav.item.id}`}
+                        className="px-2.5 sm:px-3 py-1.5 bg-stablekraft-teal hover:bg-stablekraft-orange rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <span className="hidden sm:inline">View</span>
+                        <Disc className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          // Try to play the track
+                          if (fav.item.feedId) {
+                            try {
+                              const response = await fetch(`/api/albums/${fav.item.feedId}`);
+                              if (response.ok) {
+                                const data = await response.json();
+                                if (data.album && data.album.tracks) {
+                                  const trackIndex = data.album.tracks.findIndex(
+                                    (t: any) => t.id === fav.item.id
+                                  );
+                                  if (trackIndex >= 0) {
+                                    const rssAlbum: RSSAlbum = {
+                                      id: data.album.id,
+                                      title: data.album.title,
+                                      artist: data.album.artist || 'Unknown Artist',
+                                      description: data.album.description || '',
+                                      coverArt: data.album.coverArt || '',
+                                      releaseDate: data.album.releaseDate,
+                                      tracks: data.album.tracks.map((track: any) => ({
+                                        title: track.title,
+                                        duration: track.duration || '0:00',
+                                        url: track.url || '',
+                                        id: track.id,
+                                      })),
+                                      link: '',
+                                      feedUrl: ''
+                                    };
+                                    await globalPlayAlbum(rssAlbum, trackIndex);
+                                    return;
+                                  }
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Error playing track:', err);
+                            }
+                          }
+                          toast.error('Could not play track');
+                        }}
+                        className="px-2.5 sm:px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-white text-xs sm:text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">Play</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

@@ -527,6 +527,13 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Nostr profile image hosting (podtards)
+      {
+        protocol: 'https',
+        hostname: 'podtards.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 
