@@ -121,14 +121,10 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
               }
             }}
           >
-            <div className="min-w-0 flex-1">
-              <p className="font-bold truncate text-white text-sm">
-                {track.title}
-              </p>
-              <p className="text-xs text-gray-400 truncate">
-                {track.artist}
-              </p>
-            </div>
+            <p className="min-w-0 flex-1 text-sm truncate">
+              <span className="font-bold text-white">{track.title}</span>
+              <span className="text-gray-400"> - {track.artist}</span>
+            </p>
             <span className="text-xs text-white whitespace-nowrap flex-shrink-0">
               {formatTime(currentTime)} / {formatTime(track.duration)}
             </span>
