@@ -300,7 +300,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
         </div>
 
         {/* Album Art */}
-        <div className="flex items-center justify-center px-8 pt-2 pb-4">
+        <div className="flex-1 flex items-center justify-center px-8">
           <div className="relative w-full max-w-sm aspect-square">
             <img
               src={albumArt}
