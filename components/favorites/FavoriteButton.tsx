@@ -25,6 +25,9 @@ interface FavoriteButtonProps {
   // Determines which favorites tab the item appears in
   // Only 'publisher' if favoriting from the publishers filter page
   favoriteType?: 'album' | 'publisher' | 'playlist';
+  // Feed GUID for auto-importing album when track not in database
+  // Used for tracks from playlists like Top 100 that are resolved at runtime
+  feedGuidForImport?: string;
 }
 
 export default function FavoriteButton({
@@ -35,7 +38,8 @@ export default function FavoriteButton({
   onToggle,
   isFavorite: initialIsFavorite,
   singleTrackData,
-  favoriteType = 'album'
+  favoriteType = 'album',
+  feedGuidForImport
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
   const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
@@ -207,7 +211,9 @@ export default function FavoriteButton({
             [isTrack ? 'trackId' : 'feedId']: itemId,
             ...(nostrEventId ? { nostrEventId } : {}),
             // Include type for album favorites to determine which tab it appears in
-            ...(!isTrack ? { type: favoriteType } : {})
+            ...(!isTrack ? { type: favoriteType } : {}),
+            // Include feedGuid for auto-importing album when track not in database
+            ...(isTrack && feedGuidForImport ? { feedGuidForImport } : {})
           })
         });
 

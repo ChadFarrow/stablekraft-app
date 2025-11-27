@@ -21,6 +21,17 @@ interface PlaylistItem {
 // Updated to match: https://github.com/ChadFarrow/chadf-musicl-playlists/blob/main/FEEDS.md
 const staticPlaylists: PlaylistItem[] = [
   {
+    id: 'top100',
+    title: 'Top 100 V4V Music',
+    description: 'The hottest tracks in the Value4Value music economy, updated hourly',
+    trackCount: 100,
+    episodes: '100 tracks',
+    href: '/playlist/top100',
+    type: 'web',
+    color: 'bg-yellow-500',
+    medium: 'musicL'
+  },
+  {
     id: 'b4ts',
     title: 'Behind the Sch3m3s Music Playlist',
     description: 'Curated playlist from Behind the Sch3m3s podcast featuring Value4Value independent artists',
@@ -300,6 +311,12 @@ function PlaylistContent() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
           <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              href="/playlist/top100"
+              className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🏆 Top 100 Charts
+            </Link>
             <Link
               href="/playlist/upbeats"
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"

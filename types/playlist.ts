@@ -13,6 +13,8 @@ export interface Track {
   itemGuid?: string;
   resolved?: boolean;
   loading?: boolean;
+  rank?: number; // Chart position for Top 100 playlist
+  boosts?: number; // Number of boosts for Top 100
   valueForValue?: {
     feedGuid: string;
     itemGuid: string;

@@ -227,7 +227,7 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'www.sirtjthewrathful.com',
         port: '',
-        pathname: '/wp-content/**',
+        pathname: '/**',
       },
       {
         protocol: 'https',

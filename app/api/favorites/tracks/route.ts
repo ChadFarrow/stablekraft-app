@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
+import { addUnresolvedFeeds } from '@/lib/feed-discovery';
 
 /**
  * GET /api/favorites/tracks
@@ -186,6 +187,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     trackId = body.trackId;
     nostrEventId = body.nostrEventId;
+    const feedGuidForImport = body.feedGuidForImport;
 
     if (!trackId || typeof trackId !== 'string') {
       return NextResponse.json(
@@ -212,6 +214,10 @@ export async function POST(request: NextRequest) {
     // If still not found, allow saving anyway (tracks might not be in DB yet)
     // This allows favoriting tracks that haven't been indexed yet
     // The trackId will be stored and can be matched later when the track is added to DB
+
+    // If track not found and we have a feedGuid, trigger album import AFTER saving favorite
+    // This is done asynchronously so the user gets immediate feedback
+    const shouldImportAlbum = !track && feedGuidForImport;
 
     // Check if already favorited - use findFirst to handle both userId and sessionId cases
     const whereClause: any = { trackId };
@@ -309,9 +315,36 @@ export async function POST(request: NextRequest) {
       throw createError;
     }
 
+    // Trigger album import asynchronously (fire and forget)
+    // User gets immediate response, album imports in background
+    if (shouldImportAlbum) {
+      console.log(`🔄 Triggering background album import for: ${feedGuidForImport}`);
+
+      // Don't await - let it run in background
+      (async () => {
+        try {
+          // Check if feed already exists
+          const existingFeed = await prisma.feed.findUnique({
+            where: { id: feedGuidForImport }
+          });
+
+          if (!existingFeed) {
+            console.log(`📥 Auto-importing album: ${feedGuidForImport}`);
+            await addUnresolvedFeeds([feedGuidForImport]);
+            console.log(`✅ Album import completed for: ${feedGuidForImport}`);
+          } else {
+            console.log(`⚡ Feed already exists: ${feedGuidForImport}`);
+          }
+        } catch (importError) {
+          console.error(`❌ Failed to import album ${feedGuidForImport}:`, importError);
+        }
+      })();
+    }
+
     return NextResponse.json({
       success: true,
-      data: favorite
+      data: favorite,
+      albumImportTriggered: shouldImportAlbum
     }, { status: 201 });
   } catch (error) {
     console.error('Error adding track to favorites:', error);

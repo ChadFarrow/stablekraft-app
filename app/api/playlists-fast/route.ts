@@ -49,6 +49,30 @@ export async function GET() {
     // Create lightweight playlist summaries without expensive resolution
     const playlists: PlaylistSummary[] = [
       {
+        id: 'top100-playlist',
+        title: 'Top 100 V4V Music',
+        artist: 'Various Artists',
+        album: 'Top 100 V4V Music',
+        description: 'The hottest tracks in the Value4Value music economy, updated hourly',
+        image: 'https://podcastindex.org/android-chrome-256x256.png',
+        coverArt: 'https://podcastindex.org/android-chrome-256x256.png',
+        url: 'https://stats.podcastindex.org/v4vmusic.json',
+        feedId: 'top100-playlist',
+        type: 'playlist',
+        totalTracks: 100,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/top100',
+        albumUrl: '/playlist/top100',
+        isLoading: true,
+        fullDataUrl: '/api/playlist/top100',
+        playlistContext: {
+          source: 'top100-playlist',
+          originalUrl: 'https://stats.podcastindex.org/v4vmusic.json'
+        }
+      },
+      {
         id: 'upbeats-playlist',
         title: 'Upbeats Playlist',
         artist: 'Various Artists',
