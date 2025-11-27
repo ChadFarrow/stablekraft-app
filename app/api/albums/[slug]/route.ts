@@ -632,12 +632,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const albumId = albumSlug + '-' + feed.id.split('-')[0];
       
       // Check if this album matches the requested slug
-      // Also check if slug matches the feed ID directly (e.g., "lnurl-test-feed")
-      if (albumId === slug || 
-          albumSlug === slug || 
+      // Also check if slug matches the feed ID or GUID directly
+      if (albumId === slug ||
+          albumSlug === slug ||
           albumTitle.toLowerCase().replace(/\s+/g, '-') === slug ||
           feed.id === slug ||  // Direct feed ID match
-          feed.id.toLowerCase() === slug.toLowerCase()) {  // Case-insensitive feed ID match
+          feed.id.toLowerCase() === slug.toLowerCase() ||  // Case-insensitive feed ID match
+          feed.guid === slug ||  // Podcast Index GUID match
+          (feed.guid && feed.guid.toLowerCase() === slug.toLowerCase())) {  // Case-insensitive GUID match
         console.log(`🔍 Found potential match: "${albumTitle}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
         potentialMatches.push({ feed, trackCount: feed.Track.length });
       }
@@ -761,7 +763,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           albumTitleLower.replace(/\s+/g, '-') === searchSlug,
           albumTitleLower.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') === searchSlug,
           searchSlug.length > 5 && albumTitleLower.includes(searchSlug),
-          titleFromSlug.length > 5 && albumTitleLower.includes(titleFromSlug)
+          titleFromSlug.length > 5 && albumTitleLower.includes(titleFromSlug),
+          feed.guid === slug,  // Podcast Index GUID match
+          feed.guid?.toLowerCase() === searchSlug  // Case-insensitive GUID match
         ];
         
         if (matches.some(match => match)) {

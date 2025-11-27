@@ -8,7 +8,10 @@ import Link from 'next/link';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import { Share2 } from 'lucide-react';
+import { toast } from '@/components/Toast';
 import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
+import { generateAlbumSlug } from '@/lib/url-utils';
 import AppLayout from '@/components/AppLayout';
 
 interface PlaylistTemplateCompactProps {
@@ -651,7 +654,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         <div className="container mx-auto px-6 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Left Column - Playlist Info (2/5 width) */}
-            <div className="flex flex-col gap-6 lg:col-span-2">
+            <div className="flex flex-col gap-6 lg:col-span-2 lg:sticky lg:top-24 lg:self-start">
               {/* Artwork - responsive sizing like album page */}
               <div
                 className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px] bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
@@ -744,7 +747,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
             {/* Right Column - Track List (3/5 width) */}
             <div className="lg:col-span-3">
-              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
+              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
                 {/* Search */}
                 <div className="mb-4">
                   <div className="relative">
@@ -784,11 +787,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 >
                   {/* Track Artwork with Play Button Overlay */}
                   {track.image ? (
-                    <div className="relative flex-shrink-0 w-10 h-10">
+                    <div className="relative flex-shrink-0 w-12 h-12">
                       <img
                         src={track.image}
                         alt={track.title}
-                        className="w-10 h-10 rounded object-cover"
+                        className="w-12 h-12 rounded object-cover"
                       />
                       {/* Play button overlay */}
                       <button
@@ -823,7 +826,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                     </div>
                   ) : (
                     /* Fallback: Track Number / Play Button when no image */
-                    <div className="w-10 h-10 flex items-center justify-center">
+                    <div className="w-12 h-12 flex items-center justify-center">
                       <button
                         onClick={() => handlePlay(track)}
                         disabled={isLoading}
@@ -874,6 +877,27 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                       {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
                     </span>
                   </div>
+
+                  {/* Share Button - copies link to track's album page */}
+                  {(track.albumTitle || track.feedTitle) && (
+                    <button
+                      className="flex-shrink-0 p-1 text-white/70 hover:text-purple-400 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const albumTitle = track.albumTitle || track.feedTitle || '';
+                        const albumSlug = generateAlbumSlug(albumTitle);
+                        const albumUrl = `${window.location.origin}/album/${albumSlug}`;
+                        navigator.clipboard.writeText(albumUrl).then(() => {
+                          toast.success('Link copied!');
+                        }).catch(() => {
+                          toast.error('Failed to copy link');
+                        });
+                      }}
+                      title="Copy album link"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* Favorite Button */}
                   <div className="flex-shrink-0">

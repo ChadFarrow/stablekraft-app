@@ -733,7 +733,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
         {/* Two-column layout on desktop, single column on mobile */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
           {/* Left Column: Album Art and Info (2/5 width) */}
-          <div className="flex flex-col gap-6 lg:col-span-2">
+          <div className="flex flex-col gap-6 lg:col-span-2 lg:sticky lg:top-24 lg:self-start">
             {/* Album Art with Play Button Overlay */}
             <div className="relative group mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px]">
             <Image 
@@ -960,7 +960,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           {/* Right Column: Track List (Desktop) / Below (Mobile) (3/5 width) */}
           <div className="lg:col-span-3">
             {/* Track List */}
-            <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
+            <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <h2 className="text-xl font-semibold text-center sm:text-left">Tracks</h2>
 
@@ -992,7 +992,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     onClick={() => playTrack(displayIndex)}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0 overflow-hidden rounded">
+                      <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 overflow-hidden rounded">
                         {/* Use track-specific artwork if available, fallback to album artwork */}
                         <Image
                           src={getAlbumArtworkUrl(track.image || album?.coverArt || '', 'thumbnail')}
