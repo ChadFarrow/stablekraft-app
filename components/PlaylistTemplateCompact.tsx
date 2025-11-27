@@ -647,99 +647,128 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           </Link>
         </div>
 
-        {/* Album Header */}
+        {/* Main Content - Two Column Layout */}
         <div className="container mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-start md:items-end gap-6 mb-8">
-            {/* Album Art */}
-            <div
-              className="w-48 h-48 bg-gray-900/60 backdrop-blur-sm rounded-lg flex-shrink-0 overflow-hidden relative group cursor-pointer transform transition-transform hover:scale-105"
-              onClick={() => {
-                if (filteredTracks.length > 0) {
-                  handlePlay(filteredTracks[0]);
-                }
-              }}
-            >
-              {playlistArtwork ? (
-                <>
-                  <img
-                    src={playlistArtwork}
-                    alt={config.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Play Button Overlay */}
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all duration-300">
-                    <div className="w-24 h-24 bg-white hover:bg-white rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all duration-300 border-2 border-white/20">
-                      <Play className="w-12 h-12 text-black ml-1" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            {/* Left Column - Playlist Info (2/5 width) */}
+            <div className="flex flex-col gap-6 lg:col-span-2">
+              {/* Artwork - responsive sizing like album page */}
+              <div
+                className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px] bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
+                onClick={() => {
+                  if (filteredTracks.length > 0) {
+                    handlePlay(filteredTracks[0]);
+                  }
+                }}
+              >
+                {playlistArtwork ? (
+                  <>
+                    <img
+                      src={playlistArtwork}
+                      alt={config.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Play Button Overlay */}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-all duration-300">
+                      <div className="w-16 h-16 lg:w-20 lg:h-20 bg-white/95 hover:bg-white rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all duration-300">
+                        <Play className="w-8 h-8 lg:w-10 lg:h-10 text-black ml-1" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-32 h-32 bg-stablekraft-teal/20 rounded-lg flex items-center justify-center">
+                      <Play className="w-12 h-12 text-stablekraft-teal" />
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-32 h-32 bg-stablekraft-teal/20 rounded-lg flex items-center justify-center">
-                    <Play className="w-12 h-12 text-stablekraft-teal" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Album Info */}
-            <div className="flex-1">
-              <div className="flex items-start gap-4 mb-2">
-                <h1 className="text-4xl font-bold flex-1">{config.title}</h1>
-                {playlistLink && (
-                  <a
-                    href={playlistLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 text-white/80 hover:text-white"
-                    title="Visit playlist website"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="text-sm font-medium">Website</span>
-                  </a>
                 )}
               </div>
-              <p className="text-white/80 mb-4">{config.description}</p>
-              {stats && (
-                <div className="flex flex-wrap gap-4 text-sm text-white/70">
-                  <span>{new Date().getFullYear()}</span>
-                  <span>•</span>
-                  <span>{stats.totalTracks} tracks</span>
-                  <span>•</span>
-                  <span>{formatDuration(stats.totalDuration)}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Search and Tracks Container */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tracks..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-600/50 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-white/60"
-                />
+              {/* Info Card with glass background */}
+              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 lg:max-w-[400px]">
+                {/* Title & Description */}
+                <div className="text-center lg:text-left">
+                  <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                    {config.title.includes('Top 100') ? (
+                      <>
+                        Top{' '}
+                        <span className="relative inline-block mx-2">
+                          <span className="line-through opacity-50">100</span>
+                          <span
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 font-black -rotate-12 text-[2.5rem] md:text-[3rem]"
+                            style={{
+                              textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(239, 68, 68, 0.7), 0 0 20px rgba(239, 68, 68, 0.5)',
+                              WebkitTextStroke: '2px black'
+                            }}
+                          >
+                            {tracks.length}
+                          </span>
+                        </span>
+                        {' '}V4V Music
+                      </>
+                    ) : (
+                      config.title
+                    )}
+                  </h1>
+                  <p className="text-gray-300">{config.description}</p>
+                </div>
+
+                {/* Stats Row */}
+                {stats && (
+                  <div className="flex items-center justify-center lg:justify-start gap-4 text-sm text-gray-400 mt-4">
+                    <span>{new Date().getFullYear()}</span>
+                    <span>•</span>
+                    <span>{stats.totalTracks} tracks</span>
+                    <span>•</span>
+                    <span>{formatDuration(stats.totalDuration)}</span>
+                  </div>
+                )}
+
+                {/* Website Link */}
+                {playlistLink && (
+                  <div className="flex justify-center lg:justify-start mt-4">
+                    <a
+                      href={playlistLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors duration-200 text-white/80 hover:text-white"
+                      title="Visit playlist website"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span className="text-sm font-medium">Website</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Tracks Header */}
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                Tracks
-                <span className="text-sm text-gray-200 bg-gray-800/60 px-2 py-1 rounded">
-                  {filteredTracks.length}
-                </span>
-              </h2>
-            </div>
+            {/* Right Column - Track List (3/5 width) */}
+            <div className="lg:col-span-3">
+              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
+                {/* Search */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tracks..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-600/50 rounded-lg focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal text-white placeholder-white/60"
+                    />
+                  </div>
+                </div>
 
-            {/* Track List */}
-            <div className="space-y-1">
+                {/* Tracks Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-white">Tracks</h2>
+                  <span className="text-sm text-gray-400">
+                    {filteredTracks.length}
+                  </span>
+                </div>
+
+                {/* Track List */}
+                <div className="space-y-1">
             {filteredTracks.map((track, index) => {
               const isCurrentTrack = shouldUseAudioContext ?
                 (audioContext?.currentPlayingAlbum?.id === `${config.cacheKey}-playlist` && audioContext?.currentTrackIndex === index) :
@@ -881,20 +910,22 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   </div>
                 </div>
               );
-            })}
-            </div>
-
-            {filteredTracks.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-8 w-8 text-gray-400" />
+                })}
                 </div>
-                <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
-                <p className="text-gray-400">
-                  {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
-                </p>
+
+                {filteredTracks.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
+                    <p className="text-gray-400">
+                      {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

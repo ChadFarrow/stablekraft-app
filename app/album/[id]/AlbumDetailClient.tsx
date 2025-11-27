@@ -731,9 +731,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
         </div>
 
         {/* Two-column layout on desktop, single column on mobile */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Left Column: Album Art and Info */}
-          <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
+          {/* Left Column: Album Art and Info (2/5 width) */}
+          <div className="flex flex-col gap-6 lg:col-span-2">
             {/* Album Art with Play Button Overlay */}
             <div className="relative group mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px]">
             <Image 
@@ -809,6 +809,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           </div>
           
             {/* Album Info */}
+            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6">
             <div className="text-center lg:text-left space-y-4">
             <h1 className="text-3xl md:text-4xl font-bold leading-tight">{album.title}</h1>
             <p className="text-xl text-gray-300">{album.artist}</p>
@@ -893,6 +894,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               )}
             </div>
           </div>
+          </div>
 
           {/* Doerfels Publisher Information */}
           {isDoerfelsAlbum && doerfelsPublisherInfo && (
@@ -955,8 +957,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           )}
         </div>
 
-          {/* Right Column: Track List (Desktop) / Below (Mobile) */}
-          <div className="lg:col-span-1">
+          {/* Right Column: Track List (Desktop) / Below (Mobile) (3/5 width) */}
+          <div className="lg:col-span-3">
             {/* Track List */}
             <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4 md:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
