@@ -849,7 +849,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   {/* Favorite Button */}
                   <div className="flex-shrink-0">
                     <FavoriteButton
-                      trackId={track.itemGuid || track.guid || track.id}
+                      trackId={track.itemGuid || track.id}
                       feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
                       size={18}
                       className="p-1"
