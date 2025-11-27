@@ -19,6 +19,11 @@ export interface EnrichedGlobalFavorite {
     // For albums/feeds
     trackCount?: number;
     type?: string;
+    // For single-track albums, include the track data so it can be favorited as a track
+    singleTrack?: {
+      id: string;
+      title: string;
+    };
   } | null;
   favoritedBy: {
     pubkey: string;
@@ -163,6 +168,12 @@ export async function GET(request: NextRequest) {
           _count: {
             select: { Track: true },
           },
+          // Include first track for single-track albums
+          Track: {
+            take: 1,
+            orderBy: { trackOrder: 'asc' },
+            select: { id: true, title: true },
+          },
         },
       });
 
@@ -196,13 +207,19 @@ export async function GET(request: NextRequest) {
       } else {
         const album = albumsMap.get(favorite.itemId);
         if (album) {
+          const trackCount = album._count?.Track || 0;
           item = {
             id: album.id,
             title: album.title,
             artist: album.artist,
             image: album.image,
-            trackCount: album._count?.Track,
+            trackCount,
             type: album.type,
+            // For single-track albums, include the track data so it can be favorited as a track
+            singleTrack: trackCount === 1 && album.Track?.[0] ? {
+              id: album.Track[0].id,
+              title: album.Track[0].title,
+            } : undefined,
           };
         }
       }

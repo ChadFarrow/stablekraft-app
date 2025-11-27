@@ -91,6 +91,7 @@ export async function DELETE(request: NextRequest) {
  * Get count of favorites that would be deleted
  * Query params:
  *   - type: 'nostr' | 'local' | 'all' (default: 'all')
+ *   - includeEventIds: 'true' to include nostrEventIds for deletion
  */
 export async function GET(request: NextRequest) {
   try {
@@ -98,20 +99,38 @@ export async function GET(request: NextRequest) {
     const userId = request.headers.get('x-nostr-user-id');
     const { searchParams } = new URL(request.url);
     const countType = searchParams.get('type') || 'all';
+    const includeEventIds = searchParams.get('includeEventIds') === 'true';
 
     let nostrAlbums = 0;
     let nostrTracks = 0;
     let localAlbums = 0;
     let localTracks = 0;
+    let nostrEventIds: { albums: string[]; tracks: string[] } = { albums: [], tracks: [] };
 
     // Count Nostr favorites
     if ((countType === 'nostr' || countType === 'all') && userId) {
-      nostrAlbums = await prisma.favoriteAlbum.count({
-        where: { userId }
-      });
-      nostrTracks = await prisma.favoriteTrack.count({
-        where: { userId }
-      });
+      if (includeEventIds) {
+        // Fetch with eventIds for Nostr deletion
+        const albums = await prisma.favoriteAlbum.findMany({
+          where: { userId },
+          select: { nostrEventId: true }
+        });
+        const tracks = await prisma.favoriteTrack.findMany({
+          where: { userId },
+          select: { nostrEventId: true }
+        });
+        nostrAlbums = albums.length;
+        nostrTracks = tracks.length;
+        nostrEventIds.albums = albums.filter(a => a.nostrEventId).map(a => a.nostrEventId!);
+        nostrEventIds.tracks = tracks.filter(t => t.nostrEventId).map(t => t.nostrEventId!);
+      } else {
+        nostrAlbums = await prisma.favoriteAlbum.count({
+          where: { userId }
+        });
+        nostrTracks = await prisma.favoriteTrack.count({
+          where: { userId }
+        });
+      }
     }
 
     // Count local favorites
@@ -144,7 +163,8 @@ export async function GET(request: NextRequest) {
         }
       },
       hasNostrUser: !!userId,
-      hasSession: !!sessionId
+      hasSession: !!sessionId,
+      ...(includeEventIds ? { nostrEventIds } : {})
     });
   } catch (error) {
     console.error('Error counting favorites:', error);

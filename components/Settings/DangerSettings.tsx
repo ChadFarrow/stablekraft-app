@@ -15,6 +15,11 @@ interface FavoriteCounts {
   hasSession: boolean;
 }
 
+interface NostrEventIds {
+  albums: string[];
+  tracks: string[];
+}
+
 export default function DangerSettings() {
   const { sessionId, isLoading: sessionLoading } = useSession();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated, isLoading: nostrLoading } = useNostr();
@@ -87,6 +92,45 @@ export default function DangerSettings() {
         }
       }
 
+      // For Nostr deletion, first get event IDs and publish deletion events
+      let nostrDeletionCount = 0;
+      if (type === 'nostr' && isNostrAuthenticated && nostrUser) {
+        try {
+          // Fetch event IDs
+          const eventIdsResponse = await fetch(`/api/favorites/delete-all?type=nostr&includeEventIds=true`, {
+            headers
+          });
+          const eventIdsData = await eventIdsResponse.json();
+
+          if (eventIdsData.success && eventIdsData.nostrEventIds) {
+            const allEventIds = [
+              ...eventIdsData.nostrEventIds.albums,
+              ...eventIdsData.nostrEventIds.tracks
+            ];
+
+            if (allEventIds.length > 0) {
+              // Import deletion function
+              const { deleteFavoriteFromNostr } = await import('@/lib/nostr/favorites');
+              const userRelays = nostrUser.relays && nostrUser.relays.length > 0 ? nostrUser.relays : undefined;
+
+              // Publish deletion events for each favorite
+              for (const eventId of allEventIds) {
+                try {
+                  await deleteFavoriteFromNostr(eventId, null, userRelays);
+                  nostrDeletionCount++;
+                } catch (delError) {
+                  console.warn(`Failed to delete event ${eventId} from Nostr:`, delError);
+                }
+              }
+              console.log(`✅ Published ${nostrDeletionCount}/${allEventIds.length} deletion events to Nostr`);
+            }
+          }
+        } catch (nostrError) {
+          console.warn('Failed to publish Nostr deletion events:', nostrError);
+          // Continue with database deletion even if Nostr deletion fails
+        }
+      }
+
       const response = await fetch(`/api/favorites/delete-all?type=${type}`, {
         method: 'DELETE',
         headers
@@ -95,9 +139,12 @@ export default function DangerSettings() {
       const data = await response.json();
 
       if (data.success) {
+        const nostrMessage = type === 'nostr' && nostrDeletionCount > 0
+          ? ` (${nostrDeletionCount} deletion events published to Nostr)`
+          : '';
         setDeleteResult({
           success: true,
-          message: data.message
+          message: data.message + nostrMessage
         });
         // Refresh counts
         await fetchCounts();
@@ -123,7 +170,7 @@ export default function DangerSettings() {
     if (showConfirmModal === 'nostr') {
       return {
         title: 'Delete All Nostr Favorites?',
-        description: `This will permanently delete ${counts?.nostr.albums || 0} albums and ${counts?.nostr.tracks || 0} tracks from your Nostr favorites. This action cannot be undone.`,
+        description: `This will permanently delete ${counts?.nostr.albums || 0} albums and ${counts?.nostr.tracks || 0} tracks from your Nostr favorites. Deletion events will be published to Nostr relays (requires signing). This action cannot be undone.`,
         buttonText: 'Delete Nostr Favorites'
       };
     } else if (showConfirmModal === 'local') {
