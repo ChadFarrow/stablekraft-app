@@ -54,6 +54,7 @@ interface FavoriteAlbum {
   image: string | null;
   type: string;
   favoritedAt: string;
+  trackCount?: number;
   v4vValue?: any;
   v4vRecipient?: string | null;
   originalUrl?: string | null;
@@ -936,6 +937,7 @@ function FavoritesPageContent() {
                       url: '',
                       id: track.id
                     })),
+                    trackCount: album.trackCount || album.Track?.length || 0,
                     feedId: album.id, // Use album.id as feedId for lookup
                     type: album.type,
                     // V4V data for boost button

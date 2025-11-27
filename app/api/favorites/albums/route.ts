@@ -47,6 +47,9 @@ export async function GET(request: NextRequest) {
             duration: true,
             image: true
           }
+        },
+        _count: {
+          select: { Track: true }
         }
       }
     });
@@ -82,7 +85,8 @@ export async function GET(request: NextRequest) {
           ...feed,
           type: feedType,
           artist: artistName || feed.artist,
-          favoritedAt: favorite.createdAt
+          favoritedAt: favorite.createdAt,
+          trackCount: (feed as any)._count?.Track || 0
         };
       } else {
         // Feed doesn't exist (e.g., not yet indexed)
