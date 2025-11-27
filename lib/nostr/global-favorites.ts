@@ -26,6 +26,7 @@ export interface FetchGlobalFavoritesOptions {
   excludePubkey?: string; // Exclude own favorites
   relays?: string[];
   timeout?: number;
+  since?: number; // Unix timestamp - only return events created after this time
 }
 
 /**
@@ -103,6 +104,7 @@ export async function fetchGlobalFavorites(
     excludePubkey,
     relays = getDefaultRelays(),
     timeout = 8000,
+    since,
   } = options;
 
   const client = new NostrClient(relays);
@@ -112,6 +114,7 @@ export async function fetchGlobalFavorites(
     const filter: Filter = {
       kinds,
       limit,
+      ...(since && { since }), // Only return events after this timestamp
     };
 
     // Query relays for events

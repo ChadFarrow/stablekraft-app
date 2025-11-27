@@ -84,12 +84,16 @@ export async function GET(request: NextRequest) {
         kinds = [FAVORITE_TRACK_KIND, FAVORITE_ALBUM_KIND];
     }
 
-    // Fetch favorites from Nostr relays
+    // Fixed cutoff date: November 27th, 2025 UTC - don't show anything older
+    const cutoffTimestamp = Math.floor(Date.UTC(2025, 10, 27) / 1000); // Month is 0-indexed, so 10 = November
+
+    // Fetch favorites from Nostr relays - only from cutoff date onwards
     const favorites = await fetchGlobalFavorites({
       limit: limit * 4, // Fetch more to account for filtering
       kinds,
       excludePubkey: excludeSelf && userPubkey ? userPubkey : undefined,
       timeout: 10000,
+      since: cutoffTimestamp, // Only get favorites from Nov 27, 2025 onwards
     });
 
     // Filter to only include favorites from known users of this site

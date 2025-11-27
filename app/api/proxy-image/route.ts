@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 
+// In-memory cache for proxied images (LRU-style with max entries)
+const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
+const MAX_CACHE_ENTRIES = 100;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function getCachedImage(url: string) {
+  const cached = imageCache.get(url);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached;
+  }
+  if (cached) {
+    imageCache.delete(url); // Expired
+  }
+  return null;
+}
+
+function setCachedImage(url: string, buffer: Buffer, contentType: string) {
+  // Evict oldest entries if at capacity
+  if (imageCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = imageCache.keys().next().value;
+    if (oldestKey) imageCache.delete(oldestKey);
+  }
+  imageCache.set(url, { buffer, contentType, timestamp: Date.now() });
+}
+
 /**
  * Generate a placeholder image as PNG buffer
  * This ensures Next.js Image optimization always receives a valid image
@@ -75,10 +100,25 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const imageUrl = searchParams.get('url');
-    
+
     if (!imageUrl) {
       console.warn('⚠️ Missing image URL parameter, returning placeholder');
       return returnPlaceholderImage();
+    }
+
+    // Check in-memory cache first
+    const cached = getCachedImage(imageUrl);
+    if (cached) {
+      console.log(`📦 Cache hit for: ${imageUrl.substring(0, 50)}...`);
+      const headers = new Headers();
+      headers.set('Content-Type', cached.contentType);
+      headers.set('Content-Length', cached.buffer.length.toString());
+      headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
+      headers.set('X-Image-Proxy', 're.podtards.com');
+      headers.set('X-Cache', 'HIT');
+      return new NextResponse(cached.buffer, { status: 200, headers });
     }
 
     // Validate URL
@@ -299,12 +339,18 @@ export async function GET(request: NextRequest) {
       else if (imageUrl.toLowerCase().includes('.webp')) finalContentType = 'image/webp';
       else finalContentType = 'image/jpeg'; // Default fallback
     }
+
+    // Cache the successfully fetched image
+    setCachedImage(imageUrl, processedBuffer, finalContentType);
+    console.log(`💾 Cached image: ${imageUrl.substring(0, 50)}... (${processedBuffer.length} bytes)`);
+
     headers.set('Content-Type', finalContentType);
     headers.set('Content-Length', processedBuffer.length.toString());
     headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400'); // 1 hour client, 24 hours CDN
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
     headers.set('X-Image-Proxy', 're.podtards.com');
+    headers.set('X-Cache', 'MISS');
     if (enhance) {
       headers.set('X-Image-Enhanced', 'true');
     }

@@ -257,8 +257,7 @@ export async function GET(request: Request) {
               { trackOrder: 'asc' },
               { publishedAt: 'asc' },
               { createdAt: 'asc' }
-            ],
-            take: 20
+            ]
           }
         },
         orderBy: [

@@ -291,42 +291,57 @@ export async function GET(request: Request) {
       const albumTitle = album.title?.toLowerCase() || '';
       const albumArtist = album.artist?.toLowerCase() || '';
       const feedUrl = album.feedUrl?.toLowerCase() || '';
-      
+
       // Keep Bowl Covers - these are legitimate music content
       if (album.id === 'bowl-covers' || albumTitle.includes('bowl covers')) {
         return true;
       }
-      
+
       // Filter out main Bowl After Bowl podcast episodes
       const isBowlAfterBowlPodcast = (
         (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
         (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
         (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
       );
-      
+
       if (isBowlAfterBowlPodcast && process.env.NODE_ENV === 'development') {
         console.log(`🚫 Filtering out Bowl After Bowl podcast: ${album.title} by ${album.artist}`);
       }
-      
+
       return !isBowlAfterBowlPodcast;
     });
-    
+
+    // Filter out unresolved feed GUID placeholders - these have no usable data
+    const unresolvedFilteredAlbums = podcastFilteredAlbums.filter(album => {
+      const albumTitle = album.title?.toLowerCase() || '';
+
+      // Filter out unresolved feed GUID placeholders
+      if (albumTitle.startsWith('unresolved-feed-guid-')) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Filtering out unresolved feed GUID: ${album.title}`);
+        }
+        return false;
+      }
+
+      return true;
+    });
+
     // Apply filtering
-    let filteredAlbums = podcastFilteredAlbums;
+    let filteredAlbums = unresolvedFilteredAlbums;
     if (filter !== 'all') {
       switch (filter) {
         case 'albums':
-          filteredAlbums = podcastFilteredAlbums.filter(album => 
+          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length >= 8
           );
           break;
         case 'eps':
-          filteredAlbums = podcastFilteredAlbums.filter(album => 
+          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length >= 2 && album.tracks.length < 8
           );
           break;
         case 'singles':
-          filteredAlbums = podcastFilteredAlbums.filter(album => 
+          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length === 1
           );
           break;
