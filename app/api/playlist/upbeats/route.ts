@@ -153,7 +153,10 @@ export async function GET(request: Request) {
           description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in Upbeats podcast`,
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
-          guid: resolvedTrack.guid
+          feedId: resolvedTrack.feedId,
+          guid: resolvedTrack.guid,
+          v4vValue: resolvedTrack.v4vValue,
+          v4vRecipient: resolvedTrack.v4vRecipient
         };
       } else {
         // Use placeholder data

@@ -148,7 +148,10 @@ export async function GET(request: Request) {
           description: `${resolvedTrack.title} by ${resolvedTrack.artist} - Featured in It's a Mood podcast`,
           albumTitle: resolvedTrack.albumTitle,
           feedTitle: resolvedTrack.feedTitle,
-          guid: resolvedTrack.guid
+          feedId: resolvedTrack.feedId,
+          guid: resolvedTrack.guid,
+          v4vValue: resolvedTrack.v4vValue,
+          v4vRecipient: resolvedTrack.v4vRecipient
         };
       } else {
         // Return null for unresolved tracks (will be filtered out)
