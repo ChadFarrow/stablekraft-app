@@ -15,6 +15,8 @@ export interface Track {
   loading?: boolean;
   rank?: number; // Chart position for Top 100 playlist
   boosts?: number; // Number of boosts for Top 100
+  albumTitle?: string; // Album/feed title for share links
+  feedTitle?: string; // Feed title for share links
   valueForValue?: {
     feedGuid: string;
     itemGuid: string;
