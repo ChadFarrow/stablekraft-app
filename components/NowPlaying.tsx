@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import CDNImage from '@/components/CDNImage';
 import { getPlaceholderImageUrl } from '@/lib/cdn-utils';
 
 interface Track {
@@ -96,15 +95,18 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             }
           }}
         >
-          <CDNImage
+          <img
             key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}-mobile`}
-            src={track.albumArt || ''}
+            src={track.albumArt || getPlaceholderImageUrl('thumbnail')}
             alt={track.title}
-            width={56}
-            height={56}
             className="rounded-lg object-cover"
             style={{ width: '56px', height: '56px' }}
-            fallbackSrc={getPlaceholderImageUrl('thumbnail')}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.includes('data:image/svg+xml')) {
+                target.src = getPlaceholderImageUrl('thumbnail');
+              }
+            }}
           />
         </div>
 
@@ -182,14 +184,17 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             }
           }}
         >
-          <CDNImage
+          <img
             key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}`}
-            src={track.albumArt || ''}
+            src={track.albumArt || getPlaceholderImageUrl('thumbnail')}
             alt={track.title}
-            width={48}
-            height={48}
             className="rounded-lg object-cover w-12 h-12 flex-shrink-0"
-            fallbackSrc={getPlaceholderImageUrl('thumbnail')}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.includes('data:image/svg+xml')) {
+                target.src = getPlaceholderImageUrl('thumbnail');
+              }
+            }}
           />
           <div className="min-w-0">
             <p className="font-bold truncate text-white">

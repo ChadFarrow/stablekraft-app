@@ -615,7 +615,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'wavlake.com',
           'buzzsprout.com',
           'anchor.fm',
-          'libsyn.com'
+          'libsyn.com',
+          'whitetriangles.com',
+          'falsefinish.club'
         ];
 
         const isDirectFirst = directFirstDomains.some(domain =>
@@ -964,30 +966,41 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
-    // Upgrade HTTP to HTTPS
-    let secureUrl = audioUrl.startsWith('http://')
-      ? audioUrl.replace(/^http:/, 'https:')
-      : audioUrl;
+    // Get URLs to try (includes proxied URLs for CORS-problematic domains)
+    const urlsToTry = getAudioUrlsToTry(audioUrl);
 
-    try {
-      console.log(`🔄 Attempting seamless playback: ${context}`);
+    for (let i = 0; i < urlsToTry.length; i++) {
+      let secureUrl = urlsToTry[i];
 
-      // Direct source swap - no pause, no clearing, no delay
-      // This keeps the audio session "warm" on iOS
-      currentElement.src = secureUrl;
-
-      // Attempt immediate play
-      const playPromise = currentElement.play();
-      if (playPromise !== undefined) {
-        await playPromise;
-        console.log(`✅ Seamless playback started: ${context}`);
-        return true;
+      // Upgrade HTTP to HTTPS
+      if (secureUrl.startsWith('http://')) {
+        secureUrl = secureUrl.replace(/^http:/, 'https:');
       }
-      return true;
-    } catch (error) {
-      console.warn(`⚠️ Seamless playback failed, will fall back: ${error}`);
-      return false;
+
+      try {
+        const isProxied = secureUrl.includes('proxy-audio');
+        console.log(`🔄 Attempting seamless playback (${i + 1}/${urlsToTry.length}): ${context} - ${isProxied ? 'PROXY' : 'DIRECT'}`);
+
+        // Direct source swap - no pause, no clearing, no delay
+        // This keeps the audio session "warm" on iOS
+        currentElement.src = secureUrl;
+
+        // Attempt immediate play
+        const playPromise = currentElement.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          console.log(`✅ Seamless playback started: ${context}`);
+          return true;
+        }
+        return true;
+      } catch (error) {
+        console.warn(`⚠️ Seamless playback attempt ${i + 1} failed: ${error}`);
+        // Continue to next URL if available
+      }
     }
+
+    console.warn(`⚠️ Seamless playback failed after ${urlsToTry.length} attempts, will fall back`);
+    return false;
   };
 
   // Media event listeners
