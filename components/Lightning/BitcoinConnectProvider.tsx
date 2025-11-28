@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import type { WebLNProvider } from '@webbtc/webln-types';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { useNostr } from '@/contexts/NostrContext';
@@ -197,8 +197,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       if ((window as any).webln) {
         const weblnProvider = (window as any).webln;
 
-        // Only switch if we're not already using this provider
-        if (provider !== weblnProvider) {
+        // Only auto-connect if NO wallet is connected yet
+        // If user already connected via Bitcoin Connect (including NWC), respect that choice
+        if (!provider && !isConnected) {
           // Just set the provider, don't enable yet - enable will happen when user clicks
           setProvider(weblnProvider);
           setIsConnected(true);
@@ -207,6 +208,37 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
     }
   }, [isNostrAuthenticated, provider, nostrUser]);
+
+  // Track previous auth state to detect logout
+  const prevAuthRef = useRef(isNostrAuthenticated);
+
+  // Disconnect wallet when user logs out of Nostr
+  useEffect(() => {
+    // Detect when user logs out (was authenticated, now isn't)
+    if (prevAuthRef.current === true && isNostrAuthenticated === false) {
+      console.log('🔐 Nostr user logged out - disconnecting wallet');
+      // Disconnect wallet
+      import('@getalby/bitcoin-connect').then(async (bitcoinConnect) => {
+        try {
+          // Mark as manually disconnected to prevent auto-reconnect
+          setManuallyDisconnected(true);
+          localStorage.setItem('wallet_manually_disconnected', 'true');
+
+          await bitcoinConnect.disconnect();
+
+          setProvider(null);
+          setIsConnected(false);
+          console.log('✅ Wallet disconnected on Nostr logout');
+        } catch (err) {
+          console.warn('⚠️ Failed to disconnect wallet on logout:', err);
+          // Force state update even on error
+          setProvider(null);
+          setIsConnected(false);
+        }
+      });
+    }
+    prevAuthRef.current = isNostrAuthenticated;
+  }, [isNostrAuthenticated]);
 
   const connect = async () => {
     try {
