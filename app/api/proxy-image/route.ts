@@ -131,11 +131,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to upgrade HTTP to HTTPS for security
-    let fetchUrl = imageUrl;
+    // Use url.href to ensure proper URL encoding (spaces, special chars)
     if (url.protocol === 'http:') {
       console.log(`⚠️ HTTP URL detected, attempting HTTPS upgrade: ${imageUrl}`);
-      fetchUrl = imageUrl.replace(/^http:/, 'https:');
+      url.protocol = 'https:';
     }
+    const fetchUrl = url.href;
 
     // Fetch the image with better error handling
     const response = await fetch(fetchUrl, {
