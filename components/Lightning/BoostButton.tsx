@@ -1274,12 +1274,7 @@ export function BoostButton({
 
                 {/* Payment Method Indicator */}
                 <div className="mt-2 flex items-center gap-2 text-xs">
-                  {lightningAddress && LNURLService.isLightningAddress(lightningAddress) ? (
-                    <>
-                      <Mail className="w-3 h-3 text-blue-400" />
-                      <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
-                    </>
-                  ) : activeValueSplits && activeValueSplits.length > 0 ? (
+                  {activeValueSplits && activeValueSplits.length > 0 ? (
                     <div className="flex flex-col gap-2">
                       {/* For single splits, show directly without dropdown */}
                       {activeValueSplits.length === 1 ? (
@@ -1410,6 +1405,11 @@ export function BoostButton({
                         );
                       })()}
                     </div>
+                  ) : lightningAddress && LNURLService.isLightningAddress(lightningAddress) ? (
+                    <>
+                      <Mail className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-400">Lightning Address: {lightningAddress}</span>
+                    </>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-red-400">
