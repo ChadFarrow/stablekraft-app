@@ -80,6 +80,53 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Early error suppression - runs before React loads */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                // Suppress chrome API errors from bundled code (workbox, etc.)
+                const originalError = window.onerror;
+                window.onerror = function(message, source, lineno, colno, error) {
+                  if (typeof message === 'string' && (
+                    message.includes('chrome is not defined') ||
+                    message.includes('chrome.runtime') ||
+                    (error && error.stack && error.stack.includes('chrome') && error.stack.includes('workbox'))
+                  )) {
+                    // Suppress non-critical chrome API errors
+                    return true;
+                  }
+                  if (originalError) {
+                    return originalError.call(this, message, source, lineno, colno, error);
+                  }
+                  return false;
+                };
+                
+                // Suppress chrome-related promise rejections
+                window.addEventListener('unhandledrejection', function(event) {
+                  const reason = event.reason?.message || String(event.reason || '');
+                  if (reason.includes('chrome is not defined') || reason.includes('chrome.runtime')) {
+                    event.preventDefault();
+                  }
+                });
+                
+                // Suppress noisy console warnings for expected behaviors
+                const originalWarn = console.warn;
+                console.warn = function(...args) {
+                  const message = args.join(' ');
+                  // Suppress localStorage quota warnings (expected behavior, fallback works)
+                  if (message.includes('localStorage quota exceeded') || 
+                      (message.includes('quota exceeded') && message.includes('IndexedDB'))) {
+                    // Convert to info log (less alarming, expected behavior)
+                    console.log('ℹ️ Storage quota exceeded, using IndexedDB fallback (expected behavior)');
+                    return;
+                  }
+                  originalWarn.apply(console, args);
+                };
+              })();
+            `,
+          }}
+        />
         {/* Favicon */}
         <link rel="icon" type="image/png" href="/stablekraft-rocket.png" />
         <link rel="shortcut icon" type="image/png" href="/stablekraft-rocket.png" />

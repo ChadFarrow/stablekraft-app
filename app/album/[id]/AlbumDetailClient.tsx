@@ -55,6 +55,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
   const [isClient, setIsClient] = useState(false);
   const [backgroundLoaded, setBackgroundLoaded] = useState(false);
   const [albumArtLoaded, setAlbumArtLoaded] = useState(false);
+  const [albumArtError, setAlbumArtError] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const preloadAttemptedRef = useRef(false);
   
@@ -741,7 +742,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             {/* Album Art with Play Button Overlay */}
             <div className="relative group mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px]">
             <Image 
-              src={getAlbumArtworkUrl(album?.coverArt || '', 'medium', true)} 
+              src={albumArtError || !album?.coverArt ? getPlaceholderImageUrl('medium') : getAlbumArtworkUrl(album.coverArt, 'medium', true)} 
               alt={album.title}
               width={280}
               height={280}
@@ -750,10 +751,16 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               }`}
               style={{ objectFit: 'cover' }}
               priority // Always prioritize album art loading
-              onLoad={() => setAlbumArtLoaded(true)}
+              onLoad={() => {
+                setAlbumArtLoaded(true);
+                setAlbumArtError(false);
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = getPlaceholderImageUrl('medium');
+                if (!albumArtError) {
+                  setAlbumArtError(true);
+                  target.src = getPlaceholderImageUrl('medium');
+                }
                 setAlbumArtLoaded(true);
               }}
               placeholder="empty"

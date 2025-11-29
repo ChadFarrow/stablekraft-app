@@ -124,6 +124,8 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       publisherFeedImage: initialData.publisherInfo.publisherFeedImage || initialData.publisherInfo.image
     } : null
   );
+  const [backgroundImageLoaded, setBackgroundImageLoaded] = useState(false);
+  const [backgroundImageError, setBackgroundImageError] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [albumsLoading, setAlbumsLoading] = useState(false);
   const [viewType, setViewType] = useState<ViewType>('grid');
@@ -893,19 +895,34 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   return (
     <div className="min-h-screen text-white relative">
       {/* Enhanced Background */}
-      {publisherInfo?.coverArt ? (
+      {(publisherInfo?.coverArt || publisherInfo?.avatarArt) && !backgroundImageError ? (
         <div className="fixed inset-0 z-0">
           <Image
-            src={getAlbumArtworkUrl(publisherInfo.coverArt, 'large')}
+            src={getAlbumArtworkUrl(publisherInfo.coverArt || publisherInfo.avatarArt || '', 'large', true)}
             alt={publisherInfo.title || "Publisher background"}
             width={1920}
             height={1080}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-opacity duration-500 ${
+              backgroundImageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
             priority
+            onLoad={() => {
+              setBackgroundImageLoaded(true);
+              setBackgroundImageError(false);
+            }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.src = getPlaceholderImageUrl('large');
+              if (!backgroundImageError) {
+                // Try fallback to newest album image if publisher feed image fails
+                if (publisherInfo.coverArt && publisherInfo.avatarArt && publisherInfo.coverArt !== publisherInfo.avatarArt) {
+                  target.src = getAlbumArtworkUrl(publisherInfo.avatarArt, 'large', true);
+                  return;
+                }
+                setBackgroundImageError(true);
+                setBackgroundImageLoaded(true);
+              }
             }}
+            placeholder="empty"
           />
           {/* Gradient overlay for better readability */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/70 to-black/90"></div>
