@@ -3,6 +3,9 @@ import PublisherDetailClient from './PublisherDetailClient';
 import { getPublisherInfo } from '@/lib/url-utils';
 import { prisma } from '@/lib/prisma';
 
+// Force dynamic rendering to always fetch fresh publisher data from database
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const publisherId = decodeURIComponent(id);
