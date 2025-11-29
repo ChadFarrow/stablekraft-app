@@ -427,23 +427,18 @@ async function loadPublisherData(publisherId: string) {
     }
     
     // Fallback: If no albums found via remote items, try artist matching
-    // ONLY if we have a known publisher mapping to ensure accuracy
-    if (relatedFeeds.length === 0) {
-      const publisherInfo = getPublisherInfo(publisherId);
-      
-      // Only do artist matching if we have a known publisher mapping
-      // This prevents incorrect matches (like matching all publishers to Nate Johnivan)
-      if (publisherInfo?.name) {
-        console.log(`🔍 No albums found via remote items, trying exact artist matching for: "${publisherInfo.name}"`);
-        
-        // Use ONLY exact matches with the known publisher name
-        // This is critical to prevent false matches - NO contains matching!
-        relatedFeeds = await prisma.feed.findMany({
-          where: {
-            artist: { equals: publisherInfo.name, mode: 'insensitive' },
-            type: { in: ['album', 'music'] },
-            status: 'active'
-          },
+    // Use artist from the publisher feed we found, OR from the known publisher mapping
+    if (relatedFeeds.length === 0 && artistName) {
+      console.log(`🔍 No albums found via remote items, trying exact artist matching for: "${artistName}"`);
+
+      // Use ONLY exact matches with the artist name
+      // This is critical to prevent false matches - NO contains matching!
+      relatedFeeds = await prisma.feed.findMany({
+        where: {
+          artist: { equals: artistName, mode: 'insensitive' },
+          type: { in: ['album', 'music'] },
+          status: 'active'
+        },
           select: {
             id: true,
             title: true,
@@ -477,11 +472,8 @@ async function loadPublisherData(publisherId: string) {
             { createdAt: 'desc' }
           ]
         });
-        
-        console.log(`✅ Found ${relatedFeeds.length} albums via exact artist matching for "${publisherInfo.name}"`);
-      } else {
-        console.log(`⚠️ No known publisher mapping for "${publisherId}" - skipping artist matching to prevent false matches`);
-      }
+
+        console.log(`✅ Found ${relatedFeeds.length} albums via exact artist matching for "${artistName}"`);
     }
 
     // Helper function to convert duration to MM:SS format
