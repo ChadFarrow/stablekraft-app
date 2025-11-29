@@ -10,7 +10,7 @@ import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { Share2 } from 'lucide-react';
 import { toast } from '@/components/Toast';
-import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
+import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumSlug } from '@/lib/url-utils';
 import AppLayout from '@/components/AppLayout';
 
@@ -789,9 +789,14 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                   {track.image ? (
                     <div className="relative flex-shrink-0 w-12 h-12">
                       <img
-                        src={track.image}
+                        src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
                         alt={track.title}
                         className="w-12 h-12 rounded object-cover"
+                        onError={(e) => {
+                          // Fallback to placeholder if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.src = getPlaceholderImageUrl('thumbnail');
+                        }}
                       />
                       {/* Play button overlay */}
                       <button

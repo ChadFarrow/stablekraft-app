@@ -3,6 +3,7 @@ import { resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 import { validateDuration } from '@/lib/duration-validation';
+import { decodeHtmlEntitiesInUrl } from '@/lib/cdn-utils';
 
 // Set timeout to 60 seconds (works on most Vercel plans)
 export const maxDuration = 60;
@@ -160,6 +161,10 @@ async function resolveTop100Items(items: Top100Item[]) {
       const track = trackMap.get(item.itemGuid);
 
       if (track && track.Feed) {
+        // Decode HTML entities in image URLs
+        const trackImage = track.image ? decodeHtmlEntitiesInUrl(track.image) : null;
+        const itemImage = item.image ? decodeHtmlEntitiesInUrl(item.image) : null;
+        
         resolvedTracks.push({
           id: track.id,
           title: track.title,
@@ -170,7 +175,7 @@ async function resolveTop100Items(items: Top100Item[]) {
           endTime: validateDuration(track.duration, track.title) || 180,
           duration: validateDuration(track.duration, track.title) || 180,
           source: 'database',
-          image: track.image || item.image || '/placeholder-podcast.jpg',
+          image: trackImage || itemImage || '/placeholder-podcast.jpg',
           feedGuid: item.feedGuid,
           itemGuid: item.itemGuid,
           description: `#${item.rank} on the V4V Music charts`,
@@ -218,6 +223,10 @@ async function resolveTop100Items(items: Top100Item[]) {
           const apiResult = await resolveItemGuid(item.feedGuid, item.itemGuid);
 
           if (apiResult && apiResult.audioUrl) {
+            // Decode HTML entities in image URLs
+            const apiImage = apiResult.image ? decodeHtmlEntitiesInUrl(apiResult.image) : null;
+            const itemImage = item.image ? decodeHtmlEntitiesInUrl(item.image) : null;
+            
             resolvedTracks.push({
               id: `api-${item.itemGuid}`,
               title: apiResult.title || item.title,
@@ -228,7 +237,7 @@ async function resolveTop100Items(items: Top100Item[]) {
               endTime: validateDuration(apiResult.duration, apiResult.title) || 180,
               duration: validateDuration(apiResult.duration, apiResult.title) || 180,
               source: 'api',
-              image: apiResult.image || item.image || '/placeholder-podcast.jpg',
+              image: apiImage || itemImage || '/placeholder-podcast.jpg',
               feedGuid: item.feedGuid,
               itemGuid: item.itemGuid,
               description: `#${item.rank} on the V4V Music charts`,
@@ -249,6 +258,9 @@ async function resolveTop100Items(items: Top100Item[]) {
             console.log(`✅ API resolved #${item.rank}: ${apiResult.title}`);
           } else {
             // Use data from JSON as fallback (no audio URL)
+            // Decode HTML entities in image URLs
+            const itemImage = item.image ? decodeHtmlEntitiesInUrl(item.image) : null;
+            
             resolvedTracks.push({
               id: `top100-${item.rank}`,
               title: item.title,
@@ -259,7 +271,7 @@ async function resolveTop100Items(items: Top100Item[]) {
               endTime: 180,
               duration: 180,
               source: 'json-only',
-              image: item.image || '/placeholder-podcast.jpg',
+              image: itemImage || '/placeholder-podcast.jpg',
               feedGuid: item.feedGuid,
               itemGuid: item.itemGuid,
               description: `#${item.rank} on the V4V Music charts`,

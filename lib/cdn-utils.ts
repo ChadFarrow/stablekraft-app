@@ -4,6 +4,23 @@
  */
 
 /**
+ * Decode HTML entities in URLs
+ * Handles common HTML entities that may appear in image URLs from external sources
+ * @param url - The URL that may contain HTML entities
+ * @returns The URL with HTML entities decoded
+ */
+export function decodeHtmlEntitiesInUrl(url: string): string {
+  if (!url) return url;
+  return url
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
+/**
  * Get album artwork URL with fallback to placeholder
  * @param originalUrl - The original artwork URL
  * @param size - The desired size for placeholder
@@ -15,6 +32,9 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
   if (!originalUrl || originalUrl.trim() === '' || originalUrl === 'undefined' || originalUrl === 'null') {
     return getPlaceholderImageUrl(size);
   }
+
+  // Decode HTML entities in URLs (fixes issues with &#39;, &amp;, etc.)
+  originalUrl = decodeHtmlEntitiesInUrl(originalUrl);
 
   // Handle known missing placeholder images
   if (originalUrl.includes('playlist-track-placeholder.png')) {
