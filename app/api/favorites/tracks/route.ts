@@ -119,21 +119,48 @@ export async function GET(request: NextRequest) {
     // Map tracks with favorite metadata
     // Match by id, guid, or audioUrl since trackId could be any of these
     const tracksWithFavorites = tracks.map(track => {
-      const favorite = favoriteTracks.find(ft => 
-        ft.trackId === track.id || 
-        ft.trackId === track.guid || 
+      const favorite = favoriteTracks.find(ft =>
+        ft.trackId === track.id ||
+        ft.trackId === track.guid ||
         ft.trackId === track.audioUrl
       );
       return {
         ...track,
-        favoritedAt: favorite?.createdAt
+        favoritedAt: favorite?.createdAt,
+        nostrEventId: favorite?.nostrEventId
       };
     });
 
+    // Deduplicate by title + artist
+    // Priority: 1) Keep one with nostrEventId, 2) Keep oldest if tie
+    const seenTracks = new Map<string, typeof tracksWithFavorites[0]>();
+    for (const track of tracksWithFavorites) {
+      const key = `${(track.title || '').toLowerCase().trim()}|${(track.Feed?.artist || '').toLowerCase().trim()}`;
+      const existing = seenTracks.get(key);
+      if (!existing) {
+        seenTracks.set(key, track);
+      } else {
+        // Prefer the one with nostrEventId (synced to Nostr)
+        const existingHasNostr = !!existing.nostrEventId;
+        const trackHasNostr = !!track.nostrEventId;
+        if (trackHasNostr && !existingHasNostr) {
+          seenTracks.set(key, track);
+        } else if (!trackHasNostr && existingHasNostr) {
+          // Keep existing (has nostr)
+        } else {
+          // Both have or both don't have nostrEventId - keep oldest
+          if (track.favoritedAt && existing.favoritedAt && track.favoritedAt < existing.favoritedAt) {
+            seenTracks.set(key, track);
+          }
+        }
+      }
+    }
+    const deduplicatedTracks = Array.from(seenTracks.values());
+
     return NextResponse.json({
       success: true,
-      data: tracksWithFavorites,
-      count: tracksWithFavorites.length
+      data: deduplicatedTracks,
+      count: deduplicatedTracks.length
     });
   } catch (error) {
     console.error('Error fetching favorite tracks:', error);
@@ -219,14 +246,24 @@ export async function POST(request: NextRequest) {
     // This is done asynchronously so the user gets immediate feedback
     const shouldImportAlbum = !track && feedGuidForImport;
 
+    // Build list of all possible trackId values to check for duplicates
+    // This prevents the same track from being favorited multiple times with different identifiers
+    const possibleTrackIds: string[] = [trackId];
+    if (track) {
+      if (track.id && track.id !== trackId) possibleTrackIds.push(track.id);
+      if (track.guid && track.guid !== trackId) possibleTrackIds.push(track.guid);
+      if (track.audioUrl && track.audioUrl !== trackId) possibleTrackIds.push(track.audioUrl);
+    }
+
     // Check if already favorited - use findFirst to handle both userId and sessionId cases
-    const whereClause: any = { trackId };
+    // Check ALL possible identifiers, not just the one provided
+    const whereClause: any = { trackId: { in: possibleTrackIds } };
     if (userId) {
       whereClause.userId = userId;
     } else if (sessionId) {
       whereClause.sessionId = sessionId;
     }
-    
+
     const existing = await prisma.favoriteTrack.findFirst({
       where: whereClause
     });

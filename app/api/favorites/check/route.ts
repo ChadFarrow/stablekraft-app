@@ -48,17 +48,57 @@ export async function POST(request: NextRequest) {
     // Check tracks
     if (trackIds.length > 0) {
       try {
-        const favoriteTracks = await prisma.favoriteTrack.findMany({
-          where: whereTracks,
-          select: {
-            trackId: true
+        // First, look up tracks to get all their identifiers (id, guid, audioUrl)
+        // This allows us to match favorites stored with different identifiers
+        const tracks = await prisma.track.findMany({
+          where: {
+            OR: [
+              { id: { in: trackIds } },
+              { guid: { in: trackIds } },
+              { audioUrl: { in: trackIds } }
+            ]
+          },
+          select: { id: true, guid: true, audioUrl: true }
+        });
+
+        // Build a map: input trackId -> all possible identifiers for that track
+        const trackIdToAllIds = new Map<string, string[]>();
+        for (const inputId of trackIds) {
+          const possibleIds = [inputId];
+          // Find if this inputId matches any track
+          const matchedTrack = tracks.find(t =>
+            t.id === inputId || t.guid === inputId || t.audioUrl === inputId
+          );
+          if (matchedTrack) {
+            if (matchedTrack.id && !possibleIds.includes(matchedTrack.id)) possibleIds.push(matchedTrack.id);
+            if (matchedTrack.guid && !possibleIds.includes(matchedTrack.guid)) possibleIds.push(matchedTrack.guid);
+            if (matchedTrack.audioUrl && !possibleIds.includes(matchedTrack.audioUrl)) possibleIds.push(matchedTrack.audioUrl);
           }
+          trackIdToAllIds.set(inputId, possibleIds);
+        }
+
+        // Get all possible trackIds to check
+        const allPossibleIds = [...new Set(Array.from(trackIdToAllIds.values()).flat())];
+
+        // Check favorites with expanded identifier list
+        const expandedWhere: any = { trackId: { in: allPossibleIds } };
+        if (userId) {
+          expandedWhere.userId = userId;
+        } else if (sessionId) {
+          expandedWhere.sessionId = sessionId;
+        }
+
+        const favoriteTracks = await prisma.favoriteTrack.findMany({
+          where: expandedWhere,
+          select: { trackId: true }
         });
 
         const favoritedTrackIds = new Set(favoriteTracks.map(ft => ft.trackId));
-        
+
+        // Check if ANY of the possible identifiers for each input trackId is favorited
         trackIds.forEach((trackId: string) => {
-          results.tracks[trackId] = favoritedTrackIds.has(trackId);
+          const possibleIds = trackIdToAllIds.get(trackId) || [trackId];
+          results.tracks[trackId] = possibleIds.some(id => favoritedTrackIds.has(id));
         });
       } catch (trackError) {
         // If tables don't exist, just set all to false
