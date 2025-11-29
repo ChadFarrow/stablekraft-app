@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TOP100_AUDIO_URL_MAP } from '@/data/top100-audio-urls';
 import staticTop100Data from '@/data/top100-static-data.json';
+import { getAlbumArtworkUrl } from '@/lib/cdn-utils';
 
 interface Top100Track {
   id: string;
@@ -63,26 +64,18 @@ function parseStaticTop100Data(): Top100Track[] {
       // Use static audio URL mapping for known tracks
       const audioUrl = TOP100_AUDIO_URL_MAP[title] || '';
       
-      // Use image proxy selectively - some domains work fine without proxy
-      const originalArtwork = item.artwork?.replace('http://', 'https://') || '';
-      const trustedDomains = [
-        'files.heycitizen.xyz',
-        'www.doerfelverse.com', 
-        'ableandthewolf.com',
-        'music.jimmyv4v.com',
-        'picsum.photos'
-      ];
-      
+      // Use getAlbumArtworkUrl utility for consistent image handling and proxying
+      // This ensures all external domains are properly proxied and validated
       let finalArtwork = '';
-      if (!originalArtwork) {
-        finalArtwork = `https://picsum.photos/300/300?random=${item.rank}`;
-      } else {
-        const domain = new URL(originalArtwork).hostname;
-        const isTrustedDomain = trustedDomains.some(trusted => domain.includes(trusted));
-        
-        finalArtwork = isTrustedDomain ? 
-          originalArtwork : 
-          `/api/proxy-image?url=${encodeURIComponent(originalArtwork)}`;
+      try {
+        const originalArtwork = item.artwork?.replace('http://', 'https://') || '';
+        finalArtwork = originalArtwork 
+          ? getAlbumArtworkUrl(originalArtwork, 'thumbnail', true)
+          : getAlbumArtworkUrl('', 'thumbnail'); // Will return placeholder
+      } catch (error) {
+        // If URL parsing fails, use placeholder
+        console.warn(`⚠️ Invalid artwork URL for track "${title}":`, item.artwork);
+        finalArtwork = getAlbumArtworkUrl('', 'thumbnail');
       }
       
       tracks.push({

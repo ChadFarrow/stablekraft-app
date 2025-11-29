@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useAudio } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
 import { logger } from '@/lib/logger';
+import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { Play, Pause, Music, ExternalLink, Download } from 'lucide-react';
 
 interface Top100Track {
@@ -232,18 +234,17 @@ export default function Top100MusicPlaylist() {
               
               {/* Track Artwork */}
               <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0 overflow-hidden rounded">
-                <img 
-                  src={track.artwork}
+                <Image 
+                  src={getAlbumArtworkUrl(track.artwork || '', 'thumbnail', true)}
                   alt={track.title}
+                  width={48}
+                  height={48}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    // Only set fallback if we haven't already tried it
-                    if (!target.src.includes('picsum.photos')) {
-                      console.warn(`⚠️ Failed to load artwork for "${track.title}" - using fallback`);
-                      target.src = `https://picsum.photos/150/150?random=${track.position}`;
-                    }
+                    target.src = getPlaceholderImageUrl('thumbnail');
                   }}
+                  placeholder="empty"
                 />
                 {/* Play Button Overlay */}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-200">
