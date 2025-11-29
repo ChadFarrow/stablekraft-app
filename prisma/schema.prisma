@@ -44,7 +44,10 @@ model Feed {
   updatedAt    DateTime
   v4vRecipient String?
   v4vValue     Json?
+  publisherId  String?
   Track        Track[]
+  publisher    Feed?     @relation("PublisherAlbums", fields: [publisherId], references: [id])
+  albums       Feed[]    @relation("PublisherAlbums")
 
   @@index([guid])
   @@index([lastFetched])
@@ -53,6 +56,7 @@ model Feed {
   @@index([status, priority])
   @@index([status, type])
   @@index([type])
+  @@index([publisherId])
 }
 
 model PlaylistTrack {

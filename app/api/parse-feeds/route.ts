@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FeedParser } from '@/lib/feed-parser';
 import { FeedManager } from '@/lib/feed-manager';
-import { discoverAllPublishers } from '@/lib/publisher-discovery';
+import { discoverAllPublishers, parseExistingPublishers } from '@/lib/publisher-discovery';
 
 export async function GET(request: NextRequest) {
   try {
@@ -130,9 +130,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (action === 'parse-publishers') {
+      // Parse existing publisher feeds to extract album relationships
+      console.log('🔍 Starting to parse existing publisher feeds...');
+
+      const result = await parseExistingPublishers();
+
+      return NextResponse.json({
+        success: true,
+        message: 'Publisher parsing completed',
+        result
+      });
+    }
+
     return NextResponse.json({
       success: false,
-      error: 'Invalid action. Use "parse", "parse-single", or "discover-publishers"'
+      error: 'Invalid action. Use "parse", "parse-single", "discover-publishers", or "parse-publishers"'
     }, { status: 400 });
     
   } catch (error) {
