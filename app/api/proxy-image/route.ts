@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sharp from 'sharp';
+
+// Dynamic import sharp with fallback for serverless environments
+let sharp: typeof import('sharp') | null = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('⚠️ Sharp not available, image processing disabled:', e);
+}
 
 // In-memory cache for proxied images (LRU-style with max entries)
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
@@ -31,6 +38,14 @@ function setCachedImage(url: string, buffer: Buffer, contentType: string) {
  * This ensures Next.js Image optimization always receives a valid image
  */
 async function generatePlaceholderImage(): Promise<Buffer> {
+  // If sharp is not available, return a minimal 1x1 PNG
+  if (!sharp) {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
+  }
+
   const svg = `
     <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -49,7 +64,7 @@ async function generatePlaceholderImage(): Promise<Buffer> {
       </g>
     </svg>
   `;
-  
+
   // Convert SVG to PNG using sharp
   return await sharp(Buffer.from(svg))
     .png()
@@ -215,15 +230,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if we should enhance the image (for backgrounds, use enhance=true parameter)
-    const enhance = searchParams.get('enhance') === 'true';
+    const enhance = searchParams.get('enhance') === 'true' && sharp !== null;
     const minWidth = parseInt(searchParams.get('minWidth') || '1920');
     const minHeight = parseInt(searchParams.get('minHeight') || '1080');
-    
+
     let processedBuffer = imageBuffer;
     let finalContentType = contentType || 'image/jpeg';
-    
-    // Enhance image quality for backgrounds if requested
-    if (enhance) {
+
+    // Enhance image quality for backgrounds if requested (only if sharp is available)
+    if (enhance && sharp) {
       try {
         // Validate buffer before passing to sharp
         if (!imageBuffer || imageBuffer.length === 0) {
@@ -231,9 +246,9 @@ export async function GET(request: NextRequest) {
         }
         
         // Try to validate the image can be processed by sharp
-        let image: sharp.Sharp;
+        let image: ReturnType<typeof sharp>;
         try {
-          image = sharp(imageBuffer);
+          image = sharp!(imageBuffer);
         } catch (sharpInitError) {
           throw new Error(`Failed to initialize sharp with image: ${sharpInitError instanceof Error ? sharpInitError.message : 'Unknown error'}`);
         }
@@ -273,7 +288,7 @@ export async function GET(request: NextRequest) {
           processedBuffer = await image
             .resize(targetWidth, targetHeight, {
               fit: 'fill',
-              kernel: sharp.kernel.lanczos3, // High-quality upscaling
+              kernel: sharp!.kernel.lanczos3, // High-quality upscaling
               withoutEnlargement: false // Allow upscaling
             })
             .jpeg({ 
@@ -296,7 +311,7 @@ export async function GET(request: NextRequest) {
           finalContentType = 'image/gif';
         } else if (!metadata.format) {
           // For unknown formats, convert to high-quality JPEG for backgrounds
-          processedBuffer = await sharp(imageBuffer)
+          processedBuffer = await sharp!(imageBuffer)
             .jpeg({
               quality: 95,
               mozjpeg: true
@@ -311,10 +326,10 @@ export async function GET(request: NextRequest) {
           finalContentType = 'image/jpeg';
         } else {
           // Just optimize existing image without resizing
-          processedBuffer = await sharp(imageBuffer)
-            .jpeg({ 
+          processedBuffer = await sharp!(imageBuffer)
+            .jpeg({
               quality: 95,
-              mozjpeg: true 
+              mozjpeg: true
             })
             .toBuffer();
           
