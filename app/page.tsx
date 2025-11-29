@@ -473,8 +473,14 @@ function HomePageContent() {
       console.log(`⚠️ Filter unchanged but no data, continuing to load`);
     }
 
+    // Set activeFilter immediately so UI updates right away
+    setActiveFilter(newFilter);
+
+    // Prevent URL sync effect from interfering while we're updating
+    isUpdatingFromUrlRef.current = true;
+
     // Update URL with new filter (unless we're updating from URL change)
-    if (!skipUrlUpdate && !isUpdatingFromUrlRef.current) {
+    if (!skipUrlUpdate) {
       const params = new URLSearchParams(searchParams?.toString() || '');
       if (newFilter === 'all') {
         params.delete('filter');
@@ -489,7 +495,6 @@ function HomePageContent() {
     const cachedData = filterCache.get(newFilter);
     if (cachedData) {
       console.log(`📦 Using cached data for filter: ${newFilter}`);
-      setActiveFilter(newFilter);
       setCurrentPage(1);
       setDisplayedAlbums(cachedData.albums);
       setCriticalAlbums(cachedData.albums.slice(0, 12));
@@ -499,10 +504,11 @@ function HomePageContent() {
       setIsCriticalLoaded(true);
       setIsEnhancedLoaded(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Reset the ref after cache hit
+      setTimeout(() => { isUpdatingFromUrlRef.current = false; }, 100);
       return;
     }
 
-    setActiveFilter(newFilter);
     setCurrentPage(1); // Reset to first page
     setIsFilterLoading(true);
     setIsLoading(true);
@@ -617,6 +623,8 @@ function HomePageContent() {
     } finally {
       setIsFilterLoading(false);
       setIsLoading(false);
+      // Reset the ref after filter change completes
+      setTimeout(() => { isUpdatingFromUrlRef.current = false; }, 100);
     }
   };
 
