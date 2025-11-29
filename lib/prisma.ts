@@ -10,4 +10,6 @@ export const prisma =
     log: ['error'], // Only log errors to reduce console spam
   })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Cache the client globally to prevent connection pool exhaustion in serverless
+// This is especially important in production where each request could create a new client
+globalForPrisma.prisma = prisma
