@@ -105,7 +105,11 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               setBackgroundLoaded(true);
             };
             img.onerror = (error) => {
-              console.error('❌ Background image preload failed:', foundAlbum.coverArt, error);
+              // Only log if it's not a CORS/OpaqueResponseBlocking error (expected for some external images)
+              const isCorsError = error?.target && (error.target as HTMLImageElement).complete === false;
+              if (!isCorsError) {
+                console.warn('⚠️ Background image preload failed, trying fallback:', foundAlbum.coverArt);
+              }
               
               // Try image proxy for external URLs (but never for data URLs)
               if (foundAlbum.coverArt && 
@@ -122,7 +126,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   setBackgroundLoaded(true);
                 };
                 proxyImg.onerror = (proxyError) => {
-                  console.error('❌ Background image proxy also failed:', proxyUrl, proxyError);
+                  // Silently fail - image will use placeholder
                   // Final fallback - try original URL without cache buster
                   const fallbackImg = new window.Image();
                   fallbackImg.onload = () => {
@@ -131,7 +135,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     setBackgroundLoaded(true);
                   };
                   fallbackImg.onerror = (fallbackError) => {
-                    console.error('❌ Background image preload fallback also failed:', foundAlbum.coverArt, fallbackError);
+                    // All attempts failed - will use placeholder, no need to log
                     setBackgroundImage(null);
                     setBackgroundLoaded(true);
                   };
@@ -149,7 +153,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   setBackgroundLoaded(true);
                 };
                 fallbackImg.onerror = (fallbackError) => {
-                  console.error('❌ Background image preload fallback also failed:', foundAlbum.coverArt, fallbackError);
+                  // All attempts failed - will use placeholder, no need to log
                   setBackgroundImage(null);
                   setBackgroundLoaded(true);
                 };
@@ -167,7 +171,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
           }
         }
       } catch (error) {
-        console.error('❌ Error preloading background image:', error);
+        // Silently handle preload errors - will use placeholder
         setBackgroundImage(null);
         setBackgroundLoaded(true);
       }

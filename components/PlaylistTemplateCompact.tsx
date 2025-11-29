@@ -299,7 +299,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             localStorage.setItem(config.cacheKey, JSON.stringify(cacheData));
           } catch (error) {
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-              console.warn(`⚠️ localStorage quota exceeded, trying IndexedDB...`);
+              // This is expected behavior - fallback to IndexedDB is working correctly
+              // Only log in debug mode to reduce console noise
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`ℹ️ localStorage quota exceeded, using IndexedDB fallback (expected behavior)`);
+              }
               try {
                 const { storage } = await import('@/lib/indexed-db-storage');
                 await storage.setItem(config.cacheKey, cacheData);
