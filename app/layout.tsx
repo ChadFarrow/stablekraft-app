@@ -15,6 +15,7 @@ import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
 // import PerformanceMonitor from '@/components/PerformanceMonitor'
 import ScrollDetectionProvider from '@/components/ScrollDetectionProvider'
+import ScrollRestorationProvider from '@/components/ScrollRestorationProvider'
 import GlobalErrorHandler from '@/components/GlobalErrorHandler'
 
 
@@ -155,6 +156,7 @@ export default function RootLayout({
                 <LightningWrapper>
                   <SidebarProvider>
                     <ScrollDetectionProvider>
+                      <ScrollRestorationProvider>
                       <SessionProvider>
                         <AudioProvider>
                           <div className="min-h-screen relative">
@@ -188,6 +190,7 @@ export default function RootLayout({
                           <ServiceWorkerRegistration />
                         </AudioProvider>
                       </SessionProvider>
+                      </ScrollRestorationProvider>
                     </ScrollDetectionProvider>
                   </SidebarProvider>
                 </LightningWrapper>
