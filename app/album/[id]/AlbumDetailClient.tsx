@@ -105,9 +105,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               setBackgroundImage(imageUrlWithCacheBuster);
               setBackgroundLoaded(true);
             };
-            img.onerror = (error: Event) => {
+            img.onerror = (error) => {
               // Only log if it's not a CORS/OpaqueResponseBlocking error (expected for some external images)
-              const isCorsError = error?.target && (error.target as HTMLImageElement).complete === false;
+              const isCorsError = typeof error !== 'string' && error?.target && (error.target as HTMLImageElement).complete === false;
               if (!isCorsError) {
                 console.warn('⚠️ Background image preload failed, trying fallback:', foundAlbum.coverArt);
               }
