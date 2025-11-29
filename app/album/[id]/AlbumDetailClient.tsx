@@ -105,7 +105,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               setBackgroundImage(imageUrlWithCacheBuster);
               setBackgroundLoaded(true);
             };
-            img.onerror = (error) => {
+            img.onerror = (error: Event) => {
               // Only log if it's not a CORS/OpaqueResponseBlocking error (expected for some external images)
               const isCorsError = error?.target && (error.target as HTMLImageElement).complete === false;
               if (!isCorsError) {
