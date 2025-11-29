@@ -427,13 +427,15 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
         console.log(`🏢 Loading publisher feed: ${feedUrl}`);
         
         // Set publisher info immediately using the known publisher data
-        setPublisherInfo({
-          title: publisherInfo.name || `Artist: ${publisherId}`,
-          description: 'Independent artist and music creator',
-          artist: publisherInfo.name,
-          coverArt: undefined, // Will be set from publisher feed data if available
-          avatarArt: undefined // Will be set from latest remote item if available
-        });
+        // Preserve existing coverArt/avatarArt from initialData if available
+        setPublisherInfo(prev => ({
+          title: publisherInfo.name || prev?.title || `Artist: ${publisherId}`,
+          description: prev?.description || 'Independent artist and music creator',
+          artist: publisherInfo.name || prev?.artist,
+          coverArt: prev?.coverArt, // Preserve existing image from initialData
+          avatarArt: prev?.avatarArt, // Preserve existing image from initialData
+          publisherFeedImage: prev?.publisherFeedImage
+        }));
         
         // Stop loading immediately since we have publisher info
         setIsLoading(false);
