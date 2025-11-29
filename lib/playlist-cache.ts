@@ -4,17 +4,31 @@ import path from 'path';
 // Persistent file-based cache for static playlists
 export class PlaylistCache {
   private cacheDir: string;
+  private isServerless: boolean;
 
   constructor() {
-    // Store cache files in .next/cache/playlists (ignored by git)
-    this.cacheDir = path.join(process.cwd(), '.next', 'cache', 'playlists');
+    // On Vercel/serverless, use /tmp (only writable directory)
+    // Locally, use .next/cache/playlists
+    this.isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (this.isServerless) {
+      this.cacheDir = '/tmp/playlist-cache';
+    } else {
+      this.cacheDir = path.join(process.cwd(), '.next', 'cache', 'playlists');
+    }
+
     this.ensureCacheDir();
   }
 
   private ensureCacheDir() {
-    if (!fs.existsSync(this.cacheDir)) {
-      fs.mkdirSync(this.cacheDir, { recursive: true });
-      console.log(`📁 Created playlist cache directory: ${this.cacheDir}`);
+    try {
+      if (!fs.existsSync(this.cacheDir)) {
+        fs.mkdirSync(this.cacheDir, { recursive: true });
+        console.log(`📁 Created playlist cache directory: ${this.cacheDir}`);
+      }
+    } catch (error) {
+      // On serverless, /tmp might not be writable in some edge cases
+      console.warn(`⚠️ Could not create cache directory ${this.cacheDir}:`, error);
     }
   }
 
