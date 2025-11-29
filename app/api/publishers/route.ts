@@ -36,9 +36,13 @@ export async function GET() {
         title: true,
         artist: true,
         image: true,
+        updatedAt: true,
         _count: {
           select: { Track: true }
         }
+      },
+      orderBy: {
+        updatedAt: 'desc'
       }
     });
 
@@ -49,10 +53,16 @@ export async function GET() {
       .map(publisher => {
         const publisherArtist = (publisher.artist || publisher.title)?.toLowerCase();
 
-        // Find albums that match this publisher by artist name (same logic as detail page)
+        // Find albums that match this publisher by artist name
+        // Matches exact name OR albums where artist starts with publisher name (for "Artist w/ Featured" cases)
         const matchingAlbums = albumFeeds.filter(album => {
           const albumArtist = album.artist?.toLowerCase();
-          return publisherArtist && albumArtist && publisherArtist === albumArtist;
+          if (!publisherArtist || !albumArtist) return false;
+          // Exact match
+          if (publisherArtist === albumArtist) return true;
+          // StartsWith match for "Artist w/ Featured" or "Artist & Band" patterns
+          if (albumArtist.startsWith(publisherArtist + ' ')) return true;
+          return false;
         });
 
         // Only count albums that have tracks
