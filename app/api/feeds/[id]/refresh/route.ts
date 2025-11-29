@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { discoverAndStorePublisher, extractPublisherFromXML } from '@/lib/publisher-discovery';
 
 // POST /api/feeds/[id]/refresh - Refresh a specific feed (Railway fix)
 export async function POST(
@@ -42,7 +43,25 @@ export async function POST(
           lastError: null
         }
       });
-      
+
+      // Discover publisher from album feed (if this is an album/music feed)
+      if (feed.type === 'album' || feed.type === 'music') {
+        try {
+          const feedResponse = await fetch(feed.originalUrl, {
+            signal: AbortSignal.timeout(10000)
+          });
+          if (feedResponse.ok) {
+            const xml = await feedResponse.text();
+            const publisherRef = extractPublisherFromXML(xml);
+            if (publisherRef) {
+              await discoverAndStorePublisher(publisherRef);
+            }
+          }
+        } catch (pubError) {
+          console.warn('Could not discover publisher:', pubError);
+        }
+      }
+
       // Get existing track GUIDs to avoid duplicates
       const existingTracks = await prisma.track.findMany({
         where: { feedId: id },

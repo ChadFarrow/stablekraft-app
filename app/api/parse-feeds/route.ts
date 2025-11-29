@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FeedParser } from '@/lib/feed-parser';
 import { FeedManager } from '@/lib/feed-manager';
+import { discoverAllPublishers } from '@/lib/publisher-discovery';
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,24 +102,37 @@ export async function POST(request: NextRequest) {
       // Parse a single feed
       const feedId = searchParams.get('feedId');
       if (!feedId) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'feedId parameter is required' 
+        return NextResponse.json({
+          success: false,
+          error: 'feedId parameter is required'
         }, { status: 400 });
       }
-      
+
       const result = await FeedParser.parseFeedById(feedId);
-      
+
       return NextResponse.json({
         success: true,
         message: 'Single feed parsing completed',
         result
       });
     }
-    
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Invalid action. Use "parse" or "parse-single"' 
+
+    if (action === 'discover-publishers') {
+      // Discover and store all publishers from existing album feeds
+      console.log('🔍 Starting publisher discovery from all album feeds...');
+
+      const result = await discoverAllPublishers();
+
+      return NextResponse.json({
+        success: true,
+        message: 'Publisher discovery completed',
+        result
+      });
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: 'Invalid action. Use "parse", "parse-single", or "discover-publishers"'
     }, { status: 400 });
     
   } catch (error) {

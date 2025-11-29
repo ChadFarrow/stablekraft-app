@@ -558,8 +558,8 @@ async function loadPublisherData(publisherId: string) {
       publisherInfo: {
         name: publisherInfo?.name || publisherFeed.title || publisherId,
         description: publisherFeed.description || `${albums.length} releases`,
-        image: feedImage || null, // ONLY use publisher feed image, don't fall back to database image
-        publisherFeedImage: feedImage || null, // Explicit publisher feed image
+        image: feedImage || publisherFeed.image || null, // Use XML image, fallback to database image
+        publisherFeedImage: feedImage || publisherFeed.image || null, // Explicit publisher feed image with fallback
         newestAlbumImage: albumsSortedByDate.length > 0 ? albumsSortedByDate[0].coverArt : null, // Newest album by release date for hero
         feedUrl: publisherFeed.originalUrl,
         feedGuid: publisherFeed.id
