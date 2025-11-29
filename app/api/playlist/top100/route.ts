@@ -4,8 +4,8 @@ import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 import { validateDuration } from '@/lib/duration-validation';
 
-// Increase timeout for this route to 5 minutes
-export const maxDuration = 300;
+// Set timeout to 60 seconds (works on most Vercel plans)
+export const maxDuration = 60;
 
 const TOP100_JSON_URL = 'https://stats.podcastindex.org/v4vmusic.json';
 
@@ -196,12 +196,22 @@ async function resolveTop100Items(items: Top100Item[]) {
 
     console.log(`📊 Database resolved: ${resolvedTracks.length}, need API: ${unresolvedItems.length}`);
 
-    // Second pass: resolve via Podcast Index API
-    if (unresolvedItems.length > 0) {
+    // Second pass: resolve via Podcast Index API (limited to avoid timeout)
+    // On serverless, limit API calls to prevent timeout
+    const MAX_API_CALLS = 10; // Limit to prevent serverless timeout
+
+    // If too many items need API resolution, skip API calls entirely (prevent timeout)
+    if (unresolvedItems.length > MAX_API_CALLS) {
+      console.log(`⏭️ Skipping API resolution for ${unresolvedItems.length} items (limit: ${MAX_API_CALLS})`);
+      // Add unresolved items as placeholders (no audio URL - they won't be playable but will show in list)
+      // These will be filtered out later since they have no audioUrl
+    }
+
+    if (unresolvedItems.length > 0 && unresolvedItems.length <= MAX_API_CALLS) {
       console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
 
       let processedCount = 0;
-      const maxToProcess = Math.min(100, unresolvedItems.length);
+      const maxToProcess = Math.min(MAX_API_CALLS, unresolvedItems.length);
 
       for (const item of unresolvedItems.slice(0, maxToProcess)) {
         try {
