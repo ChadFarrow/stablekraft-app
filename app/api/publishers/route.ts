@@ -25,7 +25,7 @@ export async function GET() {
       }
     });
 
-    // Get all album feeds with track counts (for matching by artist name)
+    // Get all album feeds with track counts and images (for matching by artist name)
     const albumFeeds = await prisma.feed.findMany({
       where: {
         type: { in: ['album', 'music'] },
@@ -35,6 +35,7 @@ export async function GET() {
         id: true,
         title: true,
         artist: true,
+        image: true,
         _count: {
           select: { Track: true }
         }
@@ -59,12 +60,16 @@ export async function GET() {
         const albumCount = albumsWithTracks.length;
         const trackCount = albumsWithTracks.reduce((sum, album) => sum + album._count.Track, 0);
 
+        // Use publisher image, or fallback to first album's cover art
+        const albumCover = albumsWithTracks.find(a => a.image)?.image;
+        const image = publisher.image || albumCover || '/placeholder-artist.png';
+
         return {
           id: publisher.id,
           title: publisher.title || 'Unknown Publisher',
           feedGuid: publisher.id,
           originalUrl: publisher.originalUrl,
-          image: publisher.image || '/placeholder-artist.png',
+          image,
           description: publisher.description || `Publisher with ${albumCount} releases`,
           albums: [],
           itemCount: albumCount,
