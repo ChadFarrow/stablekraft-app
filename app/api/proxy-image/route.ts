@@ -99,14 +99,25 @@ async function returnPlaceholderImage(): Promise<NextResponse> {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const imageUrl = searchParams.get('url');
+    let imageUrl = searchParams.get('url');
 
     if (!imageUrl) {
       console.warn('⚠️ Missing image URL parameter, returning placeholder');
       return returnPlaceholderImage();
     }
 
-    // Check in-memory cache first
+    // Handle double-encoded URLs (e.g., %2520 instead of %20)
+    // This happens when URLs with encoded characters are passed through encodeURIComponent again
+    if (imageUrl.includes('%25')) {
+      try {
+        imageUrl = decodeURIComponent(imageUrl);
+        console.log('🔄 Decoded double-encoded URL:', imageUrl.substring(0, 60));
+      } catch {
+        // If decoding fails, continue with original URL
+      }
+    }
+
+    // Check in-memory cache first (use normalized URL for cache key)
     const cached = getCachedImage(imageUrl);
     if (cached) {
       console.log(`📦 Cache hit for: ${imageUrl.substring(0, 50)}...`);
