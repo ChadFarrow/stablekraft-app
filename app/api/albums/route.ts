@@ -160,24 +160,46 @@ export async function GET(request: Request) {
 
     // Store publisher filter for in-memory filtering (much faster than 21 OR ILIKEs)
     let publisherRemoteGuids: Set<string> | null = null;
+    let publisherDbId: string | null = null; // Database publisher ID for publisherId-based filtering
+
     if (publisher) {
       publisherRemoteGuids = await getPublisherRemoteItemUrls(publisher);
 
       if (publisherRemoteGuids.size === 0) {
-        console.warn(`⚠️  No remoteItems found for publisher "${publisher}"`);
-        // Return empty result early
-        return NextResponse.json({
-          albums: [],
-          totalCount: 0,
-          hasMore: false,
-          offset,
-          limit,
-          publisherStats: [],
-          lastUpdated: new Date().toISOString()
-        });
-      }
+        console.log(`⚠️  No static remoteItems for "${publisher}", trying database publisherId lookup...`);
 
-      console.log(`🔍 Will filter ${publisherRemoteGuids.size} GUIDs in-memory for publisher "${publisher}"`);
+        // Try to find publisher in database by slug or ID
+        const publisherFeed = await prisma.feed.findFirst({
+          where: {
+            type: 'publisher',
+            OR: [
+              { id: publisher },
+              { id: { contains: publisher } },
+              { title: { equals: publisher.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), mode: 'insensitive' } }
+            ]
+          },
+          select: { id: true, title: true }
+        });
+
+        if (publisherFeed) {
+          publisherDbId = publisherFeed.id;
+          console.log(`✅ Found publisher in database: ${publisherFeed.title} (${publisherDbId})`);
+        } else {
+          console.warn(`⚠️  Publisher "${publisher}" not found in database either`);
+          // Return empty result early
+          return NextResponse.json({
+            albums: [],
+            totalCount: 0,
+            hasMore: false,
+            offset,
+            limit,
+            publisherStats: [],
+            lastUpdated: new Date().toISOString()
+          });
+        }
+      } else {
+        console.log(`🔍 Will filter ${publisherRemoteGuids.size} GUIDs in-memory for publisher "${publisher}"`);
+      }
       // NOTE: We don't add database-level filtering here because 21 OR ILIKE conditions are very slow
       // Instead, we'll fetch more feeds and filter in-memory (much faster)
     }
@@ -187,7 +209,60 @@ export async function GET(request: Request) {
     let tracks: any[];
     let tracksByFeed: Record<string, any[]> = {};
 
-    if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
+    // Use database publisherId filtering when available (much simpler and faster)
+    if (publisher && publisherDbId) {
+      console.log(`🚀 Using database publisherId filtering for ${publisherDbId}`);
+
+      // Query albums directly by publisherId
+      const matchedFeeds = await prisma.feed.findMany({
+        where: {
+          ...feedWhere,
+          publisherId: publisherDbId
+        },
+        orderBy: [
+          { priority: 'asc' },
+          { createdAt: 'desc' }
+        ]
+      });
+
+      console.log(`✅ Found ${matchedFeeds.length} albums via publisherId`);
+
+      // Load tracks for matched feeds
+      if (matchedFeeds.length > 0) {
+        const feedIds = matchedFeeds.map(f => f.id);
+        tracks = await prisma.track.findMany({
+          where: {
+            feedId: { in: feedIds },
+            audioUrl: { not: '' }
+          },
+          orderBy: [
+            { trackOrder: 'asc' },
+            { publishedAt: 'asc' },
+            { createdAt: 'asc' }
+          ]
+        });
+
+        // Group tracks by feed
+        tracksByFeed = tracks.reduce((acc, track) => {
+          if (!acc[track.feedId]) {
+            acc[track.feedId] = [];
+          }
+          acc[track.feedId].push(track);
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        // Attach tracks to feeds
+        for (const feed of matchedFeeds) {
+          (feed as any).Track = tracksByFeed[feed.id] || [];
+        }
+
+        feeds = matchedFeeds;
+        console.log(`📊 Loaded ${tracks.length} tracks for ${feeds.length} matched feeds`);
+      } else {
+        feeds = [];
+        tracks = [];
+      }
+    } else if (publisher && publisherRemoteGuids && publisherRemoteGuids.size > 0) {
       // Phase 1: Load feed metadata only (fast, no tracks)
       console.log(`🚀 Phase 1: Loading feed metadata...`);
       const allFeeds = await prisma.feed.findMany({
