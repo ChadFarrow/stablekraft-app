@@ -697,7 +697,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         explicit: track.explicit || false,
         keywords: track.itunesKeywords || [],
         v4vRecipient: track.v4vRecipient,
-        v4vValue: parseV4VValue(track.v4vValue)
+        v4vValue: parseV4VValue(track.v4vValue),
+        status: track.status || 'active'
       }));
       
       // Determine if this is a playlist based on track variety
@@ -826,12 +827,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         explicit: track.explicit || false,
         keywords: track.itunesKeywords || [],
         v4vRecipient: track.v4vRecipient,
-        v4vValue: parseV4VValue(track.v4vValue)
+        v4vValue: parseV4VValue(track.v4vValue),
+        status: track.status || 'active'
         }));
-        
-        const isPlaylist = tracks.length > 1 && 
+
+        const isPlaylist = tracks.length > 1 &&
           new Set(tracks.map((t: any) => t.artist || feed.artist)).size > 1;
-        
+
         const albumTitle = feed.title;
         const albumSlug = generateAlbumSlug(albumTitle);
         const albumId = albumSlug + '-' + feed.id.split('-')[0];

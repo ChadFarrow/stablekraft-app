@@ -25,6 +25,7 @@ export interface RSSTrack {
   guid?: string; // Item GUID for Nostr (different from database ID)
   v4vRecipient?: string;
   v4vValue?: any;
+  status?: string; // 'active' | 'unavailable' | 'error'
   // RSS parser custom fields
   'podcast:valueRecipient'?: any;
   'podcast:value'?: any;

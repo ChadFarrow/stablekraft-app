@@ -96,6 +96,7 @@ model Track {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime
   trackOrder       Int?
+  status           String    @default("active")
   Feed             Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
 
   @@index([album])
@@ -104,8 +105,10 @@ model Track {
   @@index([feedId])
   @@index([feedId, trackOrder])
   @@index([feedId, publishedAt])
+  @@index([feedId, status])
   @@index([guid])
   @@index([publishedAt])
+  @@index([status])
   @@index([title])
   @@index([trackOrder])
 }

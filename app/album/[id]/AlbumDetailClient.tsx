@@ -994,13 +994,20 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                 />
               </div>
               <div className="space-y-2">
-                {album.tracks.map((track, displayIndex) => (
+                {album.tracks.map((track, displayIndex) => {
+                  const isUnavailable = track.status && track.status !== 'active';
+                  return (
                   <div
                     key={track.guid || track.url || `${track.title}-${displayIndex}`}
-                    className={`flex items-center justify-between p-4 hover:bg-white/10 rounded-lg transition-colors group cursor-pointer ${
+                    className={`flex items-center justify-between p-4 rounded-lg transition-colors group ${
+                      isUnavailable
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-white/10 cursor-pointer'
+                    } ${
                       globalTrackIndex === displayIndex && currentPlayingAlbum?.title === album?.title ? 'bg-white/20' : ''
                     }`}
-                    onClick={() => playTrack(displayIndex)}
+                    onClick={() => !isUnavailable && playTrack(displayIndex)}
+                    title={isUnavailable ? 'This track is currently unavailable' : undefined}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 overflow-hidden rounded">
@@ -1101,7 +1108,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -1707,21 +1707,49 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       await playAlbum(currentPlayingAlbum, currentTrackIndex);
       return;
     }
-    
-    const nextIndex = currentTrackIndex + 1;
 
-    if (nextIndex < currentPlayingAlbum.tracks.length) {
-      // Play next track in the album
-      console.log('🎵 Playing next track:', currentPlayingAlbum.tracks[nextIndex].title, `(${nextIndex + 1}/${currentPlayingAlbum.tracks.length})`);
+    // Find the next available (non-unavailable) track
+    let nextIndex = currentTrackIndex + 1;
+    const totalTracks = currentPlayingAlbum.tracks.length;
+    let checkedCount = 0;
+
+    // Skip unavailable tracks
+    while (nextIndex < totalTracks && checkedCount < totalTracks) {
+      const track = currentPlayingAlbum.tracks[nextIndex];
+      if (!track.status || track.status === 'active') {
+        break; // Found an available track
+      }
+      console.log(`⏭️ Skipping unavailable track: ${track.title}`);
+      nextIndex++;
+      checkedCount++;
+    }
+
+    if (nextIndex < totalTracks) {
+      // Play next available track in the album
+      console.log('🎵 Playing next track:', currentPlayingAlbum.tracks[nextIndex].title, `(${nextIndex + 1}/${totalTracks})`);
       await playAlbum(currentPlayingAlbum, nextIndex);
     } else {
       // End of album reached
       if (repeatMode === 'all') {
-        // Loop back to the first track
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔁 Repeat all: looping back to first track');
+        // Loop back to the first available track
+        let firstAvailableIndex = 0;
+        while (firstAvailableIndex < totalTracks) {
+          const track = currentPlayingAlbum.tracks[firstAvailableIndex];
+          if (!track.status || track.status === 'active') {
+            break;
+          }
+          firstAvailableIndex++;
         }
-        await playAlbum(currentPlayingAlbum, 0);
+        if (firstAvailableIndex < totalTracks) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔁 Repeat all: looping back to first available track');
+          }
+          await playAlbum(currentPlayingAlbum, firstAvailableIndex);
+        } else {
+          // All tracks are unavailable
+          console.log('⚠️ All tracks are unavailable, stopping playback');
+          setIsPlaying(false);
+        }
       } else {
         // repeatMode === 'none' - stop playback
         if (process.env.NODE_ENV === 'development') {
