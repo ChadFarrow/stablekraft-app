@@ -74,7 +74,7 @@ const testBackgroundImage = async (imageUrl) => {
 // Test the album page URL
 const testAlbumPage = async () => {
   return new Promise((resolve, reject) => {
-    https.get('https://re.podtards.com/album/stay-awhile', (res) => {
+    https.get('https://stablekraft.app/album/stay-awhile', (res) => {
       let data = '';
       
       res.on('data', (chunk) => {

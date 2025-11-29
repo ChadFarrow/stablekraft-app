@@ -10,7 +10,7 @@ async function testStayAwhile() {
     console.log(`📡 Testing feed: ${feedUrl}`);
     
     // Test the proxy endpoint
-    const proxyUrl = `https://re.podtards.com/api/fetch-rss?url=${encodeURIComponent(feedUrl)}`;
+    const proxyUrl = `https://stablekraft.app/api/fetch-rss?url=${encodeURIComponent(feedUrl)}`;
     console.log(`🔗 Proxy URL: ${proxyUrl}`);
     
     // Fetch the RSS feed

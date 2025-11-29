@@ -133,7 +133,7 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
 
   // Don't proxy placeholder-image API URLs, data URLs, relative URLs, or already-proxied URLs
   const shouldSkipProxy = originalUrl.includes('/api/placeholder-image') || 
-                          originalUrl.includes('re.podtards.com') || 
+                          originalUrl.includes('stablekraft.app') || 
                           originalUrl.includes('/api/proxy-image') || 
                           originalUrl.startsWith('data:') || 
                           originalUrl.startsWith('/');

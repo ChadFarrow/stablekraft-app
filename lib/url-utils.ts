@@ -136,12 +136,12 @@ export const KNOWN_PUBLISHERS: { [slug: string]: { feedGuid: string; feedUrl: st
   // The Doerfels - Family band from Buffalo, NY
   'the-doerfels': {
     feedGuid: 'doerfels-publisher-special',
-    feedUrl: 'https://re.podtards.com/api/feeds/doerfels-pubfeed',
+    feedUrl: 'https://stablekraft.app/api/feeds/doerfels-pubfeed',
     name: 'The Doerfels'
   },
   'doerfels': {
     feedGuid: 'doerfels-publisher-special',
-    feedUrl: 'https://re.podtards.com/api/feeds/doerfels-pubfeed',
+    feedUrl: 'https://stablekraft.app/api/feeds/doerfels-pubfeed',
     name: 'The Doerfels'
   },
   

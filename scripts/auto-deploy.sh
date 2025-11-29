@@ -5,13 +5,13 @@
 
 set -e
 
-echo "🚀 Auto-deploying StableKraft app to re.podtards.com"
+echo "🚀 Auto-deploying StableKraft app to stablekraft.app"
 echo "=============================================="
 
 # Configuration
 SERVER_HOST="185.98.170.24"
 SERVER_USER="root"  # Change this to your server username
-DEPLOY_DIR="/var/www/re.podtards.com"
+DEPLOY_DIR="/var/www/stablekraft.app"
 
 # Colors for output
 RED='\033[0;31m'
@@ -83,7 +83,7 @@ cat > "$TEMP_DIR/deploy.sh" << 'EOF'
 #!/bin/bash
 set -e
 
-DEPLOY_DIR="/var/www/re.podtards.com"
+DEPLOY_DIR="/var/www/stablekraft.app"
 BACKUP_DIR="/var/www/backup-$(date +%Y%m%d-%H%M%S)"
 
 echo "🚀 Starting deployment..."
@@ -117,7 +117,7 @@ pm2 start ecosystem.config.js
 pm2 save
 
 echo "✅ Deployment completed successfully!"
-echo "🌐 Your app is now live at https://re.podtards.com"
+echo "🌐 Your app is now live at https://stablekraft.app"
 EOF
 
 chmod +x "$TEMP_DIR/deploy.sh"
@@ -126,7 +126,7 @@ chmod +x "$TEMP_DIR/deploy.sh"
 if scp -r "$TEMP_DIR"/* "$SERVER_USER@$SERVER_HOST:/tmp/deploy/" && \
    ssh "$SERVER_USER@$SERVER_HOST" "cd /tmp/deploy && chmod +x deploy.sh && ./deploy.sh"; then
     print_status "Deployment successful!"
-    print_status "Your app is now live at https://re.podtards.com"
+    print_status "Your app is now live at https://stablekraft.app"
 else
     print_error "Deployment failed!"
     exit 1
@@ -138,5 +138,5 @@ print_status "Cleanup completed"
 
 echo ""
 echo "🎉 Auto-deployment completed!"
-echo "📱 Your app is live at: https://re.podtards.com"
+echo "📱 Your app is live at: https://stablekraft.app"
 echo "🔄 Next time, just run: ./scripts/auto-deploy.sh" 

@@ -45,7 +45,7 @@ async function searchPodcastIndex(query, maxResults = 10) {
       'X-Auth-Key': apiKey,
       'X-Auth-Date': apiHeaderTime.toString(),
       'Authorization': hashString,
-      'User-Agent': 're.podtards.com'
+      'User-Agent': 'stablekraft.app'
     };
 
     // Search for episodes by term

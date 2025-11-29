@@ -380,7 +380,7 @@ export async function GET(request: Request) {
       if (feed.originalUrl.includes('doerfelverse.com')) {
         publisher = {
           feedGuid: "the-doerfels", // Use consistent identifier for The Doerfels
-          feedUrl: "https://re.podtards.com/api/feeds/doerfels-pubfeed",
+          feedUrl: "https://stablekraft.app/api/feeds/doerfels-pubfeed",
           title: "The Doerfels",
           artistImage: "https://www.doerfelverse.com/art/doerfels-hockeystick.png"
         };

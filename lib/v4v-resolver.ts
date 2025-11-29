@@ -311,7 +311,7 @@ export class V4VResolver {
         'X-Auth-Key': apiKey,
         'X-Auth-Date': apiHeaderTime.toString(),
         'Authorization': hashString,
-        'User-Agent': 're.podtards.com'
+        'User-Agent': 'stablekraft.app'
       };
 
       const url = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;
@@ -372,7 +372,7 @@ export class V4VResolver {
       const authHash = crypto.createHash('sha1').update(authString).digest('hex');
 
       const headers = {
-        'User-Agent': 're.podtards.com',
+        'User-Agent': 'stablekraft.app',
         'X-Auth-Key': apiKey,
         'X-Auth-Date': timestamp.toString(),
         'Authorization': authHash

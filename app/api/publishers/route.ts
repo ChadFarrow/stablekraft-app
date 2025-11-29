@@ -6,7 +6,7 @@ export async function GET() {
   try {
     console.log('🔍 Publishers API: Loading publishers from database');
 
-    // Get all publisher feeds with album counts using the publisherId relationship
+    // Get all publisher feeds
     const publishers = await prisma.feed.findMany({
       where: {
         type: 'publisher',
@@ -18,54 +18,80 @@ export async function GET() {
         artist: true,
         description: true,
         image: true,
-        originalUrl: true,
-        albums: {
-          where: {
-            status: 'active',
-            Track: {
-              some: {} // Only count albums that have tracks
-            }
-          },
-          select: {
-            id: true,
-            _count: {
-              select: { Track: true }
-            }
-          }
-        }
+        originalUrl: true
       },
       orderBy: {
         title: 'asc'
       }
     });
 
-    console.log(`📊 Found ${publishers.length} publishers in database`);
-
-    // Transform to the expected format
-    const publisherList = publishers.map(publisher => {
-      const albumCount = publisher.albums.length;
-      const trackCount = publisher.albums.reduce((sum, album) => sum + album._count.Track, 0);
-
-      return {
-        id: publisher.id,
-        title: publisher.title || 'Unknown Publisher',
-        feedGuid: publisher.id,
-        originalUrl: publisher.originalUrl,
-        image: publisher.image || '/placeholder-artist.png',
-        description: publisher.description || `Publisher with ${albumCount} releases`,
-        albums: [],
-        itemCount: albumCount,
-        totalTracks: trackCount,
-        isPublisherCard: true,
-        publisherUrl: `/publisher/${generateAlbumSlug(publisher.title || publisher.id)}`
-      };
+    // Get all album feeds with track counts (for matching by artist name)
+    const albumFeeds = await prisma.feed.findMany({
+      where: {
+        type: { in: ['album', 'music'] },
+        status: 'active'
+      },
+      select: {
+        id: true,
+        title: true,
+        artist: true,
+        _count: {
+          select: { Track: true }
+        }
+      }
     });
 
-    console.log(`✅ Publishers API: Returning ${publisherList.length} publishers from database`);
+    console.log(`📊 Found ${publishers.length} publishers and ${albumFeeds.length} album feeds`);
+
+    // Transform to the expected format, counting albums by artist name match
+    const publisherList = publishers
+      .map(publisher => {
+        const publisherArtist = (publisher.artist || publisher.title)?.toLowerCase();
+
+        // Find albums that match this publisher by artist name (same logic as detail page)
+        const matchingAlbums = albumFeeds.filter(album => {
+          const albumArtist = album.artist?.toLowerCase();
+          return publisherArtist && albumArtist && publisherArtist === albumArtist;
+        });
+
+        // Only count albums that have tracks
+        const albumsWithTracks = matchingAlbums.filter(a => a._count.Track > 0);
+        const albumCount = albumsWithTracks.length;
+        const trackCount = albumsWithTracks.reduce((sum, album) => sum + album._count.Track, 0);
+
+        return {
+          id: publisher.id,
+          title: publisher.title || 'Unknown Publisher',
+          feedGuid: publisher.id,
+          originalUrl: publisher.originalUrl,
+          image: publisher.image || '/placeholder-artist.png',
+          description: publisher.description || `Publisher with ${albumCount} releases`,
+          albums: [],
+          itemCount: albumCount,
+          totalTracks: trackCount,
+          isPublisherCard: true,
+          publisherUrl: `/publisher/${generateAlbumSlug(publisher.title || publisher.id)}`
+        };
+      })
+      .filter(publisher => publisher.itemCount > 0); // Hide publishers with no albums
+
+    // Deduplicate publishers by title (keep the one with more releases)
+    const seenTitles = new Map<string, typeof publisherList[0]>();
+    for (const publisher of publisherList) {
+      const key = publisher.title.toLowerCase();
+      const existing = seenTitles.get(key);
+      if (!existing || publisher.itemCount > existing.itemCount) {
+        seenTitles.set(key, publisher);
+      }
+    }
+    const deduplicatedList = Array.from(seenTitles.values())
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    console.log(`✅ Publishers API: Returning ${deduplicatedList.length} publishers (from ${publishers.length} total, ${publisherList.length} with releases)`);
 
     const response = {
-      publishers: publisherList,
-      total: publisherList.length,
+      publishers: deduplicatedList,
+      total: deduplicatedList.length,
       timestamp: new Date().toISOString()
     };
 

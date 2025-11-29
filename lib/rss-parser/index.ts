@@ -43,7 +43,7 @@ export class RSSParser {
           'X-Auth-Key': PODCAST_INDEX_API_KEY,
           'X-Auth-Date': apiHeaderTime.toString(),
           'Authorization': hashString,
-          'User-Agent': 're.podtards.com'
+          'User-Agent': 'stablekraft.app'
         }
       });
 

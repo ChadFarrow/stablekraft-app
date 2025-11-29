@@ -115,7 +115,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               // Try image proxy for external URLs (but never for data URLs)
               if (foundAlbum.coverArt && 
                   typeof foundAlbum.coverArt === 'string' && 
-                  !foundAlbum.coverArt.includes('re.podtards.com') &&
+                  !foundAlbum.coverArt.includes('stablekraft.app') &&
                   !foundAlbum.coverArt.startsWith('data:')) {
                 const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(foundAlbum.coverArt)}`;
                 console.log('🔄 Trying image proxy for background:', proxyUrl);
@@ -430,7 +430,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
     const highResBackgroundUrl = backgroundImage && isClient
       ? (() => {
           // Use proxy with enhancement for external images, direct URL for internal
-          if (backgroundImage.includes('re.podtards.com') || backgroundImage.startsWith('/')) {
+          if (backgroundImage.includes('stablekraft.app') || backgroundImage.startsWith('/')) {
             return getAlbumArtworkUrl(backgroundImage, 'xl', false);
           }
           // For external images, use enhanced proxy

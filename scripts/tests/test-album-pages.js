@@ -35,7 +35,7 @@ const testAlbums = [
 // Test album page
 const testAlbumPage = (albumSlug, albumName) => {
   return new Promise((resolve, reject) => {
-    const pageUrl = `https://re.podtards.com/album/${albumSlug}`;
+    const pageUrl = `https://stablekraft.app/album/${albumSlug}`;
     
     const timeout = setTimeout(() => {
       reject(new Error('Page load timeout'));

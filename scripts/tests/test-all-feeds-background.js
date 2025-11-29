@@ -142,7 +142,7 @@ const testBackgroundImage = (imageUrl, albumName) => {
 // Test album page URL
 const testAlbumPage = (albumSlug, albumName) => {
   return new Promise((resolve, reject) => {
-    const pageUrl = `https://re.podtards.com/album/${albumSlug}`;
+    const pageUrl = `https://stablekraft.app/album/${albumSlug}`;
     
     https.get(pageUrl, (res) => {
       console.log(`🌐 ${albumName}: Album page test:`);

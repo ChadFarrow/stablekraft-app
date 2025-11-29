@@ -22,7 +22,7 @@ async function lookupFeedGuid(feedGuid) {
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'X-Auth-Date': apiHeaderTime.toString(),
     'Authorization': hashString,
-    'User-Agent': 're.podtards.com'
+    'User-Agent': 'stablekraft.app'
   };
 
   const url = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;

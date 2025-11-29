@@ -461,6 +461,12 @@ const nextConfig = {
         port: '',
         pathname: '/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'feeds.podcastindex.org',
+        port: '',
+        pathname: '/**',
+      },
       // Strange Textures podcast hosting
       {
         protocol: 'https',

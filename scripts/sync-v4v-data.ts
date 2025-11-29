@@ -9,7 +9,7 @@ async function syncV4VData() {
     console.log('🔄 Fetching V4V data from production...');
     
     // Fetch all albums from production API
-    const response = await fetch('https://music.podtards.com/api/albums-fast?limit=1000');
+    const response = await fetch('https://stablekraft.app/api/albums-fast?limit=1000');
     const data = await response.json();
     
     if (!data.success || !data.albums) {

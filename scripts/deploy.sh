@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Deployment script for StableKraft app to re.podtards.com
+# Deployment script for StableKraft app to stablekraft.app
 # This script helps deploy the Next.js app to your server
 
 set -e
 
-echo "🚀 Deploying StableKraft app to re.podtards.com"
+echo "🚀 Deploying StableKraft app to stablekraft.app"
 echo "=========================================="
 
 # Check if we're in the right directory
@@ -58,7 +58,7 @@ module.exports = {
     name: 'stablekraft-app',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/re.podtards.com',
+    cwd: '/var/www/stablekraft.app',
     instances: 1,
     autorestart: true,
     watch: false,
@@ -75,7 +75,7 @@ EOF
 cat > "$DEPLOY_DIR/nginx.conf" << EOF
 server {
     listen 80;
-    server_name re.podtards.com;
+    server_name stablekraft.app;
     
     # Redirect HTTP to HTTPS
     return 301 https://\$server_name\$request_uri;
@@ -83,7 +83,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name re.podtards.com;
+    server_name stablekraft.app;
     
     # SSL configuration (you'll need to add your SSL certificates)
     # ssl_certificate /path/to/your/certificate.crt;
@@ -97,7 +97,7 @@ server {
     add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
     
     # Root directory
-    root /var/www/re.podtards.com;
+    root /var/www/stablekraft.app;
     
     # Proxy to Next.js app
     location / {
@@ -114,14 +114,14 @@ server {
     
     # Static files
     location /_next/static/ {
-        alias /var/www/re.podtards.com/.next/static/;
+        alias /var/www/stablekraft.app/.next/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
     
     # Public files
     location /public/ {
-        alias /var/www/re.podtards.com/public/;
+        alias /var/www/stablekraft.app/public/;
         expires 1y;
         add_header Cache-Control "public";
     }
@@ -130,13 +130,13 @@ EOF
 
 # Create deployment instructions
 cat > "$DEPLOY_DIR/DEPLOYMENT_INSTRUCTIONS.md" << EOF
-# Deployment Instructions for re.podtards.com
+# Deployment Instructions for stablekraft.app
 
 ## Prerequisites
 - Node.js 18+ installed on your server
 - PM2 installed globally: \`npm install -g pm2\`
 - Nginx installed and configured
-- SSL certificates for re.podtards.com
+- SSL certificates for stablekraft.app
 
 ## Deployment Steps
 
@@ -149,14 +149,14 @@ scp -r $DEPLOY_DIR user@your-server:/tmp/
 ### 2. On your server, set up the application
 \`\`\`bash
 # Create application directory
-sudo mkdir -p /var/www/re.podtards.com
-sudo chown \$USER:\$USER /var/www/re.podtards.com
+sudo mkdir -p /var/www/stablekraft.app
+sudo chown \$USER:\$USER /var/www/stablekraft.app
 
 # Move files to application directory
-mv /tmp/$DEPLOY_DIR/* /var/www/re.podtards.com/
+mv /tmp/$DEPLOY_DIR/* /var/www/stablekraft.app/
 
 # Install dependencies
-cd /var/www/re.podtards.com
+cd /var/www/stablekraft.app
 npm install --production
 
 # Set up environment variables
@@ -167,10 +167,10 @@ nano .env.production
 ### 3. Configure Nginx
 \`\`\`bash
 # Copy nginx configuration
-sudo cp /var/www/re.podtards.com/nginx.conf /etc/nginx/sites-available/re.podtards.com
+sudo cp /var/www/stablekraft.app/nginx.conf /etc/nginx/sites-available/stablekraft.app
 
 # Enable the site
-sudo ln -s /etc/nginx/sites-available/re.podtards.com /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/stablekraft.app /etc/nginx/sites-enabled/
 
 # Test nginx configuration
 sudo nginx -t
@@ -181,7 +181,7 @@ sudo systemctl reload nginx
 
 ### 4. Start the application with PM2
 \`\`\`bash
-cd /var/www/re.podtards.com
+cd /var/www/stablekraft.app
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
@@ -197,7 +197,7 @@ TTL: 300
 \`\`\`
 
 ## Verification
-- Visit https://re.podtards.com
+- Visit https://stablekraft.app
 - Check that images are being served through your CDN
 - Monitor logs: \`pm2 logs stablekraft-app\`
 
@@ -212,8 +212,8 @@ echo ""
 echo "📋 Next steps:"
 echo "1. Upload the $DEPLOY_DIR folder to your server"
 echo "2. Follow the instructions in $DEPLOY_DIR/DEPLOYMENT_INSTRUCTIONS.md"
-echo "3. Configure your DNS to point re.podtards.com to your server"
+echo "3. Configure your DNS to point stablekraft.app to your server"
 echo "4. Set up SSL certificates for HTTPS"
 echo ""
-echo "🌐 Your CDN is already configured to pull from https://re.podtards.com"
+echo "🌐 Your CDN is already configured to pull from https://stablekraft.app"
 echo "   CDN URL: re-podtards-cdn.b-cdn.net" 

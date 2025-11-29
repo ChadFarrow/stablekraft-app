@@ -78,7 +78,7 @@ const allFeedUrls = [
   'https://www.doerfelverse.com/feeds/dfbv1.xml',
   'https://www.doerfelverse.com/feeds/dfbv2.xml',
   'https://www.doerfelverse.com/feeds/disco-swag.xml',
-  'https://re.podtards.com/api/feeds/doerfels-pubfeed',
+  'https://stablekraft.app/api/feeds/doerfels-pubfeed',
   'https://www.doerfelverse.com/feeds/first-married-christmas.xml',
   'https://www.doerfelverse.com/feeds/generation-gap.xml',
   'https://www.doerfelverse.com/feeds/heartbreak.xml',

@@ -1277,7 +1277,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
         // If the URL is relative, make it absolute
         if (artworkUrl.startsWith('/')) {
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://music.podtards.com';
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://stablekraft.app';
           artworkUrl = `${baseUrl}${artworkUrl}`;
         }
         

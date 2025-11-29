@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       headers: {
         'User-Agent': 'DoerfelVerse/1.0 (Video Proxy)',
         'Accept': 'application/vnd.apple.mpegurl, video/*, */*',
-        'Origin': 'https://re.podtards.com',
-        'Referer': 'https://re.podtards.com/',
+        'Origin': 'https://stablekraft.app',
+        'Referer': 'https://stablekraft.app/',
       },
       signal: AbortSignal.timeout(30000), // 30 second timeout
     });

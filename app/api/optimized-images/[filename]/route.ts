@@ -51,7 +51,7 @@ export async function GET(
     headers.set('ETag', `"${stats.mtime.getTime()}"`);
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
-    headers.set('X-Optimized-By', 're.podtards.com');
+    headers.set('X-Optimized-By', 'stablekraft.app');
     headers.set('X-Image-Size', `${fileBuffer.length} bytes`);
     headers.set('Vary', 'Accept-Encoding');
     

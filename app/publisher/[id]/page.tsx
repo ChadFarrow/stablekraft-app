@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const publisherName = publisherInfo?.name || publisherId;
   
   return {
-    title: `${publisherName} | re.podtards.com`,
+    title: `${publisherName} | stablekraft.app`,
     description: `View all albums from ${publisherName}`,
   };
 }

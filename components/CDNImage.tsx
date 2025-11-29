@@ -190,7 +190,7 @@ export default function CDNImage({
     if (filename && largeImages.some(img => filename.includes(img.replace(/\.(png|jpg|gif)$/, '')))) {
       const optimizedFilename = largeImages.find(img => filename.includes(img.replace(/\.(png|jpg|gif)$/, '')));
       if (optimizedFilename) {
-        let optimizedUrl = `https://re.podtards.com/api/optimized-images/${optimizedFilename}`;
+        let optimizedUrl = `https://stablekraft.app/api/optimized-images/${optimizedFilename}`;
         
         // Add size parameters for responsive loading
         if (targetWidth || targetHeight) {

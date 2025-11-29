@@ -86,7 +86,7 @@ async function returnPlaceholderImage(): Promise<NextResponse> {
         'Cache-Control': 'public, max-age=3600, s-maxage=86400',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD',
-        'X-Image-Proxy': 're.podtards.com',
+        'X-Image-Proxy': 'stablekraft.app',
         'X-Image-Placeholder': 'true',
       },
     });
@@ -104,7 +104,7 @@ async function returnPlaceholderImage(): Promise<NextResponse> {
         'Cache-Control': 'public, max-age=3600, s-maxage=86400',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD',
-        'X-Image-Proxy': 're.podtards.com',
+        'X-Image-Proxy': 'stablekraft.app',
         'X-Image-Placeholder': 'true',
       },
     });
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
       headers.set('Access-Control-Allow-Origin', '*');
       headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
-      headers.set('X-Image-Proxy', 're.podtards.com');
+      headers.set('X-Image-Proxy', 'stablekraft.app');
       headers.set('X-Cache', 'HIT');
       return new NextResponse(cached.buffer, { status: 200, headers });
     }
@@ -376,7 +376,7 @@ export async function GET(request: NextRequest) {
     headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400'); // 1 hour client, 24 hours CDN
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
-    headers.set('X-Image-Proxy', 're.podtards.com');
+    headers.set('X-Image-Proxy', 'stablekraft.app');
     headers.set('X-Cache', 'MISS');
     if (enhance) {
       headers.set('X-Image-Enhanced', 'true');

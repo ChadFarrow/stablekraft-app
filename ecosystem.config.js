@@ -4,7 +4,7 @@ module.exports = {
       name: 'stablekraft-app',
       script: 'npm',
       args: 'start',
-      cwd: '/var/www/re.podtards.com',
+      cwd: '/var/www/stablekraft.app',
       instances: 1,
       autorestart: true,
       watch: false,

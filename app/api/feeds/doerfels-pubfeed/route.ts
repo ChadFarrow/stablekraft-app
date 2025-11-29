@@ -59,7 +59,7 @@ export async function GET() {
     <link>https://www.doerfelverse.com/</link>
     <generator>Podtards / Wavlake</generator>
     <lastBuildDate>${currentDate}</lastBuildDate>
-    <atom:link href="https://re.podtards.com/api/feeds/doerfels-pubfeed" rel="self" type="application/rss+xml" />
+    <atom:link href="https://stablekraft.app/api/feeds/doerfels-pubfeed" rel="self" type="application/rss+xml" />
     
     <podcast:medium>publisher</podcast:medium>
     <podcast:guid>${publisherFeedGuid}</podcast:guid>

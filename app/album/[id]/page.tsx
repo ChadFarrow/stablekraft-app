@@ -97,7 +97,7 @@ async function getAlbumData(albumTitle: string): Promise<RSSAlbum | null> {
     
     // Fetch pre-parsed album data - use relative URL for production compatibility
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                   (process.env.NODE_ENV === 'production' ? 'https://re.podtards.com' : 'http://localhost:3000');
+                   (process.env.NODE_ENV === 'production' ? 'https://stablekraft.app' : 'http://localhost:3000');
     
     // Add timeout to prevent hanging requests
     const controller = new AbortController();

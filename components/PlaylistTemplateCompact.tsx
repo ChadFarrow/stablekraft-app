@@ -575,7 +575,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     const highResBackgroundUrl = playlistArtwork && isClient
       ? (() => {
           // Use proxy with enhancement for external images, direct URL for internal
-          if (playlistArtwork.includes('re.podtards.com') || playlistArtwork.startsWith('/')) {
+          if (playlistArtwork.includes('stablekraft.app') || playlistArtwork.startsWith('/')) {
             return getAlbumArtworkUrl(playlistArtwork, 'xl', false);
           }
           // For external images, use enhanced proxy
