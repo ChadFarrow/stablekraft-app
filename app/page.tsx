@@ -21,6 +21,7 @@ import FavoriteButton from '@/components/favorites/FavoriteButton';
 
 
 // Dynamic imports for heavy components with better loading states
+// SSR enabled for faster initial paint - components guard browser APIs properly
 const AlbumCard = dynamic(() => import('@/components/AlbumCardLazy'), {
   loading: () => (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 animate-pulse">
@@ -28,8 +29,7 @@ const AlbumCard = dynamic(() => import('@/components/AlbumCardLazy'), {
       <div className="h-4 bg-gray-700/50 rounded mb-2"></div>
       <div className="h-3 bg-gray-700/50 rounded w-2/3"></div>
     </div>
-  ),
-  ssr: false // Disable SSR for better performance
+  )
 });
 
 const CDNImage = dynamic(() => import('@/components/CDNImageLazy'), {
@@ -37,8 +37,7 @@ const CDNImage = dynamic(() => import('@/components/CDNImageLazy'), {
     <div className="animate-pulse bg-gray-800/50 rounded flex items-center justify-center">
       <div className="w-6 h-6 bg-white/20 rounded-full animate-spin"></div>
     </div>
-  ),
-  ssr: false
+  )
 });
 
 const ControlsBar = dynamic(() => import('@/components/ControlsBarLazy'), {
@@ -51,8 +50,7 @@ const ControlsBar = dynamic(() => import('@/components/ControlsBarLazy'), {
         <div className="h-8 bg-gray-700/50 rounded w-20"></div>
       </div>
     </div>
-  ),
-  ssr: false // Disable SSR for better performance
+  )
 });
 
 // Lazy load the fullscreen Now Playing Screen - only loaded when user opens it

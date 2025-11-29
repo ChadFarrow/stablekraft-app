@@ -9,6 +9,7 @@ const GlobalNowPlayingBar: React.FC = () => {
   const {
     currentPlayingAlbum,
     isPlaying,
+    isLoading,
     currentTrackIndex,
     currentTime,
     duration,
@@ -133,6 +134,7 @@ const GlobalNowPlayingBar: React.FC = () => {
       <NowPlaying
         track={currentTrack}
         isPlaying={isPlaying}
+        isLoading={isLoading}
         currentTime={currentTime}
         isShuffleMode={isShuffleMode}
         repeatMode={repeatMode}

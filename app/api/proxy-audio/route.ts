@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
     headers.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
     headers.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
 
+    // Cache headers - allow browser to cache audio for 1 hour
+    // This significantly improves repeat playback performance
+    headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+
     // Content length handling
     const contentLength = response.headers.get('content-length');
     if (contentLength) {

@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback, ReactNode } from 'react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { toast } from '@/components/Toast';
-import Hls from 'hls.js';
+// Type-only import for TypeScript (hls.js is ~150KB, loaded dynamically when needed)
+import type HlsType from 'hls.js';
 import { monitoring } from '@/lib/monitoring';
 import { storage } from '@/lib/indexed-db-storage';
 import { useNostr } from './NostrContext';
@@ -18,20 +19,21 @@ interface AudioContextType {
   // Audio state
   currentPlayingAlbum: RSSAlbum | null;
   isPlaying: boolean;
+  isLoading: boolean; // True when playback is starting (between click and audio playing)
   currentTrackIndex: number;
   currentTime: number;
   duration: number;
-  
+
   // Media type state
   isVideoMode: boolean;
-  
+
   // Shuffle state
   isShuffleMode: boolean;
-  
+
   // UI state
   isFullscreenMode: boolean;
   setFullscreenMode: (fullscreen: boolean) => void;
-  
+
   // Repeat mode
   repeatMode: 'none' | 'one' | 'all';
   setRepeatMode: (mode: 'none' | 'one' | 'all') => void;
@@ -71,6 +73,7 @@ interface AudioProviderProps {
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const [currentPlayingAlbum, setCurrentPlayingAlbum] = useState<RSSAlbum | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // True when playback is starting
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -95,7 +98,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const hlsRef = useRef<HlsType | null>(null);
   const albumsLoadedRef = useRef(false);
   const isRetryingRef = useRef(false);
   const playNextTrackRef = useRef<() => Promise<void>>();
@@ -691,6 +694,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           hlsRef.current = null;
         }
 
+        // Dynamically import hls.js only when needed (saves ~150KB from initial bundle)
+        const { default: Hls } = await import('hls.js');
+
         if (Hls.isSupported()) {
           // Use hls.js for browsers that support it
           const hls = new Hls({
@@ -701,22 +707,22 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
             }
           });
-          
+
           hlsRef.current = hls;
-          
+
           // Clear any existing src to avoid conflicts
           videoElement.src = '';
           videoElement.load();
-          
+
           // Set up event listeners
           const manifestParsed = new Promise<boolean>((resolve) => {
             let hasResolved = false;
-            
+
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
               console.log('✅ HLS manifest parsed successfully');
               // Don't try to play immediately, wait for video to be ready
             });
-            
+
             hls.on(Hls.Events.LEVEL_LOADED, () => {
               console.log('✅ HLS level loaded, attempting playback');
               if (!hasResolved) {
@@ -733,7 +739,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
                 });
               }
             });
-            
+
             hls.on(Hls.Events.ERROR, (event, data) => {
               console.error('❌ HLS error:', data);
               if (data.fatal) {
@@ -746,17 +752,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
                 }
               }
             });
-            
-            // Timeout after 20 seconds
+
+            // Timeout after 10 seconds (reduced from 20s for faster fallback)
             setTimeout(() => {
               console.warn(`⏰ ${context} timed out for URL ${i + 1}`);
               if (!hasResolved) {
                 hasResolved = true;
                 resolve(false);
               }
-            }, 20000);
+            }, 10000);
           });
-          
+
           // Load the HLS stream
           hls.loadSource(currentUrl);
           hls.attachMedia(videoElement);
@@ -799,11 +805,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           hlsRef.current = null;
         }
         
-        // Add a small delay before trying the next URL
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Add a small delay before trying the next URL (reduced from 1000ms for faster retries)
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
-    
+
     console.error(`❌ All ${urlsToTry.length} HLS URLs failed for ${context}`);
     return false;
   };
@@ -943,9 +949,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           }
         }
 
-        console.log(`⏳ [Error Handler] Waiting 500ms before trying next URL...`);
-        // Add a small delay before trying the next URL
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log(`⏳ [Error Handler] Waiting 150ms before trying next URL...`);
+        // Add a small delay before trying the next URL (reduced from 500ms for faster retries)
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
     }
     
@@ -1351,6 +1357,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
+    // Set loading state immediately for UI feedback
+    setIsLoading(true);
+
     // Since playAlbum is called from user clicks, we can safely set hasUserInteracted
     if (!hasUserInteracted) {
       console.log('🎵 First user interaction detected - enabling audio');
@@ -1379,6 +1388,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       // Try seamless playback first for iOS background compatibility
       const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Track transition');
       if (seamlessSuccess) {
+        setIsLoading(false); // Clear loading on success
         updateMediaSession(album, track);
         console.log('✅ Seamless track transition successful');
         return true;
@@ -1389,6 +1399,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     // Try to play the track (full playback for fresh starts or fallback)
     const success = await attemptAudioPlayback(track.url, 'Album playback');
+
+    // Clear loading state
+    setIsLoading(false);
+
     if (success) {
       // Update media session for lockscreen display
       updateMediaSession(album, track);
@@ -1907,6 +1921,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const value: AudioContextType = {
     currentPlayingAlbum,
     isPlaying,
+    isLoading,
     currentTrackIndex,
     currentTime,
     duration,

@@ -15,6 +15,7 @@ interface Track {
 interface NowPlayingProps {
   track: Track;
   isPlaying: boolean;
+  isLoading?: boolean; // True when playback is starting
   currentTime: number;
   isShuffleMode?: boolean;
   repeatMode?: 'none' | 'one' | 'all';
@@ -31,6 +32,7 @@ interface NowPlayingProps {
 const NowPlaying: React.FC<NowPlayingProps> = ({
   track,
   isPlaying,
+  isLoading = false,
   currentTime,
   isShuffleMode = false,
   repeatMode = 'none',
@@ -149,8 +151,14 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             onClick={onPlayPause}
             className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-full p-3 transition-all flex items-center justify-center"
             style={{ width: '52px', height: '52px' }}
+            disabled={isLoading}
           >
-            {isPlaying ? (
+            {isLoading ? (
+              <svg className="w-7 h-7 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+            ) : isPlaying ? (
               <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
               </svg>
@@ -236,10 +244,16 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
 
           <button
             onClick={onPlayPause}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-full p-3 transition-all"
+            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-full p-3 transition-all flex items-center justify-center"
             style={{ width: '48px', height: '48px' }}
+            disabled={isLoading}
           >
-            {isPlaying ? (
+            {isLoading ? (
+              <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+            ) : isPlaying ? (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
               </svg>
