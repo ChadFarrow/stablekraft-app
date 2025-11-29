@@ -10,4 +10,4 @@ export const prisma =
     log: ['error'], // Only log errors to reduce console spam
   })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+globalForPrisma.prisma = prisma
