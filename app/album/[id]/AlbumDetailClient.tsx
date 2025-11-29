@@ -737,7 +737,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             {/* Album Art with Play Button Overlay */}
             <div className="relative group mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px]">
             <Image 
-              src={getAlbumArtworkUrl(album?.coverArt || '', 'medium')} 
+              src={getAlbumArtworkUrl(album?.coverArt || '', 'medium', true)} 
               alt={album.title}
               width={280}
               height={280}
@@ -995,7 +995,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 overflow-hidden rounded">
                         {/* Use track-specific artwork if available, fallback to album artwork */}
                         <Image
-                          src={getAlbumArtworkUrl(track.image || album?.coverArt || '', 'thumbnail')}
+                          src={getAlbumArtworkUrl(track.image || album?.coverArt || '', 'thumbnail', true)}
                           alt={track.title}
                           width={48}
                           height={48}

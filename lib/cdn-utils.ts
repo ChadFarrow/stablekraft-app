@@ -82,23 +82,59 @@ export function getAlbumArtworkUrl(originalUrl: string, size: 'thumbnail' | 'med
     'assets.podhome.fm',
   ];
 
-  // Check if URL is from an allowed domain
-  const isAllowedDomain = allowedImageDomains.some(domain => {
-    try {
-      const urlHostname = new URL(originalUrl).hostname.toLowerCase();
-      return urlHostname === domain.toLowerCase() || urlHostname.endsWith('.' + domain.toLowerCase());
-    } catch {
-      return false;
-    }
-  });
+  // Domains that must always be proxied (even if in allowed list)
+  // These domains cause Next.js Image optimization to fail with HTTP 400
+  const mustProxyDomains = [
+    'feeds.podcastindex.org',
+  ];
 
-  // If proxy is explicitly requested OR domain is NOT in allowed list, use image proxy
-  // Skip proxy for data URLs, relative URLs, and already-proxied URLs
-  if ((useProxy || !isAllowedDomain) && !originalUrl.includes('re.podtards.com') && !originalUrl.includes('/api/proxy-image') && !originalUrl.startsWith('data:') && !originalUrl.startsWith('/')) {
+  // Check if URL is from an allowed domain
+  // Use exact hostname matching for more reliable domain checking
+  let isAllowedDomain = false;
+  let urlHostname = '';
+  let mustProxy = false;
+  
+  try {
+    urlHostname = new URL(originalUrl).hostname.toLowerCase();
+    
+    // Check if this domain must be proxied
+    mustProxy = mustProxyDomains.some(domain => 
+      urlHostname === domain.toLowerCase() || urlHostname.endsWith('.' + domain.toLowerCase())
+    );
+    
+    // Check for exact match or subdomain match in allowed list
+    isAllowedDomain = allowedImageDomains.some(domain => {
+      const domainLower = domain.toLowerCase();
+      return urlHostname === domainLower || urlHostname.endsWith('.' + domainLower);
+    });
+  } catch {
+    // Invalid URL, will be handled below
+  }
+
+  // Don't proxy placeholder-image API URLs, data URLs, relative URLs, or already-proxied URLs
+  const shouldSkipProxy = originalUrl.includes('/api/placeholder-image') || 
+                          originalUrl.includes('re.podtards.com') || 
+                          originalUrl.includes('/api/proxy-image') || 
+                          originalUrl.startsWith('data:') || 
+                          originalUrl.startsWith('/');
+
+  // Always proxy domains that must be proxied (fixes Next.js Image 400 errors)
+  if (!shouldSkipProxy && mustProxy) {
     return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
   }
 
-  // Use original URLs directly for allowed domains
+  // Always proxy external domains not in allowed list (regardless of useProxy parameter)
+  // This fixes issues where Next.js Image optimization fails for external domains
+  if (!shouldSkipProxy && !isAllowedDomain) {
+    return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
+  }
+
+  // If proxy is explicitly requested and domain is allowed, still use proxy
+  if (!shouldSkipProxy && useProxy && isAllowedDomain) {
+    return `/api/proxy-image?url=${encodeURIComponent(originalUrl)}`;
+  }
+
+  // Use original URLs directly for allowed domains (when useProxy is false and not mustProxy)
   return originalUrl;
 }
 

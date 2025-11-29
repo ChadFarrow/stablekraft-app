@@ -145,6 +145,13 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 
   }
 }
 
+// Helper function to validate image URLs
+function isValidImageUrl(url: any): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  return trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined';
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
@@ -686,7 +693,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         trackNumber: index + 1,
         subtitle: track.subtitle || '',
         summary: track.description || '',
-        image: track.image || feed.image || '',
+        image: (isValidImageUrl(track.image) ? track.image : (isValidImageUrl(feed.image) ? feed.image : '')),
         explicit: track.explicit || false,
         keywords: track.itunesKeywords || [],
         v4vRecipient: track.v4vRecipient,
@@ -719,7 +726,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         description: feed.description || '',
         summary: feed.description || '',
         subtitle: '',
-        coverArt: feed.image || `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`,
+        coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
         releaseDate: feed.lastFetched || feed.createdAt,
         explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
         tracks: tracks,
@@ -728,7 +735,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           feedGuid: feed.id,
           feedUrl: feed.originalUrl,
           title: feed.artist,
-          artistImage: feed.image
+          artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
         } : null,
         funding: null,
         feedId: feed.id,
@@ -815,7 +822,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         trackNumber: index + 1,
         subtitle: track.subtitle || '',
         summary: track.description || '',
-        image: track.image || feed.image || '',
+        image: (isValidImageUrl(track.image) ? track.image : (isValidImageUrl(feed.image) ? feed.image : '')),
         explicit: track.explicit || false,
         keywords: track.itunesKeywords || [],
         v4vRecipient: track.v4vRecipient,
@@ -847,7 +854,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           description: feed.description || '',
           summary: feed.description || '',
           subtitle: '',
-          coverArt: feed.image || `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`,
+          coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
           releaseDate: feed.lastFetched || feed.createdAt,
           explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
           tracks: tracks,
@@ -856,7 +863,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             feedGuid: feed.id,
             feedUrl: feed.originalUrl,
             title: feed.artist,
-            artistImage: feed.image
+            artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
           } : null,
           funding: null,
           feedId: feed.id,
