@@ -493,13 +493,14 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 }
               }
               
-              setPublisherInfo({
-                title: feedInfo.artist || feedInfo.title || publisherInfo.name || `Artist: ${publisherId}`,
-                description: feedInfo.description || 'Independent artist and music creator',
-                artist: feedInfo.artist || publisherInfo.name,
-                coverArt: feedInfo.coverArt, // This is the publisher's main image for background
-                avatarArt: lastItemAvatarArt || feedInfo.coverArt // Use last item's art for avatar, fallback to publisher art
-              });
+              setPublisherInfo(prev => ({
+                title: feedInfo.artist || feedInfo.title || publisherInfo.name || prev?.title || `Artist: ${publisherId}`,
+                description: feedInfo.description || prev?.description || 'Independent artist and music creator',
+                artist: feedInfo.artist || publisherInfo.name || prev?.artist,
+                coverArt: feedInfo.coverArt || prev?.coverArt, // Prefer parsed feed image, fallback to existing
+                avatarArt: lastItemAvatarArt || feedInfo.coverArt || prev?.avatarArt, // Use last item's art for avatar, fallback to publisher art
+                publisherFeedImage: feedInfo.coverArt || prev?.publisherFeedImage
+              }));
             }
             
             // Extract publisher items from the feed data
