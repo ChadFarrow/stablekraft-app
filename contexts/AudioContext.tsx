@@ -634,7 +634,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'rssblue.com',
           'strangetextures.com',
           'thisisjdog.com',
-          'doerfelverse.com',
           'heycitizen.xyz',
           'bitpunk.fm',
           'thebearsnare.com'
@@ -1158,10 +1157,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           if (nextTrack && nextTrack.url) {
             const nextElement = isVideoUrl(nextTrack.url) ? videoRef.current : audioRef.current;
             if (nextElement && nextElement !== currentElement) {
+              // Use URL strategy to get the best URL (proxy for CORS-problematic domains)
+              const urlsToTry = getAudioUrlsToTry(nextTrack.url);
+              let secureNextUrl = urlsToTry[0] || nextTrack.url;
+
               // Upgrade HTTP to HTTPS for preloaded tracks
-              let secureNextUrl = nextTrack.url;
-              if (nextTrack.url.startsWith('http://')) {
-                secureNextUrl = nextTrack.url.replace(/^http:/, 'https:');
+              if (secureNextUrl.startsWith('http://')) {
+                secureNextUrl = secureNextUrl.replace(/^http:/, 'https:');
               }
 
               // Only preload if not already loaded
