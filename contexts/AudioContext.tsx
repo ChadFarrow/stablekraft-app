@@ -471,23 +471,25 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }
   }, [currentPlayingAlbum, currentTrackIndex, currentTime, duration, isShuffleMode, shuffledPlaylist, currentShuffleIndex]);
 
-  // Load albums data for playback - only once
+  // Load albums data for playback - with retry logic for cold starts
   useEffect(() => {
-    const loadAlbums = async () => {
-      // Prevent multiple loads
+    const loadAlbums = async (retryCount = 0): Promise<void> => {
+      // Prevent multiple loads if already loaded successfully
       if (albumsLoadedRef.current) {
         return;
       }
-      
-      albumsLoadedRef.current = true;
-      
+
+      const maxRetries = 5;
+      const retryDelay = 3000; // 3 seconds between retries
+
       try {
         const response = await fetch('/api/albums', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          }
+          },
+          signal: AbortSignal.timeout(15000) // 15 second timeout per attempt
         });
         
         if (response.ok) {
@@ -501,6 +503,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           const data = await response.json();
           if (data && Array.isArray(data.albums)) {
             setAlbums(data.albums);
+            albumsLoadedRef.current = true; // Only mark as loaded after success
             // Only log in development mode
             if (process.env.NODE_ENV === 'development') {
               console.log(`✅ Loaded ${data.albums.length} albums for audio context`);
@@ -525,14 +528,27 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           }
         } else {
           console.warn(`⚠️ Albums API returned ${response.status}: ${response.statusText}`);
+          // Retry on non-ok response
+          if (retryCount < maxRetries - 1) {
+            console.log(`⏳ Retrying album load in ${retryDelay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return loadAlbums(retryCount + 1);
+          }
         }
       } catch (error) {
-        console.warn('Failed to load albums for audio context:', error);
+        console.warn(`Failed to load albums (attempt ${retryCount + 1}/${maxRetries}):`, error);
+
+        // Retry on failure if under max retries
+        if (retryCount < maxRetries - 1) {
+          console.log(`⏳ Retrying album load in ${retryDelay / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return loadAlbums(retryCount + 1);
+        }
         // Don't throw - allow the app to continue without albums
       }
     };
-    
-    loadAlbums();
+
+    loadAlbums(0);
   }, []); // Run only once on mount
 
   // Helper function to detect if URL is a video
