@@ -1518,11 +1518,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       track: any;
     }> = [];
 
+    let skippedPlaylists = 0;
+    let includedAlbums = 0;
+
     albums.forEach(album => {
       // Skip playlist albums from global shuffle (playlists have feedId ending with '-playlist')
       if (album.feedId?.endsWith('-playlist')) {
+        skippedPlaylists++;
         return;
       }
+      includedAlbums++;
       if (album.tracks && album.tracks.length > 0) {
         album.tracks.forEach((track, trackIndex) => {
           allTracks.push({
@@ -1533,6 +1538,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         });
       }
     });
+
+    console.log(`🎲 Shuffle pool: ${includedAlbums} albums, ${allTracks.length} tracks (skipped ${skippedPlaylists} playlists)`);
 
     if (allTracks.length === 0) {
       console.warn('No tracks available for shuffle');
