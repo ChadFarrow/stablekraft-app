@@ -1600,8 +1600,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
 
     // Prefetch upcoming tracks in the background for smooth radio playback
-    if (success && shuffledList.length > 1) {
-      const upcomingTracks = shuffledList.slice(1, 4).map(item => item.track);
+    if (success && shuffledTracks.length > 1) {
+      const upcomingTracks = shuffledTracks.slice(1, 4).map(item => item.track);
       prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
         // Silent fail - prefetching is best-effort
       });
