@@ -14,6 +14,7 @@ import { useBitcoinConnect } from '@/components/Lightning/BitcoinConnectProvider
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
 import { ValueRecipient } from '@/lib/lightning/value-parser';
 import { hasV4V as checkHasV4V, getV4VRecipients, getPrimaryRecipient } from '@/lib/v4v-utils';
+import { prefetchUpcomingTracks } from '@/lib/audio-prefetch';
 
 interface AudioContextType {
   // Audio state
@@ -1597,6 +1598,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     setHasUserInteracted(true);
 
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
+
+    // Prefetch upcoming tracks in the background for smooth radio playback
+    if (success && shuffledList.length > 1) {
+      const upcomingTracks = shuffledList.slice(1, 4).map(item => item.track);
+      prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
+        // Silent fail - prefetching is best-effort
+      });
+    }
+
     return success;
   };
 
@@ -1698,16 +1708,28 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     if (isShuffleMode && shuffledPlaylist.length > 0) {
       // In shuffle mode, play next track from shuffled playlist
       const nextShuffleIndex = currentShuffleIndex + 1;
-      
+
       if (nextShuffleIndex < shuffledPlaylist.length) {
         // Play next track in shuffled playlist
         const nextTrack = shuffledPlaylist[nextShuffleIndex];
         console.log('🎲 Playing next shuffled track:', nextTrack.track.title, 'from', nextTrack.album.title);
         await playShuffledTrack(nextShuffleIndex);
+
+        // Prefetch upcoming tracks in the background
+        const upcomingTracks = shuffledPlaylist.slice(nextShuffleIndex + 1, nextShuffleIndex + 4).map(item => item.track);
+        if (upcomingTracks.length > 0) {
+          prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
+        }
       } else {
         // End of shuffled playlist - loop back to the first track
         console.log('🔁 End of shuffled playlist reached, looping back to first track');
         await playShuffledTrack(0);
+
+        // Prefetch upcoming tracks from the start
+        const upcomingTracks = shuffledPlaylist.slice(1, 4).map(item => item.track);
+        if (upcomingTracks.length > 0) {
+          prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
+        }
       }
       return;
     }
