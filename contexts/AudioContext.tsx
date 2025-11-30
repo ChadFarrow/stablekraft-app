@@ -1546,69 +1546,69 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
-    // Album-aware shuffle: spread tracks from each album throughout the playlist
-    // This prevents the same album from dominating and feels more "random" to users
+    // Artist-aware shuffle: spread tracks from each ARTIST throughout the playlist
+    // This prevents the same artist from dominating and feels more "random" to users
     const shuffledTracks = (() => {
-      // Step 1: Group tracks by album
-      const albumGroups = new Map<string, typeof allTracks>();
+      // Step 1: Group tracks by ARTIST (not album)
+      const artistGroups = new Map<string, typeof allTracks>();
       allTracks.forEach(item => {
-        const albumId = item.album.id || item.album.title;
-        if (!albumGroups.has(albumId)) {
-          albumGroups.set(albumId, []);
+        const artist = item.album.artist || 'Unknown';
+        if (!artistGroups.has(artist)) {
+          artistGroups.set(artist, []);
         }
-        albumGroups.get(albumId)!.push(item);
+        artistGroups.get(artist)!.push(item);
       });
 
-      // Step 2: Shuffle tracks within each album group (Fisher-Yates)
-      albumGroups.forEach(tracks => {
+      // Step 2: Shuffle tracks within each artist group (Fisher-Yates)
+      artistGroups.forEach(tracks => {
         for (let i = tracks.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
         }
       });
 
-      // Step 3: Interleave tracks from different albums (round-robin with randomized album order)
+      // Step 3: Interleave tracks from different artists (round-robin with randomized artist order)
       const result: typeof allTracks = [];
-      const albumKeys = Array.from(albumGroups.keys());
+      const artistKeys = Array.from(artistGroups.keys());
 
-      while (albumGroups.size > 0) {
-        // Shuffle album order each round to add variety
-        for (let i = albumKeys.length - 1; i > 0; i--) {
+      while (artistGroups.size > 0) {
+        // Shuffle artist order each round to add variety
+        for (let i = artistKeys.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [albumKeys[i], albumKeys[j]] = [albumKeys[j], albumKeys[i]];
+          [artistKeys[i], artistKeys[j]] = [artistKeys[j], artistKeys[i]];
         }
 
-        // Take one track from each album that still has tracks
-        for (const albumId of albumKeys) {
-          const tracks = albumGroups.get(albumId);
+        // Take one track from each artist that still has tracks
+        for (const artist of artistKeys) {
+          const tracks = artistGroups.get(artist);
           if (tracks && tracks.length > 0) {
             result.push(tracks.shift()!);
             if (tracks.length === 0) {
-              albumGroups.delete(albumId);
+              artistGroups.delete(artist);
             }
           }
         }
       }
 
-      // Step 4: Light final shuffle with constraint - only swap if it doesn't create same-album adjacency
+      // Step 4: Light final shuffle with constraint - only swap if it doesn't create same-artist adjacency
       // This adds unpredictability while maintaining the spread
       for (let i = result.length - 1; i > 1; i--) {
         // Only attempt swap 30% of the time to keep most of the spread intact
         if (Math.random() < 0.3) {
           const j = Math.floor(Math.random() * (i + 1));
           if (j !== i) {
-            // Check if swap would create same-album adjacency
-            const iAlbum = result[i].album.id || result[i].album.title;
-            const jAlbum = result[j].album.id || result[j].album.title;
-            const iPrevAlbum = i > 0 ? (result[i - 1].album.id || result[i - 1].album.title) : null;
-            const iNextAlbum = i < result.length - 1 ? (result[i + 1].album.id || result[i + 1].album.title) : null;
-            const jPrevAlbum = j > 0 ? (result[j - 1].album.id || result[j - 1].album.title) : null;
-            const jNextAlbum = j < result.length - 1 ? (result[j + 1].album.id || result[j + 1].album.title) : null;
+            // Check if swap would create same-artist adjacency
+            const iArtist = result[i].album.artist || 'Unknown';
+            const jArtist = result[j].album.artist || 'Unknown';
+            const iPrevArtist = i > 0 ? (result[i - 1].album.artist || 'Unknown') : null;
+            const iNextArtist = i < result.length - 1 ? (result[i + 1].album.artist || 'Unknown') : null;
+            const jPrevArtist = j > 0 ? (result[j - 1].album.artist || 'Unknown') : null;
+            const jNextArtist = j < result.length - 1 ? (result[j + 1].album.artist || 'Unknown') : null;
 
             // Only swap if it doesn't create adjacency issues
             const wouldCreateAdjacency =
-              (jAlbum === iPrevAlbum) || (jAlbum === iNextAlbum) ||
-              (iAlbum === jPrevAlbum) || (iAlbum === jNextAlbum);
+              (jArtist === iPrevArtist) || (jArtist === iNextArtist) ||
+              (iArtist === jPrevArtist) || (iArtist === jNextArtist);
 
             if (!wouldCreateAdjacency) {
               [result[i], result[j]] = [result[j], result[i]];
@@ -1617,7 +1617,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         }
       }
 
-      console.log(`🎲 Album-aware shuffle: ${result.length} tracks from ${albumKeys.length} albums`);
+      console.log(`🎲 Artist-aware shuffle: ${result.length} tracks from ${artistKeys.length} artists`);
       return result;
     })();
 
