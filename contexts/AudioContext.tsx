@@ -1599,8 +1599,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
 
+    // If initial track failed, auto-skip to find a playable track
+    if (!success) {
+      console.log('⏭️ Initial shuffle track failed, auto-skipping to next...');
+      setTimeout(() => {
+        if (playNextTrackRef.current) {
+          playNextTrackRef.current();
+        }
+      }, 500);
+      // Return true so caller doesn't show error - we're handling it
+      return true;
+    }
+
     // Prefetch upcoming tracks in the background for smooth radio playback
-    if (success && shuffledTracks.length > 1) {
+    if (shuffledTracks.length > 1) {
       const upcomingTracks = shuffledTracks.slice(1, 4).map(item => item.track);
       prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
         // Silent fail - prefetching is best-effort
@@ -1713,7 +1725,19 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         // Play next track in shuffled playlist
         const nextTrack = shuffledPlaylist[nextShuffleIndex];
         console.log('🎲 Playing next shuffled track:', nextTrack.track.title, 'from', nextTrack.album.title);
-        await playShuffledTrack(nextShuffleIndex);
+        const success = await playShuffledTrack(nextShuffleIndex);
+
+        // If playback failed (CORS, unavailable, etc.), auto-skip to next track
+        if (!success) {
+          console.log('⏭️ Track failed to play, auto-skipping to next...');
+          // Small delay to prevent rapid-fire skipping
+          setTimeout(() => {
+            if (playNextTrackRef.current) {
+              playNextTrackRef.current();
+            }
+          }, 500);
+          return;
+        }
 
         // Prefetch upcoming tracks in the background
         const upcomingTracks = shuffledPlaylist.slice(nextShuffleIndex + 1, nextShuffleIndex + 4).map(item => item.track);
@@ -1723,7 +1747,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       } else {
         // End of shuffled playlist - loop back to the first track
         console.log('🔁 End of shuffled playlist reached, looping back to first track');
-        await playShuffledTrack(0);
+        const success = await playShuffledTrack(0);
+
+        // If playback failed, try next track
+        if (!success) {
+          console.log('⏭️ First track failed to play, trying next...');
+          setTimeout(() => {
+            if (playNextTrackRef.current) {
+              playNextTrackRef.current();
+            }
+          }, 500);
+          return;
+        }
 
         // Prefetch upcoming tracks from the start
         const upcomingTracks = shuffledPlaylist.slice(1, 4).map(item => item.track);
