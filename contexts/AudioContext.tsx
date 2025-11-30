@@ -55,6 +55,9 @@ interface AudioContextType {
   // Media element refs for direct access
   audioRef: React.RefObject<HTMLAudioElement>;
   videoRef: React.RefObject<HTMLVideoElement>;
+
+  // Pre-load albums (for server-side fetched data)
+  setInitialAlbums: (albums: RSSAlbum[]) => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -2020,7 +2023,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     playPreviousTrack,
     stop,
     audioRef,
-    videoRef
+    videoRef,
+    setInitialAlbums: (initialAlbums: RSSAlbum[]) => {
+      // Only set if we don't already have albums loaded
+      if (!albumsLoadedRef.current && initialAlbums.length > 0) {
+        setAlbums(initialAlbums);
+        albumsLoadedRef.current = true;
+        console.log(`✅ Pre-loaded ${initialAlbums.length} albums from server`);
+      }
+    }
   };
 
   return (
