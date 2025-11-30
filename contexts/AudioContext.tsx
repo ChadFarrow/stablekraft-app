@@ -621,7 +621,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'anchor.fm',
           'libsyn.com',
           'whitetriangles.com',
-          'falsefinish.club'
+          'falsefinish.club',
+          'behindthesch3m3s.com',
+          'doerfelverse.com',
+          'sirtjthewrathful.com',
+          'digitaloceanspaces.com'
         ];
 
         const isDirectFirst = directFirstDomains.some(domain =>
