@@ -58,9 +58,10 @@ export default function RadioPage() {
         className="absolute inset-0"
         style={{
           backgroundImage: 'url(/stablekraft-radio-bg.png)',
-          backgroundSize: 'cover',
+          backgroundSize: 'contain',
           backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#1A2433'
         }}
       />
       {/* Dark overlay for better text readability */}
