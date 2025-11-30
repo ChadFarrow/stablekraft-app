@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Play, Pause, Search, ChevronLeft, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
@@ -36,6 +36,10 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [searchQuery, setSearchQuery] = useState('');
   // Default to 'original' to preserve XML feed order for all playlists
   const [sortBy, setSortBy] = useState<SortOption>('original');
+
+  // Pagination for large playlists
+  const TRACKS_PER_PAGE = 50;
+  const [displayedCount, setDisplayedCount] = useState(TRACKS_PER_PAGE);
   
   // Client-side check
   useEffect(() => {
@@ -439,6 +443,42 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     return filtered;
   }, [tracks, searchQuery, sortBy]);
 
+  // Reset pagination when search changes
+  useEffect(() => {
+    setDisplayedCount(TRACKS_PER_PAGE);
+  }, [searchQuery]);
+
+  // Paginated tracks for display
+  const displayedTracks = useMemo(() => {
+    return filteredTracks.slice(0, displayedCount);
+  }, [filteredTracks, displayedCount]);
+
+  const hasMoreTracks = displayedCount < filteredTracks.length;
+
+  const loadMoreTracks = useCallback(() => {
+    setDisplayedCount(prev => Math.min(prev + TRACKS_PER_PAGE, filteredTracks.length));
+  }, [filteredTracks.length]);
+
+  // Infinite scroll - load more when sentinel comes into view
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMoreTracks) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreTracks();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMoreTracks, loadMoreTracks]);
+
   // Calculate stats
   const calculatedStats = useMemo(() => {
     const stats: PlaylistStats = {
@@ -776,7 +816,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                 {/* Track List */}
                 <div className="space-y-1">
-            {filteredTracks.map((track, index) => {
+            {displayedTracks.map((track, index) => {
               const isCurrentTrack = shouldUseAudioContext ?
                 (audioContext?.currentPlayingAlbum?.id === `${config.cacheKey}-playlist` && audioContext?.currentTrackIndex === index) :
                 currentTrack === track.id;
@@ -945,6 +985,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               );
                 })}
                 </div>
+
+                {/* Infinite scroll sentinel */}
+                {hasMoreTracks && (
+                  <div ref={loadMoreRef} className="py-6 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-stablekraft-teal" />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Loading more... ({displayedCount} of {filteredTracks.length})
+                    </p>
+                  </div>
+                )}
 
                 {filteredTracks.length === 0 && (
                   <div className="text-center py-12">
