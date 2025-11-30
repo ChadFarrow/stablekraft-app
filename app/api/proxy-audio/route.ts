@@ -12,12 +12,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch the audio file with better headers
+    // Fetch the audio file with browser-like headers to bypass bot detection
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (compatible; AudioProxy/1.0)',
-      'Accept': 'audio/mpeg, audio/wav, audio/*, */*',
-      'Cache-Control': 'no-cache',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'identity', // Don't compress audio streams
+      'Sec-Fetch-Dest': 'audio',
+      'Sec-Fetch-Mode': 'no-cors',
+      'Sec-Fetch-Site': 'cross-site',
     };
+
+    // Add Referer/Origin based on the audio URL's origin (makes request look legitimate)
+    try {
+      const audioOrigin = new URL(url).origin;
+      fetchHeaders['Referer'] = audioOrigin + '/';
+      fetchHeaders['Origin'] = audioOrigin;
+    } catch {
+      // Invalid URL, skip referer
+    }
 
     // Add range header if provided (for seeking support)
     const rangeHeader = request.headers.get('range');
