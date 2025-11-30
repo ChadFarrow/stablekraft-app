@@ -454,30 +454,36 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   }, [filteredTracks, displayedCount]);
 
   const hasMoreTracks = displayedCount < filteredTracks.length;
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const loadMoreTracks = useCallback(() => {
+    if (loadingMore) return;
+    setLoadingMore(true);
     setDisplayedCount(prev => Math.min(prev + TRACKS_PER_PAGE, filteredTracks.length));
-  }, [filteredTracks.length]);
+    // Small delay to prevent rapid-fire loading
+    setTimeout(() => setLoadingMore(false), 100);
+  }, [filteredTracks.length, loadingMore]);
 
   // Infinite scroll - load more when sentinel comes into view
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loadMoreRef.current || !hasMoreTracks) return;
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !hasMoreTracks || loadingMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && !loadingMore) {
           loadMoreTracks();
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '200px' }
     );
 
-    observer.observe(loadMoreRef.current);
+    observer.observe(sentinel);
 
     return () => observer.disconnect();
-  }, [hasMoreTracks, loadMoreTracks]);
+  }, [hasMoreTracks, loadingMore]);
 
   // Calculate stats
   const calculatedStats = useMemo(() => {

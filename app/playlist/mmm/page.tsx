@@ -4,9 +4,9 @@ import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
 const MMM_CONFIG: PlaylistConfig = {
-  cacheKey: 'mmm_playlist_cache_v5', // Bumped to v5 for pagination
+  cacheKey: 'mmm_playlist_cache_v6', // Bumped to v6 for fast + pagination
   cacheDuration: 1000 * 60 * 30, // 30 minutes
-  apiEndpoint: '/api/playlist/mmm', // Use regular endpoint with client-side pagination
+  apiEndpoint: '/api/playlist/mmm-fast', // Fast endpoint with progressive loading + client-side pagination
   title: 'Mutton, Mead & Music Playlist',
   description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
   useAudioContext: true
