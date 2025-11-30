@@ -30,8 +30,8 @@ export default function RadioPage() {
     let success = await attemptShuffle();
 
     if (!success) {
-      // Retry with increasing delays (albums may still be loading)
-      const delays = [500, 1000, 1500, 2000];
+      // Retry with increasing delays (albums may take 10+ seconds to load on cold start)
+      const delays = [1000, 2000, 3000, 4000, 5000, 5000];
       for (let i = 0; i < delays.length && !success; i++) {
         await new Promise(resolve => setTimeout(resolve, delays[i]));
         success = await attemptShuffle();
