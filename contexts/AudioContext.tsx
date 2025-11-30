@@ -1522,8 +1522,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     let includedAlbums = 0;
 
     albums.forEach(album => {
-      // Skip playlist albums from global shuffle (playlists have feedId ending with '-playlist')
-      if (album.feedId?.endsWith('-playlist')) {
+      // Skip playlist albums from global shuffle
+      // Check both feedId ending with '-playlist' and title containing 'Playlist'
+      const isPlaylist = album.feedId?.endsWith('-playlist') ||
+                         album.title?.toLowerCase().includes('playlist');
+      if (isPlaylist) {
         skippedPlaylists++;
         return;
       }
