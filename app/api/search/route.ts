@@ -291,9 +291,30 @@ export async function GET(request: NextRequest) {
         ]
       });
 
+      // Filter out Bowl After Bowl podcast content (but keep Bowl Covers)
+      const filteredAlbums = albums.filter(album => {
+        const albumTitle = album.title?.toLowerCase() || '';
+        const albumArtist = album.artist?.toLowerCase() || '';
+        const feedUrl = album.originalUrl?.toLowerCase() || '';
+
+        // Keep Bowl Covers - these are legitimate music content
+        if (album.id === 'bowl-covers' || albumTitle.includes('bowl covers')) {
+          return true;
+        }
+
+        // Filter out main Bowl After Bowl podcast episodes
+        const isBowlAfterBowlPodcast = (
+          (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+          (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+          (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
+        );
+
+        return !isBowlAfterBowlPodcast;
+      });
+
       // Get track counts for each album
       const albumsWithCounts = await Promise.all(
-        albums.map(async (album) => {
+        filteredAlbums.map(async (album) => {
           const trackCount = await prisma.track.count({
             where: { feedId: album.id }
           });
