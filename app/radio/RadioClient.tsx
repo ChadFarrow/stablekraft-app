@@ -30,6 +30,7 @@ export default function RadioClient({ initialAlbums }: RadioClientProps) {
     setIsStarting(true);
 
     // Try immediately - albums should already be loaded from server
+    // shuffleAllTracks() clears any existing state before creating a fresh shuffle
     const success = await shuffleAllTracks();
 
     if (!success) {

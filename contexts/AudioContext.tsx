@@ -1502,6 +1502,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       return false;
     }
 
+    // Clear any existing shuffle state to ensure a fresh random shuffle
+    // This prevents the same order from being restored from IndexedDB
+    setShuffledPlaylist([]);
+    setCurrentShuffleIndex(0);
+    setIsShuffleMode(false);
+    if (typeof window !== 'undefined') {
+      storage.removeItem('audioPlayerState');
+    }
+
     // Create a flat array of all tracks with their album info
     const allTracks: Array<{
       album: RSSAlbum;
