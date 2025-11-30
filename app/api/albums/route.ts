@@ -68,49 +68,6 @@ async function getPublisherRemoteItemUrls(publisherId: string): Promise<Set<stri
   }
 }
 
-// Function to get playlist albums
-async function getPlaylistAlbums(requestUrl?: string) {
-  try {
-    const playlistAlbums = [];
-
-    // For server-side internal API calls, always use localhost HTTP
-    // This avoids SSL errors when the container listens on HTTP but has external HTTPS URL
-    const baseUrl = 'http://localhost:8080';
-
-    // Fetch HGH playlist
-    const hghResponse = await fetch(`${baseUrl}/api/playlist/hgh`);
-    if (hghResponse.ok) {
-      const hghData = await hghResponse.json();
-      if (hghData.success && hghData.albums && hghData.albums.length > 0) {
-        playlistAlbums.push(hghData.albums[0]);
-      }
-    }
-    
-    // Fetch ITDV playlist
-    const itdvResponse = await fetch(`${baseUrl}/api/playlist/itdv`);
-    if (itdvResponse.ok) {
-      const itdvData = await itdvResponse.json();
-      if (itdvData.success && itdvData.albums && itdvData.albums.length > 0) {
-        playlistAlbums.push(itdvData.albums[0]);
-      }
-    }
-    
-    // Fetch IAM playlist
-    const iamResponse = await fetch(`${baseUrl}/api/playlist/iam`);
-    if (iamResponse.ok) {
-      const iamData = await iamResponse.json();
-      if (iamData.success && iamData.albums && iamData.albums.length > 0) {
-        playlistAlbums.push(iamData.albums[0]);
-      }
-    }
-    
-    return playlistAlbums;
-  } catch (error) {
-    console.error('Error fetching playlist albums:', error);
-    return [];
-  }
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -551,20 +508,6 @@ export async function GET(request: Request) {
           break;
         default:
           filteredAlbums = publisherFilteredAlbums;
-      }
-    }
-    
-    // Add playlist albums if they're requested or if we're looking for specific album titles
-    // Skip for publisher requests to avoid timeouts
-    if (!publisher) {
-      try {
-        const playlistAlbums = await getPlaylistAlbums(request.url);
-        if (playlistAlbums.length > 0) {
-          filteredAlbums.push(...playlistAlbums);
-        }
-      } catch (error) {
-        console.error('Skipping playlist albums due to error:', error);
-        // Continue without playlist albums
       }
     }
     

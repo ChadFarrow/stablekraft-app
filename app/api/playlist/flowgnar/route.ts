@@ -76,7 +76,7 @@ export async function GET() {
       image: playlist.image,
       coverArt: playlist.image,
       url: `/playlist/flowgnar`,
-      feedId: playlist.id,
+      feedId: 'flowgnar-playlist',
       type: 'playlist',
       totalTracks: formattedTracks.length,
       tracks: formattedTracks,
