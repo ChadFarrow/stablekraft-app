@@ -495,7 +495,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       const retryDelay = 3000; // 3 seconds between retries
 
       try {
-        const response = await fetch('/api/albums', {
+        const response = await fetch('/api/albums?limit=0', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
