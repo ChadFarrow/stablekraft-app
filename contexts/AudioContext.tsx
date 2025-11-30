@@ -482,6 +482,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         return;
       }
 
+      // Small delay on first attempt to allow setInitialAlbums from server-side fetch to run first
+      if (retryCount === 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Check again after delay in case setInitialAlbums ran
+        if (albumsLoadedRef.current) {
+          return;
+        }
+      }
+
       const maxRetries = 5;
       const retryDelay = 3000; // 3 seconds between retries
 
