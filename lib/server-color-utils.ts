@@ -13,6 +13,25 @@ interface ColorScore {
   [hex: string]: number;
 }
 
+// Config for tuning color extraction parameters in real-time
+export interface ColorConfig {
+  brightenPercent?: number;      // 0-100, default 30
+  maxLightness?: number;         // 0-1, default 0.65
+  minLightness?: number;         // 0-1, default 0.20
+  maxSaturation?: number;        // 0-1, default 0.85
+  minSaturation?: number;        // 0-1, default 0.15
+  grayscaleThreshold?: number;   // 0-1, default 0.08
+}
+
+export const DEFAULT_COLOR_CONFIG: ColorConfig = {
+  brightenPercent: 0,
+  maxLightness: 0.25,
+  minLightness: 0.12,
+  maxSaturation: 0.95,
+  minSaturation: 0.50,
+  grayscaleThreshold: 0.08,
+};
+
 /**
  * Calculate color harmony score based on color theory principles
  * Returns a multiplier (0.5-2.0) for aesthetic appeal
@@ -74,6 +93,216 @@ const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16)
   } : null;
+};
+
+/**
+ * Convert RGB to HSL
+ */
+const rgbToHsl = (r: number, g: number, b: number): { h: number; s: number; l: number } => {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h, s, l };
+};
+
+/**
+ * Convert HSL to hex color
+ */
+const hslToHex = (h: number, s: number, l: number): string => {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+/**
+ * Transform any extracted color into a background-suitable version
+ * NEVER rejects - always transforms while preserving the hue
+ * @param hex - The hex color to transform
+ * @param config - Optional tuning parameters
+ */
+export const makeBackgroundSuitable = (hex: string, config: ColorConfig = {}): string => {
+  const cfg = { ...DEFAULT_COLOR_CONFIG, ...config };
+  const rgb = hexToRgb(hex);
+  if (!rgb) return '#1A252F';
+
+  let { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+  // Handle grayscale/B&W artwork specially
+  if (s < (cfg.grayscaleThreshold || 0.08)) {
+    // Check for subtle color bias in original RGB
+    const warmth = (rgb.r - rgb.b) / 255; // positive = warm, negative = cool
+
+    if (Math.abs(warmth) > 0.02) {
+      // Has subtle tint - use it with low saturation
+      s = cfg.minSaturation || 0.15; // Just enough to be visible
+      // h is already set from RGB conversion
+    } else {
+      // True grayscale - keep neutral
+      s = 0;
+    }
+
+    // Adjust lightness for readability (0.15-0.35 for grayscale backgrounds)
+    l = Math.max(0.15, Math.min(0.35, l));
+
+    return hslToHex(h, s, l);
+  }
+
+  // For colored artwork:
+  // Adjust lightness to configured range (readable with white text)
+  const minL = cfg.minLightness || 0.20;
+  const maxL = Math.min(cfg.maxLightness || 0.65, 0.50); // Cap at 0.50 for background suitability
+
+  if (l < minL) {
+    l = minL + (l * 0.3); // Min ~minL, preserves relative darkness
+  }
+  if (l > maxL) {
+    l = maxL - ((l - maxL) * 0.3); // Compress into usable range
+  }
+
+  // Adjust saturation - not too harsh, not too muted
+  if (s > (cfg.maxSaturation || 0.85)) {
+    s = cfg.maxSaturation || 0.85;
+  }
+  if (s < (cfg.minSaturation || 0.15)) {
+    s = cfg.minSaturation || 0.15; // Minimum saturation to keep visual interest
+  }
+
+  return hslToHex(h, s, l);
+};
+
+/**
+ * Extract multiple color candidates from image with minimal filtering
+ * Returns array sorted by vibrancy score (best first)
+ */
+export const extractColorCandidates = async (imageBuffer: Buffer): Promise<string[]> => {
+  try {
+    const resized = await sharp(imageBuffer)
+      .resize(150, 150, { fit: 'inside' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const { data, info } = resized;
+    const { channels } = info;
+
+    const colorScores: { [hex: string]: number } = {};
+
+    // Sample pixels with MINIMAL filtering
+    for (let i = 0; i < data.length; i += channels * 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // ONLY skip truly black pixels (nothing to work with)
+      if (r < 10 && g < 10 && b < 10) continue;
+
+      // ONLY skip near-white pixels (poor contrast with white text)
+      if (r > 245 && g > 245 && b > 245) continue;
+
+      // Calculate vibrancy score (no hue penalties!)
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const saturation = max === 0 ? 0 : (max - min) / max;
+      const brightness = max / 255;
+      const lightness = (max + min) / 2 / 255;
+
+      const hex = `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+
+      // Vibrancy scoring - heavily favor saturation to pick vibrant colors
+      let score = (saturation * 0.85 + brightness * 0.15) * 100;
+
+      // Penalize very light AND very desaturated colors
+      if (lightness > 0.85) score *= 0.3;
+      else if (lightness > 0.75 && saturation < 0.5) score *= 0.5;
+
+      // Big bonus for highly saturated colors (neon, vibrant)
+      if (saturation > 0.7) score *= 2.0;
+      else if (saturation > 0.5) score *= 1.5;
+
+      colorScores[hex] = (colorScores[hex] || 0) + score;
+    }
+
+    // Get top 5 distinct colors
+    const sortedColors = Object.entries(colorScores)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([color]) => color);
+
+    console.log('🎨 Color candidates extracted:', sortedColors);
+    return sortedColors.length > 0 ? sortedColors : ['#4F46E5'];
+  } catch (error) {
+    console.error('Error extracting color candidates:', error);
+    return ['#4F46E5'];
+  }
+};
+
+/**
+ * Pick best color for background from candidates
+ * Prefers the most SATURATED colorful candidate (not too dark, not grayscale)
+ * This helps pick bright neon colors over glows/washed tones
+ */
+export const pickBestBackgroundColor = (candidates: string[]): string => {
+  const fallback = candidates[0] || '#4F46E5';
+  let bestColor = fallback;
+  let bestScore = 0;
+
+  for (const color of candidates) {
+    const rgb = hexToRgb(color);
+    if (!rgb) continue;
+
+    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+    // Skip very dark colors (they'll all look black after darkening)
+    if (l < 0.15) continue;
+
+    // Skip grayscale colors
+    if (s < 0.2) continue;
+
+    // Score based on saturation and brightness - prefer vibrant neon colors
+    // Saturation is weighted heavily, lightness gives bonus to brighter colors
+    const score = s * 0.7 + l * 0.3;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestColor = color;
+    }
+  }
+
+  const rgb = hexToRgb(bestColor);
+  if (rgb) {
+    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    console.log(`🎨 Picked best candidate: ${bestColor} (h: ${(h * 360).toFixed(0)}°, s: ${s.toFixed(2)}, l: ${l.toFixed(2)}, score: ${bestScore.toFixed(2)})`);
+  }
+
+  return bestColor;
 };
 
 /**
@@ -322,35 +551,28 @@ export const isValidImageUrl = (url: string): boolean => {
 
 /**
  * Helper function to brighten colors for better background visibility
+ * Uses HSL to preserve hue while adjusting lightness
+ * @param hex - The hex color to brighten
+ * @param config - Optional tuning parameters (uses brightenPercent, maxLightness, maxSaturation)
  */
-export const brightenColorForBackground = (hex: string, percent: number = 40): string => {
-  // Remove # if present
-  const color = hex.replace('#', '');
+export const brightenColorForBackground = (hex: string, config: ColorConfig = {}): string => {
+  const cfg = { ...DEFAULT_COLOR_CONFIG, ...config };
+  const percent = cfg.brightenPercent || 30;
+  const maxL = cfg.maxLightness || 0.65;
+  const maxS = cfg.maxSaturation || 0.7;
 
-  // Parse RGB values
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
 
-  // Brighten each component
-  const brightenComponent = (component: number): number => {
-    // If the component is very dark, boost it much more aggressively
-    if (component < 30) {
-      return Math.min(255, component + (255 - component) * (percent / 100) + 120);
-    }
-    // For dark components, still boost significantly
-    if (component < 80) {
-      return Math.min(255, component + (255 - component) * (percent / 100) + 60);
-    }
-    // For brighter components, use standard brightening
-    return Math.min(255, component + (255 - component) * (percent / 100));
-  };
+  // Convert to HSL to preserve hue
+  let { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-  const newR = Math.round(brightenComponent(r));
-  const newG = Math.round(brightenComponent(g));
-  const newB = Math.round(brightenComponent(b));
+  // Increase lightness by percent, but cap at configured level
+  const increase = (percent / 100) * (1 - l);
+  l = Math.min(maxL, l + increase);
 
-  // Convert back to hex
-  const toHex = (n: number): string => n.toString(16).padStart(2, '0');
-  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+  // Keep saturation reasonable
+  if (s > maxS) s = maxS;
+
+  return hslToHex(h, s, l);
 };

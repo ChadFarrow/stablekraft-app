@@ -136,8 +136,8 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
       // Check database first
       const fetchColors = async () => {
         try {
-          // First try to get from database
-          const response = await fetch(`/api/artwork-colors?imageUrl=${encodeURIComponent(originalImageUrl)}`);
+          // First try to get from database (realtime=true for testing - remove after tuning)
+          const response = await fetch(`/api/artwork-colors?imageUrl=${encodeURIComponent(originalImageUrl)}&realtime=true`);
 
           if (response.ok) {
             const { data } = await response.json();
