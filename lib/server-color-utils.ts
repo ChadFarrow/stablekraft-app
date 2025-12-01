@@ -25,10 +25,10 @@ export interface ColorConfig {
 
 export const DEFAULT_COLOR_CONFIG: ColorConfig = {
   brightenPercent: 0,
-  maxLightness: 0.25,
-  minLightness: 0.12,
-  maxSaturation: 0.95,
-  minSaturation: 0.50,
+  maxLightness: 0.28,  // Darker backgrounds contrast better with bright artwork
+  minLightness: 0.15,
+  maxSaturation: 0.80,  // Less saturated to avoid clashing with artwork
+  minSaturation: 0.45,
   grayscaleThreshold: 0.08,
 };
 
@@ -215,21 +215,22 @@ export const extractColorCandidates = async (imageBuffer: Buffer): Promise<strin
 
     const colorScores: { [hex: string]: number } = {};
 
-    // Sample pixels with MINIMAL filtering
+    // Sample pixels - skip dark backgrounds to find vibrant colors
     for (let i = 0; i < data.length; i += channels * 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
 
-      // ONLY skip truly black pixels (nothing to work with)
-      if (r < 10 && g < 10 && b < 10) continue;
-
-      // ONLY skip near-white pixels (poor contrast with white text)
-      if (r > 245 && g > 245 && b > 245) continue;
-
-      // Calculate vibrancy score (no hue penalties!)
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
+
+      // Skip dark pixels - need at least some brightness to be considered
+      // This helps find neon text on dark backgrounds
+      if (max < 50) continue;
+
+      // Skip near-white pixels (poor contrast with white text)
+      if (r > 245 && g > 245 && b > 245) continue;
+
       const saturation = max === 0 ? 0 : (max - min) / max;
       const brightness = max / 255;
       const lightness = (max + min) / 2 / 255;
@@ -266,15 +267,16 @@ export const extractColorCandidates = async (imageBuffer: Buffer): Promise<strin
 
 /**
  * Pick best color for background from candidates
- * Prefers the most SATURATED colorful candidate (not too dark, not grayscale)
- * This helps pick bright neon colors over glows/washed tones
+ * Candidates are sorted by frequency*vibrancy, so position matters
+ * We balance saturation/brightness with position (earlier = more prominent)
  */
 export const pickBestBackgroundColor = (candidates: string[]): string => {
   const fallback = candidates[0] || '#4F46E5';
   let bestColor = fallback;
   let bestScore = 0;
 
-  for (const color of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
+    const color = candidates[i];
     const rgb = hexToRgb(color);
     if (!rgb) continue;
 
@@ -286,9 +288,11 @@ export const pickBestBackgroundColor = (candidates: string[]): string => {
     // Skip grayscale colors
     if (s < 0.2) continue;
 
-    // Score based on saturation and brightness - prefer vibrant neon colors
-    // Saturation is weighted heavily, lightness gives bonus to brighter colors
-    const score = s * 0.7 + l * 0.3;
+    // Score based on saturation, brightness, AND position
+    // Position bonus: first candidate gets 1.5x, decreasing for later ones
+    const positionBonus = 1.5 - (i * 0.15); // 1.5, 1.35, 1.2, 1.05, 0.9
+    const colorScore = s * 0.6 + l * 0.4;
+    const score = colorScore * Math.max(0.8, positionBonus);
 
     if (score > bestScore) {
       bestScore = score;
