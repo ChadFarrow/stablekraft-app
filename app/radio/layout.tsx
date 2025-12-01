@@ -3,6 +3,9 @@ import { Inter } from 'next/font/google';
 import '../globals.css';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { ToastContainer } from '@/components/Toast';
+import RadioNostrProvider from '@/components/Radio/RadioNostrProvider';
+import RadioLightningWrapper from '@/components/Radio/RadioLightningWrapper';
+import { UserSettingsProvider } from '@/contexts/UserSettingsContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -44,10 +47,16 @@ export default function RadioLayout({
         <link rel="icon" type="image/png" href="/stablekraft-rocket.png" />
       </head>
       <body className={inter.className}>
-        <AudioProvider>
-          {children}
-          <ToastContainer />
-        </AudioProvider>
+        <RadioNostrProvider>
+          <UserSettingsProvider>
+            <RadioLightningWrapper>
+              <AudioProvider radioMode={true}>
+                {children}
+                <ToastContainer />
+              </AudioProvider>
+            </RadioLightningWrapper>
+          </UserSettingsProvider>
+        </RadioNostrProvider>
       </body>
     </html>
   );

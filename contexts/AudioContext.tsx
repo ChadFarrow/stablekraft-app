@@ -72,9 +72,10 @@ export const useAudio = () => {
 
 interface AudioProviderProps {
   children: ReactNode;
+  radioMode?: boolean;
 }
 
-export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
+export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMode = false }) => {
   const [currentPlayingAlbum, setCurrentPlayingAlbum] = useState<RSSAlbum | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // True when playback is starting
@@ -125,8 +126,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       clearTimeout(nip38TimeoutRef.current);
     }
 
-    // Check if auto-status is enabled and user is authenticated
-    if (!settings.nip38AutoStatus || !isAuthenticated) {
+    // Check if auto-status is enabled, user is authenticated, and not in radio mode
+    if (!settings.nip38AutoStatus || !isAuthenticated || radioMode) {
       return;
     }
 
@@ -1077,9 +1078,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         navigator.mediaSession.playbackState = 'playing';
       }
 
-      // Auto-boost: fire and forget - doesn't block next track
+      // Auto-boost: fire and forget - doesn't block next track (disabled in radio mode)
       // Check settings and trigger boost for the just-finished track
-      if (settings.autoBoostEnabled && currentPlayingAlbum && currentTrackIndex >= 0) {
+      if (!radioMode && settings.autoBoostEnabled && currentPlayingAlbum && currentTrackIndex >= 0) {
         const track = currentPlayingAlbum.tracks[currentTrackIndex];
         if (track && triggerAutoBoostRef.current) {
           // Fire and forget - don't await
