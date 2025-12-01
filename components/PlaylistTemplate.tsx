@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Play, Pause, Music, Search, Filter, ChevronDown, X, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
+import { getProxiedAudioUrl } from '@/lib/audio-url-utils';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 
@@ -251,7 +252,8 @@ export default function PlaylistTemplate({ config }: PlaylistTemplateProps) {
         audio.src = '';
       }
 
-      const audioUrl = track.valueForValue?.resolvedAudioUrl || track.audioUrl;
+      const rawAudioUrl = track.valueForValue?.resolvedAudioUrl || track.audioUrl;
+      const audioUrl = getProxiedAudioUrl(rawAudioUrl);
       const newAudio = new Audio(audioUrl);
 
       setAudioLoading(track.id);
