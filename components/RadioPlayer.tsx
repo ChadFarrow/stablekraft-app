@@ -179,7 +179,7 @@ export default function RadioPlayer() {
         {/* Track Info */}
         <div className="w-full max-w-sm text-center mb-8">
           <div className="overflow-hidden">
-            <Link href={generateAlbumUrl(currentPlayingAlbum.title)} className="hover:underline">
+            <Link href={generateAlbumUrl(currentPlayingAlbum.title)} className="underline decoration-1 underline-offset-4 hover:decoration-2">
               <h1
                 ref={titleRef}
                 className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee' : ''}`}
