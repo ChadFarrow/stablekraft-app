@@ -306,7 +306,7 @@ export default function MusicTrackDetail({
         {track.description && (
           <div className="bg-white/5 rounded-lg p-4 mb-6">
             <h3 className="font-semibold mb-2">Description</h3>
-            <p className="text-sm text-gray-300">{track.description}</p>
+            <p className="text-sm text-gray-300">{track.description.replace(/<[^>]*>/g, '')}</p>
           </div>
         )}
 

@@ -837,7 +837,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             </div>
             
             {(album.summary || album.description) && (
-              <p className="text-gray-300 text-center lg:text-left max-w-lg lg:max-w-none lg:mx-0 mx-auto leading-relaxed">{album.summary || album.description}</p>
+              <p className="text-gray-300 text-center lg:text-left max-w-lg lg:max-w-none lg:mx-0 mx-auto leading-relaxed">{(album.summary || album.description || '').replace(/<[^>]*>/g, '')}</p>
             )}
 
             {/* Publisher Information */}

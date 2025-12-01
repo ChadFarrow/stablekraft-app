@@ -452,7 +452,7 @@ export default function FeedManager() {
                   )}
                   
                   {feed.description && (
-                    <p className="text-sm text-gray-400 mb-2 line-clamp-2">{feed.description}</p>
+                    <p className="text-sm text-gray-400 mb-2 line-clamp-2">{feed.description.replace(/<[^>]*>/g, '')}</p>
                   )}
                   
                   <div className="flex items-center gap-4 text-xs text-gray-500">

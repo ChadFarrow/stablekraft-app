@@ -1003,7 +1003,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
               
               {publisherInfo?.description && (
                 <p className="text-gray-300 text-lg mb-6 max-w-2xl leading-relaxed">
-                  {publisherInfo.description}
+                  {publisherInfo.description.replace(/<[^>]*>/g, '')}
                 </p>
               )}
 
@@ -1240,7 +1240,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                 {publisherInfo?.description && publisherInfo.description !== 'Independent artist and music creator' && (
                   <div className="max-w-md mx-auto bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
                     <p className="text-sm text-gray-300 mb-4">
-                      <strong className="text-white">About:</strong> {publisherInfo.description}
+                      <strong className="text-white">About:</strong> {publisherInfo.description.replace(/<[^>]*>/g, '')}
                     </p>
                     <p className="text-xs text-gray-400">
                       Albums from external music feeds will be added soon.
