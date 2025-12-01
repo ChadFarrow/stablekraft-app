@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useAudio } from '@/contexts/AudioContext';
 import { SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
+import { generateAlbumUrl } from '@/lib/url-utils';
 
 export default function RadioPlayer() {
   const {
@@ -177,18 +179,20 @@ export default function RadioPlayer() {
         {/* Track Info */}
         <div className="w-full max-w-sm text-center mb-8">
           <div className="overflow-hidden">
-            <h1
-              ref={titleRef}
-              className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee' : ''}`}
-            >
-              {currentTrack.title || 'Unknown Track'}
-              {titleOverflows && (
-                <>
-                  <span className="px-8" />
-                  {currentTrack.title || 'Unknown Track'}
-                </>
-              )}
-            </h1>
+            <Link href={generateAlbumUrl(currentPlayingAlbum.title)} className="hover:underline">
+              <h1
+                ref={titleRef}
+                className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee' : ''}`}
+              >
+                {currentTrack.title || 'Unknown Track'}
+                {titleOverflows && (
+                  <>
+                    <span className="px-8" />
+                    {currentTrack.title || 'Unknown Track'}
+                  </>
+                )}
+              </h1>
+            </Link>
           </div>
           <p className="text-lg opacity-80 truncate">
             {currentTrack.artist || currentPlayingAlbum.artist || 'Unknown Artist'}
