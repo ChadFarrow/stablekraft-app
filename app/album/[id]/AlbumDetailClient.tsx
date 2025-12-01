@@ -854,7 +854,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   >
                     View Discography
                   </Link>
-                  <span className="text-xs bg-gray-600 px-2 py-1 rounded">PC 2.0</span>
                 </div>
               ) : null;
             })()}
