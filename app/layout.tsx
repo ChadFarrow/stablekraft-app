@@ -89,14 +89,35 @@ export default function RootLayout({
                 // Suppress chrome API errors from bundled code (workbox, etc.)
                 const originalError = window.onerror;
                 window.onerror = function(message, source, lineno, colno, error) {
-                  if (typeof message === 'string' && (
-                    message.includes('chrome is not defined') ||
-                    message.includes('chrome.runtime') ||
-                    (error && error.stack && error.stack.includes('chrome') && error.stack.includes('workbox'))
-                  )) {
-                    // Suppress non-critical chrome API errors
-                    return true;
+                  const messageStr = typeof message === 'string' ? message : String(message || '');
+                  const errorStack = error?.stack || '';
+                  
+                  // Suppress chrome API errors (from workbox/service worker code)
+                  if (messageStr.includes('chrome is not defined') ||
+                      messageStr.includes('chrome.runtime') ||
+                      messageStr.includes('chrome.storage') ||
+                      messageStr.includes('chrome.tabs') ||
+                      errorStack.includes('chrome') && (errorStack.includes('workbox') || errorStack.includes('serviceWorker'))) {
+                    return true; // Suppress the error
                   }
+                  
+                  // Suppress WebSocket connection errors for dev server (expected when dev server isn't running)
+                  if (messageStr.includes('WebSocket') && 
+                      (messageStr.includes('127.0.0.1:8081') || messageStr.includes('localhost:8081'))) {
+                    return true; // Suppress dev server connection errors
+                  }
+                  
+                  // Suppress WebSocket rate limiting errors (429 Too Many Requests)
+                  if (messageStr.includes('429') || messageStr.includes('Too Many Requests')) {
+                    return true; // Suppress rate limiting errors
+                  }
+                  
+                  // Suppress CORS errors for audio files (expected, proxy handles these)
+                  if (messageStr.includes('Cross-Origin Request Blocked') && 
+                      (messageStr.includes('.mp3') || messageStr.includes('.wav') || messageStr.includes('.m4a'))) {
+                    return true; // Suppress expected CORS errors for audio
+                  }
+                  
                   if (originalError) {
                     return originalError.call(this, message, source, lineno, colno, error);
                   }
@@ -106,8 +127,33 @@ export default function RootLayout({
                 // Suppress chrome-related promise rejections
                 window.addEventListener('unhandledrejection', function(event) {
                   const reason = event.reason?.message || String(event.reason || '');
-                  if (reason.includes('chrome is not defined') || reason.includes('chrome.runtime')) {
+                  
+                  // Suppress chrome API errors
+                  if (reason.includes('chrome is not defined') || 
+                      reason.includes('chrome.runtime') ||
+                      reason.includes('chrome.storage')) {
                     event.preventDefault();
+                    return;
+                  }
+                  
+                  // Suppress WebSocket connection errors for dev server
+                  if (reason.includes('WebSocket') && 
+                      (reason.includes('127.0.0.1:8081') || reason.includes('localhost:8081'))) {
+                    event.preventDefault();
+                    return;
+                  }
+                  
+                  // Suppress WebSocket rate limiting errors (429 Too Many Requests)
+                  if (reason.includes('429') || reason.includes('Too Many Requests')) {
+                    event.preventDefault();
+                    return;
+                  }
+                  
+                  // Suppress CORS errors for audio (expected behavior)
+                  if (reason.includes('Cross-Origin') && 
+                      (reason.includes('.mp3') || reason.includes('.wav') || reason.includes('.m4a'))) {
+                    event.preventDefault();
+                    return;
                   }
                 });
                 
@@ -115,6 +161,7 @@ export default function RootLayout({
                 const originalWarn = console.warn;
                 console.warn = function(...args) {
                   const message = args.join(' ');
+                  
                   // Suppress localStorage quota warnings (expected behavior, fallback works)
                   if (message.includes('localStorage quota exceeded') || 
                       (message.includes('quota exceeded') && message.includes('IndexedDB'))) {
@@ -122,7 +169,51 @@ export default function RootLayout({
                     console.log('ℹ️ Storage quota exceeded, using IndexedDB fallback (expected behavior)');
                     return;
                   }
+                  
+                  // Suppress CORS warnings for audio files (expected, proxy handles these)
+                  if (message.includes('Cross-Origin Request Blocked') && 
+                      (message.includes('.mp3') || message.includes('.wav') || message.includes('.m4a'))) {
+                    return; // Suppress expected CORS warnings
+                  }
+                  
+                  // Suppress WebSocket connection warnings for dev server
+                  if (message.includes('can\'t establish a connection') && 
+                      (message.includes('127.0.0.1:8081') || message.includes('localhost:8081'))) {
+                    return; // Suppress dev server connection warnings
+                  }
+                  
+                  // Suppress WebSocket rate limiting warnings (429)
+                  if (message.includes('429') || message.includes('Too Many Requests')) {
+                    return; // Suppress rate limiting warnings
+                  }
+                  
                   originalWarn.apply(console, args);
+                };
+                
+                // Suppress console errors for expected behaviors
+                const originalErrorLog = console.error;
+                console.error = function(...args) {
+                  const message = args.join(' ');
+                  
+                  // Suppress chrome API errors in console
+                  if (message.includes('chrome is not defined') || 
+                      message.includes('chrome.runtime') ||
+                      message.includes('chrome.storage')) {
+                    return; // Suppress chrome API errors
+                  }
+                  
+                  // Suppress WebSocket connection errors for dev server
+                  if (message.includes('WebSocket') && 
+                      (message.includes('127.0.0.1:8081') || message.includes('localhost:8081'))) {
+                    return; // Suppress dev server connection errors
+                  }
+                  
+                  // Suppress WebSocket rate limiting errors (429)
+                  if (message.includes('429') || message.includes('Too Many Requests')) {
+                    return; // Suppress rate limiting errors
+                  }
+                  
+                  originalErrorLog.apply(console, args);
                 };
               })();
             `,

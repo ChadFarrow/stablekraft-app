@@ -653,7 +653,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           'doerfelverse.com',
           'sirtjthewrathful.com',
           'digitaloceanspaces.com',
-          'rocknrollbreakheart.com'
+          'rocknrollbreakheart.com',
+          'mmmusic.show'
         ];
 
         const isDirectFirst = directFirstDomains.some(domain =>

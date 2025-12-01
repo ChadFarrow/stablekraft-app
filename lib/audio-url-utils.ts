@@ -13,7 +13,8 @@ const corsProblematicDomains = [
   'doerfelverse.com',
   'sirtjthewrathful.com',
   'digitaloceanspaces.com',
-  'rocknrollbreakheart.com'
+  'rocknrollbreakheart.com',
+  'mmmusic.show'
 ];
 
 /**
