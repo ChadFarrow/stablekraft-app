@@ -2002,7 +2002,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       <audio
         ref={audioRef}
         preload="metadata"
-        crossOrigin="anonymous"
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
@@ -2024,7 +2023,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       <video
         ref={videoRef}
         preload="metadata"
-        crossOrigin="anonymous"
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
