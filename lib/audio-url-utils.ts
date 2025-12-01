@@ -12,7 +12,8 @@ const corsProblematicDomains = [
   'behindthesch3m3s.com',
   'doerfelverse.com',
   'sirtjthewrathful.com',
-  'digitaloceanspaces.com'
+  'digitaloceanspaces.com',
+  'rocknrollbreakheart.com'
 ];
 
 /**
