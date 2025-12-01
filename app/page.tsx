@@ -1122,8 +1122,16 @@ function HomePageContent() {
     [filteredAlbums]
   );
 
-  const epsAndSingles = useMemo(() =>
-    filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) < 6),
+  const epsOnly = useMemo(() =>
+    filteredAlbums.filter(album => {
+      const trackCount = album.tracks?.length || album.totalTracks || 0;
+      return trackCount >= 2 && trackCount <= 5;
+    }),
+    [filteredAlbums]
+  );
+
+  const singlesOnly = useMemo(() =>
+    filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) === 1),
     [filteredAlbums]
   );
 
@@ -1590,15 +1598,15 @@ function HomePageContent() {
                       </div>
                   )}
 
-                  {/* EPs and Singles Grid */}
-                  {epsAndSingles.length > 0 && (
-                      <div>
-                        <h2 className="text-2xl font-bold mb-6 text-white">EPs and Singles</h2>
+                  {/* EPs Grid */}
+                  {epsOnly.length > 0 && (
+                      <div className="mb-12">
+                        <h2 className="text-2xl font-bold mb-6 text-white">EPs</h2>
                         {viewType === 'grid' ? (
                           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                            {epsAndSingles.map((album, index) => (
+                            {epsOnly.map((album, index) => (
                               <AlbumCard
-                                key={`ep-single-${index}`}
+                                key={`ep-${index}`}
                                 album={album}
                                 onPlay={playAlbum}
                               />
@@ -1606,9 +1614,9 @@ function HomePageContent() {
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {epsAndSingles.map((album, index) => (
+                            {epsOnly.map((album, index) => (
                               <Link
-                                key={`ep-single-${index}`}
+                                key={`ep-${index}`}
                                 href={generateAlbumUrl(album.title)}
                                 className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
                               >
@@ -1655,9 +1663,87 @@ function HomePageContent() {
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
                                     <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
-                                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                                      {(album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP'}
-                                    </span>
+                                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">EP</span>
+                                    {album.explicit && (
+                                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                                        E
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                  )}
+
+                  {/* Singles Grid */}
+                  {singlesOnly.length > 0 && (
+                      <div>
+                        <h2 className="text-2xl font-bold mb-6 text-white">Singles</h2>
+                        {viewType === 'grid' ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                            {singlesOnly.map((album, index) => (
+                              <AlbumCard
+                                key={`single-${index}`}
+                                album={album}
+                                onPlay={playAlbum}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {singlesOnly.map((album, index) => (
+                              <Link
+                                key={`single-${index}`}
+                                href={generateAlbumUrl(album.title)}
+                                className="group flex items-center gap-4 p-4 bg-black/40 backdrop-blur-md rounded-xl hover:bg-black/50 transition-all duration-300 border border-gray-700/50 hover:border-cyan-400/30 shadow-lg hover:shadow-xl hover:shadow-cyan-400/10"
+                              >
+                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
+                                  <Image
+                                    src={getAlbumArtworkUrl(album.coverArt || '', 'large')}
+                                    alt={album.title}
+                                    width={80}
+                                    height={80}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = getPlaceholderImageUrl('thumbnail');
+                                    }}
+                                  />
+                                  {/* Play button overlay */}
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        playAlbum(album, e);
+                                      }}
+                                      className="w-10 h-10 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-cyan-400/30 active:bg-cyan-400/40 transition-colors duration-200 border border-cyan-400/30 hover:border-cyan-400/50 shadow-lg shadow-cyan-400/20"
+                                      aria-label="Play album"
+                                    >
+                                      <Play className="w-4 h-4 text-white ml-0.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-bold text-white text-sm sm:text-base leading-tight group-hover:text-cyan-400 transition-colors duration-200 truncate">
+                                    {album.title}
+                                  </h3>
+                                  <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">{album.artist}</p>
+                                </div>
+
+                                <div className="flex items-center gap-2 sm:gap-4">
+                                  <div onClick={(e) => e.preventDefault()}>
+                                    <FavoriteButton feedId={album.feedId || album.feedGuid} size={20} />
+                                  </div>
+                                  <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
+                                    <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
+                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Single</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
                                         E
