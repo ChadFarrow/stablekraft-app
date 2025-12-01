@@ -124,6 +124,7 @@ function FavoritesPageContent() {
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityError, setCommunityError] = useState<string | null>(null);
   const [communityFilter, setCommunityFilter] = useState<'all' | 'tracks' | 'albums'>('all');
+  const [communityUserFilter, setCommunityUserFilter] = useState<string | null>(null); // npub or null for "all"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trackSortBy, setTrackSortBy] = useState<'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'artist-asc' | 'artist-desc'>('date-desc');
@@ -684,6 +685,25 @@ function FavoritesPageContent() {
         return playlists;
     }
   }, [favoritePlaylists, playlistSortBy]);
+
+  // Extract unique users from community favorites for the user filter dropdown
+  const uniqueUsers = useMemo(() => {
+    const userMap = new Map<string, { npub: string; displayName?: string; avatar?: string }>();
+    communityFavorites.forEach(fav => {
+      if (!userMap.has(fav.favoritedBy.npub)) {
+        userMap.set(fav.favoritedBy.npub, fav.favoritedBy);
+      }
+    });
+    return Array.from(userMap.values()).sort((a, b) =>
+      (a.displayName || a.npub).localeCompare(b.displayName || b.npub)
+    );
+  }, [communityFavorites]);
+
+  // Filter community favorites by selected user
+  const filteredCommunityFavorites = useMemo(() => {
+    if (communityUserFilter === null) return communityFavorites;
+    return communityFavorites.filter(fav => fav.favoritedBy.npub === communityUserFilter);
+  }, [communityFavorites, communityUserFilter]);
 
   const handleShufflePlay = async () => {
     if (favoriteTracks.length === 0) {
@@ -1261,7 +1281,7 @@ function FavoritesPageContent() {
                   Discover what others are favoriting
                 </p>
               </div>
-              <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                 <select
                   id="community-filter"
                   value={communityFilter}
@@ -1271,6 +1291,19 @@ function FavoritesPageContent() {
                   <option value="all">All</option>
                   <option value="tracks">Tracks Only</option>
                   <option value="albums">Albums Only</option>
+                </select>
+                <select
+                  id="community-user-filter"
+                  value={communityUserFilter || ''}
+                  onChange={(e) => setCommunityUserFilter(e.target.value || null)}
+                  className="px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-stablekraft-teal focus:border-stablekraft-teal transition-all max-w-[180px]"
+                >
+                  <option value="">All Users</option>
+                  {uniqueUsers.map(user => (
+                    <option key={user.npub} value={user.npub}>
+                      {formatNpub(user.npub, user.displayName)}
+                    </option>
+                  ))}
                 </select>
                 <button
                   onClick={() => loadCommunityFavorites(true)}
@@ -1291,14 +1324,14 @@ function FavoritesPageContent() {
             )}
 
             {/* Loading state */}
-            {communityLoading && communityFavorites.length === 0 && (
+            {communityLoading && filteredCommunityFavorites.length === 0 && (
               <div className="text-center py-12">
                 <LoadingSpinner size="large" text="Fetching from Nostr relays..." />
               </div>
             )}
 
             {/* Empty state */}
-            {!communityLoading && communityFavorites.length === 0 && !communityError && (
+            {!communityLoading && filteredCommunityFavorites.length === 0 && !communityError && (
               <div className="text-center py-12">
                 <Globe className="w-16 h-16 mx-auto mb-4 text-gray-400" />
                 <h2 className="text-2xl font-bold mb-2">No Community Favorites Found</h2>
@@ -1312,9 +1345,9 @@ function FavoritesPageContent() {
             )}
 
             {/* Community favorites list */}
-            {communityFavorites.length > 0 && (
+            {filteredCommunityFavorites.length > 0 && (
               <div className="space-y-3">
-                {communityFavorites.map((fav) => (
+                {filteredCommunityFavorites.map((fav) => (
                   <div
                     key={fav.nostrEventId}
                     className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all border border-white/10"
