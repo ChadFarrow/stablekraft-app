@@ -155,6 +155,7 @@ export const makeBackgroundSuitable = (hex: string, config: ColorConfig = {}): s
   if (!rgb) return '#1A252F';
 
   let { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const hueDegrees = h * 360;
 
   // Handle grayscale/B&W artwork specially
   if (s < (cfg.grayscaleThreshold || 0.08)) {
@@ -174,6 +175,20 @@ export const makeBackgroundSuitable = (hex: string, config: ColorConfig = {}): s
     l = Math.max(0.15, Math.min(0.35, l));
 
     return hslToHex(h, s, l);
+  }
+
+  // SPECIAL HANDLING: Yellow hues (40-80°) become muddy olive when darkened
+  // Shift them toward orange/amber (25-35°) which darkens more gracefully
+  if (hueDegrees >= 40 && hueDegrees <= 80) {
+    // Calculate how "yellow" this is (peak at 60°)
+    const yellowness = 1 - Math.abs(hueDegrees - 60) / 20; // 1.0 at 60°, 0.0 at 40° or 80°
+    // Shift toward orange (30°) proportionally
+    const targetHue = 30; // Orange/amber
+    const shiftAmount = (hueDegrees - targetHue) * yellowness * 0.7; // Shift 70% toward orange
+    h = (hueDegrees - shiftAmount) / 360;
+    // Boost saturation for yellows to prevent muddy look
+    s = Math.min(1.0, s * 1.2);
+    console.log(`🎨 Yellow hue shift: ${hueDegrees.toFixed(0)}° -> ${(h * 360).toFixed(0)}° (shifted ${shiftAmount.toFixed(0)}°)`);
   }
 
   // For colored artwork:
