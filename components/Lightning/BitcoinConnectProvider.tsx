@@ -38,6 +38,7 @@ interface BitcoinConnectContextType {
     }
   ) => Promise<{ preimage?: string; error?: string }>;
   isLoading: boolean;
+  supportsKeysend: boolean;
 }
 
 const BitcoinConnectContext = createContext<BitcoinConnectContextType | null>(null);
@@ -451,7 +452,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       if (!currentProvider.keysend) {
-        return { error: 'Keysend not supported by wallet - try connecting a different wallet' };
+        return { error: 'Keysend not supported by your wallet. Currently only AlbyHub supports keysend payments.' };
       }
 
       const keysendPayload = {
@@ -491,6 +492,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     }
   };
 
+  // Check if connected wallet supports keysend (direct node-to-node payments)
+  const supportsKeysend = !!(provider?.keysend);
+
   return (
     <BitcoinConnectContext.Provider
       value={{
@@ -501,6 +505,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         sendPayment,
         sendKeysend,
         isLoading,
+        supportsKeysend,
       }}
     >
       {children}

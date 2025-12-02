@@ -283,7 +283,7 @@ export class ValueSplitsService {
       };
     } catch (error) {
       // Extract the actual Lightning error message
-      let errorMessage = 'Keysend payment failed';
+      let errorMessage = 'Keysend not supported';
       if (error instanceof Error) {
         errorMessage = error.message;
         // Check for common Lightning errors and provide clearer messages
@@ -295,8 +295,8 @@ export class ValueSplitsService {
           errorMessage = 'Payment timeout - recipient may be experiencing issues';
         } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
           errorMessage = 'Payment rejected or cancelled';
-        } else if (errorMessage.includes('not supported')) {
-          errorMessage = 'Keysend not supported by your wallet';
+        } else if (errorMessage.includes('not supported') || errorMessage.toLowerCase().includes('keysend')) {
+          errorMessage = 'Keysend not supported by your wallet. Currently only AlbyHub supports keysend payments.';
         }
       }
 

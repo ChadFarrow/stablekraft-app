@@ -55,7 +55,7 @@ export function BoostButton({
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { isConnected, connect, sendKeysend, sendPayment} = useBitcoinConnect();
+  const { isConnected, connect, sendKeysend, sendPayment, supportsKeysend } = useBitcoinConnect();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated } = useNostr();
   const { settings } = useUserSettings();
   const [showModal, setShowModal] = useState(false);
@@ -1044,7 +1044,12 @@ export function BoostButton({
       );
 
       if (!result.success) {
-        return { error: `Multi-recipient payment failed: ${result.errors.join(', ')}` };
+        // Check if any errors are keysend-related for cleaner messaging
+        const keysendErrors = result.errors.filter(e => e.toLowerCase().includes('keysend'));
+        if (keysendErrors.length > 0) {
+          return { error: 'Keysend not supported by your wallet. Currently only AlbyHub supports keysend payments.' };
+        }
+        return { error: result.errors.join(', ') };
       }
 
       // Return the primary preimage
@@ -1353,20 +1358,20 @@ export function BoostButton({
                                         </span>
                                       )}
                                     </div>
-                                    {split.type === 'lnaddress' ? (
-                                      <span className="text-xs text-gray-400 truncate">
-                                        {split.address}
-                                      </span>
-                                    ) : (
+                                    {split.address.length > 30 ? (
                                       <a
                                         href={`https://amboss.space/node/${split.address}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-blue-400 hover:text-blue-300 truncate underline"
+                                        className="text-xs text-blue-400 hover:text-blue-300 truncate block max-w-full underline"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {`${split.address.slice(0, 12)}...${split.address.slice(-12)}`}
                                       </a>
+                                    ) : (
+                                      <span className="text-xs text-gray-400 truncate block max-w-full">
+                                        {split.address}
+                                      </span>
                                     )}
                                     {status?.error && (
                                       <span className="text-xs text-red-400 mt-1">
@@ -1465,6 +1470,14 @@ export function BoostButton({
                 {message.length}/{LIGHTNING_CONFIG.boostagram.maxLength}
               </p>
             </div>
+
+            {/* Keysend Warning - show when wallet is connected but doesn't support keysend */}
+            {isConnected && !supportsKeysend && activeValueSplits?.some(s => s.type === 'node') && (
+              <div className="mb-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-200 text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>Keysend not supported by your wallet. Currently only AlbyHub supports keysend payments.</span>
+              </div>
+            )}
 
             {/* Error Messages */}
             {error && (
