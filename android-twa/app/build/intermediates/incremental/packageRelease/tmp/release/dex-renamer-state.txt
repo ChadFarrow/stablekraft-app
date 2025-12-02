@@ -1,4 +1,0 @@
-#Fri Jul 25 23:58:51 EDT 2025
-base.0=/Users/chad-mini/Vibe/apps/FUCKIT/android-twa/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
-renamed.0=classes.dex
-path.0=classes.dex
