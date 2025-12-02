@@ -113,10 +113,6 @@ ADMIN_NPUBS="npub1...,npub2..."
 # Base URL
 NEXT_PUBLIC_BASE_URL="https://yourdomain.com"
 
-# Optional: CDN
-BUNNY_CDN_HOSTNAME="your_cdn_hostname"
-NEXT_PUBLIC_CDN_URL="https://cdn.yourdomain.com"
-
 # Optional: Nostr
 NEXT_PUBLIC_NOSTR_ENABLED="true"
 NEXT_PUBLIC_NOSTR_RELAYS="wss://relay1.com,wss://relay2.com"

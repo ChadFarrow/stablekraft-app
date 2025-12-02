@@ -46,9 +46,6 @@ cp -r types "$DEPLOY_DIR/"
 cat > "$DEPLOY_DIR/.env.production" << EOF
 # Production environment variables
 NODE_ENV=production
-BUNNY_CDN_HOSTNAME=re-podtards-cdn.b-cdn.net
-BUNNY_CDN_ZONE=re-podtards-cdn
-BUNNY_CDN_API_KEY=${BUNNY_CDN_API_KEY:-}
 EOF
 
 # Create PM2 ecosystem file for production

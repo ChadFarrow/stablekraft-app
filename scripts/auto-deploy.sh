@@ -70,9 +70,6 @@ cp ecosystem.config.js "$TEMP_DIR/"
 cat > "$TEMP_DIR/.env.production" << EOF
 # Production environment variables
 NODE_ENV=production
-BUNNY_CDN_HOSTNAME=re-podtards-cdn.b-cdn.net
-BUNNY_CDN_ZONE=re-podtards-cdn
-BUNNY_CDN_API_KEY=${BUNNY_CDN_API_KEY:-}
 EOF
 
 # Deploy to server
