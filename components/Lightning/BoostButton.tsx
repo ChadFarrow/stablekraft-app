@@ -698,26 +698,13 @@ export function BoostButton({
             const baseUrl = 'https://stablekraft.app';
             let url: string;
 
-            // Use current page URL for album pages to preserve nice slugs
-            if (feedId && typeof window !== 'undefined') {
-              const currentPath = window.location.pathname;
-              console.log('🔗 Boost URL generation:', {
-                feedId,
-                currentPath,
-                isAlbumPage: currentPath.startsWith('/album/'),
-              });
-
-              // If we're on an album page, use that exact path
-              if (currentPath.startsWith('/album/')) {
-                url = `${baseUrl}${currentPath}`;
-                console.log('🔗 Using current album page URL:', url);
-              } else {
-                // Otherwise, generate slug from album title
-                const { generateAlbumSlug } = await import('@/lib/url-utils');
-                const albumSlug = generateAlbumSlug(albumName || finalTrackTitle);
-                url = `${baseUrl}/album/${albumSlug}`;
-                console.log('🔗 Generated slug URL:', url);
-              }
+            // Always generate URL from track's actual album name (not current page URL)
+            // This ensures correct URL when shuffle mode plays a track from a different album
+            if (feedId) {
+              const { generateAlbumSlug } = await import('@/lib/url-utils');
+              const albumSlug = generateAlbumSlug(albumName || finalTrackTitle);
+              url = `${baseUrl}/album/${albumSlug}`;
+              console.log('🔗 Generated album URL from track metadata:', url);
             } else if (trackId) {
               url = `${baseUrl}/music-tracks/${trackId}`;
               console.log('🔗 Using track URL:', url);

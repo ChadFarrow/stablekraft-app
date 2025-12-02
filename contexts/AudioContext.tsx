@@ -1971,9 +1971,45 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Toggle shuffle mode
   const toggleShuffle = () => {
-    setIsShuffleMode(prev => !prev);
+    const newShuffleMode = !isShuffleMode;
+    setIsShuffleMode(newShuffleMode);
+
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎲 Shuffle mode toggled:', !isShuffleMode);
+      console.log('🎲 Shuffle mode toggled:', newShuffleMode);
+    }
+
+    // When enabling shuffle, create a shuffled playlist from the current album
+    if (newShuffleMode && currentPlayingAlbum?.tracks?.length > 0) {
+      const albumTracks = currentPlayingAlbum.tracks.map((track, trackIndex) => ({
+        album: currentPlayingAlbum,
+        trackIndex,
+        track
+      }));
+
+      // Fisher-Yates shuffle
+      const shuffled = [...albumTracks];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      // Find current track position in shuffled array and move it to front
+      // so playback continues from current track
+      const currentTrackIdx = shuffled.findIndex(t => t.trackIndex === currentTrackIndex);
+      if (currentTrackIdx > 0) {
+        const [currentTrack] = shuffled.splice(currentTrackIdx, 1);
+        shuffled.unshift(currentTrack);
+      }
+
+      setShuffledPlaylist(shuffled);
+      setCurrentShuffleIndex(0);
+
+      console.log(`🎲 Created album shuffle: ${shuffled.length} tracks from "${currentPlayingAlbum.title}"`);
+    } else if (!newShuffleMode) {
+      // When disabling shuffle, clear the shuffled playlist
+      setShuffledPlaylist([]);
+      setCurrentShuffleIndex(0);
+      console.log('🎲 Cleared shuffle playlist');
     }
   };
 
