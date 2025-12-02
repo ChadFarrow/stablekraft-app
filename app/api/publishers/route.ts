@@ -88,7 +88,7 @@ export async function GET() {
           publisherUrl: `/publisher/${generateAlbumSlug(publisher.title || publisher.id)}`
         };
       })
-      .filter(publisher => publisher.itemCount > 0); // Hide publishers with no albums
+      .filter(publisher => publisher.itemCount > 1); // Hide publishers with 0-1 releases
 
     // Deduplicate publishers by title (keep the one with more releases)
     const seenTitles = new Map<string, typeof publisherList[0]>();
