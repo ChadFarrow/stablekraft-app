@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import PublisherDetailClient from './PublisherDetailClient';
-import { getPublisherInfo } from '@/lib/url-utils';
+import { getPublisherInfo, generateAlbumSlug } from '@/lib/url-utils';
 import { prisma } from '@/lib/prisma';
 
 // Force dynamic rendering to always fetch fresh publisher data from database
@@ -198,10 +198,11 @@ async function loadPublisherData(publisherId: string) {
           console.log(`✅ Matched publisher by ID: "${feed.id}"`);
           return true;
         }
-        
+
         // Try matching by title slug (with and without -publisher suffix)
+        // Use generateAlbumSlug for consistent slug generation (handles periods, special chars, etc.)
         if (feed.title) {
-          const titleToSlug = feed.title.toLowerCase().replace(/\s+/g, '-');
+          const titleToSlug = generateAlbumSlug(feed.title);
           if (titleToSlug === searchId || titleToSlug === normalizedSearchId) {
             console.log(`✅ Matched publisher by title slug: "${feed.title}" -> "${titleToSlug}"`);
             return true;
@@ -209,8 +210,9 @@ async function loadPublisherData(publisherId: string) {
         }
         
         // Try matching by artist slug (with and without -publisher suffix)
+        // Use generateAlbumSlug for consistent slug generation
         if (feed.artist) {
-          const artistToSlug = feed.artist.toLowerCase().replace(/\s+/g, '-');
+          const artistToSlug = generateAlbumSlug(feed.artist);
           if (artistToSlug === searchId || artistToSlug === normalizedSearchId) {
             console.log(`✅ Matched publisher by artist slug: "${feed.artist}" -> "${artistToSlug}"`);
             return true;
