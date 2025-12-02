@@ -108,6 +108,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const isRetryingRef = useRef(false);
   const playNextTrackRef = useRef<() => Promise<void>>();
   const playPreviousTrackRef = useRef<() => Promise<void>>();
+  const pauseRef = useRef<() => void>();
+  const resumeRef = useRef<() => void>();
 
   // NIP-38 status publishing
   const { user, isAuthenticated } = useNostr();
@@ -396,11 +398,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         // Using refs to ensure we always call the latest versions of the functions
         navigator.mediaSession.setActionHandler('play', () => {
           console.log('📱 Media session: Play from early init');
-          resume();
+          if (resumeRef.current) {
+            resumeRef.current();
+          }
         });
         navigator.mediaSession.setActionHandler('pause', () => {
           console.log('📱 Media session: Pause from early init');
-          pause();
+          if (pauseRef.current) {
+            pauseRef.current();
+          }
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
           console.log('📱 Media session: Previous track from early init');
@@ -1632,6 +1638,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       }
     }
   };
+
+  // Update pause/resume refs for media session handlers
+  useEffect(() => {
+    pauseRef.current = pause;
+  }, [isVideoMode]);
+
+  useEffect(() => {
+    resumeRef.current = resume;
+  }, [isVideoMode]);
 
   // Seek function
   const seek = (time: number) => {
