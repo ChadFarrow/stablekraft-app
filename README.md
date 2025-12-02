@@ -11,7 +11,7 @@ Stablekraft extracts music tracks from podcast RSS feeds, manages them in a data
 - **Next.js 15** with App Router
 - **TypeScript**
 - **Prisma** with PostgreSQL
-- **PWA** with offline support
+- **PWA** with caching
 - **Nostr** for authentication and social features
 - **WebLN/LNURL** for Lightning payments
 
@@ -68,7 +68,7 @@ components/
 - Fuzzy search with typo tolerance (pg_trgm)
 
 ### Audio Playback
-- Streaming audio player with queue management
+- Streaming audio player
 - iOS lockscreen/media controls support
 - Shuffle and repeat modes
 - Background playback
@@ -80,7 +80,6 @@ components/
 - Payment splits per podcast:value spec
 
 ### Nostr Integration
-- Admin authentication via Nostr
 - Favorites sync to Nostr (NIP-38 lists)
 - NIP-07 (browser extension), NIP-46 (remote signer), NIP-55 (Android)
 - Zap support
@@ -90,12 +89,6 @@ components/
 - Sync favorites to Nostr when logged in
 - Favorite tracks and albums
 - Persistent storage in database
-
-### Admin Panel
-- RSS feed management (add/refresh/delete)
-- Auto-import of publisher feeds via podcast:publisher tags
-- Feed status monitoring
-- V4V payment data extraction
 
 ## Environment Variables
 
