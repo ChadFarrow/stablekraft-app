@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Music, Disc, Calendar, Clock, ExternalLink } from 'lucide-react';
+import { Play, Music, Disc, Calendar, Clock, ExternalLink, Info } from 'lucide-react';
 import { RSSAlbum, RSSPublisherItem } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, getPublisherInfo } from '@/lib/url-utils';
@@ -1237,6 +1237,13 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                       <Disc className="w-6 h-6 text-blue-400" />
                       Official Releases
+                      <div className="relative group">
+                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl z-10 text-sm font-normal">
+                          <p className="text-gray-300">Albums linked directly from this publisher&apos;s feed</p>
+                          <div className="absolute left-2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-700"></div>
+                        </div>
+                      </div>
                       <span className="text-sm font-normal text-gray-400 ml-2">
                         ({filteredOfficialAlbums.length})
                       </span>
@@ -1251,6 +1258,13 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                       <Music className="w-6 h-6 text-purple-400" />
                       More from {publisherInfo?.artist || publisherId}
+                      <div className="relative group">
+                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl z-10 text-sm font-normal">
+                          <p className="text-gray-300">Additional albums found by matching artist name</p>
+                          <div className="absolute left-2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-700"></div>
+                        </div>
+                      </div>
                       <span className="text-sm font-normal text-gray-400 ml-2">
                         ({filteredArtistMatchedAlbums.length})
                       </span>
