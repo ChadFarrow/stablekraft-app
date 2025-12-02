@@ -398,34 +398,52 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         // Using refs with DOM fallback for iOS background reliability
         navigator.mediaSession.setActionHandler('play', () => {
           console.log('📱 Media session: Play action received');
-          if (resumeRef.current) {
-            resumeRef.current();
+          // Always use direct DOM access for iOS reliability - refs can be stale in background
+          const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+          const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+
+          // Resume whichever element has content (paused with currentTime > 0)
+          let resumed = false;
+          if (audio && audio.paused && audio.currentTime > 0) {
+            console.log('📱 Resuming audio element');
+            audio.play();
+            resumed = true;
+          }
+          if (video && video.paused && video.currentTime > 0) {
+            console.log('📱 Resuming video element');
+            video.play();
+            resumed = true;
+          }
+
+          if (resumed) {
+            navigator.mediaSession.playbackState = 'playing';
           } else {
-            // Direct DOM fallback for iOS background edge case
-            console.log('📱 Play: Using direct DOM fallback');
-            const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
-            const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
-            const element = video?.currentTime > 0 ? video : audio;
-            if (element) {
-              element.play();
-              navigator.mediaSession.playbackState = 'playing';
-            }
+            console.warn('📱 No paused element found to resume');
           }
         });
         navigator.mediaSession.setActionHandler('pause', () => {
           console.log('📱 Media session: Pause action received');
-          if (pauseRef.current) {
-            pauseRef.current();
+          // Always use direct DOM access for iOS reliability - refs can be stale in background
+          const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+          const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+
+          // Pause whichever element is actually playing
+          let paused = false;
+          if (audio && !audio.paused) {
+            console.log('📱 Pausing audio element');
+            audio.pause();
+            paused = true;
+          }
+          if (video && !video.paused) {
+            console.log('📱 Pausing video element');
+            video.pause();
+            paused = true;
+          }
+
+          if (paused) {
+            navigator.mediaSession.playbackState = 'paused';
           } else {
-            // Direct DOM fallback for iOS background edge case
-            console.log('📱 Pause: Using direct DOM fallback');
-            const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
-            const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
-            const element = video?.currentTime > 0 ? video : audio;
-            if (element) {
-              element.pause();
-              navigator.mediaSession.playbackState = 'paused';
-            }
+            console.warn('📱 No playing element found to pause');
           }
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
