@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { ApiCache } from '@/lib/api-utils';
 import { parseSearchQuery, buildTsQuery, normalizeQuery, buildFieldFilters } from '@/lib/search-utils';
+import { fuzzySearchTracks, fuzzySearchAlbums, fuzzySearchArtists, calculateThreshold } from '@/lib/fuzzy-search';
 
 const prisma = new PrismaClient();
 
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'all'; // all, tracks, albums, artists
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const offset = (page - 1) * limit;
+    const fuzzy = searchParams.get('fuzzy') !== 'false'; // Default to true
 
     // Early return for empty query
     if (!rawQuery || rawQuery.length < 2) {
@@ -56,8 +58,8 @@ export async function GET(request: NextRequest) {
     const query = normalizeQuery(rawQuery);
     const parsedQuery = parseSearchQuery(query);
     
-    // Build cache key (include page for pagination)
-    const cacheKey = `search:${type}:${limit}:${page}:${query}`;
+    // Build cache key (include page for pagination and fuzzy mode)
+    const cacheKey = `search:${type}:${limit}:${page}:${fuzzy}:${query}`;
     
     // Check cache
     const cached = searchCache.get(cacheKey);
@@ -83,315 +85,258 @@ export async function GET(request: NextRequest) {
       artists: []
     };
 
-    // Search tracks with full-text search
+    // Search tracks
     if (type === 'all' || type === 'tracks') {
-      // Build WHERE conditions
-      const whereConditions: any[] = [];
-
-      // Check if we have a natural language "X by Y" pattern (both title and artist in fieldFilters)
-      const hasTitleArtistPattern = fieldFilters.title && fieldFilters.artist;
-
-      if (hasTitleArtistPattern) {
-        // For "X by Y" pattern, require both title AND artist to match
-        whereConditions.push({
-          AND: [
-            { title: { contains: parsedQuery.fieldFilters.title?.[0] || '', mode: 'insensitive' } },
-            { artist: { contains: parsedQuery.fieldFilters.artist?.[0] || '', mode: 'insensitive' } }
-          ]
+      if (fuzzy) {
+        // Use fuzzy search with trigram similarity
+        const fuzzyTracks = await fuzzySearchTracks({
+          query,
+          limit,
+          offset
         });
 
-        // Add other field filters (like album:xxx) if any
-        Object.entries(fieldFilters).forEach(([field, values]) => {
-          if (field !== 'title' && field !== 'artist') {
-            if (values.length === 1) {
-              whereConditions.push({ [field]: { contains: values[0], mode: 'insensitive' } });
-            } else {
-              whereConditions.push({
-                OR: values.map((v: string) => ({ [field]: { contains: v, mode: 'insensitive' } }))
-              });
-            }
-          }
-        });
+        results.tracks = fuzzyTracks.map(track => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          image: track.image || track.feedImage,
+          audioUrl: track.audioUrl,
+          duration: track.duration,
+          publishedAt: track.publishedAt,
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue,
+          guid: track.guid,
+          feedId: track.feedId,
+          feedTitle: track.feedTitle,
+          similarity: track.similarity
+        }));
       } else {
-        // Default behavior: For short queries (< 4 chars), only search title and artist
-        // For longer queries, include album, subtitle, description, etc.
-        const primarySearchConditions: any[] = [
-          { title: { contains: query, mode: 'insensitive' } },
-          { artist: { contains: query, mode: 'insensitive' } }
-        ];
+        // Fallback to exact match search (original ILIKE behavior)
+        const whereConditions: any[] = [];
+        const hasTitleArtistPattern = fieldFilters.title && fieldFilters.artist;
 
-        // Only search in album, subtitle, description, keywords, and categories if query is 4+ chars
-        // This prevents short queries like "late" from matching "Years Later" in album names
-        if (query.length >= 4) {
-          primarySearchConditions.push(
-            { album: { contains: query, mode: 'insensitive' } },
-            { subtitle: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } }
-          );
-
-          // Add keyword and category search
-          parsedQuery.terms.forEach(term => {
-            if (term.length >= 4) {
-              primarySearchConditions.push({
-                itunesKeywords: { has: term }
-              });
-              primarySearchConditions.push({
-                itunesCategories: { has: term }
-              });
-            }
-          });
-        }
-
-        whereConditions.push({ OR: primarySearchConditions });
-
-        // Add field filters if any
-        if (Object.keys(fieldFilters).length > 0) {
-          whereConditions.push(fieldFilters);
-        }
-      }
-
-      // Use hybrid search: full-text search when searchVector exists, otherwise use contains
-      // For now, use Prisma's contains search which works well with indexes
-      // Full-text search will be enabled when searchVector is populated via migration
-      
-      let tracks = await prisma.track.findMany({
-        where: {
-          AND: whereConditions
-        },
-        include: {
-          Feed: {
-            select: {
-              title: true,
-              artist: true,
-              image: true
-            }
-          }
-        },
-        skip: offset,
-        take: limit,
-        orderBy: [
-          // Prioritize title matches, then artist, then album, then by recency
-          { publishedAt: 'desc' }
-        ]
-      });
-
-      // Apply relevance-based sorting in memory
-      // Boost exact matches in title
-      tracks.sort((a, b) => {
-        const queryLower = query.toLowerCase();
-        
-        // If we have a title+artist pattern, prioritize exact matches
         if (hasTitleArtistPattern) {
-          const titlePart = parsedQuery.fieldFilters.title?.[0]?.toLowerCase() || '';
-          const artistPart = parsedQuery.fieldFilters.artist?.[0]?.toLowerCase() || '';
-          
-          const aTitleMatch = a.title?.toLowerCase().includes(titlePart) || false;
-          const aArtistMatch = a.artist?.toLowerCase().includes(artistPart) || false;
-          const bTitleMatch = b.title?.toLowerCase().includes(titlePart) || false;
-          const bArtistMatch = b.artist?.toLowerCase().includes(artistPart) || false;
-          
-          // Both title and artist match (highest priority)
-          const aBothMatch = aTitleMatch && aArtistMatch ? 2000 : 0;
-          const bBothMatch = bTitleMatch && bArtistMatch ? 2000 : 0;
-          
-          // Title exact match
-          const aTitleExact = a.title?.toLowerCase() === titlePart ? 500 : 0;
-          const bTitleExact = b.title?.toLowerCase() === titlePart ? 500 : 0;
-          
-          // Artist exact match
-          const aArtistExact = a.artist?.toLowerCase() === artistPart ? 300 : 0;
-          const bArtistExact = b.artist?.toLowerCase() === artistPart ? 300 : 0;
-          
-          // Title starts with
-          const aTitleStarts = a.title?.toLowerCase().startsWith(titlePart) ? 100 : 0;
-          const bTitleStarts = b.title?.toLowerCase().startsWith(titlePart) ? 100 : 0;
-          
-          // Calculate scores
-          const aScore = aBothMatch + aTitleExact + aArtistExact + aTitleStarts;
-          const bScore = bBothMatch + bTitleExact + bArtistExact + bTitleStarts;
-          
-          if (aScore !== bScore) {
-            return bScore - aScore; // Higher score first
-          }
+          whereConditions.push({
+            AND: [
+              { title: { contains: parsedQuery.fieldFilters.title?.[0] || '', mode: 'insensitive' } },
+              { artist: { contains: parsedQuery.fieldFilters.artist?.[0] || '', mode: 'insensitive' } }
+            ]
+          });
         } else {
-          // Default sorting logic for non-pattern queries
-          // Title exact match gets highest priority
-          const aTitleExact = a.title.toLowerCase() === queryLower ? 1000 : 0;
-          const bTitleExact = b.title.toLowerCase() === queryLower ? 1000 : 0;
-          
-          // Title starts with query
-          const aTitleStarts = a.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
-          const bTitleStarts = b.title.toLowerCase().startsWith(queryLower) ? 500 : 0;
-          
-          // Title contains query
-          const aTitleContains = a.title.toLowerCase().includes(queryLower) ? 100 : 0;
-          const bTitleContains = b.title.toLowerCase().includes(queryLower) ? 100 : 0;
-          
-          // Artist match
-          const aArtistMatch = a.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
-          const bArtistMatch = b.artist?.toLowerCase().includes(queryLower) ? 50 : 0;
-          
-          // Calculate scores
-          const aScore = aTitleExact + aTitleStarts + aTitleContains + aArtistMatch;
-          const bScore = bTitleExact + bTitleStarts + bTitleContains + bArtistMatch;
-          
-          if (aScore !== bScore) {
-            return bScore - aScore; // Higher score first
+          const primarySearchConditions: any[] = [
+            { title: { contains: query, mode: 'insensitive' } },
+            { artist: { contains: query, mode: 'insensitive' } }
+          ];
+
+          if (query.length >= 4) {
+            primarySearchConditions.push(
+              { album: { contains: query, mode: 'insensitive' } },
+              { subtitle: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } }
+            );
+          }
+
+          whereConditions.push({ OR: primarySearchConditions });
+
+          if (Object.keys(fieldFilters).length > 0) {
+            whereConditions.push(fieldFilters);
           }
         }
-        
-        // Fall back to recency
-        const aTime = a.publishedAt?.getTime() || 0;
-        const bTime = b.publishedAt?.getTime() || 0;
-        return bTime - aTime;
-      });
 
-      results.tracks = tracks.map(track => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist || track.Feed.artist,
-        album: track.album,
-        subtitle: track.subtitle,
-        image: track.image || track.itunesImage || track.Feed.image,
-        audioUrl: track.audioUrl,
-        duration: track.duration,
-        publishedAt: track.publishedAt,
-        v4vRecipient: track.v4vRecipient,
-        v4vValue: track.v4vValue,
-        guid: track.guid,
-        feedId: track.feedId,
-        feedTitle: track.Feed.title
-      }));
+        const tracks = await prisma.track.findMany({
+          where: { AND: whereConditions },
+          include: {
+            Feed: {
+              select: { title: true, artist: true, image: true }
+            }
+          },
+          skip: offset,
+          take: limit,
+          orderBy: [{ publishedAt: 'desc' }]
+        });
+
+        results.tracks = tracks.map(track => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist || track.Feed.artist,
+          album: track.album,
+          subtitle: track.subtitle,
+          image: track.image || track.itunesImage || track.Feed.image,
+          audioUrl: track.audioUrl,
+          duration: track.duration,
+          publishedAt: track.publishedAt,
+          v4vRecipient: track.v4vRecipient,
+          v4vValue: track.v4vValue,
+          guid: track.guid,
+          feedId: track.feedId,
+          feedTitle: track.Feed.title
+        }));
+      }
     }
 
     // Search albums (grouped by Feed)
     if (type === 'all' || type === 'albums') {
-      const albums = await prisma.feed.findMany({
-        where: {
-          AND: [
-            { status: 'active' },
-            {
-              OR: [
-                { title: { contains: query, mode: 'insensitive' } },
-                { artist: { contains: query, mode: 'insensitive' } },
-                { description: { contains: query, mode: 'insensitive' } }
-              ]
+      if (fuzzy) {
+        // Use fuzzy search with trigram similarity
+        const fuzzyAlbums = await fuzzySearchAlbums({
+          query,
+          limit,
+          offset
+        });
+
+        results.albums = fuzzyAlbums.map(album => ({
+          id: album.id,
+          title: album.title,
+          artist: album.artist,
+          description: album.description,
+          coverArt: album.coverArt,
+          type: album.type,
+          totalTracks: Number(album.totalTracks),
+          feedUrl: album.feedUrl,
+          feedGuid: album.id,
+          similarity: album.similarity
+        }));
+      } else {
+        // Fallback to exact match search
+        const albums = await prisma.feed.findMany({
+          where: {
+            AND: [
+              { status: 'active' },
+              {
+                OR: [
+                  { title: { contains: query, mode: 'insensitive' } },
+                  { artist: { contains: query, mode: 'insensitive' } },
+                  { description: { contains: query, mode: 'insensitive' } }
+                ]
+              }
+            ]
+          },
+          include: {
+            Track: {
+              take: 1,
+              orderBy: { trackOrder: 'asc' }
             }
-          ]
-        },
-        include: {
-          Track: {
-            take: 1,
-            orderBy: { trackOrder: 'asc' }
+          },
+          take: limit,
+          orderBy: [{ updatedAt: 'desc' }]
+        });
+
+        // Filter out Bowl After Bowl podcast content (but keep Bowl Covers)
+        const filteredAlbums = albums.filter(album => {
+          const albumTitle = album.title?.toLowerCase() || '';
+          const albumArtist = album.artist?.toLowerCase() || '';
+          const feedUrl = album.originalUrl?.toLowerCase() || '';
+
+          if (album.id === 'bowl-covers' || albumTitle.includes('bowl covers')) {
+            return true;
           }
-        },
-        take: limit,
-        orderBy: [
-          { updatedAt: 'desc' }
-        ]
-      });
 
-      // Filter out Bowl After Bowl podcast content (but keep Bowl Covers)
-      const filteredAlbums = albums.filter(album => {
-        const albumTitle = album.title?.toLowerCase() || '';
-        const albumArtist = album.artist?.toLowerCase() || '';
-        const feedUrl = album.originalUrl?.toLowerCase() || '';
+          const isBowlAfterBowlPodcast = (
+            (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+            (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
+            (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
+          );
 
-        // Keep Bowl Covers - these are legitimate music content
-        if (album.id === 'bowl-covers' || albumTitle.includes('bowl covers')) {
-          return true;
-        }
+          return !isBowlAfterBowlPodcast;
+        });
 
-        // Filter out main Bowl After Bowl podcast episodes
-        const isBowlAfterBowlPodcast = (
-          (albumTitle.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
-          (albumArtist.includes('bowl after bowl') && !albumTitle.includes('covers')) ||
-          (feedUrl.includes('bowlafterbowl.com') && !albumTitle.includes('covers') && album.id !== 'bowl-covers')
+        const albumsWithCounts = await Promise.all(
+          filteredAlbums.map(async (album) => {
+            const trackCount = await prisma.track.count({
+              where: { feedId: album.id }
+            });
+
+            return {
+              id: album.id,
+              title: album.title,
+              artist: album.artist,
+              description: album.description,
+              coverArt: album.image,
+              type: album.type,
+              totalTracks: trackCount,
+              feedUrl: album.originalUrl,
+              feedGuid: album.id,
+              v4vRecipient: album.v4vRecipient,
+              v4vValue: album.v4vValue,
+              updatedAt: album.updatedAt
+            };
+          })
         );
 
-        return !isBowlAfterBowlPodcast;
-      });
-
-      // Get track counts for each album
-      const albumsWithCounts = await Promise.all(
-        filteredAlbums.map(async (album) => {
-          const trackCount = await prisma.track.count({
-            where: { feedId: album.id }
-          });
-
-          return {
-            id: album.id,
-            title: album.title,
-            artist: album.artist,
-            description: album.description,
-            coverArt: album.image,
-            type: album.type,
-            totalTracks: trackCount,
-            feedUrl: album.originalUrl,
-            feedGuid: album.id,
-            v4vRecipient: album.v4vRecipient,
-            v4vValue: album.v4vValue,
-            updatedAt: album.updatedAt
-          };
-        })
-      );
-
-      results.albums = albumsWithCounts;
+        results.albums = albumsWithCounts;
+      }
     }
 
     // Search artists/publishers (unique artists from Feed)
     if (type === 'all' || type === 'artists') {
-      const artists = await prisma.feed.findMany({
-        where: {
-          AND: [
-            { status: 'active' },
-            { artist: { contains: query, mode: 'insensitive' } }
-          ]
-        },
-        select: {
-          id: true,
-          title: true,
-          artist: true,
-          image: true,
-          description: true
-        },
-        distinct: ['artist'],
-        take: limit,
-        orderBy: [
-          { artist: 'asc' }
-        ]
-      });
+      if (fuzzy) {
+        // Use fuzzy search with trigram similarity
+        const fuzzyArtists = await fuzzySearchArtists({
+          query,
+          limit,
+          offset
+        });
 
-      // Get album counts for each artist
-      const artistsWithCounts = await Promise.all(
-        artists.map(async (artist) => {
-          const albumCount = await prisma.feed.count({
-            where: {
-              artist: artist.artist,
-              status: 'active'
-            }
-          });
+        results.artists = fuzzyArtists.map(artist => ({
+          name: artist.name,
+          image: artist.image,
+          albumCount: Number(artist.albumCount),
+          totalTracks: Number(artist.totalTracks),
+          feedGuid: artist.feedGuid,
+          similarity: artist.similarity
+        }));
+      } else {
+        // Fallback to exact match search
+        const artists = await prisma.feed.findMany({
+          where: {
+            AND: [
+              { status: 'active' },
+              { artist: { contains: query, mode: 'insensitive' } }
+            ]
+          },
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            image: true,
+            description: true
+          },
+          distinct: ['artist'],
+          take: limit,
+          orderBy: [{ artist: 'asc' }]
+        });
 
-          const trackCount = await prisma.track.count({
-            where: {
-              Feed: {
+        const artistsWithCounts = await Promise.all(
+          artists.map(async (artist) => {
+            const albumCount = await prisma.feed.count({
+              where: {
                 artist: artist.artist,
                 status: 'active'
               }
-            }
-          });
+            });
 
-          return {
-            name: artist.artist,
-            image: artist.image,
-            albumCount,
-            totalTracks: trackCount,
-            feedGuid: artist.id
-          };
-        })
-      );
+            const trackCount = await prisma.track.count({
+              where: {
+                Feed: {
+                  artist: artist.artist,
+                  status: 'active'
+                }
+              }
+            });
 
-      results.artists = artistsWithCounts.filter(a => a.name);
+            return {
+              name: artist.artist,
+              image: artist.image,
+              albumCount,
+              totalTracks: trackCount,
+              feedGuid: artist.id
+            };
+          })
+        );
+
+        results.artists = artistsWithCounts.filter(a => a.name);
+      }
     }
 
     // Calculate total results

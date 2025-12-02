@@ -187,3 +187,6 @@ export function buildFieldFilters(query: ParsedQuery): Record<string, any> {
 
   return filters;
 }
+
+// Re-export fuzzy search utilities
+export { calculateThreshold } from './fuzzy-search';
