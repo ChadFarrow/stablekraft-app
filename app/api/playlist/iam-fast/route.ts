@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
         artist: 'Various Artists',
         album: "It's A Mood Music Playlist",
         description: "Every music reference from It's A Mood podcast",
-        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-playlist-art.webp',
-        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-playlist-art.webp',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.webp',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.webp',
         url: IAM_PLAYLIST_URL,
         tracks: [], // Start with empty tracks, will load via regular endpoint
         feedId: 'iam-playlist',

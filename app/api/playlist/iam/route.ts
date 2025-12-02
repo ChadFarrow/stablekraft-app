@@ -182,6 +182,7 @@ export async function GET(request: Request) {
       isPlaylistCard: true, // Mark as playlist card for proper URL generation
       playlistUrl: '/playlist/iam', // Set the playlist URL
       albumUrl: '/album/its-a-mood-music-playlist', // Set the album URL for album-style display
+      link: 'https://itsamood.live/', // Playlist website link
       playlistContext: {
         source: 'iam-playlist',
         originalUrl: IAM_PLAYLIST_URL,
