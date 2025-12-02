@@ -49,13 +49,14 @@ export interface FuzzyArtistResult {
 
 /**
  * Calculate dynamic similarity threshold based on query length
- * Shorter queries need stricter matching to avoid noise
+ * Lower thresholds for short queries since trigram similarity
+ * is naturally lower for partial word matches
  */
 export function calculateThreshold(query: string): number {
   const len = query.trim().length;
-  if (len <= 3) return 0.5;
-  if (len <= 5) return 0.4;
-  return 0.3;
+  if (len <= 3) return 0.3;
+  if (len <= 5) return 0.25;
+  return 0.2;
 }
 
 /**
@@ -160,16 +161,21 @@ export async function fuzzySearchArtists(options: FuzzySearchOptions): Promise<F
   const results = await prisma.$queryRaw<FuzzyArtistResult[]>`
     SELECT
       f.artist as name,
-      f.image,
-      f.guid as "feedGuid",
-      similarity(f.artist, ${query}) as similarity,
+      MIN(f.image) as image,
+      MIN(f.id) as "feedGuid",
+      MAX(similarity(f.artist, ${query})) as similarity,
       COUNT(DISTINCT f.id) as "albumCount",
-      (SELECT COUNT(*) FROM "Track" t WHERE t."feedId" = f.id) as "totalTracks"
+      COALESCE(SUM(tc.track_count), 0) as "totalTracks"
     FROM "Feed" f
+    LEFT JOIN (
+      SELECT "feedId", COUNT(*) as track_count
+      FROM "Track"
+      GROUP BY "feedId"
+    ) tc ON tc."feedId" = f.id
     WHERE f.status = 'active'
       AND f.artist IS NOT NULL
       AND similarity(f.artist, ${query}) > ${threshold}
-    GROUP BY f.artist, f.image, f.guid
+    GROUP BY f.artist
     ORDER BY similarity DESC
     LIMIT ${limit}
     OFFSET ${offset}
