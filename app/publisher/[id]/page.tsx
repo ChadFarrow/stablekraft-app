@@ -289,6 +289,7 @@ async function loadPublisherData(publisherId: string) {
 
     // Try to fetch and parse publisher feed to get remote items and artwork
     let remoteItemGuids: string[] = [];
+    let remoteItemUrls: string[] = []; // Also collect feedUrls for matching
     let feedImage: string | null = publisherFeed.image || null;
 
     if (publisherFeed.originalUrl && publisherFeed.originalUrl.trim() !== '') {
@@ -353,12 +354,16 @@ async function loadPublisherData(publisherId: string) {
               
               if ((isAlbumFeed || isExplicitAlbum) && !remoteItemGuids.includes(guid)) {
                 remoteItemGuids.push(guid);
+                // Also collect the feedUrl for matching (more reliable than GUID for fountain feeds)
+                if (feedUrlMatch && feedUrlMatch[1] && !remoteItemUrls.includes(feedUrlMatch[1])) {
+                  remoteItemUrls.push(feedUrlMatch[1]);
+                }
                 console.log(`📋 Added remote item GUID: ${guid} (medium: ${medium}, url: ${feedUrlMatch?.[1]})`);
               }
             }
           }
-          
-          console.log(`📋 Found ${remoteItemGuids.length} album remote items in publisher feed`);
+
+          console.log(`📋 Found ${remoteItemGuids.length} album remote items, ${remoteItemUrls.length} URLs in publisher feed`);
         }
       } catch (error) {
         console.warn('⚠️ Could not fetch publisher feed XML:', error);
@@ -368,11 +373,11 @@ async function loadPublisherData(publisherId: string) {
     
     // Get related albums for this publisher - try remote items first, then fall back to artist matching
     let relatedFeeds: any[] = [];
-    
-    // If we have remote items, find feeds by their GUIDs
-    if (remoteItemGuids.length > 0) {
-      console.log(`🔍 Looking for albums by remote item GUIDs: ${remoteItemGuids.slice(0, 5).join(', ')}...`);
-      
+
+    // If we have remote items, find feeds by their GUIDs or URLs
+    if (remoteItemGuids.length > 0 || remoteItemUrls.length > 0) {
+      console.log(`🔍 Looking for albums by ${remoteItemGuids.length} GUIDs and ${remoteItemUrls.length} URLs...`);
+
       // Create OR conditions for each GUID (match by ID or URL)
       const guidConditions = remoteItemGuids.map(guid => ({
         OR: [
@@ -382,10 +387,18 @@ async function loadPublisherData(publisherId: string) {
           { originalUrl: { contains: guid.replace(/-/g, '') } } // Match without hyphens
         ]
       }));
+
+      // Also match by feedUrl directly (most reliable for fountain feeds)
+      const urlConditions = remoteItemUrls.map(url => ({
+        originalUrl: { equals: url }
+      }));
+
+      // Combine all conditions
+      const allConditions = [...guidConditions, ...urlConditions];
       
       relatedFeeds = await prisma.feed.findMany({
         where: {
-          OR: guidConditions,
+          OR: allConditions,
           type: { in: ['album', 'music'] },
           status: 'active'
         },
@@ -418,22 +431,37 @@ async function loadPublisherData(publisherId: string) {
             }
           },
           orderBy: [
-            { priority: 'asc' },
-            { createdAt: 'desc' }
+            { title: 'asc' }
           ]
       });
-      
-      console.log(`✅ Found ${relatedFeeds.length} albums via remote item GUIDs`);
+
+      console.log(`✅ Found ${relatedFeeds.length} albums via remote item GUIDs/URLs`);
+
+      // Filter to only keep fountain.fm feeds as "official" (publisher feed is from fountain.fm)
+      // Other matches (RSS Blue, etc.) will be moved to artist-matched section
+      const fountainFeeds = relatedFeeds.filter(f =>
+        f.originalUrl?.includes('feeds.fountain.fm')
+      );
+      const nonFountainFeeds = relatedFeeds.filter(f =>
+        !f.originalUrl?.includes('feeds.fountain.fm')
+      );
+
+      if (nonFountainFeeds.length > 0) {
+        console.log(`📋 Filtered to ${fountainFeeds.length} fountain.fm feeds (${nonFountainFeeds.length} non-fountain feeds moved to artist section)`);
+      }
+
+      relatedFeeds = fountainFeeds;
     }
-    
-    // Fallback: If no albums found via remote items, try artist matching
+
+    // Artist matching: Find additional albums not linked via remote items
     // Use artist from the publisher feed we found, OR from the known publisher mapping
-    if (relatedFeeds.length === 0 && artistName) {
-      console.log(`🔍 No albums found via remote items, trying exact artist matching for: "${artistName}"`);
+    let artistOnlyFeeds: typeof relatedFeeds = [];
+    if (artistName) {
+      console.log(`🔍 Finding additional albums via artist matching for: "${artistName}"`);
 
       // Use ONLY exact matches with the artist name
       // This is critical to prevent false matches - NO contains matching!
-      relatedFeeds = await prisma.feed.findMany({
+      const allArtistFeeds = await prisma.feed.findMany({
         where: {
           artist: { equals: artistName, mode: 'insensitive' },
           type: { in: ['album', 'music'] },
@@ -468,12 +496,15 @@ async function loadPublisherData(publisherId: string) {
             }
           },
           orderBy: [
-            { priority: 'asc' },
-            { createdAt: 'desc' }
+            { title: 'asc' }
           ]
         });
 
-        console.log(`✅ Found ${relatedFeeds.length} albums via exact artist matching for "${artistName}"`);
+      // Filter out albums already in GUID results to get artist-only matches
+      const guidIds = new Set(relatedFeeds.map(f => f.id));
+      artistOnlyFeeds = allArtistFeeds.filter(feed => !guidIds.has(feed.id));
+
+      console.log(`✅ Found ${relatedFeeds.length} GUID-matched albums, ${artistOnlyFeeds.length} additional artist-matched albums`);
     }
 
     // Helper function to convert duration to MM:SS format
@@ -505,8 +536,8 @@ async function loadPublisherData(publisherId: string) {
       return '0:00';
     };
 
-    // Transform related feeds to albums format with actual tracks
-    const albums = relatedFeeds
+    // Helper to transform feeds to albums format
+    const transformFeedsToAlbums = (feeds: typeof relatedFeeds) => feeds
       .filter(feed => feed.Track.length > 0) // Only include feeds with tracks
       .map(feed => ({
         id: feed.id,
@@ -533,7 +564,16 @@ async function loadPublisherData(publisherId: string) {
         feedUrl: feed.originalUrl
       }));
 
-    console.log(`🏢 Server-side: Found ${albums.length} related albums`);
+    // Transform GUID-matched feeds (Official Releases)
+    const officialAlbums = transformFeedsToAlbums(relatedFeeds);
+
+    // Transform artist-only feeds (More from Artist)
+    const artistMatchedAlbums = transformFeedsToAlbums(artistOnlyFeeds);
+
+    // Combined for backwards compatibility and stats
+    const albums = [...officialAlbums, ...artistMatchedAlbums];
+
+    console.log(`🏢 Server-side: Found ${officialAlbums.length} official albums, ${artistMatchedAlbums.length} artist-matched albums`);
 
     // Sort albums by release date to get the actual newest album
     const albumsSortedByDate = albums.length > 0 ? [...albums].sort((a, b) => {
@@ -557,7 +597,9 @@ async function loadPublisherData(publisherId: string) {
         feedGuid: publisherFeed.id
       },
       publisherItems,
-      albums, // Send original album order (client will sort as needed)
+      albums, // Combined albums for backwards compatibility
+      officialAlbums, // GUID-matched albums (Official Releases)
+      artistMatchedAlbums, // Artist-only albums (More from Artist)
       feedId: publisherFeed.id
     };
     

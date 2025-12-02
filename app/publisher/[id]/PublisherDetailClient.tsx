@@ -20,7 +20,9 @@ interface PublisherDetailClientProps {
   initialData?: {
     publisherInfo: any;
     publisherItems: any[];
-    albums?: any[]; // Pre-fetched albums from server
+    albums?: any[]; // Combined albums for backwards compatibility
+    officialAlbums?: any[]; // GUID-matched albums (Official Releases)
+    artistMatchedAlbums?: any[]; // Artist-only albums (More from Artist)
     feedId: string;
   } | null;
 }
@@ -31,60 +33,80 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   console.log('🎯 Initial data received:', initialData);
   
   const [isLoading, setIsLoading] = useState(!initialData);
-    const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
+
+  // Helper to transform server albums to RSSAlbum format
+  const transformServerAlbums = (serverAlbums: any[]): RSSAlbum[] => {
+    return serverAlbums.map((album: any) => ({
+      id: album.id,
+      feedId: album.id,
+      title: album.title,
+      artist: album.artist,
+      description: album.description,
+      coverArt: album.coverArt,
+      releaseDate: album.releaseDate || new Date().toISOString(),
+      tracks: album.tracks && album.tracks.length > 0
+        ? album.tracks.map((track: any) => {
+            const formatDuration = (dur: string | number | null | undefined): string => {
+              if (!dur) return '0:00';
+              if (typeof dur === 'number') {
+                const mins = Math.floor(dur / 60);
+                const secs = Math.floor(dur % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+              }
+              if (typeof dur === 'string' && dur.includes(':')) {
+                return dur;
+              }
+              const num = parseFloat(String(dur));
+              if (!isNaN(num)) {
+                const mins = Math.floor(num / 60);
+                const secs = Math.floor(num % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+              }
+              return '0:00';
+            };
+            return {
+              id: track.id,
+              title: track.title,
+              duration: formatDuration(track.duration),
+              url: track.url || track.audioUrl || '',
+              trackNumber: track.trackNumber || track.trackOrder || 0
+            };
+          })
+        : Array(album.trackCount || 0).fill(null).map((_, i) => ({
+            id: `track-${i}-${album.id}`,
+            title: `${album.title} - Track ${i + 1}`,
+            duration: '0:00',
+            url: album.feedUrl || ''
+          })),
+      link: album.feedUrl || '',
+      feedUrl: album.feedUrl || ''
+    }));
+  };
+
+  // Official albums (GUID-matched from publisher feed)
+  const [officialAlbums, setOfficialAlbums] = useState<RSSAlbum[]>(() => {
+    if (initialData?.officialAlbums && initialData.officialAlbums.length > 0) {
+      console.log('🎯 Using official albums from server:', initialData.officialAlbums.length);
+      return transformServerAlbums(initialData.officialAlbums);
+    }
+    return [];
+  });
+
+  // Artist-matched albums (additional albums not linked via GUID)
+  const [artistMatchedAlbums, setArtistMatchedAlbums] = useState<RSSAlbum[]>(() => {
+    if (initialData?.artistMatchedAlbums && initialData.artistMatchedAlbums.length > 0) {
+      console.log('🎯 Using artist-matched albums from server:', initialData.artistMatchedAlbums.length);
+      return transformServerAlbums(initialData.artistMatchedAlbums);
+    }
+    return [];
+  });
+
+  // Combined albums for backwards compatibility
+  const [albums, setAlbums] = useState<RSSAlbum[]>(() => {
     // First priority: use pre-fetched albums from server if available
     if (initialData?.albums && initialData.albums.length > 0) {
       console.log('🎯 Using pre-fetched albums from server:', initialData.albums.length);
-      // Convert server albums to RSSAlbum format
-      // Use actual tracks if provided, otherwise create placeholders
-      return initialData.albums.map((album: any) => ({
-        id: album.id,
-        feedId: album.id, // Add feedId for favorite button
-        title: album.title,
-        artist: album.artist,
-        description: album.description,
-        coverArt: album.coverArt,
-        releaseDate: album.releaseDate || new Date().toISOString(),
-        tracks: album.tracks && album.tracks.length > 0
-          ? album.tracks.map((track: any) => {
-              // Helper to format duration - handle both number (seconds) and string (MM:SS)
-              const formatDuration = (dur: string | number | null | undefined): string => {
-                if (!dur) return '0:00';
-                if (typeof dur === 'number') {
-                  const mins = Math.floor(dur / 60);
-                  const secs = Math.floor(dur % 60);
-                  return `${mins}:${secs.toString().padStart(2, '0')}`;
-                }
-                if (typeof dur === 'string' && dur.includes(':')) {
-                  return dur;
-                }
-                // If it's a numeric string, convert it
-                const num = parseFloat(String(dur));
-                if (!isNaN(num)) {
-                  const mins = Math.floor(num / 60);
-                  const secs = Math.floor(num % 60);
-                  return `${mins}:${secs.toString().padStart(2, '0')}`;
-                }
-                return '0:00';
-              };
-              
-              return {
-                id: track.id,
-                title: track.title,
-                duration: formatDuration(track.duration),
-                url: track.url || track.audioUrl || '',
-                trackNumber: track.trackNumber || track.trackOrder || 0
-              };
-            })
-          : Array(album.trackCount || 0).fill(null).map((_, i) => ({
-              id: `track-${i}-${album.id}`,
-              title: `${album.title} - Track ${i + 1}`,
-              duration: '0:00',
-              url: album.feedUrl || ''
-            })),
-        link: album.feedUrl || '',
-        feedUrl: album.feedUrl || ''
-      }));
+      return transformServerAlbums(initialData.albums);
     }
 
     // Fallback: Initialize albums from publisher items if available
@@ -94,7 +116,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
       );
       return validItems.map((item: any) => ({
         id: item.id || item.feedGuid || `album-${Math.random()}`,
-        feedId: item.id || item.feedGuid || `album-${Math.random()}`, // Add feedId for favorite button
+        feedId: item.id || item.feedGuid || `album-${Math.random()}`,
         title: item.title,
         artist: item.artist,
         description: item.description,
@@ -895,6 +917,145 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
 
   const filteredAlbums = getFilteredAlbums();
 
+  // Create ID sets for separating official vs artist-matched albums
+  const officialAlbumIds = new Set(officialAlbums.map(a => a.id));
+  const artistMatchedAlbumIds = new Set(artistMatchedAlbums.map(a => a.id));
+
+  // Split filtered albums into official and artist-matched
+  const filteredOfficialAlbums = filteredAlbums.filter(a => officialAlbumIds.has(a.id));
+  const filteredArtistMatchedAlbums = filteredAlbums.filter(a => artistMatchedAlbumIds.has(a.id));
+
+  // Helper to render album grid
+  const renderAlbumGrid = (albumsToRender: RSSAlbum[]) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+      {albumsToRender.map((album, index) => (
+        <Link
+          key={`${album.title}-${index}`}
+          href={generateAlbumUrl(album.title)}
+          className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all duration-300 border border-white/10 hover:border-white/20 shadow-lg hover:shadow-xl hover:scale-105"
+        >
+          <div className="relative aspect-square">
+            {album.coverArt ? (
+              <Image
+                src={getAlbumArtworkUrl(album.coverArt, 'medium')}
+                alt={album.title}
+                width={300}
+                height={300}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = getPlaceholderImageUrl('medium');
+                }}
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+                <Music className="w-12 h-12 text-white/80" />
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
+              <div className="bg-white/90 hover:bg-white text-black rounded-full p-3 transform scale-0 group-hover:scale-100 transition-all duration-200 shadow-xl">
+                <Play className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
+              {album.tracks?.length || 0} tracks
+            </div>
+
+            {(album.id || album.feedId) && (
+              <div
+                className="absolute bottom-3 right-3 z-20"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              >
+                <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
+                  <FavoriteButton feedId={album.feedId || album.id} size={18} className="text-white" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4">
+            <h3 className="font-bold text-lg mb-1 group-hover:text-blue-400 transition-colors line-clamp-1">
+              {album.title}
+            </h3>
+            <p className="text-gray-400 text-sm mb-3 line-clamp-1">{album.artist}</p>
+
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{new Date(album.releaseDate).getFullYear()}</span>
+              <div className="flex items-center gap-2">
+                {album.explicit && (
+                  <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-xs font-bold">E</span>
+                )}
+                <span className="bg-white/10 px-2 py-0.5 rounded">
+                  {album.tracks.length <= 6 ? (album.tracks.length === 1 ? 'Single' : 'EP') : 'Album'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
+  // Helper to render album list
+  const renderAlbumList = (albumsToRender: RSSAlbum[]) => (
+    <div className="space-y-2">
+      {albumsToRender.map((album, index) => (
+        <Link
+          key={`${album.title}-${index}`}
+          href={generateAlbumUrl(album.title)}
+          className="group flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
+        >
+          <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+            {album.coverArt ? (
+              <Image
+                src={getAlbumArtworkUrl(album.coverArt, 'thumbnail')}
+                alt={album.title}
+                width={64}
+                height={64}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = getPlaceholderImageUrl('thumbnail');
+                }}
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+                <Music className="w-6 h-6 text-white/80" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg group-hover:text-blue-400 transition-colors truncate">
+              {album.title}
+            </h3>
+            <p className="text-gray-400 text-sm truncate">{album.artist}</p>
+          </div>
+
+          <div className="flex items-center gap-4 text-sm text-gray-400">
+            <span>{new Date(album.releaseDate).getFullYear()}</span>
+            <span>{album.tracks.length} tracks</span>
+            <span className="px-2 py-1 bg-white/10 rounded text-xs">
+              {album.tracks.length <= 6 ? (album.tracks.length === 1 ? 'Single' : 'EP') : 'Album'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {(album.id || album.feedId) && (
+              <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <FavoriteButton feedId={album.feedId || album.id} size={18} className="text-white" />
+              </div>
+            )}
+            <Play className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
   return (
     <div className="min-h-screen text-white relative">
       {/* Enhanced Background */}
@@ -1070,163 +1231,38 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                   className="mb-8"
                 />
 
-                {/* Albums Display */}
-                {viewType === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                    {filteredAlbums.map((album, index) => (
-                      <Link 
-                        key={`${album.title}-${index}`}
-                        href={generateAlbumUrl(album.title)}
-                        className="group bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden hover:bg-white/10 transition-all duration-300 border border-white/10 hover:border-white/20 shadow-lg hover:shadow-xl hover:scale-105"
-                      >
-                        <div className="relative aspect-square">
-                          {album.coverArt ? (
-                            <Image 
-                              src={getAlbumArtworkUrl(album.coverArt, 'medium')} 
-                              alt={album.title}
-                              width={300}
-                              height={300}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = getPlaceholderImageUrl('medium');
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-                              <Music className="w-12 h-12 text-white/80" />
-                            </div>
-                          )}
-                          
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
-                            <div className="bg-white/90 hover:bg-white text-black rounded-full p-3 transform scale-0 group-hover:scale-100 transition-all duration-200 shadow-xl">
-                              <Play className="w-6 h-6" />
-                            </div>
-                          </div>
-                          
-                          <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
-                            {album.tracks?.length || 0} tracks
-                          </div>
-                          
-                          {/* Favorite Button */}
-                          {(album.id || album.feedId) && (
-                            <div
-                              className="absolute bottom-3 right-3 z-20"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onTouchStart={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
-                              <div className="bg-black/60 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center pointer-events-auto touch-manipulation hover:bg-black/80 transition-colors">
-                                <FavoriteButton
-                                  feedId={album.feedId || album.id}
-                                  size={18}
-                                  className="text-white"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="p-4">
-                          <h3 className="font-bold text-lg mb-1 group-hover:text-blue-400 transition-colors line-clamp-1">
-                            {album.title}
-                          </h3>
-                          <p className="text-gray-400 text-sm mb-3 line-clamp-1">{album.artist}</p>
-                          
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>{new Date(album.releaseDate).getFullYear()}</span>
-                            <div className="flex items-center gap-2">
-                              {album.explicit && (
-                                <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-xs font-bold">
-                                  E
-                                </span>
-                              )}
-                              <span className="bg-white/10 px-2 py-0.5 rounded">
-                                {album.tracks.length <= 6 ? (album.tracks.length === 1 ? 'Single' : 'EP') : 'Album'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
+                {/* Official Releases Section */}
+                {filteredOfficialAlbums.length > 0 && (
+                  <div className="mb-12">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                      <Disc className="w-6 h-6 text-blue-400" />
+                      Official Releases
+                      <span className="text-sm font-normal text-gray-400 ml-2">
+                        ({filteredOfficialAlbums.length})
+                      </span>
+                    </h2>
+                    {viewType === 'grid' ? renderAlbumGrid(filteredOfficialAlbums) : renderAlbumList(filteredOfficialAlbums)}
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredAlbums.map((album, index) => (
-                      <Link 
-                        key={`${album.title}-${index}`}
-                        href={generateAlbumUrl(album.title)}
-                        className="group flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
-                      >
-                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                          {album.coverArt ? (
-                            <Image 
-                              src={getAlbumArtworkUrl(album.coverArt, 'thumbnail')} 
-                              alt={album.title}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = getPlaceholderImageUrl('thumbnail');
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-                              <Music className="w-6 h-6 text-white/80" />
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-lg group-hover:text-blue-400 transition-colors truncate">
-                            {album.title}
-                          </h3>
-                          <p className="text-gray-400 text-sm truncate">{album.artist}</p>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-400">
-                          <span>{new Date(album.releaseDate).getFullYear()}</span>
-                          <span>{album.tracks.length} tracks</span>
-                          <span className="px-2 py-1 bg-white/10 rounded text-xs">
-                            {album.tracks.length <= 6 ? (album.tracks.length === 1 ? 'Single' : 'EP') : 'Album'}
-                          </span>
-                          {album.explicit && (
-                            <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
-                              E
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          {/* Favorite Button */}
-                          {(album.id || album.feedId) && (
-                            <div
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onTouchStart={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
-                              <FavoriteButton
-                                feedId={album.feedId || album.id}
-                                size={18}
-                                className="text-white"
-                              />
-                            </div>
-                          )}
-                          <Play className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-                        </div>
-                      </Link>
-                    ))}
+                )}
+
+                {/* More from Artist Section */}
+                {filteredArtistMatchedAlbums.length > 0 && (
+                  <div className="mb-12">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                      <Music className="w-6 h-6 text-purple-400" />
+                      More from {publisherInfo?.artist || publisherId}
+                      <span className="text-sm font-normal text-gray-400 ml-2">
+                        ({filteredArtistMatchedAlbums.length})
+                      </span>
+                    </h2>
+                    {viewType === 'grid' ? renderAlbumGrid(filteredArtistMatchedAlbums) : renderAlbumList(filteredArtistMatchedAlbums)}
+                  </div>
+                )}
+
+                {/* Fallback: Show all albums if no separation (backwards compatibility) */}
+                {filteredOfficialAlbums.length === 0 && filteredArtistMatchedAlbums.length === 0 && filteredAlbums.length > 0 && (
+                  <div>
+                    {viewType === 'grid' ? renderAlbumGrid(filteredAlbums) : renderAlbumList(filteredAlbums)}
                   </div>
                 )}
               </>
