@@ -1240,7 +1240,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                       <div className="relative group">
                         <Info className="w-4 h-4 text-gray-400 cursor-help" />
                         <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl z-10 text-sm font-normal">
-                          <p className="text-gray-300">Albums linked directly from this publisher&apos;s feed</p>
+                          <p className="text-gray-300">Albums linked directly from the publisher feed</p>
                           <div className="absolute left-2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-700"></div>
                         </div>
                       </div>
