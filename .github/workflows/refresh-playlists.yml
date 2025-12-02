@@ -96,6 +96,22 @@ jobs:
         echo ""
         echo "✅ Feed parsing completed - tracks saved to database"
 
+        # Step 4: Parse publisher feeds to update album relationships
+        echo ""
+        echo "📋 Step 4: Parsing publisher feeds to update album relationships..."
+
+        PUBLISHER_RESPONSE=$(curl -s -X POST -w "\n%{http_code}" "${BASE_URL}/api/parse-feeds?action=parse-publishers")
+        HTTP_CODE=$(echo "$PUBLISHER_RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$PUBLISHER_RESPONSE" | sed '$d')
+
+        if [ "$HTTP_CODE" -eq 200 ]; then
+          PARSED=$(echo "$RESPONSE_BODY" | jq -r '.result.parsed // 0' 2>/dev/null || echo "?")
+          LINKED=$(echo "$RESPONSE_BODY" | jq -r '.result.linked // 0' 2>/dev/null || echo "?")
+          echo "✅ Publisher feeds parsed: ${PARSED} feeds processed, ${LINKED} albums linked"
+        else
+          echo "⚠️ Publisher parsing had issues (HTTP $HTTP_CODE) - non-critical"
+        fi
+
         echo ""
         echo "✨ Playlist refresh workflow completed"
       env:
