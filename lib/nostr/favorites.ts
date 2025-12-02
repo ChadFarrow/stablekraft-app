@@ -30,6 +30,9 @@ export async function publishFavoriteTrackToNostr(
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
 
+      // Wait for signer initialization to complete (fixes race condition)
+      await signer.ensureInitialized();
+
       // Check if signer is available, if not try to reconnect NIP-55
       if (!signer.isAvailable()) {
         const loginType = localStorage.getItem('nostr_login_type');
@@ -149,6 +152,9 @@ export async function publishFavoriteAlbumToNostr(
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
 
+      // Wait for signer initialization to complete (fixes race condition)
+      await signer.ensureInitialized();
+
       // Check if signer is available, if not try to reconnect NIP-55
       if (!signer.isAvailable()) {
         const loginType = localStorage.getItem('nostr_login_type');
@@ -264,6 +270,9 @@ export async function deleteFavoriteFromNostr(
       const { getUnifiedSigner } = await import('./signer');
       const signer = getUnifiedSigner();
 
+      // Wait for signer initialization to complete (fixes race condition)
+      await signer.ensureInitialized();
+
       // Check if signer is available, if not try to reconnect NIP-55
       if (!signer.isAvailable()) {
         const loginType = localStorage.getItem('nostr_login_type');
@@ -352,3 +361,146 @@ export async function deleteFavoriteFromNostr(
   }
 }
 
+export interface BatchPublishItem {
+  type: 'track' | 'album';
+  id: string;
+  title?: string;
+  artist?: string;
+}
+
+export interface BatchPublishResult {
+  successful: Array<{ id: string; nostrEventId: string }>;
+  failed: Array<{ id: string; error: string }>;
+}
+
+/**
+ * Batch publish favorites to Nostr relays
+ * Used to sync existing favorites that weren't published due to signer issues
+ * @param favorites - Array of favorites to publish
+ * @param onProgress - Optional callback for progress updates
+ * @param relays - Optional relay URLs
+ * @returns Results with successful and failed items
+ */
+export async function batchPublishFavoritesToNostr(
+  favorites: BatchPublishItem[],
+  onProgress?: (completed: number, total: number, current?: BatchPublishItem) => void,
+  relays?: string[]
+): Promise<BatchPublishResult> {
+  const result: BatchPublishResult = {
+    successful: [],
+    failed: []
+  };
+
+  if (favorites.length === 0) {
+    return result;
+  }
+
+  // Check if signer is available
+  if (typeof window === 'undefined') {
+    result.failed = favorites.map(f => ({ id: f.id, error: 'Not in browser environment' }));
+    return result;
+  }
+
+  const { getUnifiedSigner } = await import('./signer');
+  const signer = getUnifiedSigner();
+
+  // Wait for signer initialization
+  await signer.ensureInitialized();
+
+  if (!signer.isAvailable()) {
+    result.failed = favorites.map(f => ({ id: f.id, error: 'No signer available' }));
+    return result;
+  }
+
+  const relayUrls = relays || getDefaultRelays();
+  const relayManager = new RelayManager();
+
+  // Connect to relays once
+  await Promise.all(
+    relayUrls.map(url =>
+      relayManager.connect(url, { read: false, write: true }).catch(() => {})
+    )
+  );
+
+  // Process each favorite sequentially with delay
+  for (let i = 0; i < favorites.length; i++) {
+    const favorite = favorites[i];
+
+    // Report progress
+    if (onProgress) {
+      onProgress(i, favorites.length, favorite);
+    }
+
+    try {
+      const event = favorite.type === 'track'
+        ? {
+            kind: 30001,
+            tags: [
+              ['t', 'favorite-track'],
+              ['trackId', favorite.id],
+              ...(favorite.title ? [['title', favorite.title]] : []),
+              ...(favorite.artist ? [['artist', favorite.artist]] : []),
+            ],
+            content: JSON.stringify({
+              trackId: favorite.id,
+              ...(favorite.title && { title: favorite.title }),
+              ...(favorite.artist && { artist: favorite.artist }),
+            }),
+            created_at: Math.floor(Date.now() / 1000),
+          }
+        : {
+            kind: 30002,
+            tags: [
+              ['t', 'favorite-album'],
+              ['feedId', favorite.id],
+              ...(favorite.title ? [['title', favorite.title]] : []),
+              ...(favorite.artist ? [['artist', favorite.artist]] : []),
+            ],
+            content: JSON.stringify({
+              feedId: favorite.id,
+              ...(favorite.title && { title: favorite.title }),
+              ...(favorite.artist && { artist: favorite.artist }),
+            }),
+            created_at: Math.floor(Date.now() / 1000),
+          };
+
+      const signedEvent = await signer.signEvent(event as any);
+      const results = await relayManager.publish(signedEvent);
+      const hasSuccess = results.some(r => r.status === 'fulfilled');
+
+      // Log detailed relay results for debugging
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failCount = results.filter(r => r.status === 'rejected').length;
+
+      if (hasSuccess) {
+        result.successful.push({ id: favorite.id, nostrEventId: signedEvent.id });
+        console.log(`✅ Batch sync: Published ${favorite.type} ${favorite.id} to Nostr (${successCount}/${results.length} relays)`);
+      } else {
+        // Log why all relays failed
+        const errors = results
+          .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+          .map(r => r.reason?.message || String(r.reason))
+          .slice(0, 3); // Only show first 3 errors
+        result.failed.push({ id: favorite.id, error: `All ${failCount} relays failed: ${errors.join(', ')}` });
+        console.warn(`⚠️ Batch sync: Failed to publish ${favorite.type} ${favorite.id} - ${errors.join(', ')}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      result.failed.push({ id: favorite.id, error: errorMessage });
+      console.error(`❌ Batch sync: Error publishing ${favorite.type} ${favorite.id}:`, error);
+    }
+
+    // Add delay between publishes to prevent rate limiting (200ms)
+    if (i < favorites.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  // Final progress update
+  if (onProgress) {
+    onProgress(favorites.length, favorites.length);
+  }
+
+  console.log(`📊 Batch sync complete: ${result.successful.length} successful, ${result.failed.length} failed`);
+  return result;
+}

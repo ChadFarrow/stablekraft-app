@@ -155,11 +155,23 @@ export class UnifiedSigner {
   private nip55Signer: NIP55Signer | null = null;
   private activeSigner: Signer | null = null;
   private signerType: SignerType = null;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     // Don't create NIP07Signer here - create it lazily only when needed
     // This prevents triggering Alby popups on page load
-    this.initialize();
+    // Store the promise so we can wait for initialization to complete
+    this.initPromise = this.initialize();
+  }
+
+  /**
+   * Wait for initialization to complete
+   * Call this before checking isAvailable() to avoid race conditions
+   */
+  async ensureInitialized(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
   }
 
   /**

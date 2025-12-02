@@ -14,6 +14,7 @@ import { RSSAlbum } from '@/lib/rss-parser';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import AlbumCard from '@/components/AlbumCard';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
+import SyncToNostrButton from '@/components/favorites/SyncToNostrButton';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle, ListMusic, Globe, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/Toast';
@@ -277,11 +278,10 @@ function FavoritesPageContent() {
       try {
         const cached = sessionStorage.getItem(COMMUNITY_CACHE_KEY);
         if (cached) {
-          const { data, timestamp, filter } = JSON.parse(cached);
+          const { data, timestamp } = JSON.parse(cached);
           const isExpired = Date.now() - timestamp > COMMUNITY_CACHE_TTL;
-          const sameFilter = filter === communityFilter;
 
-          if (!isExpired && sameFilter && data && data.length > 0) {
+          if (!isExpired && data && data.length > 0) {
             console.log('📦 Using cached community favorites');
             setCommunityFavorites(data);
             return;
@@ -301,8 +301,9 @@ function FavoritesPageContent() {
         headers['x-nostr-pubkey'] = nostrUser.nostrPubkey;
       }
 
+      // Always fetch all types - filtering is done client-side for faster switching
       const response = await fetch(
-        `/api/nostr/global-favorites?type=${communityFilter}&limit=50&excludeSelf=true`,
+        `/api/nostr/global-favorites?type=all&limit=50&excludeSelf=true`,
         { headers }
       );
 
@@ -321,8 +322,7 @@ function FavoritesPageContent() {
           try {
             sessionStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify({
               data: favorites,
-              timestamp: Date.now(),
-              filter: communityFilter
+              timestamp: Date.now()
             }));
             console.log('💾 Cached community favorites');
           } catch (e) {
@@ -340,12 +340,12 @@ function FavoritesPageContent() {
     }
   };
 
-  // Load community favorites when tab is selected or filter changes
+  // Load community favorites when tab is selected (filter is applied client-side)
   useEffect(() => {
     if (activeTab === 'community') {
       loadCommunityFavorites();
     }
-  }, [activeTab, communityFilter]);
+  }, [activeTab]);
 
   // Helper to format relative time
   const formatRelativeTime = (timestamp: number) => {
@@ -699,11 +699,24 @@ function FavoritesPageContent() {
     );
   }, [communityFavorites]);
 
-  // Filter community favorites by selected user
+  // Filter community favorites by type and selected user (client-side for fast switching)
   const filteredCommunityFavorites = useMemo(() => {
-    if (communityUserFilter === null) return communityFavorites;
-    return communityFavorites.filter(fav => fav.favoritedBy.npub === communityUserFilter);
-  }, [communityFavorites, communityUserFilter]);
+    let filtered = communityFavorites;
+
+    // Filter by type (all, tracks, albums)
+    if (communityFilter === 'tracks') {
+      filtered = filtered.filter(fav => fav.type === 'track');
+    } else if (communityFilter === 'albums') {
+      filtered = filtered.filter(fav => fav.type === 'album');
+    }
+
+    // Filter by selected user
+    if (communityUserFilter !== null) {
+      filtered = filtered.filter(fav => fav.favoritedBy.npub === communityUserFilter);
+    }
+
+    return filtered;
+  }, [communityFavorites, communityFilter, communityUserFilter]);
 
   const handleShufflePlay = async () => {
     if (favoriteTracks.length === 0) {
@@ -831,11 +844,16 @@ function FavoritesPageContent() {
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm sm:text-base">Back</span>
           </button>
-          <h1 className="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
-            <Heart className="w-6 h-6 sm:w-10 sm:h-10 text-red-500 fill-red-500" />
-            My Favorites
-          </h1>
-          <p className="text-sm sm:text-base text-gray-400">Your favorite tracks, albums, and publishers</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
+                <Heart className="w-6 h-6 sm:w-10 sm:h-10 text-red-500 fill-red-500" />
+                My Favorites
+              </h1>
+              <p className="text-sm sm:text-base text-gray-400">Your favorite tracks, albums, and publishers</p>
+            </div>
+            <SyncToNostrButton className="self-start sm:self-auto" />
+          </div>
         </div>
 
         {/* Tabs */}

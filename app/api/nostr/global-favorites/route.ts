@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
     const excludeSelf = searchParams.get('excludeSelf') !== 'false';
     const userPubkey = request.headers.get('x-nostr-pubkey');
 
-    // Get all known user pubkeys from the database
+    // Get all known user pubkeys and their relays from the database
     // This ensures we only show favorites from users of this site
     const knownUsers = await prisma.user.findMany({
-      select: { nostrPubkey: true },
+      select: { nostrPubkey: true, relays: true },
     });
     const knownPubkeys = new Set(knownUsers.map((u) => u.nostrPubkey).filter(Boolean));
 
@@ -69,6 +69,23 @@ export async function GET(request: NextRequest) {
         count: 0,
         message: 'No users have signed into this app yet',
       });
+    }
+
+    // Collect unique relays from all known users (filter out local/unreachable ones)
+    const userRelays = new Set<string>();
+    for (const user of knownUsers) {
+      if (user.relays && Array.isArray(user.relays)) {
+        for (const relay of user.relays as string[]) {
+          // Skip local/private relays that won't be reachable
+          if (relay.includes('127.0.0.1') ||
+              relay.includes('localhost') ||
+              relay.endsWith('.local') ||
+              relay.includes('.onion')) {
+            continue;
+          }
+          userRelays.add(relay);
+        }
+      }
     }
 
     // Determine which kinds to fetch
@@ -87,13 +104,18 @@ export async function GET(request: NextRequest) {
     // Fixed cutoff date: November 27th, 2025 UTC - don't show anything older
     const cutoffTimestamp = Math.floor(Date.UTC(2025, 10, 27) / 1000); // Month is 0-indexed, so 10 = November
 
+    // Combine user relays with default relays for querying
+    // This ensures we find favorites published to user-specific relays
+    const queryRelays = userRelays.size > 0 ? Array.from(userRelays) : undefined;
+
     // Fetch favorites from Nostr relays - only from cutoff date onwards
     const favorites = await fetchGlobalFavorites({
       limit: limit * 4, // Fetch more to account for filtering
       kinds,
       excludePubkey: excludeSelf && userPubkey ? userPubkey : undefined,
-      timeout: 10000,
+      timeout: 15000, // Increased timeout for more relays
       since: cutoffTimestamp, // Only get favorites from Nov 27, 2025 onwards
+      relays: queryRelays, // Query user relays if available
     });
 
     // Filter to only include favorites from known users of this site
