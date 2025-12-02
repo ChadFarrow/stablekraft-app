@@ -395,17 +395,37 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       try {
         // Register action handlers immediately on mount (before any playback)
         // This is required for iOS 26 PWA mode to recognize media capabilities
-        // Using refs to ensure we always call the latest versions of the functions
+        // Using refs with DOM fallback for iOS background reliability
         navigator.mediaSession.setActionHandler('play', () => {
-          console.log('📱 Media session: Play from early init');
+          console.log('📱 Media session: Play action received');
           if (resumeRef.current) {
             resumeRef.current();
+          } else {
+            // Direct DOM fallback for iOS background edge case
+            console.log('📱 Play: Using direct DOM fallback');
+            const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+            const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+            const element = video?.currentTime > 0 ? video : audio;
+            if (element) {
+              element.play();
+              navigator.mediaSession.playbackState = 'playing';
+            }
           }
         });
         navigator.mediaSession.setActionHandler('pause', () => {
-          console.log('📱 Media session: Pause from early init');
+          console.log('📱 Media session: Pause action received');
           if (pauseRef.current) {
             pauseRef.current();
+          } else {
+            // Direct DOM fallback for iOS background edge case
+            console.log('📱 Pause: Using direct DOM fallback');
+            const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+            const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+            const element = video?.currentTime > 0 ? video : audio;
+            if (element) {
+              element.pause();
+              navigator.mediaSession.playbackState = 'paused';
+            }
           }
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -1615,27 +1635,57 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     return success;
   };
 
-  // Pause function
+  // Pause function - uses DOM ID as fallback for iOS background reliability
   const pause = () => {
-    const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+    // Try ref first, then fallback to DOM query for iOS background compatibility
+    let currentElement: HTMLAudioElement | HTMLVideoElement | null = isVideoMode
+      ? videoRef.current
+      : audioRef.current;
+
+    // Fallback to DOM query if ref is unavailable (iOS background edge case)
+    if (!currentElement) {
+      currentElement = isVideoMode
+        ? document.getElementById('stablekraft-video-player') as HTMLVideoElement
+        : document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+      console.log('📱 Pause: Using DOM fallback, element found:', !!currentElement);
+    }
+
     if (currentElement) {
       currentElement.pause();
       // Update media session playback state
       if ('mediaSession' in navigator && navigator.mediaSession) {
         navigator.mediaSession.playbackState = 'paused';
       }
+      console.log('✅ Pause executed successfully');
+    } else {
+      console.warn('⚠️ Pause: No audio/video element found');
     }
   };
 
-  // Resume function
+  // Resume function - uses DOM ID as fallback for iOS background reliability
   const resume = () => {
-    const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+    // Try ref first, then fallback to DOM query for iOS background compatibility
+    let currentElement: HTMLAudioElement | HTMLVideoElement | null = isVideoMode
+      ? videoRef.current
+      : audioRef.current;
+
+    // Fallback to DOM query if ref is unavailable (iOS background edge case)
+    if (!currentElement) {
+      currentElement = isVideoMode
+        ? document.getElementById('stablekraft-video-player') as HTMLVideoElement
+        : document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+      console.log('📱 Resume: Using DOM fallback, element found:', !!currentElement);
+    }
+
     if (currentElement) {
       currentElement.play();
       // Update media session playback state
       if ('mediaSession' in navigator && navigator.mediaSession) {
         navigator.mediaSession.playbackState = 'playing';
       }
+      console.log('✅ Resume executed successfully');
+    } else {
+      console.warn('⚠️ Resume: No audio/video element found');
     }
   };
 
@@ -2067,8 +2117,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   return (
     <AudioContext.Provider value={value}>
       {children}
-      {/* Hidden audio element */}
+      {/* Hidden audio element - ID used for iOS background fallback */}
       <audio
+        id="stablekraft-audio-player"
         ref={audioRef}
         preload="metadata"
         playsInline
@@ -2088,8 +2139,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           pointerEvents: 'none'
         }}
       />
-      {/* Hidden video element */}
+      {/* Hidden video element - ID used for iOS background fallback */}
       <video
+        id="stablekraft-video-player"
         ref={videoRef}
         preload="metadata"
         playsInline
