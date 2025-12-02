@@ -4,6 +4,8 @@ import React from 'react';
 import NowPlaying from './NowPlaying';
 import { useAudio } from '@/contexts/AudioContext';
 import { getPlaceholderImageUrl } from '@/lib/cdn-utils';
+import { Share2 } from 'lucide-react';
+import { toast } from './Toast';
 
 const GlobalNowPlayingBar: React.FC = () => {
   const {
@@ -119,6 +121,18 @@ const GlobalNowPlayingBar: React.FC = () => {
     return null;
   }
 
+  const handleShare = async () => {
+    try {
+      const url = window.location.href;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied!');
+      }
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+    }
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -131,6 +145,16 @@ const GlobalNowPlayingBar: React.FC = () => {
       borderTop: '1px solid #f97316',
       zIndex: 50
     }}>
+      {/* Share button on far left */}
+      <button
+        onClick={handleShare}
+        className="absolute left-4 top-1/2 -translate-y-1/2 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-2 rounded-full transition-all duration-200 active:scale-95"
+        title="Share this page"
+        aria-label="Copy page link to clipboard"
+        style={{ zIndex: 51 }}
+      >
+        <Share2 className="w-4 h-4" />
+      </button>
       <NowPlaying
         track={currentTrack}
         isPlaying={isPlaying}

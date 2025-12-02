@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import { Share2 } from 'lucide-react';
 import { toast } from './Toast';
+import { useAudio } from '@/contexts/AudioContext';
 
 export default function ShareLinkButton() {
   const [isCopying, setIsCopying] = useState(false);
+  const { currentPlayingAlbum } = useAudio();
+  const isPlayerVisible = !!currentPlayingAlbum;
 
   const handleShare = async () => {
     try {
@@ -41,20 +44,26 @@ export default function ShareLinkButton() {
     }
   };
 
+  // Hide when player bar is visible (share button is in the player bar)
+  if (isPlayerVisible) {
+    return null;
+  }
+
   return (
     <button
       onClick={handleShare}
       disabled={isCopying}
-      className="fixed bottom-4 left-4 z-[60] bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-3 rounded-full shadow-2xl hover:shadow-2xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-white/20"
+      className="fixed left-4 bottom-4 z-[60] bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-3 rounded-full shadow-2xl hover:shadow-2xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-white/20"
       title="Share this page"
       aria-label="Copy page link to clipboard"
-      style={{ 
+      style={{
         marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0px)',
         minWidth: '48px',
         minHeight: '48px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        zIndex: 60
       }}
     >
       <Share2 className="w-5 h-5" />
