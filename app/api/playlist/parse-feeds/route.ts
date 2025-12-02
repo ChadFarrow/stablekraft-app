@@ -79,6 +79,8 @@ async function parseFeedXML(feedUrl: string) {
       const imageMatch = itemContent.match(/<itunes:image[^>]*href="([^"]*)"/);
       const durationMatch = itemContent.match(/<itunes:duration>([^<]*)<\/itunes:duration>/);
       const pubDateMatch = itemContent.match(/<pubDate>([^<]*)<\/pubDate>/);
+      // Extract episode number for track ordering (podcast:episode or itunes:episode)
+      const episodeMatch = itemContent.match(/<podcast:episode>(\d+)<\/podcast:episode>|<itunes:episode>(\d+)<\/itunes:episode>/);
 
       const title = titleMatch ? (titleMatch[1] || titleMatch[2] || '').trim() : '';
       const description = descMatch ? (descMatch[1] || descMatch[2] || '').trim() : '';
@@ -87,6 +89,7 @@ async function parseFeedXML(feedUrl: string) {
       const image = imageMatch ? imageMatch[1] : '';
       const duration = durationMatch ? durationMatch[1] : '';
       const pubDate = pubDateMatch ? pubDateMatch[1] : '';
+      const episode = episodeMatch ? parseInt(episodeMatch[1] || episodeMatch[2]) : null;
 
       if (title && guid) {
         episodes.push({
@@ -96,7 +99,8 @@ async function parseFeedXML(feedUrl: string) {
           audioUrl,
           image,
           duration,
-          pubDate
+          pubDate,
+          episode
         });
       }
     }
@@ -291,6 +295,9 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
           }
         }
 
+        // Use episode number for track order if available, otherwise use sequential order
+        const trackOrderValue = episode.episode || trackCount + 1;
+
         if (!existingTrack) {
           // Create new track with v4v data
           await prisma.track.create({
@@ -304,25 +311,28 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               image: episode.image || feed.image || null,
               publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
               feedId: feed.id,
-              trackOrder: trackCount + 1,
+              trackOrder: trackOrderValue,
               ...(v4vData && { v4vValue: v4vData }),
               ...(v4vRecipient && { v4vRecipient }),
               updatedAt: new Date()
             }
           });
           trackCount++;
-        } else if (v4vData && !existingTrack.v4vValue) {
-          // Update existing track with v4v data if it doesn't have it
+        } else {
+          // Update existing track with trackOrder and v4v data
           await prisma.track.update({
             where: { id: existingTrack.id },
             data: {
-              v4vValue: v4vData,
-              ...(v4vRecipient && { v4vRecipient }),
+              trackOrder: trackOrderValue,
+              ...(v4vData && !existingTrack.v4vValue && { v4vValue: v4vData }),
+              ...(v4vRecipient && !existingTrack.v4vValue && { v4vRecipient }),
               updatedAt: new Date()
             }
           });
-          console.log(`🔄 Updated existing track "${episode.title}" with v4v data`);
-          trackCount++; // Count as a new track for statistics
+          if (v4vData && !existingTrack.v4vValue) {
+            console.log(`🔄 Updated existing track "${episode.title}" with v4v data and trackOrder`);
+          }
+          trackCount++; // Count as processed for statistics
         }
       } catch (error) {
         console.warn(`⚠️ Failed to import track "${episode.title}":`, error instanceof Error ? error.message : error);
@@ -414,7 +424,8 @@ export async function POST(request: Request) {
                   image: ep.image || feedData.image || '',
                   duration: ep.duration?.toString() || '0',
                   pubDate: new Date(ep.datePublished * 1000).toUTCString(),
-                  v4vValue: ep.value // Include v4v data from API
+                  v4vValue: ep.value, // Include v4v data from API
+                  episode: ep.episode || null // Include episode number for track ordering
                 }));
                 parseResult = { episodes, xmlText: '' };
               }
