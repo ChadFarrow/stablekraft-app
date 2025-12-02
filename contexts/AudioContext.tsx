@@ -1979,7 +1979,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
 
     // When enabling shuffle, create a shuffled playlist from the current album
-    if (newShuffleMode && currentPlayingAlbum?.tracks?.length > 0) {
+    if (newShuffleMode && currentPlayingAlbum?.tracks && currentPlayingAlbum.tracks.length > 0) {
       const albumTracks = currentPlayingAlbum.tracks.map((track, trackIndex) => ({
         album: currentPlayingAlbum,
         trackIndex,
