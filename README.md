@@ -1,334 +1,185 @@
-# Podcast Music Site
+# Stablekraft
 
-A Next.js application for discovering, organizing, and streaming music tracks extracted from podcast feeds with Value4Value (V4V) integration.
+A Next.js application for discovering, organizing, and streaming music from podcast feeds with Value4Value (V4V) Lightning Network integration.
 
-## Architecture Overview
+## Overview
 
-This application extracts music tracks from podcast RSS feeds, manages them in a database, and provides playlist functionality with Bitcoin Lightning Network Value4Value support.
+Stablekraft extracts music tracks from podcast RSS feeds, manages them in a database, and provides playlist functionality with Bitcoin Lightning Network payments to artists.
 
-### Core Components
+### Tech Stack
 
-- **Next.js 15** - React framework with App Router
-- **TypeScript** - Type safety throughout
-- **Prisma** - Database ORM with PostgreSQL
-- **PWA Support** - Service worker for offline functionality
-- **V4V Integration** - Bitcoin Lightning payments via Podcast Index API
-
-## Recent Refactoring (Completed)
-
-The codebase recently underwent a comprehensive 5-phase refactoring:
-
-1. **Dead Code Removal** - Cleaned up unused components and legacy code
-2. **Custom Hooks Extraction** - Centralized reusable logic
-3. **Parser Modularization** - Split 3000+ line parser files into focused modules
-4. **API Route Consolidation** - Unified scattered API endpoints into centralized handlers
-5. **Build Verification** - Ensured TypeScript compilation and functionality
+- **Next.js 15** with App Router
+- **TypeScript**
+- **Prisma** with PostgreSQL
+- **PWA** with offline support
+- **Nostr** for authentication and social features
+- **WebLN/LNURL** for Lightning payments
 
 ## Project Structure
 
-### Core Libraries
-
-```
-lib/
-├── api/                          # Consolidated API handlers
-│   ├── playlist-handler.ts      # Playlist management
-│   └── cache-handler.ts         # Cache operations
-├── music-track-parser/          # Modular music parsing
-│   ├── types.ts                 # Type definitions
-│   ├── utils.ts                 # Utility functions
-│   ├── deduplication.ts         # Track deduplication
-│   └── index.ts                 # Main parser
-├── rss-parser/                  # Modular RSS parsing
-├── track-adapter.ts             # Track type adapter for Prisma
-├── v4v-resolver.ts             # Value4Value resolution
-└── feed-cache.ts               # Feed caching
-```
-
-### API Routes
-
-```
-app/api/
-├── music/                       # Consolidated music operations
-├── playlist/                    # Consolidated playlist operations
-├── cache/                       # Consolidated cache operations
-├── favorites/                   # Favorites API (tracks/albums CRUD)
-│   ├── tracks/                  # Track favorites
-│   ├── albums/                  # Album favorites
-│   └── check/                   # Check favorite status
-├── admin/                       # Admin functionality
-└── [legacy routes]             # Maintained for compatibility
-```
-
-### Pages & Components
-
 ```
 app/
-├── page.tsx                     # Homepage with album discovery
-├── music-tracks/               # Track browsing and details
-├── playlist/                   # Various playlist views
-├── album/[id]/                 # Album detail pages
-├── favorites/                   # Favorites page (albums/tracks tabs)
-├── publisher/[id]/             # Publisher pages
-└── admin/                      # Admin panel (Nostr auth required)
+├── page.tsx                 # Homepage with album discovery
+├── album/[id]/              # Album detail pages
+├── publisher/[id]/          # Publisher pages (official + matched albums)
+├── playlist/                # Curated playlist views
+├── music-tracks/            # Track browsing
+├── favorites/               # User favorites (albums/tracks)
+├── search/                  # Fuzzy search with typo tolerance
+├── library/                 # User library
+├── radio/                   # Radio mode
+├── admin/                   # Admin panel (Nostr auth)
+├── settings/                # User settings
+└── api/                     # API routes
+
+lib/
+├── lightning/               # Lightning Network integration
+│   ├── webln.ts            # WebLN provider
+│   ├── lnurl.ts            # LNURL support
+│   └── value-splits.ts     # V4V payment splits
+├── nostr/                   # Nostr integration
+│   ├── signer.ts           # NIP-07/NIP-46/NIP-55 signing
+│   ├── favorites.ts        # Favorites sync to Nostr
+│   ├── zaps.ts             # Zap support
+│   └── nip05.ts            # NIP-05 verification
+├── music-track-parser/      # Track extraction from feeds
+├── rss-parser/              # RSS feed parsing
+├── v4v-resolver.ts          # Value4Value resolution
+├── fuzzy-search.ts          # pg_trgm fuzzy matching
+├── podcast-index-api.ts     # Podcast Index API client
+└── feed-cache.ts            # Feed caching
 
 components/
-├── AdminPanel.tsx              # Admin panel with feed management
-├── NowPlayingBar.tsx           # Audio player controls
-├── MusicTrackList.tsx          # Track listing component
-├── PlaylistAlbum.tsx           # Album playlist view
-├── BoostButton.tsx             # Lightning payment boost button
-├── Toast.tsx                   # Toast notification system
-├── Nostr/                      # Nostr authentication components
-│   └── LoginModal.tsx          # Nostr login interface
-├── favorites/                   # Favorites components
-│   └── FavoriteButton.tsx      # Heart icon favorite button
-└── [other components]
+├── AdminPanel.tsx           # Feed management interface
+├── NowPlayingBar.tsx        # Audio player controls
+├── AlbumCard.tsx            # Album display cards
+├── BoostButton.tsx          # Lightning boost payments
+├── CDNImage.tsx             # Optimized image loading
+├── favorites/               # Favorite button components
+└── Nostr/                   # Nostr auth components
 ```
 
-## Key Features
+## Features
 
-### Admin Panel
-- **Nostr Authentication** - Secure admin access using Nostr identity
-- **RSS Feed Management** - Add, refresh, and manage podcast RSS feeds
-- **Publisher Auto-Import** - Automatically detects and imports artist publisher feeds
-- **Import Results Modal** - Detailed feedback on feed imports with v4v info
-- **Recently Added** - View last 5 imported feeds with metadata
+### Music Discovery
+- Album and track browsing with artwork
+- Publisher pages showing official releases and artist-matched albums
+- Curated playlists (HGH, ITDV, IAM, MMM, etc.)
+- Fuzzy search with typo tolerance (pg_trgm)
 
-### Music Track Extraction
-- Parses podcast RSS feeds for music content
-- Extracts from chapters, value time splits, and descriptions
-- Supports multiple audio sources (direct URLs, Wavlake, etc.)
-- Deduplicates tracks intelligently
+### Audio Playback
+- Streaming audio player with queue management
+- iOS lockscreen/media controls support
+- Shuffle and repeat modes
+- Background playback
 
-### Value4Value (V4V) Integration
-- Resolves Lightning Network payment information from feeds
-- Integrates with Podcast Index API for publisher discovery
-- Boost button for streaming sats to artists
-- Displays payment splits and recipient Lightning addresses
-- Auto-saves v4v data during feed import
-- Helipad TLV protocol support for advanced V4V features
+### Value4Value Payments
+- Lightning Network boosts to artists
+- WebLN wallet integration
+- LNURL-pay support
+- Payment splits per podcast:value spec
+
+### Nostr Integration
+- Admin authentication via Nostr
+- Favorites sync to Nostr (NIP-38 lists)
+- NIP-07 (browser extension), NIP-46 (remote signer), NIP-55 (Android)
+- Zap support
 
 ### Favorites System
 - Anonymous session-based favorites (no account required)
-- Favorite tracks and albums with heart icon
-- Persistent favorites stored in database
-- Dedicated favorites page with albums/tracks tabs
-- Favorite buttons integrated throughout the app
-  - Album cards
-  - Individual track displays
-  - Playlist views
-  - Album detail pages
+- Sync favorites to Nostr when logged in
+- Favorite tracks and albums
+- Persistent storage in database
 
-### Database Management
-- JSON-based music track database
-- Prisma ORM for relational data
-- Cached feed processing
-- Analytics and statistics tracking
+### Admin Panel
+- RSS feed management (add/refresh/delete)
+- Auto-import of publisher feeds via podcast:publisher tags
+- Feed status monitoring
+- V4V payment data extraction
 
-### Playlist System
-- Multiple curated playlists (HGH, ITDV, Lightning Thrashes, etc.)
-- RSS feed generation for playlists
-- Dynamic track filtering and sorting
-- Album-based organization
-
-## Environment Setup
-
-### Required Environment Variables
-
-Create `.env.local`:
+## Environment Variables
 
 ```bash
 # Database
 DATABASE_URL="postgresql://..."
 
-# Podcast Index API (for V4V resolution & publisher discovery)
+# Podcast Index API
 PODCAST_INDEX_API_KEY="your_key"
 PODCAST_INDEX_API_SECRET="your_secret"
 
-# Lightning Network Configuration
-NEXT_PUBLIC_PLATFORM_NODE_PUBKEY="your_node_pubkey_here"
-
-# Admin Access (Nostr npubs, comma-separated)
+# Admin Access (Nostr npubs)
 ADMIN_NPUBS="npub1...,npub2..."
 
-# Base URL (for API calls)
+# Base URL
 NEXT_PUBLIC_BASE_URL="https://yourdomain.com"
 
-# Optional: CDN & Storage
+# Optional: CDN
 BUNNY_CDN_HOSTNAME="your_cdn_hostname"
-BUNNY_CDN_ZONE="your_zone"
-BUNNY_CDN_API_KEY="your_key"
 NEXT_PUBLIC_CDN_URL="https://cdn.yourdomain.com"
-NEXT_PUBLIC_IMAGE_DOMAIN="cdn.yourdomain.com"
 
-# Optional: Nostr Features
+# Optional: Nostr
 NEXT_PUBLIC_NOSTR_ENABLED="true"
 NEXT_PUBLIC_NOSTR_RELAYS="wss://relay1.com,wss://relay2.com"
-NEXT_PUBLIC_NOSTR_ZAP_ENABLED="true"
-NEXT_PUBLIC_NOSTR_NIP05_ENABLED="true"
-NOSTR_PRIVATE_KEY="nsec..."
 ```
 
-### Development Commands
+## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Development server
 npm run dev
+```
 
-# Build for production
-npm run build
+### Database
 
-# Start production server
-npm start
-
-# Database operations
+```bash
 npx prisma generate
 npx prisma db push
 ```
 
+### Build
+
+```bash
+npm run build
+npm start
+```
+
 ## API Endpoints
 
-### Feed Management
-- `GET /api/feeds` - List all feeds with filters (type, status, priority, sortBy)
-- `POST /api/feeds` - Add new feed and auto-import publisher feeds
-- `PUT /api/feeds` - Update feed metadata
-- `DELETE /api/feeds` - Remove feed and associated tracks
+### Feeds
+- `GET/POST/PUT/DELETE /api/feeds` - Feed CRUD operations
 
-### Admin Operations
-- `POST /api/admin/verify` - Verify Nostr-based admin access
-- Admin npubs configured via `ADMIN_NPUBS` environment variable
-
-### Music Operations
-- `GET /api/music-tracks` - Query music tracks with filters
-- `POST /api/music-tracks` - Add tracks or bulk operations
-- `GET /api/music-tracks/database` - Database operations for tracks
-
-### Albums & Publishers
-- `GET /api/albums-fast` - Fast album listing with caching
-- `GET /api/albums/[slug]` - Album details by slug or ID
-- `GET /api/publishers` - List publisher feeds
-
-### Favorites Operations
-- `GET /api/favorites/tracks` - Get favorite tracks for session
-- `POST /api/favorites/tracks` - Add track to favorites
-- `DELETE /api/favorites/tracks/[trackId]` - Remove track from favorites
-- `GET /api/favorites/albums` - Get favorite albums for session
-- `POST /api/favorites/albums` - Add album to favorites
-- `DELETE /api/favorites/albums/[feedId]` - Remove album from favorites
-- `POST /api/favorites/check` - Check if tracks/albums are favorited
-
-### Playlist Operations
-- `GET /api/playlist` - Get playlist data
-- `POST /api/playlist` - Create/update playlists
-
-### Cache Operations
-- `GET /api/cache` - Cache statistics and management
-- `POST /api/cache` - Cache control operations
-
-### Legacy Endpoints
-Many specific endpoints are maintained for backward compatibility.
-
-## Database Schema
-
-### Feed Management
-- **Feed** - Podcast RSS feed metadata
-  - Title, description, artist, image
-  - Type (album, publisher, playlist, single)
-  - Priority, status (active, error, sidebar-only)
-  - v4vRecipient and v4vValue (Lightning payment info)
-  - GUID for podcast:guid matching
-
-### Music Tracks
-- **Track** - Individual track metadata
-  - Title, subtitle, description, artist
-  - Audio URL, duration, explicit flag
-  - Episode and feed relationships
-  - Value4Value payment information (v4vRecipient, v4vValue)
-  - iTunes metadata (author, summary, image, keywords)
-  - Time segments (startTime, endTime) for value splits
-  - Source attribution and timestamps
+### Albums & Tracks
+- `GET /api/albums-fast` - Album listing with caching
+- `GET /api/albums/[slug]` - Album details
+- `GET /api/music-tracks` - Track queries
 
 ### Favorites
-- **FavoriteTrack** - User's favorite tracks (session-based)
-- **FavoriteAlbum** - User's favorite albums (session-based)
-- Anonymous session IDs stored in localStorage
-- Indexed for efficient querying
+- `GET/POST /api/favorites/tracks` - Track favorites
+- `GET/POST /api/favorites/albums` - Album favorites
+- `POST /api/favorites/check` - Check favorite status
 
-### Enhanced Features
-- Track enhancement with additional metadata
-- Publisher information and statistics
-- Audio URL resolution and caching
-- Artwork optimization and CDN
-- Auto-detection of publisher feeds via RSS tags
+### Search
+- `GET /api/search` - Fuzzy search across tracks/albums/artists
 
-## Feed Processing
-
-The application processes various podcast feeds:
-- **HGH (Hell's Going Hardcore)** - Electronic music
-- **ITDV (In the Dark Valley)** - Various genres
-- **Lightning Thrashes** - Metal and rock
-- **Doerfels Publisher Feed** - Curated content
-
-## Performance Optimizations
-
-- **Caching**: Multi-layer caching for feeds, tracks, and API responses
-- **CDN Integration**: Optimized image delivery
-- **Progressive Loading**: Lazy loading and virtualization
-- **Service Worker**: Offline functionality and background sync
+### Playlists
+- `GET /api/playlist/[id]` - Playlist data
+- `GET /api/playlist/parse-feeds` - Import tracks from playlist feeds
 
 ## Deployment
 
-The application is configured for Railway deployment with:
+Configured for Vercel/Railway with:
 - Automatic database migrations
 - Environment variable management
-- Production build optimization
 - PWA manifest generation
 
-## Contributing
+## Two-Repo Architecture
 
-The codebase follows these conventions:
-- TypeScript for type safety
-- ESLint and Prettier for code formatting
-- Modular architecture with clear separation of concerns
-- Comprehensive error handling and logging
+This app consumes playlist feeds generated by a separate repository:
+- **Playlist Generator**: [musicL-playlist-updater](https://github.com/ChadFarrow/musicL-playlist-updater)
+- **Feed Output**: [chadf-musicl-playlists](https://github.com/ChadFarrow/chadf-musicl-playlists)
 
-## Recent Updates
+Playlists are synced daily at 2 AM UTC via GitHub Actions.
 
-**Code Cleanup & Consolidation (2025-11-24):**
-- Removed dead code: `feed-parser-optimized.ts`, `PlaylistAlbumProgressive.tsx`
-- Consolidated duplicate V4V resolvers into single `lib/v4v-resolver.ts`
-- Deduplicated `hexToBytes` function in Nostr signer code (now exported from `lib/nostr/keys.ts`)
-- Updated imports in music-track-parser module to use consolidated resolver
+## License
 
-**Admin Panel & Feed Management (2025-11-20):**
-- Added Nostr-based admin authentication system
-- RSS feed management interface with add/refresh/view features
-- Auto-import of publisher feeds via `podcast:publisher` RSS tags
-- Import results modal with detailed feedback on v4v info and publisher imports
-- Recently Added section showing last 5 imported feeds with metadata
-- Refresh button with proper sorting by creation date
-- v4v payment data automatically saved during feed import
-- Boost buttons throughout app for Lightning payments to artists
-- Enhanced album and track APIs to properly use feed-level v4v data
-
-**Favorites Feature (2025-01-31):**
-- Added anonymous session-based favorites system
-- Users can favorite tracks and albums with heart icon
-- Persistent favorites stored in database (FavoriteTrack, FavoriteAlbum models)
-- Favorites page with albums/tracks tabs
-- Favorite buttons integrated throughout the app
-- Red heart button in navigation bar for quick access
-
-**Latest Refactoring (2025-01-21):**
-- Modularized parser files (reduced from 3000+ to focused modules)
-- Consolidated API routes for better maintainability
-- Enhanced TypeScript type safety
-- Improved caching and performance
-- Maintained backward compatibility throughout
-
----
-
-*Last Updated: November 24, 2025*
+MIT License - see [LICENSE](LICENSE) for details.
