@@ -1705,6 +1705,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
 
     if (isShuffleMode && shuffledPlaylist.length > 0) {
+      // Handle repeat one mode in shuffle - replay current track
+      if (repeatMode === 'one') {
+        console.log('🔂 Shuffle: Repeat one mode - replaying current track');
+        await playShuffledTrack(currentShuffleIndex);
+        return;
+      }
+
       // In shuffle mode, play next track from shuffled playlist
       const nextShuffleIndex = currentShuffleIndex + 1;
 
@@ -1732,25 +1739,33 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
         }
       } else {
-        // End of shuffled playlist - loop back to the first track
-        console.log('🔁 End of shuffled playlist reached, looping back to first track');
-        const success = await playShuffledTrack(0);
+        // End of shuffled playlist
+        if (repeatMode === 'all') {
+          // Loop back to the first track
+          console.log('🔁 Shuffle: Repeat all - looping back to first track');
+          const success = await playShuffledTrack(0);
 
-        // If playback failed, try next track
-        if (!success) {
-          console.log('⏭️ First track failed to play, trying next...');
-          setTimeout(() => {
-            if (playNextTrackRef.current) {
-              playNextTrackRef.current();
-            }
-          }, 500);
-          return;
-        }
+          // If playback failed, try next track
+          if (!success) {
+            console.log('⏭️ First track failed to play, trying next...');
+            setTimeout(() => {
+              if (playNextTrackRef.current) {
+                playNextTrackRef.current();
+              }
+            }, 500);
+            return;
+          }
 
-        // Prefetch upcoming tracks from the start
-        const upcomingTracks = shuffledPlaylist.slice(1, 4).map(item => item.track);
-        if (upcomingTracks.length > 0) {
-          prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
+          // Prefetch upcoming tracks from the start
+          const upcomingTracks = shuffledPlaylist.slice(1, 4).map(item => item.track);
+          if (upcomingTracks.length > 0) {
+            prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
+          }
+        } else {
+          // repeatMode === 'none' - stop playback but stay in shuffle mode
+          console.log('⏹️ Shuffle: End of playlist reached, stopping playback');
+          setIsPlaying(false);
+          // Stay in shuffle mode so user can hit play to restart
         }
       }
       return;
