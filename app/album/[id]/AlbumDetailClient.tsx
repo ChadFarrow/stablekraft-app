@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
@@ -45,8 +46,14 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
     pause: globalPause,
     resume: globalResume,
     seek: globalSeek,
-    shuffleAllTracks
+    shuffleAllTracks,
+    setFullscreenMode
   } = useAudio();
+
+  // Track URL parameter for deep linking
+  const searchParams = useSearchParams();
+  const trackParam = searchParams?.get('track') ?? null;
+  const hasAutoPlayedRef = useRef(false);
   const { shouldPreventClick } = useScrollDetectionContext();
   const lightning = useLightning(); // Initialize Lightning context
 
@@ -72,6 +79,24 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
       return () => window.removeEventListener('resize', checkDevice);
     }
   }, []);
+
+  // Auto-play track from URL parameter and open fullscreen player
+  useEffect(() => {
+    if (!album || !trackParam || hasAutoPlayedRef.current) return;
+
+    // Find track by ID
+    const trackIndex = album.tracks.findIndex(t => t.id === trackParam);
+
+    if (trackIndex !== -1) {
+      hasAutoPlayedRef.current = true;
+      // Auto-play and open fullscreen
+      globalPlayAlbum(album, trackIndex).then(success => {
+        if (success) {
+          setFullscreenMode(true);
+        }
+      });
+    }
+  }, [album, trackParam, globalPlayAlbum, setFullscreenMode]);
 
   // Early background loading for desktop - start immediately when component mounts
   useEffect(() => {
