@@ -10,9 +10,43 @@ import AppLayout from '@/components/AppLayout';
 //   return [];
 // }
 
-// Generate metadata for each album
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+// Helper function to find track by URL parameter (matches client-side logic)
+function findTrackByParam(tracks: any[], trackParam: string): any | null {
+  // 1. Try exact ID match
+  let track = tracks.find((t: any) => t.id === trackParam);
+  if (track) return track;
+
+  // 2. Try GUID match
+  track = tracks.find((t: any) => t.guid === trackParam);
+  if (track) return track;
+
+  // 3. Try slug-based match (-track-N pattern)
+  const trackNumberMatch = trackParam.match(/-track-(\d+)$/);
+  if (trackNumberMatch) {
+    const trackNumber = parseInt(trackNumberMatch[1], 10);
+    if (trackNumber >= 1 && trackNumber <= tracks.length) {
+      return tracks[trackNumber - 1];
+    }
+  }
+
+  // 4. Try title-based match
+  const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  track = tracks.find((t: any) => slugify(t.title) === slugify(trackParam));
+  if (track) return track;
+
+  return null;
+}
+
+// Generate metadata for each album (supports ?track= param for track-specific previews)
+export async function generateMetadata({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>,
+  searchParams: Promise<{ track?: string }>
+}): Promise<Metadata> {
   const { id } = await params;
+  const { track: trackParam } = await searchParams;
 
   // Handle both URL-encoded and slug formats
   let albumTitle: string;
@@ -30,14 +64,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // Try to fetch album data to get the image for Open Graph
   let albumImage: string | undefined;
   let albumArtist: string | undefined;
+  let albumTracks: any[] = [];
+
+  const baseUrl = process.env.NODE_ENV === 'development'
+    ? 'http://localhost:3000'
+    : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
 
   try {
     // Fetch from database API using the album slug
-    // Use localhost in development, production URL otherwise
-    const baseUrl = process.env.NODE_ENV === 'development'
-      ? 'http://localhost:3000'
-      : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
-
     const response = await fetch(`${baseUrl}/api/albums/${encodeURIComponent(id)}`, {
       cache: 'no-store',
       next: { revalidate: 0 }
@@ -56,18 +90,59 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         albumArtist = data.album.artist;
         // Use the actual album title from the API
         albumTitle = data.album.title;
+        // Store tracks for potential track-specific lookup
+        albumTracks = data.album.tracks || [];
       }
     }
   } catch (error) {
     console.warn('Failed to fetch album metadata:', error);
   }
 
-  // Build description with artist if available
+  // Check if we have a track parameter and can find the specific track
+  let foundTrack: any = null;
+  if (trackParam && albumTracks.length > 0) {
+    foundTrack = findTrackByParam(albumTracks, trackParam);
+  }
+
+  // Build metadata based on whether we found a specific track
+  if (foundTrack) {
+    // Track-specific metadata
+    const trackTitle = foundTrack.title;
+    const trackArtist = foundTrack.subtitle || albumArtist || 'Unknown Artist';
+
+    // Use track image if available, otherwise fall back to album image
+    let trackImage = foundTrack.image;
+    if (trackImage && !trackImage.startsWith('http')) {
+      trackImage = `${baseUrl}${trackImage}`;
+    }
+    const ogImage = trackImage || albumImage;
+
+    const trackDescription = `Listen to ${trackTitle} by ${trackArtist} from ${albumTitle} on DoerfelVerse`;
+    const displayTitle = `${trackTitle} by ${trackArtist}`;
+
+    return {
+      title: `${displayTitle} | DoerfelVerse`,
+      description: trackDescription,
+      openGraph: {
+        title: displayTitle,
+        description: trackDescription,
+        images: ogImage ? [{ url: ogImage }] : [],
+        type: 'music.song',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: displayTitle,
+        description: trackDescription,
+        images: ogImage ? [ogImage] : [],
+      },
+    };
+  }
+
+  // Album-level metadata (default)
   const description = albumArtist
     ? `Listen to ${albumTitle} by ${albumArtist} on DoerfelVerse`
     : `Listen to ${albumTitle} on DoerfelVerse`;
 
-  // Use fallback metadata to prevent server-side rendering issues
   return {
     title: `${albumTitle} | DoerfelVerse`,
     description,
