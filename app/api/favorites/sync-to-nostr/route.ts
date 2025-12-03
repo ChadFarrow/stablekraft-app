@@ -12,10 +12,13 @@ export interface UnpublishedFavorite {
 /**
  * GET /api/favorites/sync-to-nostr
  * Get list of unpublished favorites with metadata for publishing to Nostr
+ * Query params:
+ * - force=true: Return ALL favorites (for republishing with new format)
  */
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get('x-nostr-user-id');
+    const forceAll = request.nextUrl.searchParams.get('force') === 'true';
 
     if (!userId) {
       return NextResponse.json({
@@ -26,18 +29,18 @@ export async function GET(request: NextRequest) {
 
     const items: UnpublishedFavorite[] = [];
 
-    // Get unpublished track favorites with track metadata
-    const unpublishedTracks = await prisma.favoriteTrack.findMany({
+    // Get track favorites (unpublished only, or all if force=true)
+    const trackFavorites = await prisma.favoriteTrack.findMany({
       where: {
         userId,
-        nostrEventId: null
+        ...(forceAll ? {} : { nostrEventId: null })
       },
       orderBy: { createdAt: 'desc' }
     });
 
     // Get track metadata for each favorite
-    if (unpublishedTracks.length > 0) {
-      const trackIds = unpublishedTracks.map(ft => ft.trackId);
+    if (trackFavorites.length > 0) {
+      const trackIds = trackFavorites.map(ft => ft.trackId);
 
       // Try to find tracks by id first
       const tracksById = await prisma.track.findMany({
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Build items for tracks
-      for (const fav of unpublishedTracks) {
+      for (const fav of trackFavorites) {
         const track = trackMap.get(fav.trackId);
         items.push({
           type: 'track',
@@ -80,17 +83,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get unpublished album favorites with feed metadata
-    const unpublishedAlbums = await prisma.favoriteAlbum.findMany({
+    // Get album favorites (unpublished only, or all if force=true)
+    const albumFavorites = await prisma.favoriteAlbum.findMany({
       where: {
         userId,
-        nostrEventId: null
+        ...(forceAll ? {} : { nostrEventId: null })
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    if (unpublishedAlbums.length > 0) {
-      const feedIds = unpublishedAlbums.map(fa => fa.feedId);
+    if (albumFavorites.length > 0) {
+      const feedIds = albumFavorites.map(fa => fa.feedId);
 
       const feeds = await prisma.feed.findMany({
         where: { id: { in: feedIds } },
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
       const feedMap = new Map(feeds.map(f => [f.id, f]));
 
       // Build items for albums
-      for (const fav of unpublishedAlbums) {
+      for (const fav of albumFavorites) {
         const feed = feedMap.get(fav.feedId);
         items.push({
           type: 'album',

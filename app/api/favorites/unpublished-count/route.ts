@@ -18,12 +18,22 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // Count all tracks
+    const totalTracks = await prisma.favoriteTrack.count({
+      where: { userId }
+    });
+
     // Count tracks where nostrEventId is null
     const unpublishedTracks = await prisma.favoriteTrack.count({
       where: {
         userId,
         nostrEventId: null
       }
+    });
+
+    // Count all albums
+    const totalAlbums = await prisma.favoriteAlbum.count({
+      where: { userId }
     });
 
     // Count albums where nostrEventId is null
@@ -40,7 +50,8 @@ export async function GET(request: NextRequest) {
         tracks: unpublishedTracks,
         albums: unpublishedAlbums,
         total: unpublishedTracks + unpublishedAlbums
-      }
+      },
+      total: totalTracks + totalAlbums
     });
   } catch (error) {
     console.error('Error getting unpublished favorites count:', error);
