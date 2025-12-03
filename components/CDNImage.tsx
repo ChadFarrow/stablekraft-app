@@ -16,6 +16,8 @@ const GIF_TO_VIDEO_MAP: Record<string, { mp4: string; webm: string }> = {
   'Samurai_Holiday_Acoustic_art.gif': { mp4: 'Samurai_Holiday_Acoustic_art.mp4', webm: 'Samurai_Holiday_Acoustic_art.webm' },
   'ABD_Acoustic_artwork.gif': { mp4: 'ABD_Acoustic_artwork.mp4', webm: 'ABD_Acoustic_artwork.webm' },
   'Subrero_pt2_art.gif': { mp4: 'Subrero_pt2_art.mp4', webm: 'Subrero_pt2_art.webm' },
+  '12-Rods-Disco-Frankiepaint-hires.gif': { mp4: '12-Rods-Disco-Frankiepaint-hires.mp4', webm: '12-Rods-Disco-Frankiepaint-hires.webm' },
+  'dxz9u3.gif': { mp4: 'dxz9u3.mp4', webm: 'dxz9u3.webm' },
 };
 
 interface CDNImageProps {
@@ -259,6 +261,8 @@ export default function CDNImage({
       'Samurai_Holiday_Acoustic_art.gif',
       'ABD_Acoustic_artwork.gif',
       'Subrero_pt2_art.gif',
+      '12-Rods-Disco-Frankiepaint-hires.gif',
+      'dxz9u3.gif',
     ];
     
     const filename = originalUrl.split('/').pop();
