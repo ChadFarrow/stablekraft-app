@@ -57,6 +57,23 @@ export default function GlobalErrorHandler() {
         return;
       }
 
+      // Suppress errors without an error object (typically resource load failures like images/CORS)
+      if (!event.error) {
+        // These are usually image load failures, CORS blocks, or network errors
+        // that don't have actionable error objects
+        event.preventDefault();
+        return;
+      }
+
+      // Suppress NS_BINDING_ABORTED errors (cancelled network requests)
+      const errorMessage = event.message || event.error?.message || '';
+      if (errorMessage.includes('NS_BINDING_ABORTED') ||
+          errorMessage.includes('aborted') ||
+          errorMessage.includes('OpaqueResponseBlocking')) {
+        event.preventDefault();
+        return;
+      }
+
       // Log other errors normally
       console.error('🔍 Layout error caught:', event.error)
       if (event.error && event.error.stack) {
