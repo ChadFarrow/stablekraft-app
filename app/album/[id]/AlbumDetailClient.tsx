@@ -84,8 +84,34 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
   useEffect(() => {
     if (!album || !trackParam || hasAutoPlayedRef.current) return;
 
-    // Find track by ID
-    const trackIndex = album.tracks.findIndex(t => t.id === trackParam);
+    // Find track by multiple matching strategies
+    let trackIndex = -1;
+
+    // 1. Try exact ID match (database UUID)
+    trackIndex = album.tracks.findIndex(t => t.id === trackParam);
+
+    // 2. Try GUID match
+    if (trackIndex === -1) {
+      trackIndex = album.tracks.findIndex(t => t.guid === trackParam);
+    }
+
+    // 3. Try slug-based match (e.g., "album-title-track-1" format)
+    if (trackIndex === -1) {
+      // Check if trackParam ends with "-track-N" pattern
+      const trackNumberMatch = trackParam.match(/-track-(\d+)$/);
+      if (trackNumberMatch) {
+        const trackNumber = parseInt(trackNumberMatch[1], 10);
+        if (trackNumber >= 1 && trackNumber <= album.tracks.length) {
+          trackIndex = trackNumber - 1; // Convert to 0-based index
+        }
+      }
+    }
+
+    // 4. Try title-based match (slugified title comparison)
+    if (trackIndex === -1) {
+      const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      trackIndex = album.tracks.findIndex(t => slugify(t.title) === slugify(trackParam));
+    }
 
     if (trackIndex !== -1) {
       hasAutoPlayedRef.current = true;
