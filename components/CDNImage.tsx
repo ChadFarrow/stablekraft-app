@@ -356,9 +356,12 @@ export default function CDNImage({
       imageSrc = src;
     }
     // Only use proxy for known problematic URLs, try direct loading first
+    // These domains don't return CORS headers, causing OpaqueResponseBlocking
     else if (src && (
       src.includes('static.wixstatic.com') ||
-      src.includes('f4.bcbits.com')
+      src.includes('f4.bcbits.com') ||
+      src.includes('thebearsnare.com') ||
+      src.includes('f.strangetextures.com')
     )) {
       imageSrc = `/api/proxy-image?url=${encodeURIComponent(src)}`;
     } else {
