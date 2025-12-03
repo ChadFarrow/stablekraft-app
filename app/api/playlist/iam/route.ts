@@ -15,6 +15,30 @@ const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours for daily updates
 interface RemoteItem {
   feedGuid: string;
   itemGuid: string;
+  episodeTitle?: string;
+  episodeId?: string;
+  episodeIndex?: number;
+}
+
+interface ParsedEpisodeMarker {
+  type: 'episode';
+  title: string;
+}
+
+interface ParsedRemoteItem {
+  type: 'remoteItem';
+  feedGuid: string;
+  itemGuid: string;
+}
+
+type ParsedPlaylistItem = ParsedEpisodeMarker | ParsedRemoteItem;
+
+interface EpisodeGroup {
+  id: string;
+  title: string;
+  trackCount: number;
+  tracks: any[];
+  index: number;
 }
 
 interface PlaylistItem {
@@ -66,6 +90,62 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
   return remoteItems;
 }
 
+function parsePlaylistWithEpisodes(xmlText: string): ParsedPlaylistItem[] {
+  const items: ParsedPlaylistItem[] = [];
+  const combinedRegex = /<podcast:txt\s+purpose="episode">([^<]*)<\/podcast:txt>|<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*\/?>/g;
+
+  let match;
+  while ((match = combinedRegex.exec(xmlText)) !== null) {
+    if (match[1] !== undefined) {
+      items.push({ type: 'episode', title: match[1].trim() });
+    } else if (match[2] && match[3]) {
+      items.push({ type: 'remoteItem', feedGuid: match[2], itemGuid: match[3] });
+    }
+  }
+  return items;
+}
+
+function generateEpisodeId(title: string): string {
+  return 'ep-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+}
+
+function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
+  episodes: { title: string; remoteItems: RemoteItem[] }[];
+  ungroupedItems: RemoteItem[];
+  hasEpisodeMarkers: boolean;
+} {
+  const episodes: { title: string; remoteItems: RemoteItem[] }[] = [];
+  const ungroupedItems: RemoteItem[] = [];
+  let currentEpisode: { title: string; remoteItems: RemoteItem[] } | null = null;
+  let foundEpisodeMarker = false;
+
+  for (const item of parsedItems) {
+    if (item.type === 'episode') {
+      foundEpisodeMarker = true;
+      if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+        episodes.push(currentEpisode);
+      }
+      currentEpisode = { title: item.title, remoteItems: [] };
+    } else if (item.type === 'remoteItem') {
+      const remoteItem: RemoteItem = { feedGuid: item.feedGuid, itemGuid: item.itemGuid };
+      if (currentEpisode) {
+        remoteItem.episodeTitle = currentEpisode.title;
+        remoteItem.episodeId = generateEpisodeId(currentEpisode.title);
+        remoteItem.episodeIndex = currentEpisode.remoteItems.length;
+        currentEpisode.remoteItems.push(remoteItem);
+      } else {
+        ungroupedItems.push(remoteItem);
+      }
+    }
+  }
+
+  if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+    episodes.push(currentEpisode);
+  }
+
+  return { episodes, ungroupedItems, hasEpisodeMarkers: foundEpisodeMarker };
+}
+
 export async function GET(request: Request) {
   try {
     console.log('🎵 Fetching IAM playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
@@ -96,19 +176,28 @@ export async function GET(request: Request) {
     const xmlText = await response.text();
     console.log('📄 Fetched playlist XML, length:', xmlText.length);
 
-    // Parse the XML to extract remote items and artwork
-    const remoteItems = parseRemoteItems(xmlText);
+    // Parse the XML to extract remote items with episode context
+    const parsedItems = parsePlaylistWithEpisodes(xmlText);
+    const { episodes: groupedEpisodes, ungroupedItems, hasEpisodeMarkers } = groupItemsByEpisode(parsedItems);
+
+    // Collect all remote items (from episodes + ungrouped)
+    const allRemoteItems: RemoteItem[] = [];
+    groupedEpisodes.forEach(ep => {
+      ep.remoteItems.forEach(item => allRemoteItems.push(item));
+    });
+    ungroupedItems.forEach(item => allRemoteItems.push(item));
+
     const artworkUrl = parseArtworkUrl(xmlText);
-    console.log('📋 Found remote items:', remoteItems.length);
+    console.log(`📋 Found ${allRemoteItems.length} remote items in ${groupedEpisodes.length} episodes (${hasEpisodeMarkers ? 'with' : 'without'} episode markers)`);
     console.log('🎨 Found artwork URL:', artworkUrl);
 
     // Resolve playlist items to get actual track data from the database
     console.log('🔍 Resolving playlist items to actual tracks...');
-    const resolvedTracks = await resolvePlaylistItems(remoteItems);
+    const resolvedTracks = await resolvePlaylistItems(allRemoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
 
     // Auto-discover and add unresolved feeds to database
-    const unresolvedItems = remoteItems.filter(item => {
+    const unresolvedItems = allRemoteItems.filter(item => {
       return !resolvedTracks.find(track => track.playlistContext?.itemGuid === item.itemGuid);
     });
     
@@ -129,7 +218,7 @@ export async function GET(request: Request) {
     );
 
     // Create tracks for ALL remote items, using resolved data when available
-    const allTracks = remoteItems.map((item, index) => {
+    const allTracks = allRemoteItems.map((item, index) => {
       const resolvedTrack = resolvedTrackMap.get(item.itemGuid);
 
       if (resolvedTrack) {
@@ -151,7 +240,11 @@ export async function GET(request: Request) {
           feedId: resolvedTrack.feedId,
           guid: resolvedTrack.guid,
           v4vValue: resolvedTrack.v4vValue,
-          v4vRecipient: resolvedTrack.v4vRecipient
+          v4vRecipient: resolvedTrack.v4vRecipient,
+          // Episode context
+          episodeId: item.episodeId,
+          episodeTitle: item.episodeTitle,
+          episodeIndex: item.episodeIndex
         };
       } else {
         // Return null for unresolved tracks (will be filtered out)
@@ -163,6 +256,21 @@ export async function GET(request: Request) {
     const tracks = allTracks.filter(track => track && track.url && track.url.length > 0);
 
     console.log(`🎯 Filtered tracks: ${allTracks.length} total -> ${tracks.length} playable (removed ${allTracks.length - tracks.length} without audio)`);
+
+    // Build episode groups with resolved tracks
+    const episodes: EpisodeGroup[] = hasEpisodeMarkers ? groupedEpisodes.map((ep, index) => {
+      // Get resolved tracks for this episode
+      const episodeTracks = tracks.filter(t => t && t.episodeId === generateEpisodeId(ep.title));
+      return {
+        id: generateEpisodeId(ep.title),
+        title: ep.title,
+        trackCount: episodeTracks.length,
+        tracks: episodeTracks,
+        index
+      };
+    }).filter(ep => ep.trackCount > 0) : [];
+
+    console.log(`📺 Built ${episodes.length} episode groups with tracks`);
 
     // Create a single virtual album that represents the IAM playlist
     const playlistAlbum = {
@@ -183,11 +291,14 @@ export async function GET(request: Request) {
       playlistUrl: '/playlist/iam', // Set the playlist URL
       albumUrl: '/album/its-a-mood-music-playlist', // Set the album URL for album-style display
       link: 'https://itsamood.live/', // Playlist website link
+      // Episode grouping
+      episodes,
+      hasEpisodeMarkers,
       playlistContext: {
         source: 'iam-playlist',
         originalUrl: IAM_PLAYLIST_URL,
         resolvedTracks: resolvedTracks.length,
-        totalRemoteItems: remoteItems.length
+        totalRemoteItems: allRemoteItems.length
       }
     };
 

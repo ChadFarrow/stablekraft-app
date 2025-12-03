@@ -4,7 +4,7 @@ import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
 import type { PlaylistConfig } from '@/types/playlist';
 
 const HGH_CONFIG: PlaylistConfig = {
-  cacheKey: 'hgh_playlist_cache_v5', // Bumped to v5 for fast + pagination
+  cacheKey: 'hgh_playlist_cache_v8', // Bumped to v8 for improved contrast
   cacheDuration: 1000 * 60 * 30, // 30 minutes
   apiEndpoint: '/api/playlist/hgh-fast', // Fast endpoint with progressive loading + client-side pagination
   title: 'HGH Music Playlist',

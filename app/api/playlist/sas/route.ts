@@ -122,10 +122,39 @@ async function fetchPlaylistXML(url: string) {
   return await response.text();
 }
 
+interface RemoteItem {
+  feedGuid: string;
+  itemGuid: string;
+  episodeTitle?: string;
+  episodeId?: string;
+  episodeIndex?: number;
+}
+
+interface ParsedEpisodeMarker {
+  type: 'episode';
+  title: string;
+}
+
+interface ParsedRemoteItem {
+  type: 'remoteItem';
+  feedGuid: string;
+  itemGuid: string;
+}
+
+type ParsedPlaylistItem = ParsedEpisodeMarker | ParsedRemoteItem;
+
+interface EpisodeGroup {
+  id: string;
+  title: string;
+  trackCount: number;
+  tracks: any[];
+  index: number;
+}
+
 function parseRemoteItems(xmlText: string) {
   const remoteItems: Array<{feedGuid: string, itemGuid: string}> = [];
   const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-  
+
   let match;
   while ((match = remoteItemRegex.exec(xmlText)) !== null) {
     remoteItems.push({
@@ -133,8 +162,64 @@ function parseRemoteItems(xmlText: string) {
       itemGuid: match[2]
     });
   }
-  
+
   return remoteItems;
+}
+
+function parsePlaylistWithEpisodes(xmlText: string): ParsedPlaylistItem[] {
+  const items: ParsedPlaylistItem[] = [];
+  const combinedRegex = /<podcast:txt\s+purpose="episode">([^<]*)<\/podcast:txt>|<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*\/?>/g;
+
+  let match;
+  while ((match = combinedRegex.exec(xmlText)) !== null) {
+    if (match[1] !== undefined) {
+      items.push({ type: 'episode', title: match[1].trim() });
+    } else if (match[2] && match[3]) {
+      items.push({ type: 'remoteItem', feedGuid: match[2], itemGuid: match[3] });
+    }
+  }
+  return items;
+}
+
+function generateEpisodeId(title: string): string {
+  return 'ep-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+}
+
+function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
+  episodes: { title: string; remoteItems: RemoteItem[] }[];
+  ungroupedItems: RemoteItem[];
+  hasEpisodeMarkers: boolean;
+} {
+  const episodes: { title: string; remoteItems: RemoteItem[] }[] = [];
+  const ungroupedItems: RemoteItem[] = [];
+  let currentEpisode: { title: string; remoteItems: RemoteItem[] } | null = null;
+  let foundEpisodeMarker = false;
+
+  for (const item of parsedItems) {
+    if (item.type === 'episode') {
+      foundEpisodeMarker = true;
+      if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+        episodes.push(currentEpisode);
+      }
+      currentEpisode = { title: item.title, remoteItems: [] };
+    } else if (item.type === 'remoteItem') {
+      const remoteItem: RemoteItem = { feedGuid: item.feedGuid, itemGuid: item.itemGuid };
+      if (currentEpisode) {
+        remoteItem.episodeTitle = currentEpisode.title;
+        remoteItem.episodeId = generateEpisodeId(currentEpisode.title);
+        remoteItem.episodeIndex = currentEpisode.remoteItems.length;
+        currentEpisode.remoteItems.push(remoteItem);
+      } else {
+        ungroupedItems.push(remoteItem);
+      }
+    }
+  }
+
+  if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+    episodes.push(currentEpisode);
+  }
+
+  return { episodes, ungroupedItems, hasEpisodeMarkers: foundEpisodeMarker };
 }
 
 export async function GET(request: NextRequest) {
@@ -160,9 +245,18 @@ export async function GET(request: NextRequest) {
     const xmlText = await fetchPlaylistXML(SAS_PLAYLIST_URL);
     console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
     
-    // Parse remote items
-    const remoteItems = parseRemoteItems(xmlText);
-    console.log(`📋 Found remote items: ${remoteItems.length}`);
+    // Parse playlist with episode markers
+    const parsedItems = parsePlaylistWithEpisodes(xmlText);
+    const { episodes: groupedEpisodes, ungroupedItems, hasEpisodeMarkers } = groupItemsByEpisode(parsedItems);
+
+    // Collect all remote items (from episodes + ungrouped)
+    const allRemoteItems: RemoteItem[] = [];
+    groupedEpisodes.forEach(ep => {
+      ep.remoteItems.forEach(item => allRemoteItems.push(item));
+    });
+    ungroupedItems.forEach(item => allRemoteItems.push(item));
+
+    console.log(`📋 Found ${allRemoteItems.length} remote items in ${groupedEpisodes.length} episodes (${hasEpisodeMarkers ? 'with' : 'without'} episode markers)`);
     
     // Extract artwork URL - try both formats
     let artworkUrl = null;
@@ -192,10 +286,10 @@ export async function GET(request: NextRequest) {
     await autoPopulateFeeds(allFeedGuids, 'SAS');
     
     // Get unique track GUIDs for database lookup
-    const itemGuids = remoteItems.map(item => item.itemGuid);
+    const itemGuids = allRemoteItems.map(item => item.itemGuid);
     const uniqueItemGuids = [...new Set(itemGuids)];
-    
-    console.log(`🔍 Looking up ${uniqueItemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+
+    console.log(`🔍 Looking up ${uniqueItemGuids.length} unique track GUIDs for ${allRemoteItems.length} playlist items`);
     
     // Database lookup first
     const dbTracks = await prisma.track.findMany({
@@ -220,7 +314,7 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 Sample found track GUIDs: ${dbTracks.slice(0, 10).map(t => t.guid).join(', ')}`);
 
     // Resolve all tracks (database first, then API fallback)
-    const tracksAll = await Promise.all(remoteItems.map(async (item, index) => {
+    const tracksAll = await Promise.all(allRemoteItems.map(async (item, index) => {
       // Check database first
       const dbTrack = dbTrackMap.get(item.itemGuid);
       if (dbTrack && dbTrack.audioUrl && dbTrack.audioUrl.length > 0) {
@@ -240,7 +334,11 @@ export async function GET(request: NextRequest) {
           feedTitle: dbTrack.feed?.title || 'Unknown Feed',
           guid: dbTrack.guid,
           v4vRecipient: dbTrack.v4vRecipient,
-          v4vValue: dbTrack.v4vValue
+          v4vValue: dbTrack.v4vValue,
+          // Episode context
+          episodeId: item.episodeId,
+          episodeTitle: item.episodeTitle,
+          episodeIndex: item.episodeIndex
         };
       }
 
@@ -261,7 +359,11 @@ export async function GET(request: NextRequest) {
           description: `${resolvedData.title} by ${resolvedData.feedTitle} - Featured in Sats and Sounds podcast`,
           albumTitle: resolvedData.feedTitle,
           feedTitle: resolvedData.feedTitle,
-          guid: resolvedData.guid
+          guid: resolvedData.guid,
+          // Episode context
+          episodeId: item.episodeId,
+          episodeTitle: item.episodeTitle,
+          episodeIndex: item.episodeIndex
         };
       }
 
@@ -277,7 +379,11 @@ export async function GET(request: NextRequest) {
         image: artworkUrl || '/placeholder-podcast.jpg',
         feedGuid: item.feedGuid,
         itemGuid: item.itemGuid,
-        description: `Music track referenced in Sats and Sounds podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`
+        description: `Music track referenced in Sats and Sounds podcast episode - Feed ID: ${item.feedGuid} | Item ID: ${item.itemGuid}`,
+        // Episode context
+        episodeId: item.episodeId,
+        episodeTitle: item.episodeTitle,
+        episodeIndex: item.episodeIndex
       };
     }));
 
@@ -287,6 +393,21 @@ export async function GET(request: NextRequest) {
     );
 
     console.log(`🎯 Filtered tracks: ${tracksAll.length} -> ${tracks.length} (removed ${tracksAll.length - tracks.length} tracks without audio)`);
+
+    // Build episode groups with resolved tracks
+    const episodes: EpisodeGroup[] = hasEpisodeMarkers ? groupedEpisodes.map((ep, index) => {
+      // Get resolved tracks for this episode
+      const episodeTracks = tracks.filter(t => t.episodeId === generateEpisodeId(ep.title));
+      return {
+        id: generateEpisodeId(ep.title),
+        title: ep.title,
+        trackCount: episodeTracks.length,
+        tracks: episodeTracks,
+        index
+      };
+    }).filter(ep => ep.trackCount > 0) : [];
+
+    console.log(`📺 Built ${episodes.length} episode groups with tracks`);
 
     // Create a single virtual album that represents the SAS playlist
     const playlistAlbum = {
@@ -306,11 +427,14 @@ export async function GET(request: NextRequest) {
       isPlaylistCard: true,
       playlistUrl: '/playlist/sas',
       albumUrl: '/album/sas-playlist',
+      // Episode grouping
+      episodes,
+      hasEpisodeMarkers,
       playlistContext: {
         source: 'sas-playlist',
         originalUrl: SAS_PLAYLIST_URL,
         resolvedTracks: dbTracks.length,
-        totalRemoteItems: remoteItems.length
+        totalRemoteItems: allRemoteItems.length
       }
     };
 

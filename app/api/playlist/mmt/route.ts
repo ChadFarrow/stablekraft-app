@@ -122,10 +122,39 @@ async function fetchPlaylistXML(url: string) {
   return await response.text();
 }
 
+interface RemoteItem {
+  feedGuid: string;
+  itemGuid: string;
+  episodeTitle?: string;
+  episodeId?: string;
+  episodeIndex?: number;
+}
+
+interface ParsedEpisodeMarker {
+  type: 'episode';
+  title: string;
+}
+
+interface ParsedRemoteItem {
+  type: 'remoteItem';
+  feedGuid: string;
+  itemGuid: string;
+}
+
+type ParsedPlaylistItem = ParsedEpisodeMarker | ParsedRemoteItem;
+
+interface EpisodeGroup {
+  id: string;
+  title: string;
+  trackCount: number;
+  tracks: any[];
+  index: number;
+}
+
 function parseRemoteItems(xmlText: string) {
   const remoteItems: Array<{feedGuid: string, itemGuid: string}> = [];
   const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-  
+
   let match;
   while ((match = remoteItemRegex.exec(xmlText)) !== null) {
     remoteItems.push({
@@ -133,8 +162,64 @@ function parseRemoteItems(xmlText: string) {
       itemGuid: match[2]
     });
   }
-  
+
   return remoteItems;
+}
+
+function parsePlaylistWithEpisodes(xmlText: string): ParsedPlaylistItem[] {
+  const items: ParsedPlaylistItem[] = [];
+  const combinedRegex = /<podcast:txt\s+purpose="episode">([^<]*)<\/podcast:txt>|<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*\/?>/g;
+
+  let match;
+  while ((match = combinedRegex.exec(xmlText)) !== null) {
+    if (match[1] !== undefined) {
+      items.push({ type: 'episode', title: match[1].trim() });
+    } else if (match[2] && match[3]) {
+      items.push({ type: 'remoteItem', feedGuid: match[2], itemGuid: match[3] });
+    }
+  }
+  return items;
+}
+
+function generateEpisodeId(title: string): string {
+  return 'ep-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+}
+
+function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
+  episodes: { title: string; remoteItems: RemoteItem[] }[];
+  ungroupedItems: RemoteItem[];
+  hasEpisodeMarkers: boolean;
+} {
+  const episodes: { title: string; remoteItems: RemoteItem[] }[] = [];
+  const ungroupedItems: RemoteItem[] = [];
+  let currentEpisode: { title: string; remoteItems: RemoteItem[] } | null = null;
+  let foundEpisodeMarker = false;
+
+  for (const item of parsedItems) {
+    if (item.type === 'episode') {
+      foundEpisodeMarker = true;
+      if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+        episodes.push(currentEpisode);
+      }
+      currentEpisode = { title: item.title, remoteItems: [] };
+    } else if (item.type === 'remoteItem') {
+      const remoteItem: RemoteItem = { feedGuid: item.feedGuid, itemGuid: item.itemGuid };
+      if (currentEpisode) {
+        remoteItem.episodeTitle = currentEpisode.title;
+        remoteItem.episodeId = generateEpisodeId(currentEpisode.title);
+        remoteItem.episodeIndex = currentEpisode.remoteItems.length;
+        currentEpisode.remoteItems.push(remoteItem);
+      } else {
+        ungroupedItems.push(remoteItem);
+      }
+    }
+  }
+
+  if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+    episodes.push(currentEpisode);
+  }
+
+  return { episodes, ungroupedItems, hasEpisodeMarkers: foundEpisodeMarker };
 }
 
 export async function GET(request: NextRequest) {
@@ -159,10 +244,19 @@ export async function GET(request: NextRequest) {
     // Fetch playlist XML
     const xmlText = await fetchPlaylistXML(MMT_PLAYLIST_URL);
     console.log(`📄 Fetched playlist XML, length: ${xmlText.length}`);
-    
-    // Parse remote items
-    const remoteItems = parseRemoteItems(xmlText);
-    console.log(`📋 Found remote items: ${remoteItems.length}`);
+
+    // Parse playlist with episode markers
+    const parsedItems = parsePlaylistWithEpisodes(xmlText);
+    const { episodes: groupedEpisodes, ungroupedItems, hasEpisodeMarkers } = groupItemsByEpisode(parsedItems);
+
+    // Collect all remote items (from episodes + ungrouped)
+    const allRemoteItems: RemoteItem[] = [];
+    groupedEpisodes.forEach(ep => {
+      ep.remoteItems.forEach(item => allRemoteItems.push(item));
+    });
+    ungroupedItems.forEach(item => allRemoteItems.push(item));
+
+    console.log(`📋 Found ${allRemoteItems.length} remote items in ${groupedEpisodes.length} episodes (${hasEpisodeMarkers ? 'with' : 'without'} episode markers)`);
     
     // Extract artwork URL
     const artworkMatch = xmlText.match(/<itunes:image[^>]*href="([^"]*)"[^>]*>/);
@@ -181,10 +275,10 @@ export async function GET(request: NextRequest) {
     await autoPopulateFeeds(allFeedGuids, 'MMT');
     
     // Get unique track GUIDs for database lookup
-    const itemGuids = remoteItems.map(item => item.itemGuid);
+    const itemGuids = allRemoteItems.map(item => item.itemGuid);
     const uniqueItemGuids = [...new Set(itemGuids)];
-    
-    console.log(`🔍 Looking up ${uniqueItemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+
+    console.log(`🔍 Looking up ${uniqueItemGuids.length} unique track GUIDs for ${allRemoteItems.length} playlist items`);
     
     // Database lookup first
     const dbTracks = await prisma.track.findMany({
@@ -211,9 +305,9 @@ export async function GET(request: NextRequest) {
     // Process tracks in parallel batches for better performance
     const batchSize = 10; // Process 10 tracks at a time to avoid overwhelming API
     const trackBatches = [];
-    
-    for (let i = 0; i < remoteItems.length; i += batchSize) {
-      trackBatches.push(remoteItems.slice(i, i + batchSize));
+
+    for (let i = 0; i < allRemoteItems.length; i += batchSize) {
+      trackBatches.push(allRemoteItems.slice(i, i + batchSize));
     }
     
     const tracksAll = [];
@@ -230,7 +324,6 @@ export async function GET(request: NextRequest) {
             id: dbTrack.id,
             title: dbTrack.title,
             artist: dbTrack.artist || dbTrack.feed?.title || 'Unknown Artist',
-            episodeTitle: dbTrack.feed?.title || "Mike's Mix Tape",
             audioUrl: dbTrack.audioUrl,
             startTime: dbTrack.startTime || 0,
             endTime: dbTrack.endTime || dbTrack.duration || 0,
@@ -245,7 +338,11 @@ export async function GET(request: NextRequest) {
             guid: dbTrack.guid,
             v4vRecipient: dbTrack.v4vRecipient,
             v4vValue: dbTrack.v4vValue,
-            resolved: true
+            resolved: true,
+            // Episode context
+            episodeId: item.episodeId,
+            episodeTitle: item.episodeTitle,
+            episodeIndex: item.episodeIndex
           };
         }
 
@@ -255,7 +352,6 @@ export async function GET(request: NextRequest) {
           id: `placeholder-${item.itemGuid}`,
           title: `Loading... (${item.itemGuid.slice(-8)})`,
           artist: 'Resolving...',
-          episodeTitle: "Mike's Mix Tape",
           audioUrl: '',
           startTime: 0,
           endTime: 0,
@@ -269,7 +365,11 @@ export async function GET(request: NextRequest) {
           feedTitle: 'Mike\'s Mix Tape',
           guid: item.itemGuid,
           resolved: false,
-          needsResolution: true // Flag for lazy loading
+          needsResolution: true, // Flag for lazy loading
+          // Episode context
+          episodeId: item.episodeId,
+          episodeTitle: item.episodeTitle,
+          episodeIndex: item.episodeIndex
         };
       }));
       
@@ -295,6 +395,21 @@ export async function GET(request: NextRequest) {
 
     console.log(`🎯 Track processing results: ${resolvedTracks.length} resolved, ${placeholderTracks.length} placeholders, showing ${tracks.length} total`);
 
+    // Build episode groups with resolved tracks
+    const episodes: EpisodeGroup[] = hasEpisodeMarkers ? groupedEpisodes.map((ep, index) => {
+      // Get resolved tracks for this episode
+      const episodeTracks = tracks.filter(t => t.episodeId === generateEpisodeId(ep.title));
+      return {
+        id: generateEpisodeId(ep.title),
+        title: ep.title,
+        trackCount: episodeTracks.length,
+        tracks: episodeTracks,
+        index
+      };
+    }).filter(ep => ep.trackCount > 0) : [];
+
+    console.log(`📺 Built ${episodes.length} episode groups with tracks`);
+
     // Create a single virtual album that represents the MMT playlist
     const playlistAlbum = {
       id: 'mmt-playlist',
@@ -314,11 +429,14 @@ export async function GET(request: NextRequest) {
       isPlaylistCard: true,
       playlistUrl: '/playlist/mmt',
       albumUrl: '/album/mmt-playlist',
+      // Episode grouping
+      episodes,
+      hasEpisodeMarkers,
       playlistContext: {
         source: 'mmt-playlist',
         originalUrl: MMT_PLAYLIST_URL,
         resolvedTracks: resolvedTracks.length,
-        totalRemoteItems: remoteItems.length
+        totalRemoteItems: allRemoteItems.length
       }
     };
 

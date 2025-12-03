@@ -6,10 +6,11 @@ import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import { getProxiedAudioUrl } from '@/lib/audio-url-utils';
 import Link from 'next/link';
-import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
+import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats, Episode, EpisodeViewMode } from '@/types/playlist';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
-import { Share2 } from 'lucide-react';
+import { Share2, List, Layers } from 'lucide-react';
+import EpisodeSection from '@/components/EpisodeSection';
 import { toast } from '@/components/Toast';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumSlug } from '@/lib/url-utils';
@@ -37,6 +38,12 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [searchQuery, setSearchQuery] = useState('');
   // Default to 'original' to preserve XML feed order for all playlists
   const [sortBy, setSortBy] = useState<SortOption>('original');
+
+  // Episode grouping
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [hasEpisodeMarkers, setHasEpisodeMarkers] = useState(false);
+  const [episodeViewMode, setEpisodeViewMode] = useState<EpisodeViewMode>('grouped');
+  const [expandedEpisodes, setExpandedEpisodes] = useState<Set<string>>(new Set());
 
   // Pagination for large playlists
   const TRACKS_PER_PAGE = 50;
@@ -103,7 +110,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             console.log(`🔍 Cache data for ${config.title}:`, data.tracks.length, 'tracks');
             console.log(`🔍 First cached track:`, data.tracks[0]);
             setTracks(data.tracks);
-            
+
             // Load artwork and link from cache if available
             if (data.artwork) {
               setPlaylistArtwork(data.artwork);
@@ -111,7 +118,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             if (data.link) {
               setPlaylistLink(data.link);
             }
-            
+
+            // Load episode data from cache if available
+            if (data.hasEpisodeMarkers && data.episodes) {
+              setHasEpisodeMarkers(true);
+              setEpisodes(data.episodes);
+              console.log(`📺 Loaded ${data.episodes.length} episodes from cache`);
+              // Expand all episodes by default
+              setExpandedEpisodes(new Set(data.episodes.map((e: Episode) => e.id)));
+            }
+
             setLoading(false);
             setCacheStatus('cached');
             return true; // Cache was used
@@ -195,6 +211,15 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         artworkUrl = data.albums[0].coverArt || data.albums[0].image || data.playlist?.artwork || data.data?.playlist?.image;
         console.log(`🔍 Album format: ${tracksData.length} tracks from album "${data.albums[0].title}"`);
         console.log(`🎨 Playlist artwork URL:`, artworkUrl);
+
+        // Extract episode grouping data if available
+        if (data.albums[0].hasEpisodeMarkers && data.albums[0].episodes) {
+          setHasEpisodeMarkers(true);
+          setEpisodes(data.albums[0].episodes);
+          console.log(`📺 Found ${data.albums[0].episodes.length} episodes in playlist`);
+          // Expand all episodes by default
+          setExpandedEpisodes(new Set(data.albums[0].episodes.map((e: Episode) => e.id)));
+        }
       } else if (data.tracks) {
         // Direct tracks format (like /api/itdv-resolved-songs)
         tracksData = data.tracks;
@@ -236,7 +261,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               if (fullData.albums && fullData.albums[0] && fullData.albums[0].tracks) {
                 console.log(`✅ Loaded full track data: ${fullData.albums[0].tracks.length} tracks`);
                 setTracks(fullData.albums[0].tracks);
-                
+
+                // Extract episode grouping data if available in full data
+                if (fullData.albums[0].hasEpisodeMarkers && fullData.albums[0].episodes) {
+                  setHasEpisodeMarkers(true);
+                  setEpisodes(fullData.albums[0].episodes);
+                  console.log(`📺 Found ${fullData.albums[0].episodes.length} episodes in full playlist data`);
+                  // Expand all episodes by default
+                  setExpandedEpisodes(new Set(fullData.albums[0].episodes.map((e: Episode) => e.id)));
+                }
+
                 // Update playlist link if available in full data
                 if (fullData.albums[0].link) {
                   setPlaylistLink(fullData.albums[0].link);
@@ -245,6 +279,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 // Cache the full data using IndexedDB for large playlists
                 const fullCacheData: CachedData = {
                   tracks: fullData.albums[0].tracks,
+                  episodes: fullData.albums[0].episodes,
+                  hasEpisodeMarkers: fullData.albums[0].hasEpisodeMarkers,
                   timestamp: Date.now(),
                   feedUrl: config.feedUrl || '',
                   artwork: fullData.albums[0].coverArt || fullData.albums[0].image,
@@ -456,6 +492,51 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
   const hasMoreTracks = displayedCount < filteredTracks.length;
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Episode toggle functions
+  const toggleEpisode = useCallback((episodeId: string) => {
+    setExpandedEpisodes(prev => {
+      const next = new Set(prev);
+      if (next.has(episodeId)) {
+        next.delete(episodeId);
+      } else {
+        next.add(episodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const expandAllEpisodes = useCallback(() => {
+    setExpandedEpisodes(new Set(episodes.map(e => e.id)));
+  }, [episodes]);
+
+  const collapseAllEpisodes = useCallback(() => {
+    setExpandedEpisodes(new Set());
+  }, []);
+
+  // Filtered episodes (for grouped view with search)
+  const filteredEpisodes = useMemo(() => {
+    if (!hasEpisodeMarkers || episodes.length === 0) return [];
+
+    return episodes.map(episode => {
+      // Filter tracks within the episode based on search query
+      const matchingTracks = episode.tracks.filter(track => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+          track.title?.toLowerCase().includes(query) ||
+          track.artist?.toLowerCase().includes(query) ||
+          track.episodeTitle?.toLowerCase().includes(query)
+        );
+      });
+
+      return {
+        ...episode,
+        tracks: matchingTracks,
+        trackCount: matchingTracks.length
+      };
+    }).filter(ep => ep.trackCount > 0); // Only show episodes with matching tracks
+  }, [episodes, hasEpisodeMarkers, searchQuery]);
 
   const loadMoreTracks = useCallback(() => {
     if (loadingMore) return;
@@ -816,14 +897,213 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                 {/* Tracks Header */}
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-white">Tracks</h2>
-                  <span className="text-sm text-gray-400">
-                    {filteredTracks.length}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-white">Tracks</h2>
+                    <span className="text-sm text-gray-400">
+                      {filteredTracks.length}
+                    </span>
+                  </div>
+
+                  {/* Episode View Toggle */}
+                  {hasEpisodeMarkers && episodes.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEpisodeViewMode('grouped')}
+                        className={`p-1.5 rounded transition-colors ${
+                          episodeViewMode === 'grouped'
+                            ? 'bg-[#00ffd5] text-black'
+                            : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                        }`}
+                        title="Group by Episode"
+                      >
+                        <Layers className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setEpisodeViewMode('flat')}
+                        className={`p-1.5 rounded transition-colors ${
+                          episodeViewMode === 'flat'
+                            ? 'bg-[#00ffd5] text-black'
+                            : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                        }`}
+                        title="All Tracks"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                      {episodeViewMode === 'grouped' && (
+                        <>
+                          <span className="text-gray-600 mx-1">|</span>
+                          <button
+                            onClick={expandAllEpisodes}
+                            className="text-xs px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
+                          >
+                            Expand All
+                          </button>
+                          <button
+                            onClick={collapseAllEpisodes}
+                            className="text-xs px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
+                          >
+                            Collapse All
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Track List */}
                 <div className="space-y-1">
+                  {/* Grouped View with Episodes */}
+                  {hasEpisodeMarkers && episodeViewMode === 'grouped' && filteredEpisodes.length > 0 ? (
+                    <div className="space-y-2">
+                      {filteredEpisodes.map((episode) => (
+                        <EpisodeSection
+                          key={episode.id}
+                          episode={episode}
+                          isExpanded={expandedEpisodes.has(episode.id)}
+                          onToggle={() => toggleEpisode(episode.id)}
+                          onPlayTrack={handlePlay}
+                          currentTrackId={currentTrack || undefined}
+                          isPlaying={shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused}
+                          renderTrack={(track, trackIndex) => {
+                            // For grouped view, use track ID comparison
+                            const isCurrentTrack = currentTrack === track.id;
+                            const isLoading = audioLoading === track.id;
+
+                            return (
+                              <div
+                                key={`${track.id}-${trackIndex}`}
+                                className={`group flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                                  isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
+                                }`}
+                              >
+                                {/* Track Artwork with Play Button Overlay */}
+                                {track.image ? (
+                                  <div className="relative flex-shrink-0 w-10 h-10">
+                                    <img
+                                      src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
+                                      alt={track.title}
+                                      className="w-10 h-10 rounded object-cover"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = getPlaceholderImageUrl('thumbnail');
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => handlePlay(track)}
+                                      disabled={isLoading}
+                                      className={`absolute inset-0 flex items-center justify-center rounded bg-black/50 transition-opacity ${
+                                        isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                      }`}
+                                    >
+                                      {isLoading ? (
+                                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                                      ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                                        <Pause className="h-4 w-4 text-white" />
+                                      ) : (
+                                        <Play className="h-4 w-4 text-white" />
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="w-10 h-10 flex items-center justify-center">
+                                    <button
+                                      onClick={() => handlePlay(track)}
+                                      disabled={isLoading}
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                                        isCurrentTrack ? 'bg-stablekraft-teal text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+                                      }`}
+                                    >
+                                      {isLoading ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                                        <Pause className="h-3 w-3" />
+                                      ) : (
+                                        <Play className="h-3 w-3" />
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Track Info */}
+                                <div className="flex-1 min-w-0">
+                                  <h3 className={`text-sm font-medium truncate ${
+                                    isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
+                                  }`}>
+                                    {track.valueForValue?.resolvedTitle || track.title}
+                                  </h3>
+                                  <p className="text-xs text-white/70 truncate">
+                                    {track.valueForValue?.resolvedArtist || track.artist}
+                                  </p>
+                                </div>
+
+                                {/* Duration */}
+                                <span className="text-xs text-white font-medium bg-black/40 px-1.5 py-0.5 rounded tabular-nums flex-shrink-0">
+                                  {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
+                                </span>
+
+                                {/* Share Button */}
+                                {(track.albumTitle || track.feedTitle) && (
+                                  <button
+                                    className="flex-shrink-0 p-1.5 bg-black/40 hover:bg-purple-500/50 text-white rounded transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const albumTitle = track.albumTitle || track.feedTitle || '';
+                                      const albumSlug = generateAlbumSlug(albumTitle);
+                                      const albumUrl = `${window.location.origin}/album/${albumSlug}`;
+                                      navigator.clipboard.writeText(albumUrl).then(() => {
+                                        toast.success('Link copied!');
+                                      }).catch(() => {
+                                        toast.error('Failed to copy link');
+                                      });
+                                    }}
+                                    title="Copy album link"
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                  </button>
+                                )}
+
+                                {/* Favorite Button */}
+                                <div className="flex-shrink-0 bg-black/40 rounded">
+                                  <FavoriteButton
+                                    trackId={track.itemGuid || track.id}
+                                    feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
+                                    size={16}
+                                    className="p-1.5"
+                                  />
+                                </div>
+
+                                {/* Boost Button */}
+                                <div className="flex-shrink-0">
+                                  <BoostButton
+                                    trackId={track.id}
+                                    feedId={track.valueForValue?.feedGuid || track.feedGuid}
+                                    trackTitle={track.valueForValue?.resolvedTitle || track.title}
+                                    artistName={track.valueForValue?.resolvedArtist || track.artist}
+                                    lightningAddress={track.v4vRecipient}
+                                    valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
+                                      ? (track.v4vValue.recipients || track.v4vValue.destinations)
+                                          .filter((r: any) => !r.fee)
+                                          .map((r: any) => ({
+                                            name: r.name || track.artist,
+                                            address: r.address || '',
+                                            split: parseInt(r.split) || 100,
+                                            type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
+                                          }))
+                                      : undefined}
+                                    episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
+                                    remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
+                                    className="text-xs"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    /* Flat View - Original Track List */
+                    <>
             {displayedTracks.map((track, index) => {
               const isCurrentTrack = shouldUseAudioContext ?
                 (audioContext?.currentPlayingAlbum?.id === `${config.cacheKey}-playlist` && audioContext?.currentTrackIndex === index) :
@@ -992,6 +1272,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 </div>
               );
                 })}
+                    </>
+                  )}
                 </div>
 
                 {/* Infinite scroll sentinel */}
