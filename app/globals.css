@@ -253,11 +253,11 @@
 
 /* Marquee Animation for scrolling text */
 @keyframes marquee {
-  0% {
-    transform: translateX(0);
+  0%, 15% {
+    transform: translateX(0);  /* Pause at start - text fully visible */
   }
-  100% {
-    transform: translateX(-50%);
+  85%, 100% {
+    transform: translateX(-50%);  /* Pause at end - second copy visible */
   }
 }
 
