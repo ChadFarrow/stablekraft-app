@@ -996,7 +996,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                             return (
                               <div
                                 key={`${track.id}-${trackIndex}`}
-                                className={`group flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                                className={`group flex flex-col gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors ${
                                   isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
                                 }`}
                               >
@@ -1052,7 +1052,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                                   {/* Track Info */}
                                   <div className="flex-1 min-w-0">
-                                    <h3 className={`text-sm font-medium line-clamp-2 sm:truncate sm:line-clamp-none ${
+                                    <h3 className={`text-sm font-medium line-clamp-2 ${
                                       isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
                                     }`}>
                                       {track.valueForValue?.resolvedTitle || track.title}
@@ -1063,8 +1063,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                                   </div>
                                 </div>
 
-                                {/* Row 2 on mobile: Duration & Action Buttons */}
-                                <div className="flex items-center gap-2 pl-[52px] sm:pl-0 flex-shrink-0">
+                                {/* Row 2: Duration & Action Buttons */}
+                                <div className="flex items-center justify-end gap-2">
                                   {/* Duration */}
                                   <span className="text-xs text-white font-medium bg-black/40 px-1.5 py-0.5 rounded tabular-nums flex-shrink-0">
                                     {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
@@ -1143,7 +1143,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               return (
                 <div
                   key={`${track.id}-${index}`}
-                  className={`group flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                  className={`group flex flex-col gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors ${
                     isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
                   }`}
                 >
@@ -1225,7 +1225,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
                     {/* Track Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-sm font-medium line-clamp-2 sm:truncate sm:line-clamp-none ${
+                      <h3 className={`text-sm font-medium line-clamp-2 ${
                         isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
                       }`}>
                         {track.valueForValue?.resolvedTitle || track.title}
@@ -1236,8 +1236,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                     </div>
                   </div>
 
-                  {/* Row 2 on mobile: Duration & Action Buttons */}
-                  <div className="flex items-center gap-2 pl-[60px] sm:pl-0 flex-shrink-0">
+                  {/* Row 2: Duration & Action Buttons */}
+                  <div className="flex items-center justify-end gap-2">
                     {/* Duration & V4V Badge */}
                     <div className="flex items-center gap-2">
                       {track.valueForValue?.resolved && (
