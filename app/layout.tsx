@@ -177,7 +177,7 @@ export default function RootLayout({
                   }
                   
                   // Suppress WebSocket connection warnings for dev server
-                  if (message.includes('can\'t establish a connection') && 
+                  if (message.includes("can't establish a connection") &&
                       (message.includes('127.0.0.1:8081') || message.includes('localhost:8081'))) {
                     return; // Suppress dev server connection warnings
                   }
