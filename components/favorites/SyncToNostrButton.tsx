@@ -104,8 +104,8 @@ export default function SyncToNostrButton({
         userRelays
       );
 
-      // Update database with nostrEventIds for successful publishes
-      for (const item of result.successful) {
+      // Update database with nostrEventIds for successful publishes (batch requests)
+      const updatePromises = result.successful.map(async (item) => {
         const originalItem = items.find(i => i.id === item.id);
         if (originalItem) {
           try {
@@ -125,7 +125,13 @@ export default function SyncToNostrButton({
             console.error('Failed to update database with nostrEventId:', error);
           }
         }
-      }
+      });
+
+      // Wait for all updates with a timeout
+      await Promise.race([
+        Promise.allSettled(updatePromises),
+        new Promise(resolve => setTimeout(resolve, 10000)) // 10s timeout
+      ]);
 
       // Show results
       const action = forceAll ? 'Republished' : 'Synced';
@@ -148,6 +154,8 @@ export default function SyncToNostrButton({
       console.error('Error syncing favorites:', error);
       toast.error('Failed to sync favorites to Nostr');
     } finally {
+      // Small delay before resetting state to prevent UI glitches
+      await new Promise(resolve => setTimeout(resolve, 100));
       setIsSyncing(false);
       setProgress({ completed: 0, total: 0 });
     }
