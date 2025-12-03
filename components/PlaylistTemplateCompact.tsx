@@ -996,128 +996,134 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                             return (
                               <div
                                 key={`${track.id}-${trackIndex}`}
-                                className={`group flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                                className={`group flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
                                   isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
                                 }`}
                               >
-                                {/* Track Artwork with Play Button Overlay */}
-                                {track.image ? (
-                                  <div className="relative flex-shrink-0 w-10 h-10">
-                                    <img
-                                      src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
-                                      alt={track.title}
-                                      className="w-10 h-10 rounded object-cover"
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = getPlaceholderImageUrl('thumbnail');
+                                {/* Row 1: Artwork + Track Info */}
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  {/* Track Artwork with Play Button Overlay */}
+                                  {track.image ? (
+                                    <div className="relative flex-shrink-0 w-10 h-10">
+                                      <img
+                                        src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
+                                        alt={track.title}
+                                        className="w-10 h-10 rounded object-cover"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = getPlaceholderImageUrl('thumbnail');
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => handlePlay(track)}
+                                        disabled={isLoading}
+                                        className={`absolute inset-0 flex items-center justify-center rounded bg-black/50 transition-opacity ${
+                                          isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                        }`}
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="h-4 w-4 text-white animate-spin" />
+                                        ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                                          <Pause className="h-4 w-4 text-white" />
+                                        ) : (
+                                          <Play className="h-4 w-4 text-white" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="w-10 h-10 flex items-center justify-center">
+                                      <button
+                                        onClick={() => handlePlay(track)}
+                                        disabled={isLoading}
+                                        className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                                          isCurrentTrack ? 'bg-stablekraft-teal text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+                                        }`}
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                                          <Pause className="h-3 w-3" />
+                                        ) : (
+                                          <Play className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Track Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className={`text-sm font-medium line-clamp-2 sm:truncate sm:line-clamp-none ${
+                                      isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
+                                    }`}>
+                                      {track.valueForValue?.resolvedTitle || track.title}
+                                    </h3>
+                                    <p className="text-xs text-white/70 truncate">
+                                      {track.valueForValue?.resolvedArtist || track.artist}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Row 2 on mobile: Duration & Action Buttons */}
+                                <div className="flex items-center gap-2 pl-[52px] sm:pl-0 flex-shrink-0">
+                                  {/* Duration */}
+                                  <span className="text-xs text-white font-medium bg-black/40 px-1.5 py-0.5 rounded tabular-nums flex-shrink-0">
+                                    {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
+                                  </span>
+
+                                  {/* Share Button */}
+                                  {(track.albumTitle || track.feedTitle) && (
+                                    <button
+                                      className="flex-shrink-0 p-1.5 bg-black/40 hover:bg-purple-500/50 text-white rounded transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const albumTitle = track.albumTitle || track.feedTitle || '';
+                                        const albumSlug = generateAlbumSlug(albumTitle);
+                                        const albumUrl = `${window.location.origin}/album/${albumSlug}`;
+                                        navigator.clipboard.writeText(albumUrl).then(() => {
+                                          toast.success('Link copied!');
+                                        }).catch(() => {
+                                          toast.error('Failed to copy link');
+                                        });
                                       }}
+                                      title="Copy album link"
+                                    >
+                                      <Share2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+
+                                  {/* Favorite Button */}
+                                  <div className="flex-shrink-0 bg-black/40 rounded">
+                                    <FavoriteButton
+                                      trackId={track.itemGuid || track.id}
+                                      feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
+                                      size={16}
+                                      className="p-1.5"
                                     />
-                                    <button
-                                      onClick={() => handlePlay(track)}
-                                      disabled={isLoading}
-                                      className={`absolute inset-0 flex items-center justify-center rounded bg-black/50 transition-opacity ${
-                                        isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                      }`}
-                                    >
-                                      {isLoading ? (
-                                        <Loader2 className="h-4 w-4 text-white animate-spin" />
-                                      ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
-                                        <Pause className="h-4 w-4 text-white" />
-                                      ) : (
-                                        <Play className="h-4 w-4 text-white" />
-                                      )}
-                                    </button>
                                   </div>
-                                ) : (
-                                  <div className="w-10 h-10 flex items-center justify-center">
-                                    <button
-                                      onClick={() => handlePlay(track)}
-                                      disabled={isLoading}
-                                      className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                                        isCurrentTrack ? 'bg-stablekraft-teal text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
-                                      }`}
-                                    >
-                                      {isLoading ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
-                                        <Pause className="h-3 w-3" />
-                                      ) : (
-                                        <Play className="h-3 w-3" />
-                                      )}
-                                    </button>
+
+                                  {/* Boost Button */}
+                                  <div className="flex-shrink-0">
+                                    <BoostButton
+                                      trackId={track.id}
+                                      feedId={track.valueForValue?.feedGuid || track.feedGuid}
+                                      trackTitle={track.valueForValue?.resolvedTitle || track.title}
+                                      artistName={track.valueForValue?.resolvedArtist || track.artist}
+                                      lightningAddress={track.v4vRecipient}
+                                      valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
+                                        ? (track.v4vValue.recipients || track.v4vValue.destinations)
+                                            .filter((r: any) => !r.fee)
+                                            .map((r: any) => ({
+                                              name: r.name || track.artist,
+                                              address: r.address || '',
+                                              split: parseInt(r.split) || 100,
+                                              type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
+                                            }))
+                                        : undefined}
+                                      episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
+                                      remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
+                                      className="text-xs"
+                                    />
                                   </div>
-                                )}
-
-                                {/* Track Info */}
-                                <div className="flex-1 min-w-0">
-                                  <h3 className={`text-sm font-medium truncate ${
-                                    isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
-                                  }`}>
-                                    {track.valueForValue?.resolvedTitle || track.title}
-                                  </h3>
-                                  <p className="text-xs text-white/70 truncate">
-                                    {track.valueForValue?.resolvedArtist || track.artist}
-                                  </p>
-                                </div>
-
-                                {/* Duration */}
-                                <span className="text-xs text-white font-medium bg-black/40 px-1.5 py-0.5 rounded tabular-nums flex-shrink-0">
-                                  {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
-                                </span>
-
-                                {/* Share Button */}
-                                {(track.albumTitle || track.feedTitle) && (
-                                  <button
-                                    className="flex-shrink-0 p-1.5 bg-black/40 hover:bg-purple-500/50 text-white rounded transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const albumTitle = track.albumTitle || track.feedTitle || '';
-                                      const albumSlug = generateAlbumSlug(albumTitle);
-                                      const albumUrl = `${window.location.origin}/album/${albumSlug}`;
-                                      navigator.clipboard.writeText(albumUrl).then(() => {
-                                        toast.success('Link copied!');
-                                      }).catch(() => {
-                                        toast.error('Failed to copy link');
-                                      });
-                                    }}
-                                    title="Copy album link"
-                                  >
-                                    <Share2 className="w-4 h-4" />
-                                  </button>
-                                )}
-
-                                {/* Favorite Button */}
-                                <div className="flex-shrink-0 bg-black/40 rounded">
-                                  <FavoriteButton
-                                    trackId={track.itemGuid || track.id}
-                                    feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
-                                    size={16}
-                                    className="p-1.5"
-                                  />
-                                </div>
-
-                                {/* Boost Button */}
-                                <div className="flex-shrink-0">
-                                  <BoostButton
-                                    trackId={track.id}
-                                    feedId={track.valueForValue?.feedGuid || track.feedGuid}
-                                    trackTitle={track.valueForValue?.resolvedTitle || track.title}
-                                    artistName={track.valueForValue?.resolvedArtist || track.artist}
-                                    lightningAddress={track.v4vRecipient}
-                                    valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
-                                      ? (track.v4vValue.recipients || track.v4vValue.destinations)
-                                          .filter((r: any) => !r.fee)
-                                          .map((r: any) => ({
-                                            name: r.name || track.artist,
-                                            address: r.address || '',
-                                            split: parseInt(r.split) || 100,
-                                            type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
-                                          }))
-                                      : undefined}
-                                    episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
-                                    remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
-                                    className="text-xs"
-                                  />
                                 </div>
                               </div>
                             );
@@ -1137,161 +1143,167 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
               return (
                 <div
                   key={`${track.id}-${index}`}
-                  className={`group flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
+                  className={`group flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${
                     isCurrentTrack ? 'bg-stablekraft-teal/20' : ''
                   }`}
                 >
-                  {/* Track Artwork with Play Button Overlay */}
-                  {track.image ? (
-                    <div className="relative flex-shrink-0 w-12 h-12">
-                      <img
-                        src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
-                        alt={track.title}
-                        className="w-12 h-12 rounded object-cover"
-                        onError={(e) => {
-                          // Fallback to placeholder if image fails to load
-                          const target = e.target as HTMLImageElement;
-                          target.src = getPlaceholderImageUrl('thumbnail');
-                        }}
-                      />
-                      {/* Play button overlay */}
-                      <button
-                        onClick={() => handlePlay(track)}
-                        disabled={isLoading}
-                        className={`absolute inset-0 flex items-center justify-center rounded bg-black/50 transition-opacity ${
-                          isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        }`}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-5 w-5 text-white animate-spin" />
-                        ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
-                          <Pause className="h-5 w-5 text-white" />
-                        ) : (
-                          <Play className="h-5 w-5 text-white" />
+                  {/* Row 1: Artwork + Track Info */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* Track Artwork with Play Button Overlay */}
+                    {track.image ? (
+                      <div className="relative flex-shrink-0 w-12 h-12">
+                        <img
+                          src={getAlbumArtworkUrl(track.image, 'thumbnail', false)}
+                          alt={track.title}
+                          className="w-12 h-12 rounded object-cover"
+                          onError={(e) => {
+                            // Fallback to placeholder if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.src = getPlaceholderImageUrl('thumbnail');
+                          }}
+                        />
+                        {/* Play button overlay */}
+                        <button
+                          onClick={() => handlePlay(track)}
+                          disabled={isLoading}
+                          className={`absolute inset-0 flex items-center justify-center rounded bg-black/50 transition-opacity ${
+                            isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-5 w-5 text-white animate-spin" />
+                          ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                            <Pause className="h-5 w-5 text-white" />
+                          ) : (
+                            <Play className="h-5 w-5 text-white" />
+                          )}
+                        </button>
+                        {/* Rank badge for Top 100 */}
+                        {track.rank && (
+                          <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ${
+                            track.rank === 1
+                              ? 'bg-yellow-500 text-black'
+                              : track.rank <= 3
+                                ? 'bg-gray-300 text-black'
+                                : track.rank <= 10
+                                  ? 'bg-amber-700 text-white'
+                                  : 'bg-gray-700 text-white'
+                          }`}>
+                            {track.rank}
+                          </div>
                         )}
-                      </button>
-                      {/* Rank badge for Top 100 */}
-                      {track.rank && (
-                        <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ${
-                          track.rank === 1
-                            ? 'bg-yellow-500 text-black'
-                            : track.rank <= 3
-                              ? 'bg-gray-300 text-black'
-                              : track.rank <= 10
-                                ? 'bg-amber-700 text-white'
-                                : 'bg-gray-700 text-white'
+                      </div>
+                    ) : (
+                      /* Fallback: Track Number / Play Button when no image */
+                      <div className="w-12 h-12 flex items-center justify-center">
+                        <button
+                          onClick={() => handlePlay(track)}
+                          disabled={isLoading}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                            isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          } ${
+                            isCurrentTrack
+                              ? 'bg-stablekraft-teal text-white'
+                              : 'bg-gray-700 hover:bg-gray-600 text-white'
+                          }`}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </button>
+                        <span className={`absolute text-sm text-gray-400 transition-opacity ${
+                          isCurrentTrack ? 'opacity-0' : 'group-hover:opacity-0'
                         }`}>
-                          {track.rank}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Fallback: Track Number / Play Button when no image */
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <button
-                        onClick={() => handlePlay(track)}
-                        disabled={isLoading}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                          isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        } ${
-                          isCurrentTrack
-                            ? 'bg-stablekraft-teal text-white'
-                            : 'bg-gray-700 hover:bg-gray-600 text-white'
-                        }`}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : isCurrentTrack && (shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused) ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                      </button>
-                      <span className={`absolute text-sm text-gray-400 transition-opacity ${
-                        isCurrentTrack ? 'opacity-0' : 'group-hover:opacity-0'
-                      }`}>
-                        {index + 1}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Track Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`text-sm font-medium truncate ${
-                      isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
-                    }`}>
-                      {track.valueForValue?.resolvedTitle || track.title}
-                    </h3>
-                    <p className="text-xs text-white/70 truncate">
-                      {track.valueForValue?.resolvedArtist || track.artist}
-                    </p>
-                  </div>
-
-                  {/* Duration & V4V Badge */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {track.valueForValue?.resolved && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">
-                        V4V
-                      </span>
+                          {index + 1}
+                        </span>
+                      </div>
                     )}
-                    <span className="text-xs text-white/70 tabular-nums">
-                      {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
-                    </span>
+
+                    {/* Track Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`text-sm font-medium line-clamp-2 sm:truncate sm:line-clamp-none ${
+                        isCurrentTrack ? 'text-stablekraft-teal' : 'text-white'
+                      }`}>
+                        {track.valueForValue?.resolvedTitle || track.title}
+                      </h3>
+                      <p className="text-xs text-white/70 truncate">
+                        {track.valueForValue?.resolvedArtist || track.artist}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Share Button - copies link to track's album page */}
-                  {(track.albumTitle || track.feedTitle) && (
-                    <button
-                      className="flex-shrink-0 p-1 text-white/70 hover:text-purple-400 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const albumTitle = track.albumTitle || track.feedTitle || '';
-                        const albumSlug = generateAlbumSlug(albumTitle);
-                        const albumUrl = `${window.location.origin}/album/${albumSlug}`;
-                        navigator.clipboard.writeText(albumUrl).then(() => {
-                          toast.success('Link copied!');
-                        }).catch(() => {
-                          toast.error('Failed to copy link');
-                        });
-                      }}
-                      title="Copy album link"
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  {/* Row 2 on mobile: Duration & Action Buttons */}
+                  <div className="flex items-center gap-2 pl-[60px] sm:pl-0 flex-shrink-0">
+                    {/* Duration & V4V Badge */}
+                    <div className="flex items-center gap-2">
+                      {track.valueForValue?.resolved && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">
+                          V4V
+                        </span>
+                      )}
+                      <span className="text-xs text-white/70 tabular-nums">
+                        {formatDuration(track.valueForValue?.resolvedDuration || track.duration)}
+                      </span>
+                    </div>
 
-                  {/* Favorite Button */}
-                  <div className="flex-shrink-0">
-                    <FavoriteButton
-                      trackId={track.itemGuid || track.id}
-                      feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
-                      size={18}
-                      className="p-1"
-                    />
-                  </div>
+                    {/* Share Button - copies link to track's album page */}
+                    {(track.albumTitle || track.feedTitle) && (
+                      <button
+                        className="flex-shrink-0 p-1 text-white/70 hover:text-purple-400 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const albumTitle = track.albumTitle || track.feedTitle || '';
+                          const albumSlug = generateAlbumSlug(albumTitle);
+                          const albumUrl = `${window.location.origin}/album/${albumSlug}`;
+                          navigator.clipboard.writeText(albumUrl).then(() => {
+                            toast.success('Link copied!');
+                          }).catch(() => {
+                            toast.error('Failed to copy link');
+                          });
+                        }}
+                        title="Copy album link"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    )}
 
-                  {/* Boost Button - Far Right */}
-                  <div className="flex-shrink-0">
-                    <BoostButton
-                      trackId={track.id}
-                      feedId={track.valueForValue?.feedGuid || track.feedGuid}
-                      trackTitle={track.valueForValue?.resolvedTitle || track.title}
-                      artistName={track.valueForValue?.resolvedArtist || track.artist}
-                      lightningAddress={track.v4vRecipient}
-                      valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
-                        ? (track.v4vValue.recipients || track.v4vValue.destinations)
-                            .filter((r: any) => !r.fee)
-                            .map((r: any) => ({
-                              name: r.name || track.artist,
-                              address: r.address || '',
-                              split: parseInt(r.split) || 100,
-                              type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
-                            }))
-                        : undefined}
-                      episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
-                      remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
-                      className="text-xs"
-                    />
+                    {/* Favorite Button */}
+                    <div className="flex-shrink-0">
+                      <FavoriteButton
+                        trackId={track.itemGuid || track.id}
+                        feedGuidForImport={track.feedGuid || track.valueForValue?.feedGuid}
+                        size={18}
+                        className="p-1"
+                      />
+                    </div>
+
+                    {/* Boost Button - Far Right */}
+                    <div className="flex-shrink-0">
+                      <BoostButton
+                        trackId={track.id}
+                        feedId={track.valueForValue?.feedGuid || track.feedGuid}
+                        trackTitle={track.valueForValue?.resolvedTitle || track.title}
+                        artistName={track.valueForValue?.resolvedArtist || track.artist}
+                        lightningAddress={track.v4vRecipient}
+                        valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
+                          ? (track.v4vValue.recipients || track.v4vValue.destinations)
+                              .filter((r: any) => !r.fee)
+                              .map((r: any) => ({
+                                name: r.name || track.artist,
+                                address: r.address || '',
+                                split: parseInt(r.split) || 100,
+                                type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
+                              }))
+                          : undefined}
+                        episodeGuid={track.valueForValue?.itemGuid || track.itemGuid}
+                        remoteFeedGuid={track.valueForValue?.feedGuid || track.feedGuid}
+                        className="text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               );
