@@ -21,6 +21,7 @@ export default function SyncToNostrButton({
   const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [republishComplete, setRepublishComplete] = useState(false);
 
   // Don't show for NIP-05 (read-only) users
   const isNip05Login = user?.loginType === 'nip05';
@@ -136,8 +137,10 @@ export default function SyncToNostrButton({
       const action = forceAll ? 'Republished' : 'Synced';
       if (result.successful.length > 0 && result.failed.length === 0) {
         toast.success(`${action} ${result.successful.length} favorites to Nostr`);
+        if (forceAll) setRepublishComplete(true);
       } else if (result.successful.length > 0 && result.failed.length > 0) {
         toast.warning(`${action} ${result.successful.length} favorites, ${result.failed.length} failed`);
+        if (forceAll) setRepublishComplete(true);
       } else if (result.failed.length > 0) {
         toast.error(`Failed to sync ${result.failed.length} favorites`);
       }
@@ -196,8 +199,8 @@ export default function SyncToNostrButton({
         </button>
       )}
 
-      {/* Republish all button (for NIP-51 migration) */}
-      {totalCount > 0 && unpublishedCount === 0 && (
+      {/* Republish all button (for NIP-51 migration) - hide after complete */}
+      {totalCount > 0 && unpublishedCount === 0 && !republishComplete && (
         <button
           onClick={() => handleSync(true)}
           disabled={isSyncing}
