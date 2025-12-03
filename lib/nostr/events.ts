@@ -240,27 +240,34 @@ export function createMetadata(
   );
 }
 
+// NIP-51 compliant favorite event kind
+const FAVORITE_KIND = 30001;
+
 /**
- * Create a kind 30001 favorite track event
- * @param trackId - Track ID
- * @param trackTitle - Track title (optional, for display)
- * @param artistName - Artist name (optional, for display)
+ * Create a NIP-51 compliant favorite event (kind 30001)
+ * Uses ["d", itemId] for parameterized replaceable events
+ * Uses ["t", type] for type discrimination
+ * @param type - 'track' or 'album'
+ * @param itemId - Track ID or Feed ID
  * @param privateKey - Private key in hex format
- * @returns Signed favorite track event
+ * @param title - Title (optional, for display)
+ * @param artistName - Artist name (optional, for display)
+ * @returns Signed favorite event
  */
-export function createFavoriteTrackEvent(
-  trackId: string,
+export function createFavoriteEvent(
+  type: 'track' | 'album',
+  itemId: string,
   privateKey: string,
-  trackTitle?: string,
+  title?: string,
   artistName?: string
 ): Event {
   const tags: string[][] = [
-    ['t', 'favorite-track'],
-    ['trackId', trackId],
+    ['d', itemId],           // NIP-51: parameterized replaceable event identifier
+    ['t', type],             // Type discriminator: 'track' or 'album'
   ];
 
-  if (trackTitle) {
-    tags.push(['title', trackTitle]);
+  if (title) {
+    tags.push(['title', title]);
   }
 
   if (artistName) {
@@ -268,14 +275,15 @@ export function createFavoriteTrackEvent(
   }
 
   const content = JSON.stringify({
-    trackId,
-    ...(trackTitle && { title: trackTitle }),
+    type,
+    id: itemId,
+    ...(title && { title }),
     ...(artistName && { artist: artistName }),
   });
 
   return createEvent(
     {
-      kind: 30001, // Custom kind for favorite tracks
+      kind: FAVORITE_KIND,
       tags,
       content,
       created_at: Math.floor(Date.now() / 1000),
@@ -285,26 +293,26 @@ export function createFavoriteTrackEvent(
 }
 
 /**
- * Create a kind 30002 favorite album event
- * @param feedId - Feed/Album ID
- * @param albumTitle - Album title (optional, for display)
+ * Create a NIP-51 compliant favorite event template (unsigned)
+ * @param type - 'track' or 'album'
+ * @param itemId - Track ID or Feed ID
+ * @param title - Title (optional, for display)
  * @param artistName - Artist name (optional, for display)
- * @param privateKey - Private key in hex format
- * @returns Signed favorite album event
+ * @returns Unsigned event template
  */
-export function createFavoriteAlbumEvent(
-  feedId: string,
-  privateKey: string,
-  albumTitle?: string,
+export function createFavoriteEventTemplate(
+  type: 'track' | 'album',
+  itemId: string,
+  title?: string,
   artistName?: string
-): Event {
+): EventTemplate {
   const tags: string[][] = [
-    ['t', 'favorite-album'],
-    ['feedId', feedId],
+    ['d', itemId],           // NIP-51: parameterized replaceable event identifier
+    ['t', type],             // Type discriminator: 'track' or 'album'
   ];
 
-  if (albumTitle) {
-    tags.push(['title', albumTitle]);
+  if (title) {
+    tags.push(['title', title]);
   }
 
   if (artistName) {
@@ -312,20 +320,44 @@ export function createFavoriteAlbumEvent(
   }
 
   const content = JSON.stringify({
-    feedId,
-    ...(albumTitle && { title: albumTitle }),
+    type,
+    id: itemId,
+    ...(title && { title }),
     ...(artistName && { artist: artistName }),
   });
 
-  return createEvent(
-    {
-      kind: 30002, // Custom kind for favorite albums
-      tags,
-      content,
-      created_at: Math.floor(Date.now() / 1000),
-    },
-    privateKey
-  );
+  return {
+    kind: FAVORITE_KIND,
+    tags,
+    content,
+    created_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+/**
+ * @deprecated Use createFavoriteEvent(type, itemId, ...) instead
+ * Create a kind 30001 favorite track event
+ */
+export function createFavoriteTrackEvent(
+  trackId: string,
+  privateKey: string,
+  trackTitle?: string,
+  artistName?: string
+): Event {
+  return createFavoriteEvent('track', trackId, privateKey, trackTitle, artistName);
+}
+
+/**
+ * @deprecated Use createFavoriteEvent(type, itemId, ...) instead
+ * Create a kind 30001 favorite album event (was kind 30002, now unified)
+ */
+export function createFavoriteAlbumEvent(
+  feedId: string,
+  privateKey: string,
+  albumTitle?: string,
+  artistName?: string
+): Event {
+  return createFavoriteEvent('album', feedId, privateKey, albumTitle, artistName);
 }
 
 /**

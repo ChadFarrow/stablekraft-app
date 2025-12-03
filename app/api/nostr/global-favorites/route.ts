@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 import {
   fetchGlobalFavorites,
   fetchProfiles,
-  FAVORITE_TRACK_KIND,
-  FAVORITE_ALBUM_KIND,
+  FAVORITE_KIND,
+  FAVORITE_ALBUM_KIND, // Legacy: for backward compatibility reading old events
 } from '@/lib/nostr/global-favorites';
 
 export interface EnrichedGlobalFavorite {
@@ -88,18 +88,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Determine which kinds to fetch
-    let kinds: number[];
-    switch (type) {
-      case 'tracks':
-        kinds = [FAVORITE_TRACK_KIND];
-        break;
-      case 'albums':
-        kinds = [FAVORITE_ALBUM_KIND];
-        break;
-      default:
-        kinds = [FAVORITE_TRACK_KIND, FAVORITE_ALBUM_KIND];
-    }
+    // Determine which type to fetch (NIP-51 compliant: type discrimination via tags, not kinds)
+    // Query both kinds for backward compatibility (old events used kind 30002 for albums)
+    const kinds = [FAVORITE_KIND, FAVORITE_ALBUM_KIND];
+    const typeFilter: 'track' | 'album' | 'all' = type === 'tracks' ? 'track' : type === 'albums' ? 'album' : 'all';
 
     // Fixed cutoff date: November 27th, 2025 UTC - don't show anything older
     const cutoffTimestamp = Math.floor(Date.UTC(2025, 10, 27) / 1000); // Month is 0-indexed, so 10 = November
@@ -112,6 +104,7 @@ export async function GET(request: NextRequest) {
     const favorites = await fetchGlobalFavorites({
       limit: limit * 4, // Fetch more to account for filtering
       kinds,
+      type: typeFilter, // NIP-51: filter by type tag instead of kind
       excludePubkey: excludeSelf && userPubkey ? userPubkey : undefined,
       timeout: 15000, // Increased timeout for more relays
       since: cutoffTimestamp, // Only get favorites from Nov 27, 2025 onwards

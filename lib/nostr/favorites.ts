@@ -2,20 +2,156 @@
  * Nostr favorites utilities
  * Handles publishing favorites to Nostr relays for decentralized storage
  * Also stored in database for fast queries
+ *
+ * NIP-51 compliant: Uses kind 30001 with ["d", itemId] and ["t", type] tags
  */
 
 import { Event } from 'nostr-tools';
-import { createFavoriteTrackEvent, createFavoriteAlbumEvent, createFavoriteDeletionEvent } from './events';
+import { createFavoriteEvent, createFavoriteTrackEvent, createFavoriteAlbumEvent, createFavoriteDeletionEvent } from './events';
 import { RelayManager, getDefaultRelays } from './relay';
 
+// NIP-51 compliant favorite event kind
+const FAVORITE_KIND = 30001;
+
 /**
- * Publish a favorite track event to Nostr relays
- * @param trackId - Track ID
- * @param privateKey - Private key (hex) or use extension if available
- * @param trackTitle - Optional track title
+ * Create a NIP-51 compliant favorite event template (unsigned)
+ */
+function createFavoriteEventTemplate(
+  type: 'track' | 'album',
+  itemId: string,
+  title?: string,
+  artistName?: string
+) {
+  return {
+    kind: FAVORITE_KIND,
+    tags: [
+      ['d', itemId],           // NIP-51: parameterized replaceable event identifier
+      ['t', type],             // Type discriminator
+      ...(title ? [['title', title]] : []),
+      ...(artistName ? [['artist', artistName]] : []),
+    ],
+    content: JSON.stringify({
+      type,
+      id: itemId,
+      ...(title && { title }),
+      ...(artistName && { artist: artistName }),
+    }),
+    created_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+/**
+ * Publish a favorite to Nostr relays (NIP-51 compliant)
+ * @param type - 'track' or 'album'
+ * @param itemId - Track ID or Feed ID
+ * @param privateKey - Private key (hex) or null for extension/NIP-46
+ * @param title - Optional title
  * @param artistName - Optional artist name
- * @param relays - Optional relay URLs (defaults to user's configured relays or default relays)
+ * @param relays - Optional relay URLs
  * @returns Published event ID
+ */
+export async function publishFavoriteToNostr(
+  type: 'track' | 'album',
+  itemId: string,
+  privateKey: string | null,
+  title?: string,
+  artistName?: string,
+  relays?: string[]
+): Promise<string | null> {
+  try {
+    // For extension/NIP-46 logins, use unified signer
+    if (!privateKey && typeof window !== 'undefined') {
+      const { getUnifiedSigner } = await import('./signer');
+      const signer = getUnifiedSigner();
+
+      // Wait for signer initialization to complete
+      await signer.ensureInitialized();
+
+      // Check if signer is available, if not try to reconnect NIP-55
+      if (!signer.isAvailable()) {
+        const loginType = localStorage.getItem('nostr_login_type');
+
+        if (loginType === 'nip55') {
+          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
+          try {
+            const { NIP55Client } = await import('./nip55-client');
+            const nip55Client = new NIP55Client();
+            await nip55Client.connect();
+            await signer.setNIP55Signer(nip55Client);
+            console.log('✅ Favorites: NIP-55 reconnected successfully!');
+          } catch (reconnectError) {
+            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
+            console.log(`ℹ️ Favorite ${type} not posted to Nostr: NIP-55 reconnection failed`);
+            return null;
+          }
+        } else {
+          console.log(`ℹ️ Favorite ${type} not posted to Nostr: No signer available`);
+          return null;
+        }
+      }
+
+      if (signer.isAvailable()) {
+        const event = createFavoriteEventTemplate(type, itemId, title, artistName);
+        const signedEvent = await signer.signEvent(event as any);
+
+        // Publish to relays
+        const relayUrls = relays || getDefaultRelays();
+        const relayManager = new RelayManager();
+
+        await Promise.all(
+          relayUrls.map(url =>
+            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          )
+        );
+
+        const results = await relayManager.publish(signedEvent);
+        const hasSuccess = results.some(r => r.status === 'fulfilled');
+
+        if (hasSuccess) {
+          console.log(`✅ Published favorite ${type} to Nostr:`, signedEvent.id);
+          return signedEvent.id;
+        } else {
+          console.warn(`⚠️ Failed to publish favorite ${type} to any relay`);
+          return null;
+        }
+      }
+    }
+
+    // For manual key logins, sign with the private key
+    if (privateKey) {
+      const event = createFavoriteEvent(type, itemId, privateKey, title, artistName);
+
+      const relayUrls = relays || getDefaultRelays();
+      const relayManager = new RelayManager();
+
+      await Promise.all(
+        relayUrls.map(url =>
+          relayManager.connect(url, { read: false, write: true }).catch(() => {})
+        )
+      );
+
+      const results = await relayManager.publish(event);
+      const hasSuccess = results.some(r => r.status === 'fulfilled');
+
+      if (hasSuccess) {
+        console.log(`✅ Published favorite ${type} to Nostr:`, event.id);
+        return event.id;
+      } else {
+        console.warn(`⚠️ Failed to publish favorite ${type} to any relay`);
+        return null;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`❌ Error publishing favorite ${type} to Nostr:`, error);
+    return null;
+  }
+}
+
+/**
+ * @deprecated Use publishFavoriteToNostr('track', ...) instead
+ * Publish a favorite track event to Nostr relays
  */
 export async function publishFavoriteTrackToNostr(
   trackId: string,
@@ -24,120 +160,12 @@ export async function publishFavoriteTrackToNostr(
   artistName?: string,
   relays?: string[]
 ): Promise<string | null> {
-  try {
-    // For extension/NIP-46 logins, use unified signer
-    if (!privateKey && typeof window !== 'undefined') {
-      const { getUnifiedSigner } = await import('./signer');
-      const signer = getUnifiedSigner();
-
-      // Wait for signer initialization to complete (fixes race condition)
-      await signer.ensureInitialized();
-
-      // Check if signer is available, if not try to reconnect NIP-55
-      if (!signer.isAvailable()) {
-        const loginType = localStorage.getItem('nostr_login_type');
-
-        if (loginType === 'nip55') {
-          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
-          try {
-            const { NIP55Client } = await import('./nip55-client');
-            const nip55Client = new NIP55Client();
-            await nip55Client.connect();
-            await signer.setNIP55Signer(nip55Client);
-            console.log('✅ Favorites: NIP-55 reconnected successfully!');
-          } catch (reconnectError) {
-            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
-            console.log('ℹ️ Favorite track not posted to Nostr: NIP-55 reconnection failed');
-            return null;
-          }
-        } else {
-          console.log('ℹ️ Favorite track not posted to Nostr: No signer available');
-          return null;
-        }
-      }
-
-      if (signer.isAvailable()) {
-        const event = {
-          kind: 30001,
-          tags: [
-            ['t', 'favorite-track'],
-            ['trackId', trackId],
-            ...(trackTitle ? [['title', trackTitle]] : []),
-            ...(artistName ? [['artist', artistName]] : []),
-          ],
-          content: JSON.stringify({
-            trackId,
-            ...(trackTitle && { title: trackTitle }),
-            ...(artistName && { artist: artistName }),
-          }),
-          created_at: Math.floor(Date.now() / 1000),
-        };
-
-        const signedEvent = await signer.signEvent(event as any);
-        
-        // Publish to relays
-        const relayUrls = relays || getDefaultRelays();
-        const relayManager = new RelayManager();
-        
-        await Promise.all(
-          relayUrls.map(url =>
-            relayManager.connect(url, { read: false, write: true }).catch(() => {})
-          )
-        );
-
-        const results = await relayManager.publish(signedEvent);
-        const hasSuccess = results.some(r => r.status === 'fulfilled');
-        
-        if (hasSuccess) {
-          console.log('✅ Published favorite track to Nostr:', signedEvent.id);
-          return signedEvent.id;
-        } else {
-          console.warn('⚠️ Failed to publish favorite track to any relay');
-          return null;
-        }
-      }
-    }
-
-    // For manual key logins, sign with the private key
-    if (privateKey) {
-      const event = createFavoriteTrackEvent(trackId, privateKey, trackTitle, artistName);
-      
-      const relayUrls = relays || getDefaultRelays();
-      const relayManager = new RelayManager();
-      
-      await Promise.all(
-        relayUrls.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
-        )
-      );
-
-      const results = await relayManager.publish(event);
-      const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
-      if (hasSuccess) {
-        console.log('✅ Published favorite track to Nostr:', event.id);
-        return event.id;
-      } else {
-        console.warn('⚠️ Failed to publish favorite track to any relay');
-        return null;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('❌ Error publishing favorite track to Nostr:', error);
-    return null;
-  }
+  return publishFavoriteToNostr('track', trackId, privateKey, trackTitle, artistName, relays);
 }
 
 /**
+ * @deprecated Use publishFavoriteToNostr('album', ...) instead
  * Publish a favorite album event to Nostr relays
- * @param feedId - Feed/Album ID
- * @param privateKey - Private key (hex) or use extension if available
- * @param albumTitle - Optional album title
- * @param artistName - Optional artist name
- * @param relays - Optional relay URLs
- * @returns Published event ID
  */
 export async function publishFavoriteAlbumToNostr(
   feedId: string,
@@ -146,110 +174,7 @@ export async function publishFavoriteAlbumToNostr(
   artistName?: string,
   relays?: string[]
 ): Promise<string | null> {
-  try {
-    // For extension/NIP-46 logins, use unified signer
-    if (!privateKey && typeof window !== 'undefined') {
-      const { getUnifiedSigner } = await import('./signer');
-      const signer = getUnifiedSigner();
-
-      // Wait for signer initialization to complete (fixes race condition)
-      await signer.ensureInitialized();
-
-      // Check if signer is available, if not try to reconnect NIP-55
-      if (!signer.isAvailable()) {
-        const loginType = localStorage.getItem('nostr_login_type');
-
-        if (loginType === 'nip55') {
-          console.log('🔄 Favorites: NIP-55 signer not available, attempting to reconnect...');
-          try {
-            const { NIP55Client } = await import('./nip55-client');
-            const nip55Client = new NIP55Client();
-            await nip55Client.connect();
-            await signer.setNIP55Signer(nip55Client);
-            console.log('✅ Favorites: NIP-55 reconnected successfully!');
-          } catch (reconnectError) {
-            console.warn('⚠️ Favorites: Failed to reconnect NIP-55:', reconnectError);
-            console.log('ℹ️ Favorite album not posted to Nostr: NIP-55 reconnection failed');
-            return null;
-          }
-        } else {
-          console.log('ℹ️ Favorite album not posted to Nostr: No signer available');
-          return null;
-        }
-      }
-
-      if (signer.isAvailable()) {
-        const event = {
-          kind: 30002,
-          tags: [
-            ['t', 'favorite-album'],
-            ['feedId', feedId],
-            ...(albumTitle ? [['title', albumTitle]] : []),
-            ...(artistName ? [['artist', artistName]] : []),
-          ],
-          content: JSON.stringify({
-            feedId,
-            ...(albumTitle && { title: albumTitle }),
-            ...(artistName && { artist: artistName }),
-          }),
-          created_at: Math.floor(Date.now() / 1000),
-        };
-
-        const signedEvent = await signer.signEvent(event as any);
-        
-        // Publish to relays
-        const relayUrls = relays || getDefaultRelays();
-        const relayManager = new RelayManager();
-        
-        await Promise.all(
-          relayUrls.map(url =>
-            relayManager.connect(url, { read: false, write: true }).catch(() => {})
-          )
-        );
-
-        const results = await relayManager.publish(signedEvent);
-        const hasSuccess = results.some(r => r.status === 'fulfilled');
-        
-        if (hasSuccess) {
-          console.log('✅ Published favorite album to Nostr:', signedEvent.id);
-          return signedEvent.id;
-        } else {
-          console.warn('⚠️ Failed to publish favorite album to any relay');
-          return null;
-        }
-      }
-    }
-
-    // For manual key logins, sign with the private key
-    if (privateKey) {
-      const event = createFavoriteAlbumEvent(feedId, privateKey, albumTitle, artistName);
-      
-      const relayUrls = relays || getDefaultRelays();
-      const relayManager = new RelayManager();
-      
-      await Promise.all(
-        relayUrls.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
-        )
-      );
-
-      const results = await relayManager.publish(event);
-      const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
-      if (hasSuccess) {
-        console.log('✅ Published favorite album to Nostr:', event.id);
-        return event.id;
-      } else {
-        console.warn('⚠️ Failed to publish favorite album to any relay');
-        return null;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('❌ Error publishing favorite album to Nostr:', error);
-    return null;
-  }
+  return publishFavoriteToNostr('album', feedId, privateKey, albumTitle, artistName, relays);
 }
 
 /**
@@ -432,37 +357,8 @@ export async function batchPublishFavoritesToNostr(
     }
 
     try {
-      const event = favorite.type === 'track'
-        ? {
-            kind: 30001,
-            tags: [
-              ['t', 'favorite-track'],
-              ['trackId', favorite.id],
-              ...(favorite.title ? [['title', favorite.title]] : []),
-              ...(favorite.artist ? [['artist', favorite.artist]] : []),
-            ],
-            content: JSON.stringify({
-              trackId: favorite.id,
-              ...(favorite.title && { title: favorite.title }),
-              ...(favorite.artist && { artist: favorite.artist }),
-            }),
-            created_at: Math.floor(Date.now() / 1000),
-          }
-        : {
-            kind: 30002,
-            tags: [
-              ['t', 'favorite-album'],
-              ['feedId', favorite.id],
-              ...(favorite.title ? [['title', favorite.title]] : []),
-              ...(favorite.artist ? [['artist', favorite.artist]] : []),
-            ],
-            content: JSON.stringify({
-              feedId: favorite.id,
-              ...(favorite.title && { title: favorite.title }),
-              ...(favorite.artist && { artist: favorite.artist }),
-            }),
-            created_at: Math.floor(Date.now() / 1000),
-          };
+      // Use NIP-51 compliant event format (unified kind 30001 with type in tags)
+      const event = createFavoriteEventTemplate(favorite.type, favorite.id, favorite.title, favorite.artist);
 
       const signedEvent = await signer.signEvent(event as any);
       const results = await relayManager.publish(signedEvent);

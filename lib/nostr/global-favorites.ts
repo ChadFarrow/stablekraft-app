@@ -3,7 +3,9 @@ import { NostrClient } from './client';
 import { getDefaultRelays } from './relay';
 import { publicKeyToNpub } from './keys';
 
-// Event kinds for favorites
+// Event kind for favorites (NIP-51 compliant - single kind with type discrimination via tags)
+export const FAVORITE_KIND = 30001;
+// Legacy: Keep for backward compatibility reading old events
 export const FAVORITE_TRACK_KIND = 30001;
 export const FAVORITE_ALBUM_KIND = 30002;
 
@@ -22,7 +24,8 @@ export interface GlobalFavorite {
 
 export interface FetchGlobalFavoritesOptions {
   limit?: number;
-  kinds?: number[]; // [30001], [30002], or [30001, 30002]
+  kinds?: number[]; // Default: [30001, 30002] for backward compatibility
+  type?: 'track' | 'album' | 'all'; // Filter by type (parsed from tags, not kind)
   excludePubkey?: string; // Exclude own favorites
   relays?: string[];
   timeout?: number;
@@ -31,26 +34,36 @@ export interface FetchGlobalFavoritesOptions {
 
 /**
  * Parse a favorite event to extract the item ID and metadata
+ * Supports both new NIP-51 format (type via ["t"] tag) and legacy format (type via kind)
  */
 function parseFavoriteEvent(event: Event): GlobalFavorite | null {
   try {
-    const isTrack = event.kind === FAVORITE_TRACK_KIND;
-    const isAlbum = event.kind === FAVORITE_ALBUM_KIND;
-
-    if (!isTrack && !isAlbum) {
+    // Only accept kind 30001 or 30002 (legacy)
+    if (event.kind !== FAVORITE_KIND && event.kind !== FAVORITE_ALBUM_KIND) {
       return null;
     }
 
-    // Try to get ID from tags first
     let itemId: string | undefined;
     let title: string | undefined;
     let artist: string | undefined;
+    let type: 'track' | 'album' | undefined;
 
+    // Parse tags
     for (const tag of event.tags) {
-      if (tag[0] === 'trackId' && isTrack) {
+      if (tag[0] === 't' && (tag[1] === 'track' || tag[1] === 'album')) {
+        // New NIP-51 format: type from ["t"] tag
+        type = tag[1] as 'track' | 'album';
+      } else if (tag[0] === 'd') {
+        // NIP-51 format: item ID from ["d"] tag
         itemId = tag[1];
-      } else if (tag[0] === 'feedId' && isAlbum) {
+      } else if (tag[0] === 'trackId') {
+        // Legacy format
         itemId = tag[1];
+        if (!type) type = 'track';
+      } else if (tag[0] === 'feedId') {
+        // Legacy format
+        itemId = tag[1];
+        if (!type) type = 'album';
       } else if (tag[0] === 'title') {
         title = tag[1];
       } else if (tag[0] === 'artist') {
@@ -58,24 +71,37 @@ function parseFavoriteEvent(event: Event): GlobalFavorite | null {
       }
     }
 
+    // Legacy fallback: determine type from kind if not in tags
+    if (!type) {
+      if (event.kind === FAVORITE_ALBUM_KIND) {
+        type = 'album';
+      } else {
+        type = 'track'; // Default to track for kind 30001
+      }
+    }
+
     // Fall back to content if tags don't have ID
     if (!itemId && event.content) {
       try {
         const content = JSON.parse(event.content);
-        itemId = isTrack ? content.trackId : content.feedId;
+        itemId = content.id || (type === 'track' ? content.trackId : content.feedId);
         title = title || content.title;
         artist = artist || content.artist;
+        // Also check type in content for new format
+        if (!type && content.type) {
+          type = content.type;
+        }
       } catch {
         // Content is not valid JSON
       }
     }
 
-    if (!itemId) {
+    if (!itemId || !type) {
       return null;
     }
 
     return {
-      type: isTrack ? 'track' : 'album',
+      type,
       itemId,
       title,
       artist,
@@ -100,7 +126,8 @@ export async function fetchGlobalFavorites(
 ): Promise<GlobalFavorite[]> {
   const {
     limit = 100,
-    kinds = [FAVORITE_TRACK_KIND, FAVORITE_ALBUM_KIND],
+    kinds = [FAVORITE_KIND, FAVORITE_ALBUM_KIND], // Query both for backward compatibility
+    type = 'all',
     excludePubkey,
     relays = getDefaultRelays(),
     timeout = 8000,
@@ -113,7 +140,7 @@ export async function fetchGlobalFavorites(
     // Build filter for favorite events
     const filter: Filter = {
       kinds,
-      limit,
+      limit: limit * 2, // Fetch extra to account for type filtering
       ...(since && { since }), // Only return events after this timestamp
     };
 
@@ -138,6 +165,10 @@ export async function fetchGlobalFavorites(
 
       const favorite = parseFavoriteEvent(event);
       if (favorite) {
+        // Filter by type if specified
+        if (type !== 'all' && favorite.type !== type) {
+          continue;
+        }
         favorites.push(favorite);
       }
     }
