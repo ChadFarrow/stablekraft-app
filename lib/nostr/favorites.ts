@@ -386,9 +386,10 @@ export async function batchPublishFavoritesToNostr(
       console.error(`❌ Batch sync: Error publishing ${favorite.type} ${favorite.id}:`, error);
     }
 
-    // Add delay between publishes to prevent rate limiting (200ms)
+    // Add delay between publishes to prevent rate limiting (500ms)
+    // Note: Some relays may still reject kind 30001 events (e.g., "only chat related events allowed")
     if (i < favorites.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
