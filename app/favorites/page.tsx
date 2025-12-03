@@ -273,6 +273,11 @@ function FavoritesPageContent() {
   const loadCommunityFavorites = async (forceRefresh = false) => {
     if (communityLoading && !forceRefresh) return;
 
+    // Clear cache if force refresh
+    if (forceRefresh && typeof window !== 'undefined') {
+      sessionStorage.removeItem(COMMUNITY_CACHE_KEY);
+    }
+
     // Check cache first (unless force refresh)
     if (!forceRefresh && typeof window !== 'undefined') {
       try {
