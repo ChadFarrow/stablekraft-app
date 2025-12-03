@@ -104,34 +104,33 @@ export default function SyncToNostrButton({
         userRelays
       );
 
-      // Update database with nostrEventIds for successful publishes (batch requests)
-      const updatePromises = result.successful.map(async (item) => {
-        const originalItem = items.find(i => i.id === item.id);
-        if (originalItem) {
-          try {
-            await fetch('/api/favorites/sync-to-nostr', {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-nostr-user-id': user.id
-              },
-              body: JSON.stringify({
-                type: originalItem.type,
-                id: item.id,
-                nostrEventId: item.nostrEventId
-              })
-            });
-          } catch (error) {
-            console.error('Failed to update database with nostrEventId:', error);
+      // Update database with nostrEventIds in batches of 10 to avoid overwhelming connections
+      const batchSize = 10;
+      for (let i = 0; i < result.successful.length; i += batchSize) {
+        const batch = result.successful.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (item) => {
+          const originalItem = items.find(it => it.id === item.id);
+          if (originalItem) {
+            try {
+              await fetch('/api/favorites/sync-to-nostr', {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-nostr-user-id': user.id
+                },
+                body: JSON.stringify({
+                  type: originalItem.type,
+                  id: item.id,
+                  nostrEventId: item.nostrEventId
+                })
+              });
+            } catch (error) {
+              console.error('Failed to update database with nostrEventId:', error);
+            }
           }
-        }
-      });
-
-      // Wait for all updates with a timeout
-      await Promise.race([
-        Promise.allSettled(updatePromises),
-        new Promise(resolve => setTimeout(resolve, 10000)) // 10s timeout
-      ]);
+        });
+        await Promise.allSettled(batchPromises);
+      }
 
       // Show results
       const action = forceAll ? 'Republished' : 'Synced';
