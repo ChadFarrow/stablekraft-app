@@ -1049,7 +1049,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   return (
                   <div
                     key={track.guid || track.url || `${track.title}-${displayIndex}`}
-                    className={`flex items-center justify-between p-4 rounded-lg transition-colors group ${
+                    className={`flex flex-col gap-2 p-4 rounded-lg transition-colors group ${
                       isUnavailable
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-white/10 cursor-pointer'
@@ -1059,7 +1059,8 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     onClick={() => !isUnavailable && playTrack(displayIndex)}
                     title={isUnavailable ? 'This track is currently unavailable' : undefined}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Row 1: Artwork + Track Info */}
+                    <div className="flex items-center gap-3">
                       <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 overflow-hidden rounded">
                         {/* Use track-specific artwork if available, fallback to album artwork */}
                         <Image
@@ -1094,14 +1095,15 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate text-sm md:text-base">{track.title}</p>
+                        <p className="font-medium line-clamp-2 text-sm md:text-base">{track.title}</p>
                         {track.subtitle && (
                           <p className="text-xs md:text-sm text-gray-400 italic truncate">{track.subtitle}</p>
                         )}
                         <p className="text-xs md:text-sm text-gray-400 truncate">{album?.artist}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                    {/* Row 2: Duration + Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 md:gap-4">
                       {track.explicit && (
                         <span className="bg-red-600 text-white px-1 py-0.5 rounded text-xs font-bold">
                           E
