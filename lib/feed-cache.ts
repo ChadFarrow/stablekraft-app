@@ -5,6 +5,7 @@ import path from 'path';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { createReadStream } from 'fs';
+import { isGifBuffer, isLargeGif, convertGifBufferToVideo, checkFfmpegAvailability, GIF_SIZE_THRESHOLD } from './gif-to-video';
 
 export interface CacheItem {
   id: string;
@@ -18,6 +19,10 @@ export interface CacheItem {
   checksum?: string;
   albumId?: string;
   trackNumber?: number;
+  // Video conversion paths for large GIFs
+  videoMp4?: string;
+  videoWebm?: string;
+  isConvertedGif?: boolean;
 }
 
 export interface CacheStats {
@@ -44,8 +49,10 @@ export class FeedCache {
   private static readonly cacheDir = path.join(process.cwd(), 'data', 'cache');
   private static readonly artworkDir = path.join(this.cacheDir, 'artwork');
   private static readonly audioDir = path.join(this.cacheDir, 'audio');
+  private static readonly videoDir = path.join(this.cacheDir, 'video');
   private static readonly metadataFile = path.join(this.cacheDir, 'cache-metadata.json');
   private static readonly statsFile = path.join(this.cacheDir, 'cache-stats.json');
+  private static ffmpegAvailable: boolean | null = null;
   
   private static config: CacheConfig = {
     maxSize: 10 * 1024 * 1024 * 1024, // 10GB
@@ -65,6 +72,17 @@ export class FeedCache {
       await this.ensureDirectory(this.cacheDir);
       await this.ensureDirectory(this.artworkDir);
       await this.ensureDirectory(this.audioDir);
+      await this.ensureDirectory(this.videoDir);
+
+      // Check FFmpeg availability for GIF-to-video conversion
+      if (this.ffmpegAvailable === null) {
+        this.ffmpegAvailable = await checkFfmpegAvailability();
+        if (this.ffmpegAvailable) {
+          console.log('✅ FFmpeg is available for GIF-to-video conversion');
+        } else {
+          console.log('⚠️ FFmpeg not available - large GIFs will not be converted to video');
+        }
+      }
 
       // Initialize metadata if it doesn't exist
       if (!fs.existsSync(this.metadataFile)) {
@@ -158,16 +176,17 @@ export class FeedCache {
 
   /**
    * Cache a single artwork file
+   * Automatically converts large GIFs to video formats if FFmpeg is available
    */
   static async cacheArtwork(
-    originalUrl: string, 
-    albumId: string, 
+    originalUrl: string,
+    albumId: string,
     trackNumber?: number
   ): Promise<boolean> {
     try {
       const cacheId = this.generateCacheId(originalUrl, 'artwork', albumId, trackNumber);
       const cachedPath = path.join(this.artworkDir, `${cacheId}.jpg`);
-      
+
       // Check if already cached
       if (fs.existsSync(cachedPath)) {
         await this.updateAccessTime(cacheId);
@@ -183,27 +202,71 @@ export class FeedCache {
       const buffer = await response.arrayBuffer();
       const imageBuffer = Buffer.from(buffer);
 
-      // Process image (resize, compress)
-      const processedBuffer = await this.processImage(imageBuffer);
+      // Check if this is a large GIF that should be converted to video
+      const isLargeGifFile = isLargeGif(imageBuffer, GIF_SIZE_THRESHOLD);
+      let videoMp4Path: string | undefined;
+      let videoWebmPath: string | undefined;
+      let isConvertedGif = false;
 
-      // Save to cache
-      fs.writeFileSync(cachedPath, processedBuffer);
+      if (isLargeGifFile && this.ffmpegAvailable) {
+        try {
+          console.log(`🎬 Large GIF detected (${(imageBuffer.length / 1024 / 1024).toFixed(2)}MB), converting to video...`);
+
+          // Convert GIF to video formats
+          const conversionResult = await convertGifBufferToVideo(
+            imageBuffer,
+            cacheId,
+            this.videoDir
+          );
+
+          videoMp4Path = `/api/cache/video/${cacheId}.mp4`;
+          videoWebmPath = `/api/cache/video/${cacheId}.webm`;
+          isConvertedGif = true;
+
+          console.log(`✅ GIF converted to video: MP4 ${(conversionResult.mp4Size / 1024 / 1024).toFixed(2)}MB, WebM ${(conversionResult.webmSize / 1024 / 1024).toFixed(2)}MB`);
+        } catch (conversionError) {
+          console.warn(`⚠️ Failed to convert GIF to video, keeping original:`, conversionError);
+        }
+      }
+
+      // Process image (resize, compress) - for GIFs, keep original format
+      let processedBuffer: Buffer;
+      let mimeType: string;
+      let extension: string;
+
+      if (isGifBuffer(imageBuffer)) {
+        // Keep GIF as-is (even if not converted to video, we need the GIF as fallback)
+        processedBuffer = imageBuffer;
+        mimeType = 'image/gif';
+        extension = 'gif';
+      } else {
+        processedBuffer = await this.processImage(imageBuffer);
+        mimeType = 'image/jpeg';
+        extension = 'jpg';
+      }
+
+      // Save to cache with correct extension
+      const finalCachedPath = path.join(this.artworkDir, `${cacheId}.${extension}`);
+      fs.writeFileSync(finalCachedPath, processedBuffer);
 
       // Update metadata
       await this.addCacheItem({
         id: cacheId,
         originalUrl,
-        cachedUrl: `/api/cache/artwork/${cacheId}.jpg`,
+        cachedUrl: `/api/cache/artwork/${cacheId}.${extension}`,
         type: 'artwork',
         size: processedBuffer.length,
-        mimeType: 'image/jpeg',
+        mimeType,
         lastAccessed: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         albumId,
-        trackNumber
+        trackNumber,
+        videoMp4: videoMp4Path,
+        videoWebm: videoWebmPath,
+        isConvertedGif,
       });
 
-      console.log(`🖼️ Cached artwork: ${originalUrl}`);
+      console.log(`🖼️ Cached artwork: ${originalUrl}${isConvertedGif ? ' (with video conversion)' : ''}`);
       return true;
 
     } catch (error) {
@@ -273,12 +336,59 @@ export class FeedCache {
     const cacheId = this.generateCacheId(originalUrl, type, albumId, trackNumber);
     const extension = type === 'artwork' ? 'jpg' : 'mp3';
     const cachedPath = path.join(type === 'artwork' ? this.artworkDir : this.audioDir, `${cacheId}.${extension}`);
-    
+
     if (fs.existsSync(cachedPath)) {
       this.updateAccessTime(cacheId).catch(console.error);
       return `/api/cache/${type}/${cacheId}.${extension}`;
     }
-    
+
+    return null;
+  }
+
+  /**
+   * Check if a GIF has video conversions available
+   * Returns video paths if available, null otherwise
+   */
+  static async getVideoForGif(gifUrl: string): Promise<{ mp4: string; webm: string } | null> {
+    try {
+      const metadata = await this.getMetadata();
+
+      // Find cache item by original URL
+      const item = metadata.find(m => m.originalUrl === gifUrl && m.isConvertedGif);
+
+      if (item && item.videoMp4 && item.videoWebm) {
+        // Verify video files actually exist
+        const mp4Filename = item.videoMp4.split('/').pop();
+        const webmFilename = item.videoWebm.split('/').pop();
+
+        if (mp4Filename && webmFilename) {
+          const mp4Path = path.join(this.videoDir, mp4Filename);
+          const webmPath = path.join(this.videoDir, webmFilename);
+
+          if (fs.existsSync(mp4Path) && fs.existsSync(webmPath)) {
+            return {
+              mp4: item.videoMp4,
+              webm: item.videoWebm,
+            };
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error checking video for GIF:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get video file path by filename
+   */
+  static getVideoFilePath(filename: string): string | null {
+    const videoPath = path.join(this.videoDir, filename);
+    if (fs.existsSync(videoPath)) {
+      return videoPath;
+    }
     return null;
   }
 

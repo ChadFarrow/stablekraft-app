@@ -3,6 +3,21 @@
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 
+// Mapping of large GIFs to their video conversions
+const GIF_TO_VIDEO_MAP: Record<string, { mp4: string; webm: string }> = {
+  'you-are-my-world.gif': { mp4: 'you-are-my-world.mp4', webm: 'you-are-my-world.webm' },
+  'HowBoutYou.gif': { mp4: 'HowBoutYou.mp4', webm: 'HowBoutYou.webm' },
+  'autumn.gif': { mp4: 'autumn.mp4', webm: 'autumn.webm' },
+  'alandace.gif': { mp4: 'alandace.mp4', webm: 'alandace.webm' },
+  'Polar-Embrace-Feed-art-hires.gif': { mp4: 'Polar-Embrace-Feed-art-hires.mp4', webm: 'Polar-Embrace-Feed-art-hires.webm' },
+  'Subrero_pt3_art.gif': { mp4: 'Subrero_pt3_art.mp4', webm: 'Subrero_pt3_art.webm' },
+  'Baiasilko_movie.gif': { mp4: 'Baiasilko_movie.mp4', webm: 'Baiasilko_movie.webm' },
+  'the-satellite-skirmish-mku.gif': { mp4: 'the-satellite-skirmish-mku.mp4', webm: 'the-satellite-skirmish-mku.webm' },
+  'Samurai_Holiday_Acoustic_art.gif': { mp4: 'Samurai_Holiday_Acoustic_art.mp4', webm: 'Samurai_Holiday_Acoustic_art.webm' },
+  'ABD_Acoustic_artwork.gif': { mp4: 'ABD_Acoustic_artwork.mp4', webm: 'ABD_Acoustic_artwork.webm' },
+  'Subrero_pt2_art.gif': { mp4: 'Subrero_pt2_art.mp4', webm: 'Subrero_pt2_art.webm' },
+};
+
 interface CDNImageProps {
   src: string;
   alt: string;
@@ -47,7 +62,10 @@ export default function CDNImage({
   const [gifLoaded, setGifLoaded] = useState(false);
   const [gifPlaceholder, setGifPlaceholder] = useState<string | null>(null);
   const [placeholderLoaded, setPlaceholderLoaded] = useState(false);
+  const [useVideo, setUseVideo] = useState(false);
+  const [videoFormats, setVideoFormats] = useState<{ mp4: string; webm: string } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Check if we're on mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -71,10 +89,60 @@ export default function CDNImage({
   
   // Detect if the image is a GIF
   useEffect(() => {
-    const isGifImage = Boolean((src && typeof src === 'string' && src.toLowerCase().includes('.gif')) || 
+    const isGifImage = Boolean((src && typeof src === 'string' && src.toLowerCase().includes('.gif')) ||
                       (currentSrc && typeof currentSrc === 'string' && currentSrc.toLowerCase().includes('.gif')));
     setIsGif(isGifImage);
   }, [src, currentSrc]);
+
+  // Check if GIF has a video conversion available (static mapping or cached)
+  useEffect(() => {
+    if (!isGif || !currentSrc) {
+      setUseVideo(false);
+      setVideoFormats(null);
+      return;
+    }
+
+    // First check static mapping for pre-converted GIFs
+    const filename = currentSrc.split('/').pop()?.split('?')[0];
+    // Try direct match first, then decoded/normalized match
+    const decodedFilename = filename ? decodeURIComponent(filename).replace(/ /g, '-') : '';
+    const matchedKey = filename && GIF_TO_VIDEO_MAP[filename] ? filename :
+      (decodedFilename && GIF_TO_VIDEO_MAP[decodedFilename] ? decodedFilename : null);
+
+    if (matchedKey && GIF_TO_VIDEO_MAP[matchedKey]) {
+      const videos = GIF_TO_VIDEO_MAP[matchedKey];
+      setVideoFormats({
+        mp4: `/api/optimized-images/${videos.mp4}`,
+        webm: `/api/optimized-images/${videos.webm}`,
+      });
+      setUseVideo(true);
+      return;
+    }
+
+    // Then check dynamic cache for feed-parsed GIFs
+    const checkCachedVideo = async () => {
+      try {
+        const response = await fetch(`/api/check-video?gif=${encodeURIComponent(currentSrc)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hasVideo && data.mp4 && data.webm) {
+            setVideoFormats({
+              mp4: data.mp4,
+              webm: data.webm,
+            });
+            setUseVideo(true);
+            return;
+          }
+        }
+      } catch (error) {
+        // Silently fail - will use GIF instead
+      }
+      setUseVideo(false);
+      setVideoFormats(null);
+    };
+
+    checkCachedVideo();
+  }, [isGif, currentSrc]);
   
   useEffect(() => {
     setIsClient(true);
@@ -174,7 +242,7 @@ export default function CDNImage({
     // For large images, use optimized endpoint
     const largeImages = [
       'you-are-my-world.gif',
-      'HowBoutYou.gif', 
+      'HowBoutYou.gif',
       'autumn.gif',
       'WIldandfreecover-copy-2.png',
       'alandace.gif',
@@ -183,12 +251,27 @@ export default function CDNImage({
       'dvep15-art.png',
       'disco-swag.png',
       'first-christmas-art.jpg',
-      'let-go-art.png'
+      'let-go-art.png',
+      'Polar-Embrace-Feed-art-hires.gif',
+      'Subrero_pt3_art.gif',
+      'Baiasilko_movie.gif',
+      'the-satellite-skirmish-mku.gif',
+      'Samurai_Holiday_Acoustic_art.gif',
+      'ABD_Acoustic_artwork.gif',
+      'Subrero_pt2_art.gif',
     ];
     
     const filename = originalUrl.split('/').pop();
-    if (filename && largeImages.some(img => filename.includes(img.replace(/\.(png|jpg|gif)$/, '')))) {
-      const optimizedFilename = largeImages.find(img => filename.includes(img.replace(/\.(png|jpg|gif)$/, '')));
+    // Decode URL and normalize spaces/hyphens for matching
+    const decodedFilename = filename ? decodeURIComponent(filename).replace(/ /g, '-') : '';
+    if (filename && largeImages.some(img => {
+      const imgBase = img.replace(/\.(png|jpg|gif)$/, '');
+      return decodedFilename.includes(imgBase) || filename.includes(imgBase);
+    })) {
+      const optimizedFilename = largeImages.find(img => {
+        const imgBase = img.replace(/\.(png|jpg|gif)$/, '');
+        return decodedFilename.includes(imgBase) || filename.includes(imgBase);
+      });
       if (optimizedFilename) {
         let optimizedUrl = `https://stablekraft.app/api/optimized-images/${optimizedFilename}`;
         
@@ -459,8 +542,43 @@ export default function CDNImage({
           </div>
         </div>
       )}
-      
-      {isClient && isMobile ? (
+
+      {/* Video rendering for converted GIFs - much smaller file sizes */}
+      {useVideo && videoFormats && !hasError && (
+        <video
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={gifPlaceholder || undefined}
+          className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          style={{
+            objectFit: 'cover',
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            ...style
+          }}
+          onLoadedData={() => {
+            setIsLoading(false);
+            setGifLoaded(true);
+            onLoad?.();
+          }}
+          onError={() => {
+            // Fallback to original GIF if video fails
+            console.warn('Video failed to load, falling back to GIF');
+            setUseVideo(false);
+            setVideoFormats(null);
+          }}
+        >
+          <source src={videoFormats.webm} type="video/webm" />
+          <source src={videoFormats.mp4} type="video/mp4" />
+        </video>
+      )}
+
+      {/* Only render image/GIF elements when not using video */}
+      {!useVideo && (isClient && isMobile ? (
         // Enhanced mobile image handling with GIF placeholder support
         <>
           {/* Show placeholder first for GIFs */}
@@ -559,14 +677,14 @@ export default function CDNImage({
             />
           )}
         </>
-      )}
-      
+      ))}
+
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="absolute top-1 left-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded opacity-0 hover:opacity-100 transition-opacity">
-          {currentSrc.includes('/api/optimized-images/') ? '🖼️ Optimized' : '📡 Original'}
+          {useVideo ? '🎥 Video' : currentSrc.includes('/api/optimized-images/') ? '🖼️ Optimized' : '📡 Original'}
           {isMobile && ' 📱'}
-          {isGif && ' 🎬'}
+          {isGif && !useVideo && ' 🎬'}
         </div>
       )}
     </div>

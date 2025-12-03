@@ -41,6 +41,12 @@ export async function GET(
       case '.webp':
         contentType = 'image/webp';
         break;
+      case '.mp4':
+        contentType = 'video/mp4';
+        break;
+      case '.webm':
+        contentType = 'video/webm';
+        break;
     }
     
     // Set headers with aggressive caching for optimized images
