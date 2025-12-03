@@ -671,7 +671,7 @@ export default function CDNImage({
                 handleLoad();
               }}
               placeholder={placeholder}
-              unoptimized={currentSrc.includes('/api/optimized-images/') || currentSrc.includes('/api/placeholder-image/') || isGif} // Don't optimize API images, SVG placeholders, or GIFs
+              unoptimized={currentSrc.includes('/api/optimized-images/') || currentSrc.includes('/api/placeholder-image/') || currentSrc.includes('/api/proxy-image') || isGif} // Don't optimize API images, SVG placeholders, proxy images, or GIFs
               style={style}
               {...props}
             />
