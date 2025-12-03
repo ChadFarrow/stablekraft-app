@@ -213,6 +213,7 @@ model FavoriteTrack {
   userId       String?
   trackId      String
   nostrEventId String?  // ID of the Nostr event published to relays
+  nip51Format  Boolean  @default(false)  // Whether published in NIP-51 format
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -233,6 +234,7 @@ model FavoriteAlbum {
   feedId       String
   type         String   @default("album")  // 'album', 'publisher', or 'playlist' - determines which favorites tab it appears in
   nostrEventId String?  // ID of the Nostr event published to relays
+  nip51Format  Boolean  @default(false)  // Whether published in NIP-51 format
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 

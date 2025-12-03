@@ -31,6 +31,15 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Count tracks that need NIP-51 republishing (published but not in NIP-51 format)
+    const needsRepublishTracks = await prisma.favoriteTrack.count({
+      where: {
+        userId,
+        nostrEventId: { not: null },
+        nip51Format: false
+      }
+    });
+
     // Count all albums
     const totalAlbums = await prisma.favoriteAlbum.count({
       where: { userId }
@@ -44,12 +53,26 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Count albums that need NIP-51 republishing (published but not in NIP-51 format)
+    const needsRepublishAlbums = await prisma.favoriteAlbum.count({
+      where: {
+        userId,
+        nostrEventId: { not: null },
+        nip51Format: false
+      }
+    });
+
     return NextResponse.json({
       success: true,
       unpublished: {
         tracks: unpublishedTracks,
         albums: unpublishedAlbums,
         total: unpublishedTracks + unpublishedAlbums
+      },
+      needsRepublish: {
+        tracks: needsRepublishTracks,
+        albums: needsRepublishAlbums,
+        total: needsRepublishTracks + needsRepublishAlbums
       },
       total: totalTracks + totalAlbums
     });

@@ -29,11 +29,15 @@ export async function GET(request: NextRequest) {
 
     const items: UnpublishedFavorite[] = [];
 
-    // Get track favorites (unpublished only, or all if force=true)
+    // Get track favorites:
+    // - If force=true: get those that need NIP-51 republishing (published but not in NIP-51 format)
+    // - Otherwise: get unpublished ones
     const trackFavorites = await prisma.favoriteTrack.findMany({
       where: {
         userId,
-        ...(forceAll ? {} : { nostrEventId: null })
+        ...(forceAll
+          ? { nostrEventId: { not: null }, nip51Format: false }
+          : { nostrEventId: null })
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -83,11 +87,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get album favorites (unpublished only, or all if force=true)
+    // Get album favorites:
+    // - If force=true: get those that need NIP-51 republishing (published but not in NIP-51 format)
+    // - Otherwise: get unpublished ones
     const albumFavorites = await prisma.favoriteAlbum.findMany({
       where: {
         userId,
-        ...(forceAll ? {} : { nostrEventId: null })
+        ...(forceAll
+          ? { nostrEventId: { not: null }, nip51Format: false }
+          : { nostrEventId: null })
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -159,7 +167,7 @@ export async function PATCH(request: NextRequest) {
           userId,
           trackId: id
         },
-        data: { nostrEventId }
+        data: { nostrEventId, nip51Format: true }
       });
     } else if (type === 'album') {
       await prisma.favoriteAlbum.updateMany({
@@ -167,7 +175,7 @@ export async function PATCH(request: NextRequest) {
           userId,
           feedId: id
         },
-        data: { nostrEventId }
+        data: { nostrEventId, nip51Format: true }
       });
     } else {
       return NextResponse.json({

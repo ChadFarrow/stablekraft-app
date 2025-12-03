@@ -18,10 +18,10 @@ export default function SyncToNostrButton({
   const { user, isAuthenticated } = useNostr();
   const [unpublishedCount, setUnpublishedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [needsRepublishCount, setNeedsRepublishCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
-  const [republishComplete, setRepublishComplete] = useState(false);
 
   // Don't show for NIP-05 (read-only) users
   const isNip05Login = user?.loginType === 'nip05';
@@ -45,6 +45,7 @@ export default function SyncToNostrButton({
         if (data.success) {
           setUnpublishedCount(data.unpublished.total);
           setTotalCount(data.total || 0);
+          setNeedsRepublishCount(data.needsRepublish?.total || 0);
         }
       }
     } catch (error) {
@@ -61,7 +62,7 @@ export default function SyncToNostrButton({
   const handleSync = async (forceAll = false) => {
     if (!user || isSyncing) return;
 
-    const countToSync = forceAll ? totalCount : unpublishedCount;
+    const countToSync = forceAll ? needsRepublishCount : unpublishedCount;
     if (countToSync === 0) return;
 
     setIsSyncing(true);
@@ -137,10 +138,8 @@ export default function SyncToNostrButton({
       const action = forceAll ? 'Republished' : 'Synced';
       if (result.successful.length > 0 && result.failed.length === 0) {
         toast.success(`${action} ${result.successful.length} favorites to Nostr`);
-        if (forceAll) setRepublishComplete(true);
       } else if (result.successful.length > 0 && result.failed.length > 0) {
         toast.warning(`${action} ${result.successful.length} favorites, ${result.failed.length} failed`);
-        if (forceAll) setRepublishComplete(true);
       } else if (result.failed.length > 0) {
         toast.error(`Failed to sync ${result.failed.length} favorites`);
       }
@@ -199,8 +198,8 @@ export default function SyncToNostrButton({
         </button>
       )}
 
-      {/* Republish all button (for NIP-51 migration) - hide after complete */}
-      {totalCount > 0 && unpublishedCount === 0 && !republishComplete && (
+      {/* Republish all button (for NIP-51 migration) - show only if there are items needing republish */}
+      {needsRepublishCount > 0 && unpublishedCount === 0 && (
         <button
           onClick={() => handleSync(true)}
           disabled={isSyncing}
@@ -209,13 +208,13 @@ export default function SyncToNostrButton({
               ? 'bg-teal-600/50 text-teal-200 cursor-wait'
               : 'bg-teal-600 hover:bg-teal-500 text-white cursor-pointer'
             }`}
-          title={`Republish all ${totalCount} favorites with NIP-51 format`}
+          title={`Republish ${needsRepublishCount} favorites with NIP-51 format`}
         >
           <Upload size={16} className={isSyncing ? 'animate-pulse' : ''} />
           {isSyncing ? (
             <span>Publishing... ({progress.completed}/{progress.total})</span>
           ) : (
-            <span>Republish All ({totalCount})</span>
+            <span>Republish All ({needsRepublishCount})</span>
           )}
         </button>
       )}
