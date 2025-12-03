@@ -23,12 +23,14 @@ export default function EpisodeSection({
   isPlaying,
   renderTrack
 }: EpisodeSectionProps) {
-  const hasPlayingTrack = episode.tracks.some(t => t.id === currentTrackId);
+  // Defensive check for malformed episode data
+  const tracks = episode?.tracks ?? [];
+  const hasPlayingTrack = tracks.some(t => t?.id === currentTrackId);
 
   const handlePlayEpisode = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (episode.tracks.length > 0) {
-      onPlayTrack(episode.tracks[0]);
+    if (tracks.length > 0) {
+      onPlayTrack(tracks[0]);
     }
   };
 
@@ -85,7 +87,7 @@ export default function EpisodeSection({
       {/* Episode Tracks - Collapsible Content */}
       {isExpanded && (
         <div className="mt-1 space-y-0.5 pl-3 border-l-2 border-white/10 ml-4">
-          {episode.tracks.map((track, index) => renderTrack(track, index))}
+          {tracks.filter(Boolean).map((track, index) => renderTrack(track, index))}
         </div>
       )}
     </div>

@@ -120,12 +120,18 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             }
 
             // Load episode data from cache if available
-            if (data.hasEpisodeMarkers && data.episodes) {
-              setHasEpisodeMarkers(true);
-              setEpisodes(data.episodes);
-              console.log(`📺 Loaded ${data.episodes.length} episodes from cache`);
-              // Expand all episodes by default
-              setExpandedEpisodes(new Set(data.episodes.map((e: Episode) => e.id)));
+            if (data.hasEpisodeMarkers && data.episodes && Array.isArray(data.episodes)) {
+              // Validate episodes have required structure
+              const validEpisodes = data.episodes.filter((e: Episode) =>
+                e && e.id && Array.isArray(e.tracks)
+              );
+              if (validEpisodes.length > 0) {
+                setHasEpisodeMarkers(true);
+                setEpisodes(validEpisodes);
+                console.log(`📺 Loaded ${validEpisodes.length} episodes from cache`);
+                // Expand all episodes by default
+                setExpandedEpisodes(new Set(validEpisodes.map((e: Episode) => e.id)));
+              }
             }
 
             setLoading(false);
@@ -213,12 +219,18 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         console.log(`🎨 Playlist artwork URL:`, artworkUrl);
 
         // Extract episode grouping data if available
-        if (data.albums[0].hasEpisodeMarkers && data.albums[0].episodes) {
-          setHasEpisodeMarkers(true);
-          setEpisodes(data.albums[0].episodes);
-          console.log(`📺 Found ${data.albums[0].episodes.length} episodes in playlist`);
-          // Expand all episodes by default
-          setExpandedEpisodes(new Set(data.albums[0].episodes.map((e: Episode) => e.id)));
+        if (data.albums[0].hasEpisodeMarkers && data.albums[0].episodes && Array.isArray(data.albums[0].episodes)) {
+          // Validate episodes have required structure
+          const validEpisodes = data.albums[0].episodes.filter((e: Episode) =>
+            e && e.id && Array.isArray(e.tracks)
+          );
+          if (validEpisodes.length > 0) {
+            setHasEpisodeMarkers(true);
+            setEpisodes(validEpisodes);
+            console.log(`📺 Found ${validEpisodes.length} episodes in playlist`);
+            // Expand all episodes by default
+            setExpandedEpisodes(new Set(validEpisodes.map((e: Episode) => e.id)));
+          }
         }
       } else if (data.tracks) {
         // Direct tracks format (like /api/itdv-resolved-songs)
@@ -263,12 +275,18 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 setTracks(fullData.albums[0].tracks);
 
                 // Extract episode grouping data if available in full data
-                if (fullData.albums[0].hasEpisodeMarkers && fullData.albums[0].episodes) {
-                  setHasEpisodeMarkers(true);
-                  setEpisodes(fullData.albums[0].episodes);
-                  console.log(`📺 Found ${fullData.albums[0].episodes.length} episodes in full playlist data`);
-                  // Expand all episodes by default
-                  setExpandedEpisodes(new Set(fullData.albums[0].episodes.map((e: Episode) => e.id)));
+                if (fullData.albums[0].hasEpisodeMarkers && fullData.albums[0].episodes && Array.isArray(fullData.albums[0].episodes)) {
+                  // Validate episodes have required structure
+                  const validEpisodes = fullData.albums[0].episodes.filter((e: Episode) =>
+                    e && e.id && Array.isArray(e.tracks)
+                  );
+                  if (validEpisodes.length > 0) {
+                    setHasEpisodeMarkers(true);
+                    setEpisodes(validEpisodes);
+                    console.log(`📺 Found ${validEpisodes.length} episodes in full playlist data`);
+                    // Expand all episodes by default
+                    setExpandedEpisodes(new Set(validEpisodes.map((e: Episode) => e.id)));
+                  }
                 }
 
                 // Update playlist link if available in full data
@@ -516,26 +534,29 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
   // Filtered episodes (for grouped view with search)
   const filteredEpisodes = useMemo(() => {
-    if (!hasEpisodeMarkers || episodes.length === 0) return [];
+    if (!hasEpisodeMarkers || !episodes || episodes.length === 0) return [];
 
-    return episodes.map(episode => {
-      // Filter tracks within the episode based on search query
-      const matchingTracks = episode.tracks.filter(track => {
-        if (!searchQuery) return true;
-        const query = searchQuery.toLowerCase();
-        return (
-          track.title?.toLowerCase().includes(query) ||
-          track.artist?.toLowerCase().includes(query) ||
-          track.episodeTitle?.toLowerCase().includes(query)
-        );
-      });
+    return episodes
+      .filter(episode => episode && Array.isArray(episode.tracks)) // Filter out malformed episodes
+      .map(episode => {
+        // Filter tracks within the episode based on search query
+        const matchingTracks = (episode.tracks ?? []).filter(track => {
+          if (!track) return false; // Skip undefined/null tracks
+          if (!searchQuery) return true;
+          const query = searchQuery.toLowerCase();
+          return (
+            track.title?.toLowerCase().includes(query) ||
+            track.artist?.toLowerCase().includes(query) ||
+            track.episodeTitle?.toLowerCase().includes(query)
+          );
+        });
 
-      return {
-        ...episode,
-        tracks: matchingTracks,
-        trackCount: matchingTracks.length
-      };
-    }).filter(ep => ep.trackCount > 0); // Only show episodes with matching tracks
+        return {
+          ...episode,
+          tracks: matchingTracks,
+          trackCount: matchingTracks.length
+        };
+      }).filter(ep => ep.trackCount > 0); // Only show episodes with matching tracks
   }, [episodes, hasEpisodeMarkers, searchQuery]);
 
   const loadMoreTracks = useCallback(() => {
@@ -965,6 +986,9 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                           currentTrackId={currentTrack || undefined}
                           isPlaying={shouldUseAudioContext ? audioContext?.isPlaying : !audio?.paused}
                           renderTrack={(track, trackIndex) => {
+                            // Skip undefined tracks
+                            if (!track || !track.id) return null;
+
                             // For grouped view, use track ID comparison
                             const isCurrentTrack = currentTrack === track.id;
                             const isLoading = audioLoading === track.id;
