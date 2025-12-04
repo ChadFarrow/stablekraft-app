@@ -1073,11 +1073,20 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           loading={displayIndex < 5 ? 'eager' : 'lazy'}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            // If track image fails, try album art, then placeholder
-                            if (track.image && target.src.includes(encodeURIComponent(track.image))) {
-                              target.src = getAlbumArtworkUrl(album?.coverArt || '', 'thumbnail', true);
+                            console.warn('🖼️ Image failed for track:', track.title, 'URL:', target.src);
+                            
+                            // Try album art as fallback if not already using it
+                            const albumArtUrl = getAlbumArtworkUrl(album?.coverArt || '', 'thumbnail', true);
+                            const placeholderUrl = getPlaceholderImageUrl('thumbnail');
+                            
+                            // If current src is not album art and album art exists, try it
+                            if (target.src !== albumArtUrl && album?.coverArt) {
+                              console.log('🔄 Trying album art fallback for:', track.title);
+                              target.src = albumArtUrl;
                             } else {
-                              target.src = getPlaceholderImageUrl('thumbnail');
+                              // Use placeholder as final fallback
+                              console.log('🖼️ Using placeholder for:', track.title);
+                              target.src = placeholderUrl;
                             }
                           }}
                           placeholder="empty"
