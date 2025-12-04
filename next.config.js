@@ -173,6 +173,9 @@ const nextConfig = {
   // trailingSlash: true,
   // distDir: 'out',
 
+  // Standalone output for smaller Docker images (~40% reduction)
+  output: 'standalone',
+
   
   // Image optimization configuration
   images: {
