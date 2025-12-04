@@ -1095,11 +1095,23 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium line-clamp-2 text-sm md:text-base">{track.title}</p>
-                        {track.subtitle && (
-                          <p className="text-xs md:text-sm text-gray-400 italic truncate">{track.subtitle}</p>
-                        )}
-                        <p className="text-xs md:text-sm text-gray-400 truncate">{album?.artist}</p>
+                        {/* Mobile: stacked layout, Desktop: single line */}
+                        <div className="md:hidden">
+                          <p className="font-medium line-clamp-2 text-sm">{track.title}</p>
+                          {track.subtitle && (
+                            <p className="text-xs text-gray-400 italic truncate">{track.subtitle}</p>
+                          )}
+                          <p className="text-xs text-gray-400 truncate">{album?.artist}</p>
+                        </div>
+                        <div className="hidden md:block">
+                          <p className="font-medium text-base truncate">
+                            {track.title}
+                            <span className="text-gray-400 font-normal"> • {album?.artist}</span>
+                            {track.subtitle && (
+                              <span className="text-gray-400 font-normal italic"> — {track.subtitle}</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     {/* Row 2: Duration + Action Buttons */}
