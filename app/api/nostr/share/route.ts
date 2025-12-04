@@ -72,7 +72,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const trackUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/music-tracks/${trackId}`;
+      // Use album URL with track parameter if Feed is available
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const trackUrl = track.Feed 
+        ? `${baseUrl}/album/${track.Feed.id}?track=${trackId}`
+        : `${baseUrl}/music-tracks/${trackId}`;
       content = `${content}\n\n🎵 ${track.title}${track.artist ? ` by ${track.artist}` : ''}\n${trackUrl}`;
     } else if (feedId) {
       feed = await prisma.feed.findUnique({

@@ -442,7 +442,9 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               e.stopPropagation();
               try {
                 const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
-                const shareUrl = `${window.location.origin}${albumUrl}`;
+                // Include track parameter if track has an ID
+                const trackParam = currentTrack.id ? `?track=${currentTrack.id}` : '';
+                const shareUrl = `${window.location.origin}${albumUrl}${trackParam}`;
 
                 // Try native share first (mobile)
                 if (navigator.share) {

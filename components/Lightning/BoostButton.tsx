@@ -703,7 +703,9 @@ export function BoostButton({
             if (feedId) {
               const { generateAlbumSlug } = await import('@/lib/url-utils');
               const albumSlug = generateAlbumSlug(albumName || finalTrackTitle);
-              url = `${baseUrl}/album/${albumSlug}`;
+              // Include track parameter if trackId is available for direct track linking
+              const trackParam = trackId ? `?track=${trackId}` : '';
+              url = `${baseUrl}/album/${albumSlug}${trackParam}`;
               console.log('🔗 Generated album URL from track metadata:', url);
             } else if (trackId) {
               url = `${baseUrl}/music-tracks/${trackId}`;
@@ -713,12 +715,8 @@ export function BoostButton({
               console.log('🔗 Using base URL:', url);
             }
             
-            // Sanitize title for URL anchor
-            const sanitizedTitle = finalTrackTitle
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-+|-+$/g, '');
-            const urlWithAnchor = `${url}#${sanitizedTitle}`;
+            // For the 'r' tag, we'll use the URL with track parameter (no anchor needed)
+            const urlWithAnchor = url;
             
             // Build content (Fountain-style format)
             // Only include message if user provided one
