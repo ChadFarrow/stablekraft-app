@@ -4,6 +4,7 @@ export { useAudioPlayer } from './useAudioPlayer';
 export { useImageLoader, useAvatarLoader } from './useImageLoader';
 export { useLocalStorage, useCachedStorage, usePreferences } from './useLocalStorage';
 export { useDebounce, useDebouncedCallback, useDebouncedSearch } from './useDebounce';
+export { useAutoSyncFavorites } from './useAutoSyncFavorites';
 
 // Type exports
 export type { AudioTrack, AudioPlayerState, AudioPlayerActions } from './useAudioPlayer';

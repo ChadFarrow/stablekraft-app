@@ -19,6 +19,7 @@ import { BoostButton } from '@/components/Lightning/BoostButton';
 import { Heart, Music, Disc, Users, Play, ArrowLeft, Shuffle, ListMusic, Globe, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import AppLayout from '@/components/AppLayout';
+import { useAutoSyncFavorites } from '@/hooks/useAutoSyncFavorites';
 
 // Cache key for community favorites in sessionStorage
 const COMMUNITY_CACHE_KEY = 'community-favorites-cache';
@@ -148,6 +149,17 @@ function FavoritesPageContent() {
       loadFavorites(currentSessionId, null);
     }
   }, [sessionId, sessionLoading, isNostrAuthenticated, nostrUser, nostrLoading]);
+
+  // Auto-sync unpublished favorites to Nostr when authenticated
+  useAutoSyncFavorites({
+    enabled: isNostrAuthenticated && !nostrLoading,
+    onSyncComplete: () => {
+      // Reload favorites to update UI after sync
+      if (nostrUser) {
+        loadFavorites(null, nostrUser.id);
+      }
+    }
+  });
 
   const loadFavorites = async (sessionId: string | null, userId: string | null) => {
     setLoading(true);
