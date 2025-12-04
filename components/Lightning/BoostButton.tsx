@@ -638,6 +638,7 @@ export function BoostButton({
             let finalPublisherUrl: string | null = publisherUrl || null;
 
             // Fetch track data if trackId is available
+            let actualAlbumName = albumName; // Keep original albumName as fallback
             if (trackId) {
               const trackResponse = await fetch(`/api/music-tracks/${trackId}`);
               if (trackResponse.ok) {
@@ -665,30 +666,44 @@ export function BoostButton({
                   if (!finalFeedGuid) {
                     finalFeedGuid = trackData.feedGuid || trackData.v4vValue?.feedGuid || null;
                   }
+                  
+                  // Get the correct album name from the feed data if available
+                  if (trackData.feedId && trackData.Feed?.title) {
+                    actualAlbumName = trackData.Feed.title;
+                  }
                 }
               }
             }
 
-            // Always try feed API as fallback if we don't have an image yet
-            if (!trackImage && feedId) {
-              // For album boosts, fetch feed data to get image and guid
+            // Always try feed API as fallback to get missing data (image, album name, guid)
+            if ((!trackImage || !actualAlbumName) && finalFeedId) {
               try {
-                const feedResponse = await fetch(`/api/feeds/${feedId}`);
+                const feedResponse = await fetch(`/api/feeds/${finalFeedId}`);
                 if (feedResponse.ok) {
                   const feedResult = await feedResponse.json();
                   if (feedResult.success && feedResult.data) {
                     const feedData = feedResult.data;
-                    trackImage = feedData.image || null;
+                    
+                    // Set image if not available
+                    if (!trackImage) {
+                      trackImage = feedData.image || null;
+                    }
 
                     // Extract feed GUID from feed data (the real RSS podcast:guid)
                     if (!finalFeedGuid && feedData.guid) {
                       finalFeedGuid = feedData.guid;
                     }
+                    
+                    // Get actual album name from feed if we don't have it yet
+                    if (!actualAlbumName && feedData.title) {
+                      actualAlbumName = feedData.title;
+                      console.log('🏷️ Got album name from feed:', actualAlbumName);
+                    }
                   }
                 }
               } catch (feedError) {
                 // Ignore feed fetch errors
-                console.warn('Failed to fetch feed data for image:', feedError);
+                console.warn('Failed to fetch feed data:', feedError);
               }
             }
             
@@ -700,13 +715,18 @@ export function BoostButton({
 
             // Always generate URL from track's actual album name (not current page URL)
             // This ensures correct URL when shuffle mode plays a track from a different album
-            if (feedId) {
+            if (feedId || finalFeedId) {
               const { generateAlbumSlug } = await import('@/lib/url-utils');
-              const albumSlug = generateAlbumSlug(albumName || finalTrackTitle);
+              // Use the correct album name we fetched from feed data
+              const albumSlug = generateAlbumSlug(actualAlbumName || finalTrackTitle);
               // Include track parameter if trackId is available for direct track linking
               const trackParam = trackId ? `?track=${trackId}` : '';
               url = `${baseUrl}/album/${albumSlug}${trackParam}`;
-              console.log('🔗 Generated album URL from track metadata:', url);
+              console.log('🔗 Generated album URL from actual album name:', { 
+                actualAlbumName, 
+                originalAlbumName: albumName, 
+                finalUrl: url 
+              });
             } else if (trackId) {
               url = `${baseUrl}/music-tracks/${trackId}`;
               console.log('🔗 Using track URL:', url);
