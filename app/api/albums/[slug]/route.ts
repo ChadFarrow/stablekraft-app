@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug, getPublisherInfo } from '@/lib/url-utils';
-import { resolveItemGuid } from '@/lib/feed-discovery';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -47,38 +46,51 @@ function parseRemoteItems(xmlText: string): RemoteItem[] {
   return remoteItems;
 }
 
-async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 'itdv-playlist') {
+async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 'database-album') {
+  const startTime = Date.now();
   try {
     // Get unique item GUIDs from the playlist (these map to track.guid)
     const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
-    console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+    console.log(`🔍 Database-only lookup for ${itemGuids.length} unique track GUIDs`);
 
-    // Find tracks in database by GUID
+    // DATABASE-ONLY: Find tracks in database by GUID
     const tracks = await prisma.track.findMany({
       where: {
-        guid: { in: itemGuids }
+        guid: { in: itemGuids },
+        status: 'active'  // Only active tracks
       },
-      include: {
-        Feed: true
-      },
-      orderBy: [
-        { trackOrder: 'asc' },
-        { publishedAt: 'asc' },
-        { createdAt: 'asc' }
-      ]
+      select: {
+        id: true,
+        guid: true,
+        title: true,
+        artist: true,
+        audioUrl: true,
+        duration: true,
+        publishedAt: true,
+        image: true,
+        Feed: {
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            image: true
+          }
+        }
+      }
     });
 
-    console.log(`📊 Found ${tracks.length} matching tracks in database`);
+    const queryTime = Date.now() - startTime;
+    console.log(`📊 Database query completed in ${queryTime}ms - found ${tracks.length}/${itemGuids.length} tracks`);
 
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
     const resolvedTracks: any[] = [];
 
-    // Resolve each playlist item to an actual track
+    // Resolve each playlist item to an actual track (DATABASE-ONLY)
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
 
-      if (track && track.Feed) {
+      if (track && track.Feed && track.audioUrl) { // Only tracks with valid audio URLs
         // Create track object with feed context
         const resolvedTrack = {
           id: track.id,
@@ -101,46 +113,17 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[], playlistSource = 
         };
 
         resolvedTracks.push(resolvedTrack);
-      } else {
-        // Try to resolve from Podcast Index API
-        try {
-          const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
-          
-          if (apiResult) {
-            const resolvedTrack = {
-              id: `api-${remoteItem.itemGuid}`,
-              title: apiResult.title || 'Unknown Track',
-              artist: apiResult.author || apiResult.feedTitle || 'Unknown Artist',
-              audioUrl: apiResult.enclosureUrl || '',
-              duration: apiResult.duration || 0,
-              publishedAt: apiResult.datePublished ? new Date(apiResult.datePublished * 1000).toISOString() : new Date().toISOString(),
-              image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
-              albumTitle: apiResult.feedTitle || 'Unknown Album',
-              feedTitle: apiResult.feedTitle || 'Unknown Feed',
-              feedId: remoteItem.feedGuid,
-              guid: remoteItem.itemGuid,
-              // Add playlist context
-              playlistContext: {
-                feedGuid: remoteItem.feedGuid,
-                itemGuid: remoteItem.itemGuid,
-                source: playlistSource
-              }
-            };
-
-            resolvedTracks.push(resolvedTrack);
-            console.log(`✅ Resolved ${apiResult.title} via API`);
-          } else {
-            console.log(`⚠️ Could not resolve playlist item: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
-          }
-        } catch (apiError) {
-          console.log(`⚠️ API resolution failed for ${remoteItem.feedGuid}/${remoteItem.itemGuid}:`, apiError);
-        }
       }
+      // NO API FALLBACK - albums should only use database content
     }
+
+    const totalTime = Date.now() - startTime;
+    const resolutionRate = ((resolvedTracks.length / remoteItems.length) * 100).toFixed(1);
+    console.log(`🎯 DATABASE-ONLY RESOLUTION COMPLETE (${totalTime}ms): ${resolvedTracks.length}/${remoteItems.length} tracks (${resolutionRate}%)`);
 
     return resolvedTracks;
   } catch (error) {
-    console.error('❌ Error resolving playlist items:', error);
+    console.error('❌ Error resolving playlist items from database:', error);
     return [];
   }
 }

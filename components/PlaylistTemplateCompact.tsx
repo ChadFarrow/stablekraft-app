@@ -85,27 +85,20 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
         
         if (data) {
           const now = Date.now();
-
-          // Check if cache has resolved V4V data OR is a database playlist
-          const hasResolvedData = data.tracks.some(track =>
-            track.valueForValue?.resolved === true && (
-              track.valueForValue?.resolvedAudioUrl || track.valueForValue?.resolvedArtist
-            )
-          );
-
-          // For database playlists, we don't need V4V resolution
-          const isDatabasePlaylist = config.apiEndpoint.includes('/api/playlist/');
-          const cacheIsValid = hasResolvedData || isDatabasePlaylist;
+          const cacheAge = now - data.timestamp;
+          
+          // Simplified cache validation - just check timestamp and track count
+          // This dramatically improves cache hit rates by removing complex V4V validation
+          const isCacheValid = cacheAge < config.cacheDuration && data.tracks && data.tracks.length > 0;
 
           console.log(`🔍 Cache validation for ${config.title}:`, {
-            hasResolvedData,
-            isDatabasePlaylist,
-            cacheIsValid,
-            trackCount: data.tracks.length
+            cacheAge: Math.round(cacheAge / 1000) + 's',
+            maxAge: Math.round(config.cacheDuration / 1000) + 's',
+            trackCount: data.tracks.length,
+            isValid: isCacheValid
           });
 
-          // Check if cache is still valid AND (has resolved V4V data OR is database playlist)
-          if (now - data.timestamp < config.cacheDuration && cacheIsValid) {
+          if (isCacheValid) {
             logger.info('📦 Loading tracks from cache');
             console.log(`🔍 Cache data for ${config.title}:`, data.tracks.length, 'tracks');
             console.log(`🔍 First cached track:`, data.tracks[0]);
@@ -138,24 +131,9 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             setCacheStatus('cached');
             return true; // Cache was used
           } else {
-            if (!cacheIsValid) {
-              logger.info('🔄 Cache invalid (missing V4V data for non-database playlist), will fetch fresh data');
-            } else {
-              logger.info('⏰ Cache expired, will fetch fresh data');
-            }
-            console.log(`🗑️ Removing cache for ${config.title}`);
-            // Remove from both storage locations
-            try {
-              const { storage } = await import('@/lib/indexed-db-storage');
-              await storage.removeItem(config.cacheKey);
-            } catch {
-              // Ignore errors
-            }
-            try {
-              localStorage.removeItem(config.cacheKey);
-            } catch {
-              // Ignore errors
-            }
+            // Cache is expired or invalid, but don't immediately delete it
+            // Keep it as a fallback and only delete after successful fresh fetch
+            logger.info(`⏰ Cache expired for ${config.title}, will fetch fresh data but keep cache as fallback`);
           }
         }
         return false; // Cache was not used

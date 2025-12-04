@@ -111,6 +111,8 @@ model Track {
   @@index([feedId, publishedAt])
   @@index([feedId, status])
   @@index([guid])
+  @@index([guid, feedId])  // Composite index for playlist lookups
+  @@index([guid, status])  // For active track filtering in playlists
   @@index([publishedAt])
   @@index([status])
   @@index([title])

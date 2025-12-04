@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
-import { processPlaylistFeedDiscovery, resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 import { validateDuration } from '@/lib/duration-validation';
 
-// Increase timeout for this route to 5 minutes
-export const maxDuration = 300;
+// Database-only queries are fast, reduced timeout
+export const maxDuration = 60; // 1 minute should be plenty for database-only operations
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 // Force Railway rebuild - v4vRecipient fix
 
-// Persistent cache duration - 6 hours for daily updates
-const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
+// Persistent cache duration - 12 hours for better performance (playlists don't change frequently)
+const CACHE_DURATION = 1000 * 60 * 60 * 12; // 12 hours
 
 interface RemoteItem {
   feedGuid: string;
@@ -198,11 +197,11 @@ export async function GET(request: Request) {
     // Check for force refresh parameter
     const forceRefresh = new URL(request.url).searchParams.has('refresh');
     
-    // Check persistent cache first
+    // Check persistent cache first (with longer cache duration for better performance)
     if (!forceRefresh && playlistCache.isCacheValid('mmm-playlist', CACHE_DURATION)) {
       const cachedData = playlistCache.getCachedData('mmm-playlist');
       if (cachedData) {
-        console.log('⚡ Using persistent cached playlist data');
+        console.log('⚡ Using persistent cached playlist data (performance optimized)');
         return NextResponse.json(cachedData);
       }
     }
@@ -243,25 +242,16 @@ export async function GET(request: Request) {
       console.log('📺 Episodes:', episodeGroups.map(e => `"${e.title}" (${e.remoteItems.length} tracks)`).join(', '));
     }
 
-    // Resolve playlist items to get actual track data from the database
-    console.log('🔍 Resolving playlist items to actual tracks...');
+    // Resolve playlist items to get actual track data from the database (DATABASE-ONLY)
+    console.log('🔍 Resolving playlist items from database...');
     const resolvedTracks = await resolvePlaylistItems(remoteItems);
     console.log(`✅ Resolved ${resolvedTracks.length} tracks from database`);
 
-    // Auto-discover and add unresolved feeds to database
-    const unresolvedItems = remoteItems.filter(item => {
-      return !resolvedTracks.find(track => track.playlistContext?.itemGuid === item.itemGuid);
-    });
-    
-    if (unresolvedItems.length > 0) {
-      console.log(`🔍 Processing ${unresolvedItems.length} unresolved items for feed discovery...`);
-      try {
-        const addedFeedsCount = await processPlaylistFeedDiscovery(unresolvedItems);
-        console.log(`✅ Feed discovery: ${addedFeedsCount} new feeds added to database`);
-      } catch (error) {
-        console.error('❌ Error during feed discovery:', error);
-        // Continue with playlist creation even if feed discovery fails
-      }
+    // NO FEED DISCOVERY - playlists should only use existing database content
+    // Feed parsing and discovery should happen in separate background jobs
+    const unresolvedCount = remoteItems.length - resolvedTracks.length;
+    if (unresolvedCount > 0) {
+      console.log(`📊 ${unresolvedCount} tracks not found in database - these should be added via feed parsing jobs`);
     }
 
     // Create a map of resolved tracks by itemGuid for quick lookup
@@ -394,165 +384,96 @@ export async function GET(request: Request) {
 }
 
 async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
+  const startTime = Date.now();
   try {
     // Get unique item GUIDs from the playlist (these map to track.guid)
     const itemGuids = [...new Set(remoteItems.map(item => item.itemGuid))];
-    console.log(`🔍 Looking up ${itemGuids.length} unique track GUIDs for ${remoteItems.length} playlist items`);
+    console.log(`🔍 Database-only lookup for ${itemGuids.length} unique track GUIDs`);
 
-    // Find tracks in database by GUID
+    // DATABASE-ONLY: Single optimized query with all needed data
     const tracks = await prisma.track.findMany({
       where: {
-        guid: { in: itemGuids }
+        guid: { in: itemGuids },
+        status: 'active'  // Only get active tracks
       },
-      include: {
-        Feed: true
-      },
-      orderBy: [
-        { trackOrder: 'asc' },
-        { publishedAt: 'asc' },
-        { createdAt: 'asc' }
-      ]
+      select: {
+        id: true,
+        guid: true,
+        title: true,
+        artist: true,
+        audioUrl: true,
+        duration: true,
+        publishedAt: true,
+        image: true,
+        v4vRecipient: true,
+        v4vValue: true,
+        Feed: {
+          select: {
+            id: true,
+            title: true,
+            artist: true,
+            image: true
+          }
+        }
+      }
     });
 
-    console.log(`📊 Found ${tracks.length} matching tracks in database`);
-    console.log(`🔍 Sample playlist GUIDs: ${itemGuids.slice(0, 10).join(', ')}`);
-    console.log(`🔍 Sample found track GUIDs: ${tracks.slice(0, 10).map(t => t.guid).join(', ')}`);
-    
-    // Debug query removed for performance
+    const queryTime = Date.now() - startTime;
+    console.log(`📊 Database query completed in ${queryTime}ms - found ${tracks.length}/${itemGuids.length} tracks`);
 
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
     const resolvedTracks: any[] = [];
-    const unresolvedItems: RemoteItem[] = [];
 
-    // First pass: resolve items found in database
+    // Single pass through remote items - only use database data
     for (const remoteItem of remoteItems) {
       const track = trackMap.get(remoteItem.itemGuid);
 
-      if (track && track.Feed) {
-        // Create track object with feed context
-        const resolvedTrack = {
+      if (track && track.Feed && track.audioUrl) { // Only include tracks with valid audio URLs
+        // Optimized track object creation - pre-computed values
+        const artistName = track.artist || (track.Feed.artist === 'Unresolved GUID' ? track.Feed.title : track.Feed.artist) || 'Unknown Artist';
+        const imageUrl = track.image || track.Feed.image || '/placeholder-podcast.jpg';
+        
+        resolvedTracks.push({
           id: track.id,
           title: track.title,
-          artist: track.artist || (track.Feed.artist === 'Unresolved GUID' ? track.Feed.title : track.Feed.artist) || 'Unknown Artist',
+          artist: artistName,
           audioUrl: track.audioUrl,
-          url: track.audioUrl, // Add url property for compatibility
+          url: track.audioUrl,
           duration: track.duration || 0,
           publishedAt: track.publishedAt?.toISOString() || new Date().toISOString(),
-          image: track.image || track.Feed.image || '/placeholder-podcast.jpg',
+          image: imageUrl,
           albumTitle: track.Feed.title,
           feedTitle: track.Feed.title,
           feedId: track.Feed.id,
           guid: track.guid,
-          v4vRecipient: track.v4vRecipient, // Include V4V payment data
+          v4vRecipient: track.v4vRecipient,
           v4vValue: track.v4vValue,
-          // Add playlist context
           playlistContext: {
             feedGuid: remoteItem.feedGuid,
             itemGuid: remoteItem.itemGuid,
             source: 'mmm-playlist'
           }
-        };
-
-        resolvedTracks.push(resolvedTrack);
-      } else {
-        unresolvedItems.push(remoteItem);
+        });
       }
-    }
-
-    console.log(`📊 Found ${resolvedTracks.length} tracks in database, ${unresolvedItems.length} need API resolution`);
-
-    // Second pass: resolve unresolved items using Podcast Index API (PARALLELIZED)
-    if (unresolvedItems.length > 0) {
-      const maxToProcess = Math.min(200, unresolvedItems.length);
-      console.log(`🔍 Resolving ${maxToProcess} items via Podcast Index API (parallel batches)...`);
-
-      const BATCH_SIZE = 10; // Process 10 items in parallel
-      const itemsToProcess = unresolvedItems.slice(0, maxToProcess);
-
-      // Process in parallel batches
-      for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
-        const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(itemsToProcess.length / BATCH_SIZE);
-
-        console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)`);
-
-        // Resolve all items in this batch in parallel
-        const batchResults = await Promise.allSettled(
-          batch.map(async (remoteItem) => {
-            try {
-              const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
-              return { remoteItem, apiResult, error: null };
-            } catch (error) {
-              return { remoteItem, apiResult: null, error };
-            }
-          })
-        );
-
-        // Process results from this batch
-        for (const result of batchResults) {
-          if (result.status === 'fulfilled') {
-            const { remoteItem, apiResult } = result.value;
-
-            if (apiResult) {
-              const resolvedTrack = {
-                id: `api-${remoteItem.itemGuid}`,
-                title: apiResult.title || 'Unknown Track',
-                artist: apiResult.feedTitle || 'Unknown Artist',
-                audioUrl: apiResult.audioUrl || '',
-                url: apiResult.audioUrl || '',
-                duration: apiResult.duration || 0,
-                publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
-                image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
-                albumTitle: apiResult.feedTitle,
-                feedTitle: apiResult.feedTitle,
-                feedId: `api-feed-${remoteItem.feedGuid}`,
-                guid: apiResult.guid,
-                description: apiResult.description,
-                v4vRecipient: apiResult.v4vRecipient || null,
-                v4vValue: apiResult.v4vValue || null,
-                playlistContext: {
-                  feedGuid: remoteItem.feedGuid,
-                  itemGuid: remoteItem.itemGuid,
-                  source: 'mmm-playlist',
-                  resolvedViaAPI: true
-                }
-              };
-              resolvedTracks.push(resolvedTrack);
-            }
-          }
-        }
-
-        // Brief pause between batches to avoid rate limiting
-        if (i + BATCH_SIZE < itemsToProcess.length) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
-
-      console.log(`✅ Parallel resolution complete: processed ${maxToProcess} items in ${Math.ceil(maxToProcess / BATCH_SIZE)} batches`);
     }
 
     // Final resolution statistics
-    const dbResolvedCount = resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length;
-    const apiResolvedCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.isPlaceholder).length;
-    const placeholderCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && t.isPlaceholder).length;
-    const totalResolved = dbResolvedCount + apiResolvedCount + placeholderCount;
-    const finalResolutionRate = ((totalResolved / remoteItems.length) * 100).toFixed(1);
+    const totalTime = Date.now() - startTime;
+    const resolutionRate = ((resolvedTracks.length / remoteItems.length) * 100).toFixed(1);
     
-    console.log(`🎯 FINAL MMM RESOLUTION STATISTICS:`);
-    console.log(`📊 Total Tracks: ${remoteItems.length}`);
-    console.log(`📊 Database Resolved: ${dbResolvedCount} (${((dbResolvedCount/remoteItems.length)*100).toFixed(1)}%)`);
-    console.log(`📊 API Resolved: ${apiResolvedCount} (${((apiResolvedCount/remoteItems.length)*100).toFixed(1)}%)`);
-    console.log(`📊 Placeholders: ${placeholderCount} (${((placeholderCount/remoteItems.length)*100).toFixed(1)}%)`);
-    console.log(`📊 TOTAL RESOLUTION: ${totalResolved}/${remoteItems.length} (${finalResolutionRate}%)`);
+    console.log(`🎯 MMM DATABASE-ONLY RESOLUTION COMPLETE (${totalTime}ms):`);
+    console.log(`📊 Total Items: ${remoteItems.length}`);
+    console.log(`📊 Database Resolved: ${resolvedTracks.length} (${resolutionRate}%)`);
+    console.log(`📊 Missing from DB: ${remoteItems.length - resolvedTracks.length} (${(100 - parseFloat(resolutionRate)).toFixed(1)}%)`);
 
-    // Return all successfully resolved tracks (database + API resolved, excluding placeholders)
-    const successfullyResolvedTracks = resolvedTracks.filter(t => !t.playlistContext?.isPlaceholder);
-    console.log(`🎯 Returning ${successfullyResolvedTracks.length} successfully resolved tracks (${resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length} from DB, ${resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.playlistContext?.isPlaceholder).length} from API)`);
-    return successfullyResolvedTracks;
+    if (resolvedTracks.length < remoteItems.length) {
+      console.log(`💡 TIP: Run playlist parsing jobs to add missing tracks to database`);
+    }
+
+    return resolvedTracks;
   } catch (error) {
-    console.error('❌ Error resolving playlist items:', error);
+    console.error('❌ Error resolving playlist items from database:', error);
     return [];
   }
 }
