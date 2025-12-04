@@ -64,6 +64,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
   const [albumArtLoaded, setAlbumArtLoaded] = useState(false);
   const [albumArtError, setAlbumArtError] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const preloadAttemptedRef = useRef(false);
   
 
@@ -887,9 +888,28 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               {album.explicit && <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">EXPLICIT</span>}
             </div>
             
-            {(album.summary || album.description) && (
-              <p className="text-gray-300 text-center lg:text-left max-w-lg lg:max-w-none lg:mx-0 mx-auto leading-relaxed">{(album.summary || album.description || '').replace(/<[^>]*>/g, '')}</p>
-            )}
+            {(album.summary || album.description) && (() => {
+              const fullText = (album.summary || album.description || '').replace(/<[^>]*>/g, '');
+              const charLimit = 200;
+              const needsTruncation = fullText.length > charLimit;
+              const displayText = needsTruncation && !descriptionExpanded
+                ? fullText.slice(0, charLimit).trim() + '...'
+                : fullText;
+
+              return (
+                <div className="text-center lg:text-left max-w-lg lg:max-w-none lg:mx-0 mx-auto">
+                  <p className="text-gray-300 leading-relaxed">{displayText}</p>
+                  {needsTruncation && (
+                    <button
+                      onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                      className="text-blue-400 hover:text-blue-300 text-sm mt-1 transition-colors"
+                    >
+                      {descriptionExpanded ? 'Show less' : 'Show more'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Publisher Information */}
             {album.publisher && (() => {
