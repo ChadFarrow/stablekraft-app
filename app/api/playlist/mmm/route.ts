@@ -418,12 +418,7 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
     console.log(`🔍 Sample playlist GUIDs: ${itemGuids.slice(0, 10).join(', ')}`);
     console.log(`🔍 Sample found track GUIDs: ${tracks.slice(0, 10).map(t => t.guid).join(', ')}`);
     
-    // Debug: Check if any missing GUIDs exist in database without feed restrictions
-    const sampleMissingGuids = itemGuids.slice(5, 10);
-    const unrestricted = await prisma.track.findMany({
-      where: { guid: { in: sampleMissingGuids } }
-    });
-    console.log(`🔍 Found ${unrestricted.length} of ${sampleMissingGuids.length} sample GUIDs without feed restrictions`);
+    // Debug query removed for performance
 
     // Create a map for quick lookup by track GUID
     const trackMap = new Map(tracks.map(track => [track.guid, track]));
@@ -467,125 +462,75 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
 
     console.log(`📊 Found ${resolvedTracks.length} tracks in database, ${unresolvedItems.length} need API resolution`);
 
-    // Second pass: resolve unresolved items using Podcast Index API
-    // RE-ENABLED: Database is empty, need to populate it
+    // Second pass: resolve unresolved items using Podcast Index API (PARALLELIZED)
     if (unresolvedItems.length > 0) {
-      console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
-      
-      // Process more items for better resolution
-      let processedCount = 0;
-      const maxToProcess = Math.min(200, unresolvedItems.length); // Process max 200 items via API for better resolution
-      
-      for (const remoteItem of unresolvedItems.slice(0, maxToProcess)) {
-        let apiResult = null;
-        let retryCount = 0;
-        const maxRetries = 2;
-        
-        // Try API resolution with retries
-        while (!apiResult && retryCount < maxRetries) {
-          try {
-            apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
-            
-            if (!apiResult) {
-              retryCount++;
-              if (retryCount < maxRetries) {
-                console.log(`🔄 Retry ${retryCount}/${maxRetries} for ${remoteItem.itemGuid}`);
-                await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause before retry
-              } else {
-                console.log(`⚠️ All approaches failed for item ${remoteItem.itemGuid}. Max retries (${maxRetries}) reached.`);
-                break; // Exit retry loop after max retries
-              }
-            }
-          } catch (error) {
-            retryCount++;
-            console.log(`❌ Retry ${retryCount}/${maxRetries} failed for ${remoteItem.itemGuid}:`, error);
-            if (retryCount < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 200)); // Longer pause on error
-            } else {
-              console.log(`⚠️ Max retries reached due to errors for ${remoteItem.itemGuid}`);
-              break;
-            }
-          }
-        }
-        
-        try {
-          if (apiResult) {
-            const resolvedTrack = {
-              id: `api-${remoteItem.itemGuid}`,
-              title: apiResult.title || 'Unknown Track',
-              artist: apiResult.feedTitle || 'Unknown Artist',
-              audioUrl: apiResult.audioUrl || '',
-              url: apiResult.audioUrl || '',
-              duration: apiResult.duration || 0,
-              publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
-              image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
-              albumTitle: apiResult.feedTitle,
-              feedTitle: apiResult.feedTitle,
-              feedId: `api-feed-${remoteItem.feedGuid}`,
-              guid: apiResult.guid,
-              description: apiResult.description,
-              v4vRecipient: apiResult.v4vRecipient || null, // Include V4V payment data from API
-              v4vValue: apiResult.v4vValue || null,
-              // Add playlist context
-              playlistContext: {
-                feedGuid: remoteItem.feedGuid,
-                itemGuid: remoteItem.itemGuid,
-                source: 'mmm-playlist',
-                resolvedViaAPI: true
-              }
-            };
+      const maxToProcess = Math.min(200, unresolvedItems.length);
+      console.log(`🔍 Resolving ${maxToProcess} items via Podcast Index API (parallel batches)...`);
 
-            resolvedTracks.push(resolvedTrack);
-            console.log(`✅ API resolved: ${apiResult.title} by ${apiResult.feedTitle}`);
-          } else {
-            // Add placeholder for unresolved item to maintain full playlist
-            const placeholderTrack = {
-              id: `placeholder-${remoteItem.itemGuid}`,
-              title: `Music Track (${remoteItem.itemGuid.slice(-8)})`,
-              artist: 'Featured in Modern Music Movements',
-              audioUrl: '',
-              url: '',
-              duration: 180,
-              publishedAt: new Date().toISOString(),
-              image: '/placeholder-podcast.jpg',
-              albumTitle: 'Modern Music Movements Playlist',
-              feedTitle: 'Modern Music Movements',
-              feedId: `placeholder-feed-${remoteItem.feedGuid}`,
-              guid: remoteItem.itemGuid,
-              description: `Music track referenced in Modern Music Movements podcast - Feed ID: ${remoteItem.feedGuid} | Item ID: ${remoteItem.itemGuid}`,
-              // Add playlist context
-              playlistContext: {
-                feedGuid: remoteItem.feedGuid,
-                itemGuid: remoteItem.itemGuid,
-                source: 'mmm-playlist',
-                resolvedViaAPI: true,
-                isPlaceholder: true
-              }
-            };
-            
-            resolvedTracks.push(placeholderTrack);
-            console.log(`📝 Added placeholder for unresolved: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+      const BATCH_SIZE = 10; // Process 10 items in parallel
+      const itemsToProcess = unresolvedItems.slice(0, maxToProcess);
+
+      // Process in parallel batches
+      for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+        const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(itemsToProcess.length / BATCH_SIZE);
+
+        console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)`);
+
+        // Resolve all items in this batch in parallel
+        const batchResults = await Promise.allSettled(
+          batch.map(async (remoteItem) => {
+            try {
+              const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
+              return { remoteItem, apiResult, error: null };
+            } catch (error) {
+              return { remoteItem, apiResult: null, error };
+            }
+          })
+        );
+
+        // Process results from this batch
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            const { remoteItem, apiResult } = result.value;
+
+            if (apiResult) {
+              const resolvedTrack = {
+                id: `api-${remoteItem.itemGuid}`,
+                title: apiResult.title || 'Unknown Track',
+                artist: apiResult.feedTitle || 'Unknown Artist',
+                audioUrl: apiResult.audioUrl || '',
+                url: apiResult.audioUrl || '',
+                duration: apiResult.duration || 0,
+                publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
+                image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
+                albumTitle: apiResult.feedTitle,
+                feedTitle: apiResult.feedTitle,
+                feedId: `api-feed-${remoteItem.feedGuid}`,
+                guid: apiResult.guid,
+                description: apiResult.description,
+                v4vRecipient: apiResult.v4vRecipient || null,
+                v4vValue: apiResult.v4vValue || null,
+                playlistContext: {
+                  feedGuid: remoteItem.feedGuid,
+                  itemGuid: remoteItem.itemGuid,
+                  source: 'mmm-playlist',
+                  resolvedViaAPI: true
+                }
+              };
+              resolvedTracks.push(resolvedTrack);
+            }
           }
-          
-          processedCount++;
-          // Progress update every 50 tracks for better visibility (processing more items now)
-          if (processedCount % 50 === 0) {
-            const dbResolvedCount = resolvedTracks.filter(t => !t.playlistContext?.resolvedViaAPI).length;
-            const apiResolvedCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && !t.isPlaceholder).length;
-            const placeholderCount = resolvedTracks.filter(t => t.playlistContext?.resolvedViaAPI && t.isPlaceholder).length;
-            const totalResolved = dbResolvedCount + apiResolvedCount + placeholderCount;
-            const resolutionRate = ((totalResolved / remoteItems.length) * 100).toFixed(1);
-            
-            console.log(`📊 Resolution Progress: ${processedCount}/${maxToProcess} API calls (${((processedCount/maxToProcess)*100).toFixed(1)}%)`);
-            console.log(`📊 Current Resolution: ${totalResolved}/${remoteItems.length} tracks (${resolutionRate}%) | DB: ${dbResolvedCount} | API: ${apiResolvedCount} | Placeholders: ${placeholderCount}`);
-          }
-        } catch (error) {
-          console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
         }
-        
-        // Reduce delay to 5ms for faster response
-        // Remove delay for faster processing
+
+        // Brief pause between batches to avoid rate limiting
+        if (i + BATCH_SIZE < itemsToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
       }
+
+      console.log(`✅ Parallel resolution complete: processed ${maxToProcess} items in ${Math.ceil(maxToProcess / BATCH_SIZE)} batches`);
     }
 
     // Final resolution statistics

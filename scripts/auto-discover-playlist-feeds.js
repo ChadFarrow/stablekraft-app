@@ -10,17 +10,52 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-// Configuration
+// Configuration - All 9 playlist XML files from https://github.com/ChadFarrow/chadf-musicl-playlists
 const PLAYLISTS = [
+    {
+        name: 'MMM Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml',
+        source: 'MMM Playlist'
+    },
+    {
+        name: 'HGH Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml',
+        source: 'HGH Playlist'
+    },
+    {
+        name: 'IAM Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml',
+        source: 'IAM Playlist'
+    },
     {
         name: 'ITDV Music Playlist',
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml',
         source: 'ITDV Playlist'
     },
     {
-        name: 'HGH Music Playlist',
-        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml',
-        source: 'HGH Playlist'
+        name: 'B4TS Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml',
+        source: 'B4TS Playlist'
+    },
+    {
+        name: 'Upbeats Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/upbeats-music-playlist.xml',
+        source: 'Upbeats Playlist'
+    },
+    {
+        name: 'MMT Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml',
+        source: 'MMT Playlist'
+    },
+    {
+        name: 'SAS Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml',
+        source: 'SAS Playlist'
+    },
+    {
+        name: 'Flowgnar Music Playlist',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-music-playlist.xml',
+        source: 'Flowgnar Playlist'
     }
 ];
 
@@ -290,12 +325,24 @@ async function autoDiscoverPlaylistFeeds() {
     console.log(`  📈 Total new feeds added: ${totalNewFeeds}`);
     console.log(`  📈 Total feeds in database: ${feedsData.feeds.length}`);
 
+    // Also export all unique feedGuids to /tmp/feeds-to-add.json for database import
+    const allFeedGuids = [];
+    feedsData.feeds.forEach(feed => {
+        if (feed.feedGuid) allFeedGuids.push(feed.feedGuid);
+        else if (feed.guid) allFeedGuids.push(feed.guid);
+    });
+    const uniqueFeedGuids = [...new Set(allFeedGuids)];
+    fs.writeFileSync('/tmp/feeds-to-add.json', JSON.stringify(uniqueFeedGuids, null, 2));
+    console.log(`\n📤 Exported ${uniqueFeedGuids.length} unique feedGuids to /tmp/feeds-to-add.json`);
+
     if (totalNewFeeds > 0) {
         console.log('\n✨ Auto-discovery complete!');
-        console.log('🚀 Run the main feed parser to import tracks from new feeds.');
-        console.log('   Command: npm run parse-feeds');
+        console.log('🚀 Run add-missing-playlist-feeds.js to import to database:');
+        console.log('   Command: node scripts/add-missing-playlist-feeds.js');
     } else {
         console.log('\n✨ No new feeds discovered - all playlists up to date!');
+        console.log('🚀 Run add-missing-playlist-feeds.js to import any missing feeds to database:');
+        console.log('   Command: node scripts/add-missing-playlist-feeds.js');
     }
 }
 

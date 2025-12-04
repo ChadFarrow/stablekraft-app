@@ -443,86 +443,107 @@ async function resolvePlaylistItems(remoteItems: RemoteItem[]) {
 
     console.log(`📊 Found ${resolvedTracks.length} tracks in database, ${unresolvedItems.length} need API resolution`);
 
-    // Second pass: resolve unresolved items using Podcast Index API
+    // Second pass: resolve unresolved items using Podcast Index API (PARALLELIZED)
     if (unresolvedItems.length > 0) {
-      console.log(`🔍 Resolving ${unresolvedItems.length} items via Podcast Index API...`);
-      
-      for (const remoteItem of unresolvedItems.slice(0, 200)) { // Process more tracks for better resolution
-        try {
-          const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
-          
-          if (apiResult) {
-            const resolvedTrack = {
-              id: `api-${remoteItem.itemGuid}`,
-              title: apiResult.title || 'Unknown Track',
-              artist: apiResult.feedTitle || 'Unknown Artist',
-              audioUrl: apiResult.audioUrl || '',
-              url: apiResult.audioUrl || '',
-              duration: apiResult.duration || 0,
-              publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
-              image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
-              albumTitle: apiResult.feedTitle,
-              feedTitle: apiResult.feedTitle,
-              feedId: `api-feed-${remoteItem.feedGuid}`,
-              guid: apiResult.guid,
-              description: apiResult.description,
-              // Add playlist context
-              playlistContext: {
-                feedGuid: remoteItem.feedGuid,
-                itemGuid: remoteItem.itemGuid,
-                source: 'hgh-playlist',
-                resolvedViaAPI: true
-              }
-            };
+      const maxToProcess = Math.min(200, unresolvedItems.length);
+      console.log(`🔍 Resolving ${maxToProcess} items via Podcast Index API (parallel batches)...`);
 
-            resolvedTracks.push(resolvedTrack);
-            console.log(`✅ API resolved: ${apiResult.title} by ${apiResult.feedTitle}`);
-          } else {
-            console.log(`⚠️ Could not resolve via API: ${remoteItem.feedGuid}/${remoteItem.itemGuid}`);
+      const BATCH_SIZE = 10;
+      const itemsToProcess = unresolvedItems.slice(0, maxToProcess);
+
+      for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+        const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(itemsToProcess.length / BATCH_SIZE);
+
+        console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} items)`);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (remoteItem) => {
+            try {
+              const apiResult = await resolveItemGuid(remoteItem.feedGuid, remoteItem.itemGuid);
+              return { remoteItem, apiResult, error: null };
+            } catch (error) {
+              return { remoteItem, apiResult: null, error };
+            }
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            const { remoteItem, apiResult } = result.value;
+
+            if (apiResult) {
+              const resolvedTrack = {
+                id: `api-${remoteItem.itemGuid}`,
+                title: apiResult.title || 'Unknown Track',
+                artist: apiResult.feedTitle || 'Unknown Artist',
+                audioUrl: apiResult.audioUrl || '',
+                url: apiResult.audioUrl || '',
+                duration: apiResult.duration || 0,
+                publishedAt: apiResult.publishedAt?.toISOString() || new Date().toISOString(),
+                image: apiResult.image || apiResult.feedImage || '/placeholder-podcast.jpg',
+                albumTitle: apiResult.feedTitle,
+                feedTitle: apiResult.feedTitle,
+                feedId: `api-feed-${remoteItem.feedGuid}`,
+                guid: apiResult.guid,
+                description: apiResult.description,
+                playlistContext: {
+                  feedGuid: remoteItem.feedGuid,
+                  itemGuid: remoteItem.itemGuid,
+                  source: 'hgh-playlist',
+                  resolvedViaAPI: true
+                }
+              };
+              resolvedTracks.push(resolvedTrack);
+            }
           }
-        } catch (error) {
-          console.error(`❌ Error resolving ${remoteItem.itemGuid}:`, error);
         }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (i + BATCH_SIZE < itemsToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
       }
+
+      console.log(`✅ Parallel resolution complete: processed ${maxToProcess} items in ${Math.ceil(maxToProcess / BATCH_SIZE)} batches`);
     }
 
-    // Third pass: Enhance database tracks that need API resolution for missing audioUrls
+    // Third pass: Enhance database tracks that need API resolution (PARALLELIZED)
     const tracksNeedingEnhancement = resolvedTracks.filter(track => track.needsApiResolution);
     if (tracksNeedingEnhancement.length > 0) {
-      console.log(`🔗 Enhancing ${tracksNeedingEnhancement.length} database tracks with API data...`);
-      
-      for (const track of tracksNeedingEnhancement) {
-        try {
-          const apiResult = await resolveItemGuid(track.playlistContext.feedGuid, track.playlistContext.itemGuid);
-          
-          if (apiResult && apiResult.audioUrl) {
-            // Update the track with API-resolved audio URL
-            track.audioUrl = apiResult.audioUrl;
-            track.url = apiResult.audioUrl;
-            
-            // Also enhance other missing fields if available
-            if (!track.duration && apiResult.duration) {
-              track.duration = apiResult.duration;
+      console.log(`🔗 Enhancing ${tracksNeedingEnhancement.length} database tracks with API data (parallel)...`);
+
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < tracksNeedingEnhancement.length; i += BATCH_SIZE) {
+        const batch = tracksNeedingEnhancement.slice(i, i + BATCH_SIZE);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (track) => {
+            try {
+              const apiResult = await resolveItemGuid(track.playlistContext.feedGuid, track.playlistContext.itemGuid);
+              return { track, apiResult };
+            } catch (error) {
+              return { track, apiResult: null };
             }
-            if (!track.image && apiResult.image) {
-              track.image = apiResult.image;
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            const { track, apiResult } = result.value;
+            if (apiResult && apiResult.audioUrl) {
+              track.audioUrl = apiResult.audioUrl;
+              track.url = apiResult.audioUrl;
+              if (!track.duration && apiResult.duration) track.duration = apiResult.duration;
+              if (!track.image && apiResult.image) track.image = apiResult.image;
             }
-            
-            console.log(`✅ Enhanced ${track.title} with audio URL: ${apiResult.audioUrl}`);
+            delete track.needsApiResolution;
           }
-          
-          // Remove the needsApiResolution flag
-          delete track.needsApiResolution;
-        } catch (error) {
-          console.error(`❌ Error enhancing ${track.title}:`, error);
-          delete track.needsApiResolution;
         }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (i + BATCH_SIZE < tracksNeedingEnhancement.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
       }
     }
 
