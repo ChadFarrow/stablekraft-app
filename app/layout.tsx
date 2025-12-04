@@ -32,17 +32,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
     icon: [
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon-16x16.png?v=20251204', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png?v=20251204', sizes: '32x32', type: 'image/png' },
+      { url: '/pwa-icon-192.png?v=20251204', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa-icon-512.png?v=20251204', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/app-icon-new.png', sizes: '180x180', type: 'image/png' },
-      { url: '/apple-touch-icon-152x152.png?v=20250806', sizes: '152x152', type: 'image/png' },
-      { url: '/apple-touch-icon-144x144.png?v=20250806', sizes: '144x144', type: 'image/png' },
-      { url: '/apple-touch-icon-120x120.png?v=20250806', sizes: '120x120', type: 'image/png' },
-      { url: '/apple-touch-icon-76x76.png?v=20250806', sizes: '76x76', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=20251204', sizes: '180x180', type: 'image/png' },
     ],
   },
   appleWebApp: {
@@ -51,7 +47,7 @@ export const metadata: Metadata = {
     title: 'Project StableKraft',
     startupImage: [
       {
-        url: '/app-icon-new.png',
+        url: '/apple-touch-icon.png?v=20251204',
         media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
       },
     ],
@@ -220,8 +216,8 @@ export default function RootLayout({
           }}
         />
         {/* Favicon */}
-        <link rel="icon" type="image/png" href="/stablekraft-rocket.png" />
-        <link rel="shortcut icon" type="image/png" href="/stablekraft-rocket.png" />
+        <link rel="icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
+        <link rel="shortcut icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
         
         {/* PWA Meta Tags */}
         <meta name="theme-color" content="#1f2937" />
