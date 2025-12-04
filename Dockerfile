@@ -50,8 +50,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy prisma schema for runtime
 COPY --from=builder /app/prisma ./prisma
 
-# Copy data directory if it exists (for local feeds cache)
-COPY --from=builder /app/data ./data
+# Note: data directory excluded - it's 500MB+ of cached feeds
+# The app will create necessary files at runtime
 
 USER nextjs
 
