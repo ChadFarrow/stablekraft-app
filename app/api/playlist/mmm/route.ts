@@ -196,7 +196,105 @@ export async function GET(request: Request) {
 
     // Check for force refresh parameter
     const forceRefresh = new URL(request.url).searchParams.has('refresh');
-    
+
+    // FAST PATH: Try database first (instant, no XML fetch needed)
+    if (!forceRefresh) {
+      try {
+        const dbPlaylist = await prisma.systemPlaylist.findUnique({
+          where: { id: 'mmm' },
+          include: {
+            tracks: {
+              orderBy: { position: 'asc' },
+              include: {
+                track: {
+                  select: {
+                    id: true,
+                    guid: true,
+                    title: true,
+                    artist: true,
+                    album: true,
+                    audioUrl: true,
+                    duration: true,
+                    publishedAt: true,
+                    image: true,
+                    v4vRecipient: true,
+                    v4vValue: true,
+                    Feed: {
+                      select: {
+                        id: true,
+                        title: true,
+                        artist: true,
+                        image: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (dbPlaylist && dbPlaylist.tracks.length > 0) {
+          console.log(`⚡ Using database playlist (${dbPlaylist.tracks.length} tracks)`);
+
+          // Transform to expected response format
+          const tracks = dbPlaylist.tracks.map((pt, index) => ({
+            id: pt.track.id,
+            title: pt.track.title,
+            artist: pt.track.artist || pt.track.Feed?.artist || 'Unknown Artist',
+            album: pt.track.album || pt.track.Feed?.title || 'Unknown Album',
+            audioUrl: pt.track.audioUrl,
+            duration: pt.track.duration || 0,
+            image: pt.track.image || pt.track.Feed?.image,
+            publishedAt: pt.track.publishedAt?.toISOString(),
+            v4vRecipient: pt.track.v4vRecipient,
+            v4vValue: pt.track.v4vValue,
+            feedGuid: pt.track.guid,
+            itemGuid: pt.track.guid,
+            index,
+            playlistContext: {
+              episodeTitle: pt.episodeId,
+              itemGuid: pt.track.guid,
+              position: pt.position
+            }
+          }));
+
+          const playlistAlbum = {
+            id: 'mmm-playlist',
+            title: dbPlaylist.title,
+            artist: 'ChadF',
+            description: dbPlaylist.description,
+            image: dbPlaylist.artwork,
+            link: dbPlaylist.link,
+            tracks,
+            episodes: [],
+            hasEpisodeMarkers: false,
+            totalTracks: tracks.length,
+            publishedAt: dbPlaylist.updatedAt.toISOString(),
+            isPlaylistCard: true,
+            playlistUrl: '/playlist/mmm',
+            albumUrl: '/album/modern-music-movements-playlist',
+          };
+
+          return NextResponse.json({
+            success: true,
+            albums: [playlistAlbum],
+            totalCount: 1,
+            fromDatabase: true,
+            playlist: {
+              title: dbPlaylist.title,
+              description: dbPlaylist.description,
+              author: 'ChadF',
+              totalItems: 1,
+              items: [playlistAlbum]
+            }
+          });
+        }
+      } catch (dbError) {
+        console.log('⚠️ Database lookup failed, falling back to cache/fetch:', dbError);
+      }
+    }
+
     // Check persistent cache first (with longer cache duration for better performance)
     if (!forceRefresh && playlistCache.isCacheValid('mmm-playlist', CACHE_DURATION)) {
       const cachedData = playlistCache.getCachedData('mmm-playlist');
@@ -365,6 +463,58 @@ export async function GET(request: Request) {
         items: [playlistAlbum]
       }
     };
+
+    // Save to SystemPlaylist table for instant page loads (only on refresh)
+    if (forceRefresh) {
+      try {
+        console.log('💾 Saving MMM playlist to database...');
+
+        // Upsert the playlist metadata
+        await prisma.systemPlaylist.upsert({
+          where: { id: 'mmm' },
+          update: {
+            title: 'Mutton, Mead & Music Playlist',
+            description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
+            artwork: artworkUrl,
+            link: playlistLink,
+          },
+          create: {
+            id: 'mmm',
+            title: 'Mutton, Mead & Music Playlist',
+            description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
+            artwork: artworkUrl,
+            link: playlistLink,
+          }
+        });
+
+        // Delete existing tracks and re-insert with new positions
+        await prisma.systemPlaylistTrack.deleteMany({
+          where: { playlistId: 'mmm' }
+        });
+
+        // Insert tracks with positions (only resolved tracks with valid IDs)
+        const trackInserts = resolvedTracks
+          .map((track, index) => ({
+            playlistId: 'mmm',
+            trackId: track.id,
+            position: index,
+            episodeId: track.playlistContext?.episodeTitle || null,
+          }))
+          .filter(t => t.trackId); // Ensure trackId exists
+
+        if (trackInserts.length > 0) {
+          await prisma.systemPlaylistTrack.createMany({
+            data: trackInserts,
+            skipDuplicates: true,
+          });
+        }
+
+        console.log(`💾 Saved ${trackInserts.length} tracks to SystemPlaylist`);
+      } catch (dbError) {
+        console.error('❌ Error saving to SystemPlaylist:', dbError);
+        // Don't fail the request if DB save fails
+      }
+    }
 
     // Cache the response to persistent storage
     playlistCache.setCachedData('mmm-playlist', responseData);

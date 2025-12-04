@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
         'Accept-Encoding': 'gzip, deflate, br',
       },
       // Reduce timeout to prevent long-hanging requests
-      signal: AbortSignal.timeout(8000), // 8 second timeout
+      signal: AbortSignal.timeout(3000), // 3 second timeout for faster fallback
       redirect: 'follow', // Follow redirects (including HTTP -> HTTPS)
     });
 

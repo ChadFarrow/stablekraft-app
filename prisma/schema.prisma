@@ -102,6 +102,7 @@ model Track {
   trackOrder       Int?
   status           String    @default("active")
   Feed             Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  systemPlaylists  SystemPlaylistTrack[]
 
   @@index([album])
   @@index([artist, album])
@@ -248,4 +249,33 @@ model FavoriteAlbum {
   @@index([nostrEventId])
   @@index([sessionId, createdAt])
   @@index([userId, createdAt])
+}
+
+// System playlists (MMM, HGH, SAS, etc.) - stored in DB for instant loading
+model SystemPlaylist {
+  id          String   @id  // "mmm", "hgh", "sas", "iam", "itdv", "b4ts", "mmt", "upbeats"
+  title       String
+  description String?
+  artwork     String?
+  link        String?
+  updatedAt   DateTime @updatedAt
+
+  tracks      SystemPlaylistTrack[]
+
+  @@index([updatedAt])
+}
+
+model SystemPlaylistTrack {
+  id         String   @id @default(cuid())
+  playlistId String
+  trackId    String
+  position   Int
+  episodeId  String?  // For episode grouping (MMM has episode markers)
+
+  playlist   SystemPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId, position])
+  @@index([playlistId, episodeId])
 }
