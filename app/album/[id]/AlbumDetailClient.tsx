@@ -1049,7 +1049,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                   return (
                   <div
                     key={track.guid || track.url || `${track.title}-${displayIndex}`}
-                    className={`flex flex-col gap-2 p-4 rounded-lg transition-colors group ${
+                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-4 rounded-lg transition-colors group ${
                       isUnavailable
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-white/10 cursor-pointer'
@@ -1060,7 +1060,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     title={isUnavailable ? 'This track is currently unavailable' : undefined}
                   >
                     {/* Row 1: Artwork + Track Info */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1">
                       <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 overflow-hidden rounded">
                         {/* Use track-specific artwork if available, fallback to album artwork */}
                         <Image
@@ -1103,7 +1103,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                       </div>
                     </div>
                     {/* Row 2: Duration + Action Buttons */}
-                    <div className="flex items-center justify-end gap-2 md:gap-4">
+                    <div className="flex items-center justify-end gap-2 md:gap-4 md:flex-shrink-0">
                       {track.explicit && (
                         <span className="bg-red-600 text-white px-1 py-0.5 rounded text-xs font-bold">
                           E
