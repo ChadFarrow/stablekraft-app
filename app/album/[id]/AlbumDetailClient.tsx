@@ -1073,7 +1073,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           loading={displayIndex < 5 ? 'eager' : 'lazy'}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = getPlaceholderImageUrl('thumbnail');
+                            // If track image fails, try album art, then placeholder
+                            if (track.image && target.src.includes(encodeURIComponent(track.image))) {
+                              target.src = getAlbumArtworkUrl(album?.coverArt || '', 'thumbnail', true);
+                            } else {
+                              target.src = getPlaceholderImageUrl('thumbnail');
+                            }
                           }}
                           placeholder="empty"
                         />
@@ -1104,7 +1109,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           <p className="text-xs text-gray-400 truncate">{album?.artist}</p>
                         </div>
                         <div className="hidden md:block">
-                          <p className="font-medium text-base line-clamp-2">
+                          <p className="font-medium text-base line-clamp-2 whitespace-normal break-words">
                             {track.title}
                             <span className="text-gray-400 font-normal"> • {album?.artist}</span>
                             {track.subtitle && (
