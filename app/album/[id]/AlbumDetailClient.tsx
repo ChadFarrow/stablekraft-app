@@ -1104,7 +1104,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                           <p className="text-xs text-gray-400 truncate">{album?.artist}</p>
                         </div>
                         <div className="hidden md:block">
-                          <p className="font-medium text-base truncate">
+                          <p className="font-medium text-base line-clamp-2">
                             {track.title}
                             <span className="text-gray-400 font-normal"> • {album?.artist}</span>
                             {track.subtitle && (
