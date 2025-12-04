@@ -296,7 +296,7 @@ export class ValueSplitsService {
         } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
           errorMessage = 'Payment rejected or cancelled';
         } else if (errorMessage.includes('not supported') || errorMessage.toLowerCase().includes('keysend')) {
-          errorMessage = 'Keysend not supported by your wallet. Currently only AlbyHub supports keysend payments.';
+          errorMessage = 'Keysend not supported by your wallet. Try AlbyHub or Coinos via NWC.';
         }
       }
 
