@@ -176,6 +176,111 @@ export async function GET(request: Request) {
       }
     }
 
+    // FAST PATH: Check database for stored playlist data
+    if (!forceRefresh) {
+      const dbPlaylist = await prisma.systemPlaylist.findUnique({
+        where: { id: 'upbeats' },
+        include: {
+          tracks: {
+            orderBy: { position: 'asc' },
+            include: {
+              track: {
+                select: {
+                  id: true,
+                  title: true,
+                  artist: true,
+                  audioUrl: true,
+                  duration: true,
+                  publishedAt: true,
+                  image: true,
+                  guid: true,
+                  v4vRecipient: true,
+                  v4vValue: true,
+                  Feed: {
+                    select: {
+                      id: true,
+                      title: true,
+                      artist: true,
+                      image: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (dbPlaylist && dbPlaylist.tracks.length > 0) {
+        console.log(`⚡ FAST PATH: Found ${dbPlaylist.tracks.length} tracks in database for Upbeats`);
+
+        // Transform database tracks to API format
+        const dbTracks = dbPlaylist.tracks.map((pt, index) => ({
+          id: pt.track.id,
+          title: pt.track.title,
+          artist: pt.track.artist || pt.track.Feed?.artist || 'Unknown Artist',
+          audioUrl: pt.track.audioUrl || '',
+          url: pt.track.audioUrl || '',
+          duration: pt.track.duration || 180,
+          publishedAt: pt.track.publishedAt?.toISOString() || new Date().toISOString(),
+          image: pt.track.image || pt.track.Feed?.image || dbPlaylist.artwork || '/placeholder-podcast.jpg',
+          feedTitle: pt.track.Feed?.title,
+          feedId: pt.track.Feed?.id,
+          guid: pt.track.guid,
+          v4vRecipient: pt.track.v4vRecipient,
+          v4vValue: pt.track.v4vValue,
+          episodeId: pt.episodeId
+        }));
+
+        // Build episode groups from database data
+        const episodeIds = [...new Set(dbTracks.filter(t => t.episodeId).map(t => t.episodeId))];
+        const episodes = episodeIds.map((epId, index) => {
+          const episodeTracks = dbTracks.filter(t => t.episodeId === epId);
+          return {
+            id: epId,
+            title: epId?.replace('ep-', '').replace(/-/g, ' ') || 'Unknown Episode',
+            trackCount: episodeTracks.length,
+            tracks: episodeTracks,
+            index
+          };
+        });
+
+        const playlistAlbum = {
+          id: 'upbeats-playlist',
+          title: dbPlaylist.title,
+          artist: 'Various Artists',
+          album: dbPlaylist.title,
+          description: dbPlaylist.description || 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+          image: dbPlaylist.artwork || '/placeholder-podcast.jpg',
+          coverArt: dbPlaylist.artwork || '/placeholder-podcast.jpg',
+          url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/upbeats-music-playlist.xml',
+          link: dbPlaylist.link,
+          tracks: dbTracks,
+          feedId: 'upbeats-playlist',
+          type: 'playlist',
+          totalTracks: dbTracks.length,
+          publishedAt: dbPlaylist.updatedAt.toISOString(),
+          isPlaylistCard: true,
+          playlistUrl: '/playlist/upbeats',
+          albumUrl: '/album/upbeats-playlist',
+          episodes,
+          hasEpisodeMarkers: episodes.length > 0
+        };
+
+        return NextResponse.json({
+          success: true,
+          albums: [playlistAlbum],
+          totalCount: 1,
+          playlist: {
+            title: dbPlaylist.title,
+            items: [playlistAlbum]
+          },
+          tracks: dbTracks,
+          fromDatabase: true
+        });
+      }
+    }
+
     // Fetch the playlist XML
     const response = await fetch(UPBEATS_PLAYLIST_URL, {
       headers: {
@@ -326,6 +431,57 @@ export async function GET(request: Request) {
     };
 
     console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
+
+    // SAVE TO DATABASE on refresh for fast subsequent loads
+    if (forceRefresh && tracks.length > 0) {
+      try {
+        console.log(`💾 Saving ${tracks.length} tracks to database for Upbeats playlist...`);
+
+        // Upsert the playlist metadata
+        await prisma.systemPlaylist.upsert({
+          where: { id: 'upbeats' },
+          create: {
+            id: 'upbeats',
+            title: 'Upbeats Playlist',
+            description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+            artwork: artworkUrl,
+            link: playlistLink
+          },
+          update: {
+            title: 'Upbeats Playlist',
+            description: 'Curated playlist from Upbeats podcast featuring Value4Value independent artists',
+            artwork: artworkUrl,
+            link: playlistLink
+          }
+        });
+
+        // Delete existing tracks for this playlist
+        await prisma.systemPlaylistTrack.deleteMany({
+          where: { playlistId: 'upbeats' }
+        });
+
+        // Insert new tracks with their positions
+        const trackInserts = tracks
+          .filter(track => track.id && !track.id.startsWith('upbeats-track-') && !track.id.startsWith('api-'))
+          .map((track, index) => ({
+            playlistId: 'upbeats',
+            trackId: track.id,
+            position: index,
+            episodeId: track.episodeId || null
+          }));
+
+        if (trackInserts.length > 0) {
+          await prisma.systemPlaylistTrack.createMany({
+            data: trackInserts,
+            skipDuplicates: true
+          });
+          console.log(`✅ Saved ${trackInserts.length} tracks to database for Upbeats`);
+        }
+      } catch (dbError) {
+        console.error('⚠️ Failed to save playlist to database:', dbError);
+        // Continue - database save is not critical
+      }
+    }
 
     const responseData = {
       success: true,

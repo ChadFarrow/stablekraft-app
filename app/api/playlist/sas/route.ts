@@ -232,6 +232,57 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const refresh = searchParams.get('refresh') === 'true';
 
+    // FAST PATH: Try database first (instant, no XML fetch needed)
+    if (!refresh) {
+      try {
+        const dbPlaylist = await prisma.systemPlaylist.findUnique({
+          where: { id: 'sas' },
+          include: {
+            tracks: {
+              orderBy: { position: 'asc' },
+              include: {
+                track: {
+                  select: {
+                    id: true, guid: true, title: true, artist: true, album: true,
+                    audioUrl: true, duration: true, publishedAt: true, image: true,
+                    v4vRecipient: true, v4vValue: true,
+                    Feed: { select: { id: true, title: true, artist: true, image: true } }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (dbPlaylist && dbPlaylist.tracks.length > 0) {
+          console.log(`⚡ Using database playlist (${dbPlaylist.tracks.length} tracks)`);
+          const tracks = dbPlaylist.tracks.map((pt, index) => ({
+            id: pt.track.id, title: pt.track.title,
+            artist: pt.track.artist || pt.track.Feed?.artist || 'Unknown Artist',
+            album: pt.track.album || pt.track.Feed?.title || 'Unknown Album',
+            audioUrl: pt.track.audioUrl, duration: pt.track.duration || 0,
+            image: pt.track.image || pt.track.Feed?.image,
+            publishedAt: pt.track.publishedAt?.toISOString(),
+            v4vRecipient: pt.track.v4vRecipient, v4vValue: pt.track.v4vValue,
+            feedGuid: pt.track.guid, itemGuid: pt.track.guid, index,
+            playlistContext: { episodeTitle: pt.episodeId, itemGuid: pt.track.guid, position: pt.position }
+          }));
+          const playlistAlbum = {
+            id: 'sas-playlist', title: dbPlaylist.title, artist: 'ChadF',
+            description: dbPlaylist.description, image: dbPlaylist.artwork, tracks,
+            episodes: [], hasEpisodeMarkers: false, totalTracks: tracks.length,
+            publishedAt: dbPlaylist.updatedAt.toISOString(), isPlaylistCard: true, playlistUrl: '/playlist/sas',
+          };
+          return NextResponse.json({
+            success: true, albums: [playlistAlbum], totalCount: 1, fromDatabase: true,
+            playlist: { title: dbPlaylist.title, items: [playlistAlbum] }
+          });
+        }
+      } catch (dbError) {
+        console.log('⚠️ Database lookup failed, falling back to cache/fetch:', dbError);
+      }
+    }
+
     // Check cache first (unless refresh requested)
     if (!refresh && playlistCache.isCacheValid('sas-playlist')) {
       const cachedData = playlistCache.getCachedData('sas-playlist');
@@ -449,6 +500,28 @@ export async function GET(request: NextRequest) {
         items: [playlistAlbum]
       }
     };
+
+    // Save to SystemPlaylist table for instant page loads (only on refresh)
+    if (refresh) {
+      try {
+        console.log('💾 Saving SAS playlist to database...');
+        await prisma.systemPlaylist.upsert({
+          where: { id: 'sas' },
+          update: { title: 'Sats and Sounds Music Playlist', artwork: artworkUrl },
+          create: { id: 'sas', title: 'Sats and Sounds Music Playlist', artwork: artworkUrl }
+        });
+        await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'sas' } });
+        const trackInserts = tracks
+          .map((track: any, index: number) => ({ playlistId: 'sas', trackId: track.id, position: index, episodeId: null }))
+          .filter((t: any) => t.trackId);
+        if (trackInserts.length > 0) {
+          await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
+        }
+        console.log(`💾 Saved ${trackInserts.length} tracks to SystemPlaylist`);
+      } catch (dbError) {
+        console.error('❌ Error saving to SystemPlaylist:', dbError);
+      }
+    }
 
     // Cache the response
     playlistCache.setCachedData('sas-playlist', responseData);
