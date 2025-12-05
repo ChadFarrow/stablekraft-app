@@ -514,7 +514,7 @@ export async function GET(request: NextRequest) {
         await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'mmt' } });
         // Filter out api-* and placeholder IDs that don't exist in Track table
         const trackInserts = tracks
-          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('mmt-track-'))
+          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('placeholder-'))
           .map((track: any, index: number) => ({ playlistId: 'mmt', trackId: track.id, position: index, episodeId: null }));
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
