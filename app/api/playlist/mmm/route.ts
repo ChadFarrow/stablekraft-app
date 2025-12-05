@@ -252,12 +252,26 @@ export async function GET(request: Request) {
             feedGuid: pt.track.guid,
             itemGuid: pt.track.guid,
             index,
+            episodeId: pt.episodeId,
             playlistContext: {
               episodeTitle: pt.episodeId,
               itemGuid: pt.track.guid,
               position: pt.position
             }
           }));
+
+          // Build episode groups from database data
+          const episodeIds = [...new Set(tracks.filter(t => t.episodeId).map(t => t.episodeId))];
+          const episodes = episodeIds.map((epId, idx) => {
+            const episodeTracks = tracks.filter(t => t.episodeId === epId);
+            return {
+              id: epId,
+              title: epId?.replace('ep-', '').replace(/-/g, ' ') || 'Unknown Episode',
+              trackCount: episodeTracks.length,
+              tracks: episodeTracks,
+              index: idx
+            };
+          });
 
           const playlistAlbum = {
             id: 'mmm-playlist',
@@ -267,8 +281,8 @@ export async function GET(request: Request) {
             image: dbPlaylist.artwork,
             link: dbPlaylist.link,
             tracks,
-            episodes: [],
-            hasEpisodeMarkers: false,
+            episodes,
+            hasEpisodeMarkers: episodes.length > 0,
             totalTracks: tracks.length,
             publishedAt: dbPlaylist.updatedAt.toISOString(),
             isPlaylistCard: true,

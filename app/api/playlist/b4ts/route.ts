@@ -267,12 +267,27 @@ export async function GET(request: NextRequest) {
             publishedAt: pt.track.publishedAt?.toISOString(),
             v4vRecipient: pt.track.v4vRecipient, v4vValue: pt.track.v4vValue,
             feedGuid: pt.track.guid, itemGuid: pt.track.guid, index,
+            episodeId: pt.episodeId,
             playlistContext: { episodeTitle: pt.episodeId, itemGuid: pt.track.guid, position: pt.position }
           }));
+
+          // Build episode groups from database data
+          const episodeIds = [...new Set(tracks.filter(t => t.episodeId).map(t => t.episodeId))];
+          const episodes = episodeIds.map((epId, idx) => {
+            const episodeTracks = tracks.filter(t => t.episodeId === epId);
+            return {
+              id: epId,
+              title: epId?.replace('ep-', '').replace(/-/g, ' ') || 'Unknown Episode',
+              trackCount: episodeTracks.length,
+              tracks: episodeTracks,
+              index: idx
+            };
+          });
+
           const playlistAlbum = {
             id: 'b4ts-playlist', title: dbPlaylist.title, artist: 'ChadF',
             description: dbPlaylist.description, image: dbPlaylist.artwork, tracks,
-            episodes: [], hasEpisodeMarkers: false, totalTracks: tracks.length,
+            episodes, hasEpisodeMarkers: episodes.length > 0, totalTracks: tracks.length,
             publishedAt: dbPlaylist.updatedAt.toISOString(), isPlaylistCard: true, playlistUrl: '/playlist/b4ts',
           };
           return NextResponse.json({
