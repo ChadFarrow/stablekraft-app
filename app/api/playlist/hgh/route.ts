@@ -474,14 +474,15 @@ export async function GET(request: Request) {
           where: { playlistId: 'hgh' }
         });
 
-        const trackInserts = resolvedTracks
-          .map((track, index) => ({
+        // Use 'tracks' (filtered) not 'resolvedTracks' - api-* IDs don't exist in Track table
+        const trackInserts = tracks
+          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('hgh-track-'))
+          .map((track: any, index: number) => ({
             playlistId: 'hgh',
             trackId: track.id,
             position: index,
-            episodeId: track.playlistContext?.episodeTitle || null,
-          }))
-          .filter(t => t.trackId);
+            episodeId: track.episodeId || null,
+          }));
 
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({

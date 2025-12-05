@@ -377,9 +377,10 @@ export async function GET(request: Request) {
           create: { id: 'iam', title: 'It\'s A Mood Music Playlist', description: 'Every music reference from the It\'s a Mood podcast', artwork: artworkUrl }
         });
         await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'iam' } });
-        const trackInserts = resolvedTracks
-          .map((track, index) => ({ playlistId: 'iam', trackId: track.id, position: index, episodeId: track.playlistContext?.episodeTitle || null }))
-          .filter(t => t.trackId);
+        // Use 'tracks' (filtered) not 'resolvedTracks' - api-* IDs don't exist in Track table
+        const trackInserts = tracks
+          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('iam-track-'))
+          .map((track: any, index: number) => ({ playlistId: 'iam', trackId: track.id, position: index, episodeId: track.episodeId || null }));
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
         }

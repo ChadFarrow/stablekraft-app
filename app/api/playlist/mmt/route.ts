@@ -512,9 +512,10 @@ export async function GET(request: NextRequest) {
           create: { id: 'mmt', title: "Mike's Mix Tape Music Playlist", artwork: artworkUrl }
         });
         await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'mmt' } });
+        // Filter out api-* and placeholder IDs that don't exist in Track table
         const trackInserts = tracks
-          .map((track: any, index: number) => ({ playlistId: 'mmt', trackId: track.id, position: index, episodeId: null }))
-          .filter((t: any) => t.trackId);
+          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('mmt-track-'))
+          .map((track: any, index: number) => ({ playlistId: 'mmt', trackId: track.id, position: index, episodeId: null }));
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
         }

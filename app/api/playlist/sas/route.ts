@@ -511,9 +511,10 @@ export async function GET(request: NextRequest) {
           create: { id: 'sas', title: 'Sats and Sounds Music Playlist', artwork: artworkUrl }
         });
         await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'sas' } });
+        // Filter out api-* and placeholder IDs that don't exist in Track table
         const trackInserts = tracks
-          .map((track: any, index: number) => ({ playlistId: 'sas', trackId: track.id, position: index, episodeId: null }))
-          .filter((t: any) => t.trackId);
+          .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('sas-track-'))
+          .map((track: any, index: number) => ({ playlistId: 'sas', trackId: track.id, position: index, episodeId: null }));
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
         }
