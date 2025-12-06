@@ -8,7 +8,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
-import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp, AlertCircle, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface BoostButtonProps {
@@ -1411,6 +1411,37 @@ export function BoostButton({
                               </div>
                             );
                           })}
+                          {/* StableKraft Platform Fee */}
+                          <div className="bg-gray-800/50 rounded-lg p-3 flex items-center justify-between gap-2 border border-gray-700/50">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Zap className="w-3 h-3 text-green-400 flex-shrink-0" />
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white text-sm font-medium">
+                                    StableKraft fee
+                                  </span>
+                                  <div className="relative group">
+                                    <Info className="w-3 h-3 text-gray-400 hover:text-gray-300 cursor-help" />
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-200 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                                      <p>This small fee is added on top of your boost to help collect metadata for testing and development.</p>
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-600"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-gray-400">
+                                  Platform support
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-white text-sm font-semibold">
+                                {LIGHTNING_CONFIG.platform.fee} sats
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                flat fee
+                              </div>
+                            </div>
+                          </div>
                           </div>
                         );
                       })()}
