@@ -534,7 +534,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           tracks: matchingTracks,
           trackCount: matchingTracks.length
         };
-      }).filter(ep => ep.trackCount > 0); // Only show episodes with matching tracks
+      }); // Keep all episodes, including those with no tracks
   }, [episodes, hasEpisodeMarkers, searchQuery]);
 
   const loadMoreTracks = useCallback(() => {

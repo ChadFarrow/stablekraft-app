@@ -481,7 +481,7 @@ export async function GET(request: NextRequest) {
         tracks: episodeTracks,
         index
       };
-    }).filter(ep => ep.trackCount > 0) : [];
+    }) : [];
 
     console.log(`📺 Built ${episodes.length} episode groups with tracks`);
 

@@ -52,10 +52,13 @@ export default function EpisodeSection({
           {/* Play Episode Button */}
           <button
             onClick={handlePlayEpisode}
+            disabled={tracks.length === 0}
             className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-              hasPlayingTrack && isPlaying
-                ? 'bg-[#00ffd5] text-black'
-                : 'bg-white/10 hover:bg-white/20 text-white'
+              tracks.length === 0
+                ? 'bg-white/5 text-gray-600 cursor-not-allowed'
+                : hasPlayingTrack && isPlaying
+                  ? 'bg-[#00ffd5] text-black'
+                  : 'bg-white/10 hover:bg-white/20 text-white'
             }`}
           >
             {hasPlayingTrack && isPlaying ? (
@@ -87,7 +90,11 @@ export default function EpisodeSection({
       {/* Episode Tracks - Collapsible Content */}
       {isExpanded && (
         <div className="mt-1 space-y-0.5 pl-3 border-l-2 border-white/10 ml-4">
-          {tracks.filter(Boolean).map((track, index) => renderTrack(track, index))}
+          {tracks.length === 0 ? (
+            <p className="text-gray-500 text-sm py-2 italic">No tracks</p>
+          ) : (
+            tracks.filter(Boolean).map((track, index) => renderTrack(track, index))
+          )}
         </div>
       )}
     </div>

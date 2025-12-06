@@ -426,7 +426,7 @@ export async function GET(request: Request) {
             tracks: episodeTracks,
             index
           };
-        }).filter(ep => ep.trackCount > 0) // Only include episodes with resolved tracks
+        })
       : [];
 
     if (hasEpisodeMarkers) {
