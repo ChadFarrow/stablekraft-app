@@ -191,30 +191,7 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
           continue;
         }
 
-        const newFeed = { id: upsertResult.id };
-
         console.log(`✅ Added resolved feed: ${resolvedFeed.title} by ${resolvedFeed.artist}`);
-
-        // Automatically process the RSS feed to extract tracks
-        try {
-          console.log(`🔄 Processing RSS for feed: ${newFeed.id}`);
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const parseResponse = await fetch(`${baseUrl}/api/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          });
-
-          if (parseResponse.ok) {
-            const parseResult = await parseResponse.json();
-            console.log(`✅ RSS processing completed for feed ${newFeed.id}: ${parseResult.message}`);
-          } else {
-            console.warn(`⚠️ RSS processing failed for feed ${newFeed.id}: ${parseResponse.status}`);
-          }
-        } catch (parseError) {
-          console.error(`❌ Error processing RSS for feed ${newFeed.id}:`, parseError);
-        }
 
         addedCount++;
       } else {
