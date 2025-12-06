@@ -452,7 +452,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       if (!currentProvider.keysend) {
-        return { error: 'Keysend not supported by your wallet. Try Alby or Coinos via NWC.' };
+        return { error: 'Keysend is not supported by your wallet. Try Alby or Coinos via NWC.' };
       }
 
       const keysendPayload = {

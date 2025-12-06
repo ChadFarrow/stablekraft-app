@@ -1150,7 +1150,7 @@ export function BoostButton({
         // Check if any errors are keysend-related for cleaner messaging
         const keysendErrors = result.errors.filter(e => e.toLowerCase().includes('keysend'));
         if (keysendErrors.length > 0) {
-          return { error: 'Keysend not supported by your wallet. Try Alby or Coinos via NWC.', resolvedPubkeys: resolvedNostrPubkeys };
+          return { error: 'Keysend is not supported by your wallet. Try Alby or Coinos via NWC.', resolvedPubkeys: resolvedNostrPubkeys };
         }
         return { error: result.errors.join(', '), resolvedPubkeys: resolvedNostrPubkeys };
       }
@@ -1555,7 +1555,7 @@ export function BoostButton({
             {isConnected && !supportsKeysend && activeValueSplits?.some(s => s.type === 'node') && (
               <div className="mb-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-200 text-sm flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Keysend not supported by your wallet. Try Alby or Coinos via NWC.</span>
+                <span>Keysend is not supported by your wallet. Try Alby or Coinos via NWC.</span>
               </div>
             )}
 

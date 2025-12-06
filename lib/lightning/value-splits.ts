@@ -317,7 +317,7 @@ export class ValueSplitsService {
       };
     } catch (error) {
       // Extract the actual Lightning error message
-      let errorMessage = 'Keysend not supported';
+      let errorMessage = 'Keysend is not supported';
       if (error instanceof Error) {
         errorMessage = error.message;
         // Check for common Lightning errors and provide clearer messages
@@ -330,7 +330,7 @@ export class ValueSplitsService {
         } else if (errorMessage.includes('rejected') || errorMessage.includes('cancelled')) {
           errorMessage = 'Payment rejected or cancelled';
         } else if (errorMessage.includes('not supported') || errorMessage.toLowerCase().includes('keysend')) {
-          errorMessage = 'Keysend not supported by your wallet. Try Alby or Coinos via NWC.';
+          errorMessage = 'Keysend is not supported by your wallet. Try Alby or Coinos via NWC.';
         } else if (errorMessage.includes('command not implemented') || errorMessage.includes('not implemented yet')) {
           errorMessage = 'Your wallet doesn\'t support keysend. This artist only accepts keysend payments. Try Alby or Coinos.';
         }

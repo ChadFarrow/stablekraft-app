@@ -66,7 +66,7 @@ export class WebLNService {
       }
 
       if (!this.provider.keysend) {
-        return { success: false, error: 'Keysend not supported by wallet' };
+        return { success: false, error: 'Keysend is not supported by wallet' };
       }
 
       const result = await this.provider.keysend({
