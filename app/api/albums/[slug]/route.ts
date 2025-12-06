@@ -715,12 +715,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
         tracks: tracks,
         podroll: isPlaylist ? { enabled: true } : null,
-        publisher: feed.type === 'album' && feed.artist ? {
-          feedGuid: feed.id,
-          feedUrl: feed.originalUrl,
-          title: feed.artist,
-          artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
-        } : null,
+        publisher: await (async () => {
+          if (feed.type !== 'album' || !feed.artist) return null;
+
+          // Look up actual publisher feed by artist name
+          const publisherFeed = await prisma.feed.findFirst({
+            where: {
+              type: 'publisher',
+              OR: [
+                { artist: { equals: feed.artist, mode: 'insensitive' } },
+                { title: { equals: feed.artist, mode: 'insensitive' } }
+              ]
+            },
+            select: { id: true, originalUrl: true, title: true, artist: true, image: true }
+          });
+
+          if (publisherFeed) {
+            return {
+              feedGuid: publisherFeed.id,
+              feedUrl: publisherFeed.originalUrl,
+              title: publisherFeed.artist || publisherFeed.title,
+              artistImage: (isValidImageUrl(publisherFeed.image) ? publisherFeed.image : null)
+            };
+          }
+
+          // Fallback: return album as pseudo-publisher (for artist link to work)
+          return {
+            feedGuid: feed.id,
+            feedUrl: feed.originalUrl,
+            title: feed.artist,
+            artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
+          };
+        })(),
         funding: null,
         feedId: feed.id,
         feedUrl: feed.originalUrl,
@@ -844,12 +870,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           explicit: tracks.some((t: any) => t.explicit) || feed.explicit,
           tracks: tracks,
           podroll: isPlaylist ? { enabled: true } : null,
-          publisher: feed.type === 'album' && feed.artist ? {
-            feedGuid: feed.id,
-            feedUrl: feed.originalUrl,
-            title: feed.artist,
-            artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
-          } : null,
+          publisher: await (async () => {
+            if (feed.type !== 'album' || !feed.artist) return null;
+
+            // Look up actual publisher feed by artist name
+            const publisherFeed = await prisma.feed.findFirst({
+              where: {
+                type: 'publisher',
+                OR: [
+                  { artist: { equals: feed.artist, mode: 'insensitive' } },
+                  { title: { equals: feed.artist, mode: 'insensitive' } }
+                ]
+              },
+              select: { id: true, originalUrl: true, title: true, artist: true, image: true }
+            });
+
+            if (publisherFeed) {
+              return {
+                feedGuid: publisherFeed.id,
+                feedUrl: publisherFeed.originalUrl,
+                title: publisherFeed.artist || publisherFeed.title,
+                artistImage: (isValidImageUrl(publisherFeed.image) ? publisherFeed.image : null)
+              };
+            }
+
+            // Fallback: return album as pseudo-publisher
+            return {
+              feedGuid: feed.id,
+              feedUrl: feed.originalUrl,
+              title: feed.artist,
+              artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
+            };
+          })(),
           funding: null,
           feedId: feed.id,
           feedUrl: feed.originalUrl,
@@ -859,7 +911,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         };
       }
     }
-    
+
     if (!foundAlbum) {
       console.log(`❌ No album found for slug: "${slug}"`);
       return NextResponse.json({ 

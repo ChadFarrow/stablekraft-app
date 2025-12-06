@@ -875,7 +875,16 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6">
             <div className="text-center lg:text-left space-y-4">
             <h1 className="text-3xl md:text-4xl font-bold leading-tight">{album.title}</h1>
-            <p className="text-xl text-gray-300">{album.artist}</p>
+            {album.publisher ? (
+              <Link
+                href={`/publisher/${generatePublisherSlug({ artist: album.artist, feedGuid: album.publisher.feedGuid })}`}
+                className="text-xl text-gray-300 hover:text-blue-400 transition-colors"
+              >
+                {album.artist}
+              </Link>
+            ) : (
+              <p className="text-xl text-gray-300">{album.artist}</p>
+            )}
             
             {album.subtitle && (
               <p className="text-lg text-gray-300 italic">{album.subtitle}</p>
