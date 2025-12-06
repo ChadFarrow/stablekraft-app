@@ -8,6 +8,14 @@ export interface ValueRecipient {
   customKey?: string;
   customValue?: string;
   fee?: boolean;
+  /** Keysend fallback info resolved from Lightning Address */
+  keysendFallback?: {
+    pubkey: string;
+    customKey?: string;
+    customValue?: string;
+  };
+  /** Nostr pubkey (hex) resolved from Lightning Address NIP-05 */
+  nostrPubkey?: string;
 }
 
 export interface ValueTag {

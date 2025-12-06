@@ -29,6 +29,25 @@ export interface LNURLPayResponse {
   routes?: any[];
 }
 
+/**
+ * Combined Lightning Address details (LNURL, keysend, and Nostr info)
+ * Works with any provider: Alby, Fountain, Strike, etc.
+ */
+export interface LightningAddressDetails {
+  lnurlp?: LNURLPayParams & { status?: 'OK' | 'ERROR'; reason?: string };
+  keysend?: {
+    pubkey: string;
+    customData: Array<{ customKey: string; customValue: string }>;
+    status: 'OK' | 'ERROR';
+    tag?: string;
+    reason?: string;
+  };
+  nostr?: {
+    names: Record<string, string>;
+    relays?: Record<string, string[]>;
+  };
+}
+
 export class LNURLService {
   /**
    * Check if running in browser environment
@@ -54,6 +73,39 @@ export class LNURLService {
       return decoded.prefix === 'lnurl';
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Resolve Lightning Address to full details (LNURL, keysend, Nostr)
+   * Works with any Lightning Address provider (Alby, Fountain, Strike, etc.)
+   * @see https://github.com/getAlby/lightning-address-details-proxy
+   */
+  static async resolveLightningAddressDetails(address: string): Promise<LightningAddressDetails> {
+    if (!this.isLightningAddress(address)) {
+      throw new Error('Invalid Lightning Address format');
+    }
+
+    try {
+      // Get combined LNURL + keysend + Nostr info for any Lightning Address
+      const url = `https://api.getalby.com/lnurl/lightning-address-details?ln=${encodeURIComponent(address)}`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'StableKraft-Lightning/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data as LightningAddressDetails;
+    } catch (error) {
+      console.error('Failed to resolve Lightning Address details:', error);
+      throw error;
     }
   }
 

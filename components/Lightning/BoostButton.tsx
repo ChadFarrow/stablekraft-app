@@ -70,6 +70,8 @@ export function BoostButton({
   const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
   const [showSplitDetails, setShowSplitDetails] = useState(false);
   const [fetchedValueSplits, setFetchedValueSplits] = useState<typeof valueSplits>([]);
+  // Resolved Nostr pubkeys from Lightning Addresses (for tagging musicians in boost posts)
+  const [resolvedMusicianPubkeys, setResolvedMusicianPubkeys] = useState<Array<{ address: string; pubkey: string }>>([]);
 
   useEffect(() => {
     setIsClient(true);
@@ -213,9 +215,16 @@ export function BoostButton({
       // 2. Lightning Address (if provided)
       // 3. Node pubkey via keysend
 
+      // Store resolved musician pubkeys for Nostr tagging (passed directly, not via state)
+      let musicianPubkeysForNostr: Array<{ address: string; pubkey: string }> = [];
+
       if (activeValueSplits && activeValueSplits.length > 0) {
         // Use value splits for multiple recipients (highest priority)
-        result = await sendValueSplitPayments(amount, message);
+        const valueSplitResult = await sendValueSplitPayments(amount, message);
+        result = valueSplitResult;
+        if (valueSplitResult.resolvedPubkeys) {
+          musicianPubkeysForNostr = valueSplitResult.resolvedPubkeys;
+        }
       } else if (lightningAddress && LNURLService.isLightningAddress(lightningAddress)) {
         // Pay to Lightning Address via LNURL-pay
 
@@ -739,10 +748,22 @@ export function BoostButton({
             const urlWithAnchor = url;
             
             // Build content (Fountain-style format)
+            // Include @npub mentions for musicians if we have their Nostr pubkeys
+            let musicianMentions = '';
+            if (musicianPubkeysForNostr.length > 0) {
+              // Deduplicate pubkeys and convert to npub format
+              const { nip19 } = await import('nostr-tools');
+              const uniquePubkeys = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
+              const npubMentions = uniquePubkeys
+                .map(({ pubkey }) => `nostr:${nip19.npubEncode(pubkey)}`)
+                .join(' ');
+              musicianMentions = `\n\n${npubMentions}`;
+            }
+
             // Only include message if user provided one
             const content = message
-              ? `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${message}\n\n${url}`
-              : `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${url}`;
+              ? `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}\n\n${message}${musicianMentions}\n\n${url}`
+              : `⚡ ${amount} sats • "${finalTrackTitle}"${finalArtistName ? ` by ${finalArtistName}` : ''}${musicianMentions}\n\n${url}`;
             
             // Build tags
             const tags: string[][] = [];
@@ -788,6 +809,19 @@ export function BoostButton({
               // Use full publisher URL with base URL
               const publisherFullUrl = finalPublisherUrl || `${baseUrl}/publisher/${finalPublisherGuid}`;
               tags.push(['i', `podcast:publisher:guid:${finalPublisherGuid}`]);
+            }
+
+            // Add p-tags for musician notifications (resolved from Lightning Address NIP-05/Nostr info)
+            // This notifies musicians on Nostr when they're boosted
+            // Note: p-tags use hex pubkeys per NIP-01 (not npub bech32 format)
+            // Self-tagging is allowed - musicians may be in their own splits and want to see the notification
+            if (musicianPubkeysForNostr.length > 0) {
+              // Deduplicate pubkeys to avoid duplicate p-tags
+              const uniquePubkeysForTags = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
+              for (const { address, pubkey } of uniquePubkeysForTags) {
+                tags.push(['p', pubkey]);
+                console.log(`🔔 Added p-tag for musician notification: ${address} → ${pubkey.slice(0, 16)}...`);
+              }
             }
 
             // Create note template
@@ -973,7 +1007,7 @@ export function BoostButton({
   const sendValueSplitPayments = async (
     totalAmount: number,
     message?: string
-  ): Promise<{ preimage?: string; error?: string }> => {
+  ): Promise<{ preimage?: string; error?: string; resolvedPubkeys?: Array<{ address: string; pubkey: string }> }> => {
     try {
       // Convert valueSplits to ValueRecipient format
       const recipients = activeValueSplits.map(split => ({
@@ -981,8 +1015,52 @@ export function BoostButton({
         type: split.type as 'node' | 'lnaddress',
         address: split.address,
         split: split.split,
-        fee: false
+        fee: false,
+        keysendFallback: undefined as { pubkey: string; customKey?: string; customValue?: string } | undefined,
+        nostrPubkey: undefined as string | undefined
       }));
+
+      // Resolve Lightning Addresses to get keysend fallback and Nostr info
+      // This enables keysend-first payments (for Helipad metadata) and musician tagging in Nostr
+      const resolvedNostrPubkeys: Array<{ address: string; pubkey: string }> = [];
+
+      for (const recipient of recipients) {
+        if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
+          try {
+            console.log(`🔍 Resolving Lightning Address details for ${recipient.address}...`);
+            const details = await LNURLService.resolveLightningAddressDetails(recipient.address);
+
+            // Add keysend fallback info if available
+            if (details.keysend?.status === 'OK' && details.keysend.pubkey) {
+              recipient.keysendFallback = {
+                pubkey: details.keysend.pubkey,
+                customKey: details.keysend.customData?.[0]?.customKey,
+                customValue: details.keysend.customData?.[0]?.customValue
+              };
+              console.log(`✅ Got keysend fallback for ${recipient.address}: ${details.keysend.pubkey.slice(0, 20)}...`);
+            }
+
+            // Extract Nostr pubkey for tagging
+            if (details.nostr?.names) {
+              const [username] = recipient.address.split('@');
+              const nostrPubkey = details.nostr.names[username];
+              if (nostrPubkey) {
+                recipient.nostrPubkey = nostrPubkey;
+                resolvedNostrPubkeys.push({ address: recipient.address, pubkey: nostrPubkey });
+                console.log(`✅ Got Nostr pubkey for ${recipient.address}: ${nostrPubkey.slice(0, 16)}...`);
+              }
+            }
+          } catch (error) {
+            // Non-fatal: continue without keysend fallback or Nostr tagging
+            console.warn(`⚠️ Failed to resolve details for ${recipient.address}:`, error);
+          }
+        }
+      }
+
+      // Store resolved Nostr pubkeys for use in Nostr post tags
+      if (resolvedNostrPubkeys.length > 0) {
+        setResolvedMusicianPubkeys(resolvedNostrPubkeys);
+      }
 
       // Initialize payment statuses for all recipients
       const initialStatuses = new Map(recipients.map(r => [
@@ -1065,13 +1143,13 @@ export function BoostButton({
         // Check if any errors are keysend-related for cleaner messaging
         const keysendErrors = result.errors.filter(e => e.toLowerCase().includes('keysend'));
         if (keysendErrors.length > 0) {
-          return { error: 'Keysend not supported by your wallet. Try AlbyHub or Coinos via NWC.' };
+          return { error: 'Keysend not supported by your wallet. Try AlbyHub or Coinos via NWC.', resolvedPubkeys: resolvedNostrPubkeys };
         }
-        return { error: result.errors.join(', ') };
+        return { error: result.errors.join(', '), resolvedPubkeys: resolvedNostrPubkeys };
       }
 
-      // Return the primary preimage
-      return { preimage: result.primaryPreimage };
+      // Return the primary preimage and resolved Nostr pubkeys for tagging
+      return { preimage: result.primaryPreimage, resolvedPubkeys: resolvedNostrPubkeys };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Value split payment failed' };
     }

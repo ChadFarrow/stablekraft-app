@@ -103,7 +103,40 @@ export class ValueSplitsService {
         // Add timeout wrapper for faster failures
         const paymentPromise = (async () => {
           if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
-            // Pay via Lightning Address
+            // If we have keysend fallback info from Lightning Address lookup, try keysend first
+            // Keysend is preferred because it includes Helipad metadata for podcast apps
+            if (recipient.keysendFallback) {
+              console.log(`⚡ Trying keysend first for ${recipient.address} (has keysend fallback)`);
+
+              // Merge keysend custom records with Helipad metadata
+              const keysendMetadata = {
+                ...helipadMetadata,
+                // Add Alby/Fountain routing records if present
+                ...(recipient.keysendFallback.customKey && recipient.keysendFallback.customValue ? {
+                  customRecords: {
+                    [recipient.keysendFallback.customKey]: recipient.keysendFallback.customValue,
+                  }
+                } : {})
+              };
+
+              const keysendResult = await this.payKeysend(
+                { ...recipient, type: 'node', address: recipient.keysendFallback.pubkey },
+                amount,
+                message,
+                sendKeysend,
+                keysendMetadata
+              );
+
+              if (keysendResult.success) {
+                console.log(`✅ Keysend succeeded for ${recipient.address}`);
+                return keysendResult;
+              }
+
+              // Keysend failed, fall back to LNURL
+              console.log(`⚠️ Keysend failed for ${recipient.address}, falling back to LNURL: ${keysendResult.error}`);
+            }
+
+            // Pay via Lightning Address (LNURL) - either as fallback or primary method
             return await this.payLightningAddress(recipient, amount, message, sendPayment);
           } else if (recipient.type === 'node') {
             // Pay via keysend (with Helipad metadata)
