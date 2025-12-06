@@ -115,21 +115,6 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
               }}
             />
           </div>
-          {/* Share button overlay on album art */}
-          {onShare && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onShare();
-              }}
-              className="absolute -bottom-1 -left-1 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-1.5 rounded-full transition-all duration-200 active:scale-95"
-              title="Share this page"
-              aria-label="Copy page link to clipboard"
-            >
-              <Share2 className="w-3 h-3" />
-            </button>
-          )}
         </div>
 
         {/* MIDDLE: Title/Artist + Time */}
