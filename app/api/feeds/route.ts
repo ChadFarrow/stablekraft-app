@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { findPublisherFeed } from '@/lib/publisher-detector';
+import { generateAlbumSlug } from '@/lib/url-utils';
+
+/**
+ * Generate a URL-friendly feed ID from artist and title
+ */
+function generateFeedId(artist: string | undefined, title: string): string {
+  const parts = [];
+  if (artist) {
+    parts.push(generateAlbumSlug(artist));
+  }
+  parts.push(generateAlbumSlug(title));
+
+  let baseId = parts.join('-');
+
+  // Ensure we have a valid ID
+  if (!baseId || baseId.length < 2) {
+    baseId = `feed-${Date.now()}`;
+  }
+
+  return baseId;
+}
 
 // GET /api/feeds - List all feeds with optional filters
 export async function GET(request: NextRequest) {
@@ -87,11 +108,24 @@ export async function POST(request: NextRequest) {
     try {
       // Parse the RSS feed
       const parsedFeed = await parseRSSFeedWithSegments(originalUrl);
-      
+
+      // Generate a URL-friendly feed ID from artist and title
+      let feedId = generateFeedId(parsedFeed.artist, parsedFeed.title);
+
+      // Check if this ID already exists (handle collisions)
+      const existingWithId = await prisma.feed.findUnique({
+        where: { id: feedId }
+      });
+
+      if (existingWithId) {
+        // Append timestamp to make unique
+        feedId = `${feedId}-${Date.now()}`;
+      }
+
       // Create feed in database
       const feed = await prisma.feed.create({
         data: {
-          id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: feedId,
           guid: parsedFeed.podcastGuid || null,
           originalUrl,
           cdnUrl: cdnUrl || originalUrl,
@@ -163,7 +197,7 @@ export async function POST(request: NextRequest) {
       if (type === 'album') {
         // First check if the feed has a podcast:publisher tag
         if (parsedFeed.publisherFeed) {
-          console.log('✅ Found publisher feed in RSS:', parsedFeed.publisherFeed.title);
+          console.log('✅ Found publisher feed in RSS:', parsedFeed.publisherFeed.title || parsedFeed.publisherFeed.feedUrl);
 
           // Check if publisher feed already exists
           const existingPublisher = await prisma.feed.findFirst({
@@ -176,25 +210,38 @@ export async function POST(request: NextRequest) {
           });
 
           if (existingPublisher) {
-            console.log('ℹ️ Publisher feed already imported');
+            console.log('ℹ️ Publisher feed already imported:', existingPublisher.title);
             publisherFeedInfo = {
               found: true,
               feedUrl: parsedFeed.publisherFeed.feedUrl,
-              title: parsedFeed.publisherFeed.title,
+              // Use existing publisher's title if not available in remoteItem (Wavlake format)
+              title: parsedFeed.publisherFeed.title || existingPublisher.title,
               guid: parsedFeed.publisherFeed.feedGuid,
               medium: parsedFeed.publisherFeed.medium,
               alreadyImported: true
             };
           } else {
             // Auto-import the publisher feed
-            console.log('🔄 Auto-importing publisher feed:', parsedFeed.publisherFeed.title);
+            console.log('🔄 Auto-importing publisher feed:', parsedFeed.publisherFeed.title || parsedFeed.publisherFeed.feedUrl);
             try {
               const publisherParsedFeed = await parseRSSFeedWithSegments(parsedFeed.publisherFeed.feedUrl);
+
+              // Generate a URL-friendly publisher feed ID
+              let publisherFeedId = generateFeedId(publisherParsedFeed.artist, publisherParsedFeed.title);
+
+              // Check for collision
+              const existingPublisherId = await prisma.feed.findUnique({
+                where: { id: publisherFeedId }
+              });
+
+              if (existingPublisherId) {
+                publisherFeedId = `${publisherFeedId}-${Date.now()}`;
+              }
 
               // Create publisher feed in database
               const publisherFeed = await prisma.feed.create({
                 data: {
-                  id: `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  id: publisherFeedId,
                   guid: parsedFeed.publisherFeed.feedGuid,
                   originalUrl: parsedFeed.publisherFeed.feedUrl,
                   cdnUrl: parsedFeed.publisherFeed.feedUrl,
@@ -249,7 +296,8 @@ export async function POST(request: NextRequest) {
               publisherFeedInfo = {
                 found: true,
                 feedUrl: parsedFeed.publisherFeed.feedUrl,
-                title: parsedFeed.publisherFeed.title,
+                // Use the parsed publisher feed's title (more reliable than remoteItem title)
+                title: publisherFeed.title || parsedFeed.publisherFeed.title,
                 guid: parsedFeed.publisherFeed.feedGuid,
                 medium: parsedFeed.publisherFeed.medium,
                 alreadyImported: false,
@@ -266,6 +314,7 @@ export async function POST(request: NextRequest) {
               publisherFeedInfo = {
                 found: true,
                 feedUrl: parsedFeed.publisherFeed.feedUrl,
+                // May be undefined for Wavlake format if import failed
                 title: parsedFeed.publisherFeed.title,
                 guid: parsedFeed.publisherFeed.feedGuid,
                 medium: parsedFeed.publisherFeed.medium,

@@ -96,7 +96,7 @@ export interface ParsedFeed {
   publisherFeed?: {
     feedGuid: string;
     feedUrl: string;
-    title: string;
+    title?: string;  // Optional - Wavlake format doesn't include title in remoteItem
     medium?: string;
   };
 }
@@ -202,8 +202,29 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
   }
 }
 
+// Helper function to extract remoteItem attributes from XML content
+function extractRemoteItemAttributes(content: string): { feedGuid: string; feedUrl: string; title?: string; medium?: string } | null {
+  const feedGuidMatch = content.match(/feedGuid="([^"]+)"/);
+  const feedUrlMatch = content.match(/feedUrl="([^"]+)"/);
+  const titleMatch = content.match(/title="([^"]+)"/);
+  const mediumMatch = content.match(/medium="([^"]+)"/);
+
+  if (feedGuidMatch && feedUrlMatch) {
+    return {
+      feedGuid: feedGuidMatch[1],
+      feedUrl: feedUrlMatch[1],
+      title: titleMatch?.[1],
+      medium: mediumMatch?.[1]
+    };
+  }
+  return null;
+}
+
 // Helper function to extract podcast:publisher remoteItem from channel level
-export function parsePublisherFeedFromXML(xmlText: string): { feedGuid: string; feedUrl: string; title: string; medium?: string } | null {
+// Supports two formats:
+// 1. Nested: <podcast:publisher><podcast:remoteItem .../></podcast:publisher>
+// 2. Wavlake: <podcast:remoteItem medium="publisher" .../> at channel level
+export function parsePublisherFeedFromXML(xmlText: string): { feedGuid: string; feedUrl: string; title?: string; medium?: string } | null {
   try {
     // Extract channel section from XML
     const channelMatch = xmlText.match(/<channel[^>]*>(.*?)<\/channel>/s);
@@ -213,56 +234,38 @@ export function parsePublisherFeedFromXML(xmlText: string): { feedGuid: string; 
 
     const channelContent = channelMatch[1];
 
-    // Look for podcast:publisher tag at channel level (not in items)
+    // Look for publisher info at channel level (not in items)
     // Extract it before the first <item> tag
     const beforeItems = channelContent.split(/<item[\s>]/)[0];
 
-    // Look for podcast:publisher with remoteItem
+    // Method 1: Look for <podcast:publisher><podcast:remoteItem/></podcast:publisher> (nested format)
     const publisherMatch = beforeItems.match(/<podcast:publisher[^>]*>(.*?)<\/podcast:publisher>/s);
-
-    if (!publisherMatch) {
-      return null;
+    if (publisherMatch) {
+      const remoteItemMatch = publisherMatch[1].match(/<podcast:remoteItem\s+([^>]+)\/>/);
+      if (remoteItemMatch) {
+        const result = extractRemoteItemAttributes(remoteItemMatch[0]);
+        if (result) {
+          console.log('✅ Found podcast:publisher remoteItem (nested format):', result);
+          return result;
+        }
+      }
     }
 
-    const publisherContent = publisherMatch[1];
-
-    // Extract remoteItem attributes
-    const remoteItemMatch = publisherContent.match(/<podcast:remoteItem\s+([^>]+)\/>/);
-
-    if (!remoteItemMatch) {
-      return null;
-    }
-
-    const attributes = remoteItemMatch[1];
-
-    // Extract feedGuid
-    const feedGuidMatch = attributes.match(/feedGuid="([^"]+)"/);
-    // Extract feedUrl
-    const feedUrlMatch = attributes.match(/feedUrl="([^"]+)"/);
-    // Extract title
-    const titleMatch = attributes.match(/title="([^"]+)"/);
-    // Extract medium (optional)
-    const mediumMatch = attributes.match(/medium="([^"]+)"/);
-
-    if (feedGuidMatch && feedUrlMatch && titleMatch) {
-      console.log('✅ Found podcast:publisher remoteItem:', {
-        feedGuid: feedGuidMatch[1],
-        feedUrl: feedUrlMatch[1],
-        title: titleMatch[1],
-        medium: mediumMatch ? mediumMatch[1] : undefined
-      });
-
-      return {
-        feedGuid: feedGuidMatch[1],
-        feedUrl: feedUrlMatch[1],
-        title: titleMatch[1],
-        medium: mediumMatch ? mediumMatch[1] : undefined
-      };
+    // Method 2: Look for <podcast:remoteItem medium="publisher" ...> at channel level (Wavlake format)
+    // Handles both self-closing (/>)  and closing tag (</podcast:remoteItem>) formats
+    const remoteItemRegex = /<podcast:remoteItem\s+[^>]*medium="publisher"[^>]*(?:\/>|>[\s\S]*?<\/podcast:remoteItem>)/;
+    const remoteItemMatch = beforeItems.match(remoteItemRegex);
+    if (remoteItemMatch) {
+      const result = extractRemoteItemAttributes(remoteItemMatch[0]);
+      if (result) {
+        console.log('✅ Found podcast:remoteItem with medium="publisher" (Wavlake format):', result);
+        return result;
+      }
     }
 
     return null;
   } catch (error) {
-    console.error('Error extracting podcast:publisher from XML:', error);
+    console.error('Error extracting publisher from XML:', error);
     return null;
   }
 }

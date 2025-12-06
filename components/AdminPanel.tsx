@@ -559,7 +559,15 @@ export default function AdminPanel() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-white truncate">{feed.title}</h3>
+                          <a
+                            href={feed.type === 'publisher' ? `/publisher/${feed.id}` : `/album/${feed.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-white hover:text-blue-400 truncate block transition-colors"
+                            title="View on site"
+                          >
+                            {feed.title} ↗
+                          </a>
                           {feed.artist && (
                             <p className="text-sm text-gray-400">{feed.artist}</p>
                           )}
