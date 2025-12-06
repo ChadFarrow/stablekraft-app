@@ -44,6 +44,7 @@ lib/
 │   └── nip05.ts            # NIP-05 verification
 ├── music-track-parser/      # Track extraction from feeds
 ├── rss-parser/              # RSS feed parsing
+├── feed-discovery.ts        # Automated feed discovery from playlists
 ├── v4v-resolver.ts          # Value4Value resolution
 ├── fuzzy-search.ts          # pg_trgm fuzzy matching
 ├── podcast-index-api.ts     # Podcast Index API client
@@ -66,6 +67,7 @@ components/
 - Publisher pages showing official releases and artist-matched albums
 - Curated playlists (HGH, ITDV, IAM, MMM, etc.)
 - Fuzzy search with typo tolerance (pg_trgm)
+- Automated feed discovery: Automatically discovers and adds new feeds from playlists using Podcast Index API
 
 ### Audio Playback
 - Streaming audio player

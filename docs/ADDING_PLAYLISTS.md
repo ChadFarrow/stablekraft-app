@@ -41,7 +41,26 @@ The playlist system automatically:
 2. **Parses remote items** (feedGuid + itemGuid pairs)
 3. **Database lookup** - Checks if tracks already exist (from RSS processing)
 4. **API resolution** - Uses Podcast Index API to resolve unresolved tracks
-5. **Feed discovery** - Adds new feeds to the database for future processing
+5. **Feed discovery** - Automatically discovers and adds new feeds to the database for future processing
+
+### Automated Feed Discovery
+
+When playlist items reference feeds that aren't in the database, the system automatically:
+
+1. **Extracts unique feed GUIDs** from unresolved playlist items
+2. **Resolves feed metadata** via Podcast Index API (URL, title, artist, image, type)
+3. **Validates feed URLs** before storing
+4. **Adds feeds to database** with proper type detection (album vs podcast based on `medium` field)
+5. **Uses atomic operations** (upsert) to prevent race conditions
+
+Feeds are stored with their GUID as the feed ID for compatibility. Tracks are extracted later via batch processing at `/api/playlist/parse-feeds`, which reads from the database.
+
+**Key Functions:**
+- `processPlaylistFeedDiscovery()` - Main entry point, extracts unique feed GUIDs and calls `addUnresolvedFeeds()`
+- `addUnresolvedFeeds()` - Resolves GUIDs via Podcast Index API and adds to database
+- `resolveFeedGuidWithMetadata()` - Fetches complete feed metadata including type determination
+
+**Integration:** Feed discovery is automatically called in playlist routes (flowgnar, iam, itdv) after track resolution, ensuring all referenced feeds are available for future processing.
 
 ## Resolution Rates
 
@@ -60,16 +79,20 @@ Core resolution logic that achieves 96%+ resolution rates:
 - Rate limiting protection
 
 ### `/lib/feed-discovery.ts`
-Feed and episode resolution via Podcast Index:
-- Multiple API approaches (by feed ID, URL, GUID)
-- Episodes by feed listing
-- Automatic RSS processing for discovered feeds
+Automated feed discovery and episode resolution via Podcast Index API:
+- **Feed Discovery**: Automatically discovers feeds from playlists and adds them to the database
+- **GUID Resolution**: Resolves feed GUIDs to full metadata (URL, title, artist, image, type)
+- **Type Detection**: Determines feed type (album vs podcast) based on Podcast Index `medium` field
+- **Episode Resolution**: Resolves individual episode/item GUIDs to track metadata
+- **Race Condition Protection**: Uses atomic upsert operations to prevent duplicate feeds
+- **URL Validation**: Validates feed URLs before storing in database
 
 ### Template Features
 - **Caching**: 1-minute cache with `?refresh=1` override
-- **Auto-discovery**: Adds unresolved feeds to database
-- **Error handling**: Graceful fallback for failed resolutions
+- **Auto-discovery**: Automatically discovers and adds unresolved feeds to database via Podcast Index API
+- **Error handling**: Graceful fallback for failed resolutions (feed discovery errors don't break playlists)
 - **Progress logging**: Detailed console output for debugging
+- **Non-blocking**: Feed discovery runs asynchronously and doesn't delay playlist creation
 
 ## Performance Tips
 
