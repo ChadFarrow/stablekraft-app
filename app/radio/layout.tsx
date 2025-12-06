@@ -10,7 +10,8 @@ import { UserSettingsProvider } from '@/contexts/UserSettingsContext';
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  preload: false
+  preload: false,
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
 });
 
 export const metadata: Metadata = {

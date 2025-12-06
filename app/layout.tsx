@@ -20,10 +20,11 @@ import GlobalErrorHandler from '@/components/GlobalErrorHandler'
 
 
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  preload: false // Disable automatic preloading to prevent warnings
+  preload: false, // Disable automatic preloading to prevent warnings
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
 })
 
 export const metadata: Metadata = {
