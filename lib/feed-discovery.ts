@@ -245,7 +245,7 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
         try {
           console.log(`🔄 Processing RSS for feed: ${newFeed.id}`);
           const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-          const parseResponse = await fetch(`${baseUrl}/api/playlist/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
+          const parseResponse = await fetch(`${baseUrl}/api/parse-feeds?action=parse-single&feedId=${newFeed.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
