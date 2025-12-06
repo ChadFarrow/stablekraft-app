@@ -1162,77 +1162,23 @@ export function BoostButton({
     }
   };
 
-  // Send 2 sat platform fee metaboost
+  // Send 2 sat platform fee metaboost via Lightning Address
   const sendPlatformFeeMetaboost = async (): Promise<void> => {
     const platformFee = LIGHTNING_CONFIG.platform.fee || 2;
-    const platformNodePubkey = LIGHTNING_CONFIG.platform.nodePublicKey;
     const platformLightningAddress = 'lushnessprecious644398@getalby.com';
-
-    if (!platformNodePubkey && !platformLightningAddress) {
-      console.warn('No platform node pubkey or Lightning Address configured for metaboost');
-      return;
-    }
 
     try {
       const metaboostMessage = `Metaboost for ${trackTitle || 'track'} - Platform fee`;
-      
-      // Try keysend first, fallback to Lightning Address
-      if (platformNodePubkey) {
-        console.log(`🔑 Attempting keysend to platform node: ${platformNodePubkey}`);
-        try {
-          // Create Helipad metadata matching exact working format from logs
-          const helipadMetadata: any = {
-            podcast: artistName || 'Unknown Artist',
-            episode: trackTitle || 'Unknown Track',
-            action: 'boost',
-            app_name: 'StableKraft',
-            value_msat: platformFee * 1000, // Integer as per Helipad spec
-            value_msat_total: platformFee * 1000, // Integer as per Helipad spec
-            sender_name: senderName || 'Anonymous',
-            name: 'StableKraft',
-            app_version: '1.0.0',
-            uuid: `boost-${Date.now()}-${Math.floor(Math.random() * 999)}`
-          };
 
-          // Add optional fields matching exact working format
-          if (feedUrl) {
-            helipadMetadata.url = feedUrl;
-            helipadMetadata.feed = feedUrl; // Working logs show both url and feed fields
-          }
-          if (feedId) {
-            helipadMetadata.feedId = feedId; // Keep as string - working logs show "6590183" not integer
-          }
-          if (episodeGuid || trackId) {
-            helipadMetadata.remote_item_guid = episodeGuid || trackId;
-            helipadMetadata.episode_guid = episodeGuid || trackId; // Working logs show episode_guid field
-          }
-          if (albumName) {
-            helipadMetadata.album = albumName; // Working logs show album field
-          }
-          if (metaboostMessage) helipadMetadata.message = metaboostMessage;
-          if (remoteFeedGuid) helipadMetadata.remote_feed_guid = remoteFeedGuid;
-          await sendKeysend(platformNodePubkey, platformFee, metaboostMessage, helipadMetadata);
-          console.log(`✅ Platform fee metaboost sent via keysend: ${platformFee} sats`);
-          return;
-        } catch (keysendError) {
-          console.error('❌ Keysend failed, trying Lightning Address fallback:', keysendError);
-        }
-      } else {
-        console.warn('⚠️ No platform node pubkey configured, using Lightning Address fallback');
-      }
-      
-      // Fallback to Lightning Address
-      if (platformLightningAddress) {
-        const { invoice } = await LNURLService.payLightningAddress(
-          platformLightningAddress,
-          platformFee,
-          metaboostMessage
-        );
-        await sendPayment(invoice);
-        console.log(`✅ Platform fee metaboost sent via Lightning Address: ${platformFee} sats`);
-      }
+      const { invoice } = await LNURLService.payLightningAddress(
+        platformLightningAddress,
+        platformFee,
+        metaboostMessage
+      );
+      await sendPayment(invoice);
+      console.log(`✅ Platform fee sent via Lightning Address: ${platformFee} sats`);
     } catch (error) {
-      console.error('Platform fee metaboost failed:', error);
+      console.error('Platform fee payment failed:', error);
       throw error;
     }
   };
