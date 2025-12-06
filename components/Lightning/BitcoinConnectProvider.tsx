@@ -452,7 +452,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       }
 
       if (!currentProvider.keysend) {
-        return { error: 'Keysend not supported by your wallet. Try AlbyHub or Coinos via NWC.' };
+        return { error: 'Keysend not supported by your wallet. Try Alby or Coinos via NWC.' };
       }
 
       const keysendPayload = {
@@ -486,6 +486,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return { error: 'Payment timed out - the recipient may be experiencing issues' };
       } else if (errorMessage.includes('user rejected') || errorMessage.includes('user cancelled')) {
         return { error: 'Payment cancelled by user' };
+      } else if (errorMessage.includes('command not implemented') || errorMessage.includes('not implemented yet')) {
+        return {
+          error: 'Your wallet doesn\'t support keysend payments. This artist only accepts keysend. Try Alby or Coinos.'
+        };
       }
 
       return { error: errorMessage };
