@@ -27,6 +27,8 @@ The Lightning integration is now fully functional with real payments, proper val
 - **✅ Real Value Splits**: Integration with actual feed data containing Lightning Addresses and node pubkeys
 - **✅ Platform Fee Support**: Configurable platform fees (both fixed amount and percentage-based)
 - **✅ Payment Validation**: Validates Lightning Addresses and node pubkeys before processing
+- **✅ Keysend Discovery**: Automatically discovers keysend fallback information from Lightning Addresses, preferring keysend payments (with Helipad metadata) over LNURL when available
+- **✅ Nostr Musician Tagging**: Resolves Nostr pubkeys from Lightning Address NIP-05 verification and tags musicians in boost posts for social discovery
 
 ---
 

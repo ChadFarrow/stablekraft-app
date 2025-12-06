@@ -78,6 +78,8 @@ components/
 - WebLN wallet integration
 - LNURL-pay support
 - Payment splits per podcast:value spec
+- Keysend discovery: Automatically discovers keysend fallback from Lightning Addresses for Helipad metadata support
+- Nostr musician tagging: Resolves Nostr pubkeys from Lightning Address NIP-05 verification for tagging musicians in boost posts
 
 ### Nostr Integration
 - Favorites sync to Nostr (NIP-38 lists)

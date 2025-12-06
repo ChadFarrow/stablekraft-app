@@ -105,6 +105,7 @@ export class ValueSplitsService {
           if (recipient.type === 'lnaddress' && LNURLService.isLightningAddress(recipient.address)) {
             // If we have keysend fallback info from Lightning Address lookup, try keysend first
             // Keysend is preferred because it includes Helipad metadata for podcast apps
+            // This enables better integration with podcast players that support Helipad protocol
             if (recipient.keysendFallback) {
               console.log(`⚡ Trying keysend first for ${recipient.address} (has keysend fallback)`);
 

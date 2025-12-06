@@ -71,6 +71,8 @@ export function BoostButton({
   const [showSplitDetails, setShowSplitDetails] = useState(false);
   const [fetchedValueSplits, setFetchedValueSplits] = useState<typeof valueSplits>([]);
   // Resolved Nostr pubkeys from Lightning Addresses (for tagging musicians in boost posts)
+  // These are extracted from Lightning Address NIP-05 verification during payment resolution
+  // and used to add p-tags to Nostr boost posts so musicians receive notifications
   const [resolvedMusicianPubkeys, setResolvedMusicianPubkeys] = useState<Array<{ address: string; pubkey: string }>>([]);
 
   useEffect(() => {
@@ -812,7 +814,8 @@ export function BoostButton({
             }
 
             // Add p-tags for musician notifications (resolved from Lightning Address NIP-05/Nostr info)
-            // This notifies musicians on Nostr when they're boosted
+            // These pubkeys were extracted during Lightning Address resolution via resolveLightningAddressDetails()
+            // This notifies musicians on Nostr when they're boosted, enabling social discovery
             // Note: p-tags use hex pubkeys per NIP-01 (not npub bech32 format)
             // Self-tagging is allowed - musicians may be in their own splits and want to see the notification
             if (musicianPubkeysForNostr.length > 0) {
@@ -1021,7 +1024,9 @@ export function BoostButton({
       }));
 
       // Resolve Lightning Addresses to get keysend fallback and Nostr info
-      // This enables keysend-first payments (for Helipad metadata) and musician tagging in Nostr
+      // This enables:
+      // 1. Keysend-first payments (preferred for Helipad metadata support in podcast apps)
+      // 2. Nostr musician tagging (extracts pubkeys from NIP-05 verification for p-tags in boost posts)
       const resolvedNostrPubkeys: Array<{ address: string; pubkey: string }> = [];
 
       for (const recipient of recipients) {
@@ -1031,6 +1036,7 @@ export function BoostButton({
             const details = await LNURLService.resolveLightningAddressDetails(recipient.address);
 
             // Add keysend fallback info if available
+            // Keysend enables Helipad metadata support, which is preferred for podcast apps
             if (details.keysend?.status === 'OK' && details.keysend.pubkey) {
               recipient.keysendFallback = {
                 pubkey: details.keysend.pubkey,
@@ -1040,7 +1046,8 @@ export function BoostButton({
               console.log(`✅ Got keysend fallback for ${recipient.address}: ${details.keysend.pubkey.slice(0, 20)}...`);
             }
 
-            // Extract Nostr pubkey for tagging
+            // Extract Nostr pubkey for tagging musicians in boost posts
+            // This comes from NIP-05 verification data in the Lightning Address details
             if (details.nostr?.names) {
               const [username] = recipient.address.split('@');
               const nostrPubkey = details.nostr.names[username];

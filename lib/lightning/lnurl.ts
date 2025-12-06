@@ -31,10 +31,22 @@ export interface LNURLPayResponse {
 
 /**
  * Combined Lightning Address details (LNURL, keysend, and Nostr info)
- * Works with any provider: Alby, Fountain, Strike, etc.
+ * 
+ * This interface represents the comprehensive information returned by the Lightning Address
+ * details API, which combines data from multiple sources:
+ * - LNURL-pay parameters for invoice-based payments
+ * - Keysend fallback information for direct node-to-node payments with Helipad metadata
+ * - Nostr pubkeys from NIP-05 verification for social tagging
+ * 
+ * Works with any Lightning Address provider: Alby, Fountain, Strike, etc.
  */
 export interface LightningAddressDetails {
+  /** LNURL-pay parameters for generating invoices */
   lnurlp?: LNURLPayParams & { status?: 'OK' | 'ERROR'; reason?: string };
+  /** 
+   * Keysend fallback information when the Lightning Address supports direct keysend payments
+   * Keysend is preferred over LNURL because it supports Helipad metadata for podcast apps
+   */
   keysend?: {
     pubkey: string;
     customData: Array<{ customKey: string; customValue: string }>;
@@ -42,6 +54,11 @@ export interface LightningAddressDetails {
     tag?: string;
     reason?: string;
   };
+  /** 
+   * Nostr information from NIP-05 verification
+   * The names object maps Lightning Address usernames to their Nostr pubkeys (hex format)
+   * Used for tagging musicians in Nostr boost posts
+   */
   nostr?: {
     names: Record<string, string>;
     relays?: Record<string, string[]>;
@@ -78,7 +95,18 @@ export class LNURLService {
 
   /**
    * Resolve Lightning Address to full details (LNURL, keysend, Nostr)
-   * Works with any Lightning Address provider (Alby, Fountain, Strike, etc.)
+   * 
+   * This method fetches comprehensive information about a Lightning Address including:
+   * - LNURL-pay parameters for invoice generation
+   * - Keysend fallback information (node pubkey and custom records) for direct keysend payments
+   * - Nostr pubkeys from NIP-05 verification for tagging musicians in social posts
+   * 
+   * Keysend is preferred over LNURL when available because it supports Helipad metadata
+   * for podcast apps. The system will attempt keysend first and fall back to LNURL if needed.
+   * 
+   * @param address - Lightning Address in email format (e.g., "user@getalby.com")
+   * @returns Combined details including LNURL, keysend, and Nostr information
+   * @throws Error if address format is invalid or resolution fails
    * @see https://github.com/getAlby/lightning-address-details-proxy
    */
   static async resolveLightningAddressDetails(address: string): Promise<LightningAddressDetails> {

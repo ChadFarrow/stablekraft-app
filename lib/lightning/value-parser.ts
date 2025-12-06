@@ -8,13 +8,22 @@ export interface ValueRecipient {
   customKey?: string;
   customValue?: string;
   fee?: boolean;
-  /** Keysend fallback info resolved from Lightning Address */
+  /** 
+   * Keysend fallback info resolved from Lightning Address details lookup
+   * When a Lightning Address supports keysend, this contains the node pubkey and custom records
+   * needed for direct keysend payments. Keysend is preferred over LNURL because it supports
+   * Helipad metadata for podcast apps.
+   */
   keysendFallback?: {
     pubkey: string;
     customKey?: string;
     customValue?: string;
   };
-  /** Nostr pubkey (hex) resolved from Lightning Address NIP-05 */
+  /** 
+   * Nostr pubkey (hex) resolved from Lightning Address NIP-05 verification
+   * Extracted from the Lightning Address details API response. Used to tag musicians
+   * in Nostr boost posts so they receive notifications when boosted.
+   */
   nostrPubkey?: string;
 }
 
