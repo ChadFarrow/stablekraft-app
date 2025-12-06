@@ -92,19 +92,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-    // Check if feed already exists
+
+    // Check if feed already exists by URL first (return early to avoid parsing)
     const existingFeed = await prisma.feed.findUnique({
-      where: { originalUrl }
+      where: { originalUrl },
+      include: {
+        _count: {
+          select: { Track: true }
+        }
+      }
     });
-    
+
     if (existingFeed) {
       return NextResponse.json(
         { error: 'Feed already exists', feed: existingFeed },
         { status: 409 }
       );
     }
-    
+
     try {
       // Parse the RSS feed
       const parsedFeed = await parseRSSFeedWithSegments(originalUrl);
@@ -112,19 +117,11 @@ export async function POST(request: NextRequest) {
       // Generate a URL-friendly feed ID from artist and title
       let feedId = generateFeedId(parsedFeed.artist, parsedFeed.title);
 
-      // Check if this ID already exists (handle collisions)
-      const existingWithId = await prisma.feed.findUnique({
-        where: { id: feedId }
-      });
-
-      if (existingWithId) {
-        // Append timestamp to make unique
-        feedId = `${feedId}-${Date.now()}`;
-      }
-
-      // Create feed in database
-      const feed = await prisma.feed.create({
-        data: {
+      // Use upsert to atomically handle feed creation (prevents race conditions)
+      // If another request created the same feed between our check and create, this won't fail
+      const feed = await prisma.feed.upsert({
+        where: { originalUrl },
+        create: {
           id: feedId,
           guid: parsedFeed.podcastGuid || null,
           originalUrl,
@@ -142,9 +139,35 @@ export async function POST(request: NextRequest) {
           v4vValue: parsedFeed.v4vValue || null,
           lastFetched: new Date(),
           status: 'active',
+          createdAt: new Date(),
           updatedAt: new Date()
-        }
+        },
+        update: {
+          // If feed exists by URL, just update lastFetched (race condition case)
+          lastFetched: new Date(),
+          updatedAt: new Date()
+        },
+        select: { id: true, createdAt: true, updatedAt: true, originalUrl: true }
       });
+
+      // Check if this was a new creation vs update (race condition detection)
+      const wasCreated = Math.abs(feed.createdAt.getTime() - feed.updatedAt.getTime()) < 1000;
+
+      if (!wasCreated) {
+        // Another request created this feed - return it as existing
+        const existingFeedWithCount = await prisma.feed.findUnique({
+          where: { id: feed.id },
+          include: {
+            _count: {
+              select: { Track: true }
+            }
+          }
+        });
+        return NextResponse.json(
+          { error: 'Feed already exists (concurrent request)', feed: existingFeedWithCount },
+          { status: 409 }
+        );
+      }
       
       // Create tracks in database
       if (parsedFeed.items.length > 0) {

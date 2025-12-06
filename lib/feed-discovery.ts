@@ -194,38 +194,28 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
 
 export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
   let addedCount = 0;
-  
+
   for (const feedGuid of feedGuids) {
     try {
-      // Check if we already have this feed GUID in our database
-      // We'll store the GUID in the originalUrl field temporarily with a prefix
-      const guidUrl = `guid:${feedGuid}`;
+      // Check if feed already exists by ID first (fast lookup)
       const existingFeed = await prisma.feed.findUnique({
-        where: { originalUrl: guidUrl }
+        where: { id: feedGuid },
+        select: { id: true }
       });
-      
+
       if (existingFeed) {
         console.log(`⚡ Feed GUID already exists in database: ${feedGuid}`);
         continue;
       }
-      
+
       // Try to resolve the GUID to get full feed metadata
       const resolvedFeed = await resolveFeedGuidWithMetadata(feedGuid);
 
       if (resolvedFeed) {
-        // Check if we already have this resolved URL
-        const existingResolvedFeed = await prisma.feed.findUnique({
-          where: { originalUrl: resolvedFeed.url }
-        });
-
-        if (existingResolvedFeed) {
-          console.log(`⚡ Resolved feed URL already exists: ${resolvedFeed.url}`);
-          continue;
-        }
-
-        // Add the resolved feed using the podcast GUID as the ID and proper metadata
-        const newFeed = await prisma.feed.create({
-          data: {
+        // Use upsert to atomically create or update (prevents race conditions)
+        const upsertResult = await prisma.feed.upsert({
+          where: { id: feedGuid },
+          create: {
             id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
             title: resolvedFeed.title,
             description: `Auto-discovered from playlist`,
@@ -235,9 +225,25 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
             status: 'active',
             artist: resolvedFeed.artist,
             image: resolvedFeed.image,
+            createdAt: new Date(),
             updatedAt: new Date()
-          }
+          },
+          update: {
+            // Feed already exists - just update metadata if needed
+            updatedAt: new Date()
+          },
+          select: { id: true, createdAt: true, updatedAt: true }
         });
+
+        // Check if this was a new creation (createdAt equals updatedAt within 1 second)
+        const wasCreated = Math.abs(upsertResult.createdAt.getTime() - upsertResult.updatedAt.getTime()) < 1000;
+
+        if (!wasCreated) {
+          console.log(`⚡ Feed already existed (race condition avoided): ${feedGuid}`);
+          continue;
+        }
+
+        const newFeed = { id: upsertResult.id };
 
         console.log(`✅ Added resolved feed: ${resolvedFeed.title} by ${resolvedFeed.artist}`);
 

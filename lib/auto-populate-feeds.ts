@@ -72,16 +72,6 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
 
       // Process batch in parallel for speed
       const batchResults = await Promise.allSettled(batch.map(async (feedGuid) => {
-        // Check if feed was created by another process
-        const existingFeed = await prisma.feed.findUnique({
-          where: { id: feedGuid },
-          select: { id: true }
-        });
-
-        if (existingFeed) {
-          return { status: 'exists', feedGuid };
-        }
-
         const headers = await generateHeaders(PODCAST_INDEX_API_KEY!, PODCAST_INDEX_API_SECRET!);
         const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
           headers,
@@ -93,9 +83,10 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
           if (data.status === 'true') {
             const feedData = data.feed || (data.feeds && data.feeds[0]);
             if (feedData && feedData.url) {
-              // Create the Feed record
-              await prisma.feed.create({
-                data: {
+              // Use upsert to atomically create or update the feed (prevents race conditions)
+              const upsertResult = await prisma.feed.upsert({
+                where: { id: feedGuid },
+                create: {
                   id: feedGuid,
                   title: feedData.title || 'Unknown Feed',
                   description: feedData.description || null,
@@ -109,8 +100,22 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                   lastFetched: new Date(),
                   createdAt: new Date(),
                   updatedAt: new Date()
-                }
+                },
+                update: {
+                  // Feed already exists - just update lastFetched
+                  lastFetched: new Date(),
+                  updatedAt: new Date()
+                },
+                select: { id: true, createdAt: true, updatedAt: true }
               });
+
+              // Check if this was a new creation (createdAt equals updatedAt within 1 second)
+              const wasCreated = Math.abs(upsertResult.createdAt.getTime() - upsertResult.updatedAt.getTime()) < 1000;
+
+              if (!wasCreated) {
+                // Feed already existed
+                return { status: 'exists', feedGuid };
+              }
 
               // Now parse the RSS feed and create Track records
               try {

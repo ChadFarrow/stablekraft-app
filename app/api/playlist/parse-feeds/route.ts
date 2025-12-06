@@ -171,58 +171,43 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
       console.log(`📊 Storing channel-level v4v data on feed ${feedId}: ${parsedV4V.channelValue.recipients.length} recipients`);
     }
 
-    // Check if feed already exists by GUID (id)
-    let feed = await prisma.feed.findUnique({
-      where: { id: feedId }
+    // Use upsert to atomically create or update feed (prevents race conditions)
+    const feed = await prisma.feed.upsert({
+      where: { id: feedId },
+      create: {
+        id: feedId,
+        title: feedData.title || 'Unknown Feed',
+        description: feedData.description || null,
+        originalUrl: feedData.url || '',
+        type: feedData.type === 1 ? 'music' : 'podcast',
+        artist: feedData.author || null,
+        image: feedData.image || null,
+        language: feedData.language || null,
+        category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
+        explicit: feedData.explicit === 1,
+        status: 'active',
+        lastFetched: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...(feedV4vData && { v4vValue: feedV4vData }),
+        ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
+      },
+      update: {
+        // Update existing feed metadata
+        title: feedData.title || undefined,
+        description: feedData.description || undefined,
+        artist: feedData.author || undefined,
+        image: feedData.image || undefined,
+        language: feedData.language || undefined,
+        category: feedData.categories ? Object.keys(feedData.categories)[0] : undefined,
+        explicit: feedData.explicit === 1 ? true : undefined,
+        status: 'active',
+        lastFetched: new Date(),
+        updatedAt: new Date(),
+        ...(feedV4vData && { v4vValue: feedV4vData }),
+        ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
+      }
     });
-
-    if (!feed && feedData.url) {
-      // Try to find by URL
-      feed = await prisma.feed.findFirst({
-        where: { originalUrl: feedData.url }
-      });
-    }
-
-    if (!feed) {
-      // Create new feed
-      feed = await prisma.feed.create({
-        data: {
-          id: feedId,
-          title: feedData.title || 'Unknown Feed',
-          description: feedData.description || null,
-          originalUrl: feedData.url || '',
-          type: feedData.type === 1 ? 'music' : 'podcast',
-          artist: feedData.author || null,
-          image: feedData.image || null,
-          language: feedData.language || null,
-          category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
-          explicit: feedData.explicit === 1,
-          status: 'active',
-          lastFetched: new Date(),
-          updatedAt: new Date(),
-          ...(feedV4vData && { v4vValue: feedV4vData }),
-          ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
-        }
-      });
-    } else {
-      // Update existing feed
-      feed = await prisma.feed.update({
-        where: { id: feed.id },
-        data: {
-          title: feedData.title || feed.title,
-          description: feedData.description || feed.description,
-          artist: feedData.author || feed.artist,
-          image: feedData.image || feed.image,
-          language: feedData.language || feed.language,
-          category: feedData.categories ? Object.keys(feedData.categories)[0] : feed.category,
-          explicit: feedData.explicit === 1 ? true : feed.explicit,
-          status: 'active',
-          lastFetched: new Date(),
-          ...(feedV4vData && { v4vValue: feedV4vData }),
-          ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
-        }
-      });
-    }
 
     // Check if feed has any tracks
     const existingTrackCount = await prisma.track.count({
