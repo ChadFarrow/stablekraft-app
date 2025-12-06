@@ -42,7 +42,12 @@ export default function AboutPage() {
                 Project StableKraft is a RSS first music app where all the data comes from RSS feeds on{' '}
                 <a href="https://podcastindex.org/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
                   podcastindex.org
-                </a>.
+                </a>. Also supports Bitcoin lightning payments, Nostr integration and any cool Podcasting 2.0 stuff I find cool.
+              </p>
+              <p className="text-lg leading-relaxed mb-4">
+                <a href="https://github.com/ChadFarrow/stablekraft-app" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                  GitHub
+                </a>
               </p>
               <p className="text-gray-400 text-right">-ChadF</p>
             </div>
