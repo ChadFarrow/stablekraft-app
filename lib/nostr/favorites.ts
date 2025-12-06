@@ -94,12 +94,26 @@ export async function publishFavoriteToNostr(
         const event = createFavoriteEventTemplate(type, itemId, title, artistName);
         const signedEvent = await signer.signEvent(event as any);
 
-        // Publish to relays
-        const relayUrls = relays || getDefaultRelays();
+        // Publish to relays - combine user relays with reliable defaults
+        // Filter out obviously unreachable relays (localhost, .local)
+        const userRelays = (relays || []).filter(url => {
+          const lowerUrl = url.toLowerCase();
+          return !lowerUrl.includes('127.0.0.1') &&
+                 !lowerUrl.includes('localhost') &&
+                 !lowerUrl.includes('.local') &&
+                 !lowerUrl.endsWith('/chat') &&
+                 !lowerUrl.endsWith('/private') &&
+                 !lowerUrl.endsWith('/outbox');
+        });
+
+        // Always include reliable defaults that accept kind 30001
+        const defaultRelays = getDefaultRelays();
+        const allRelays = [...new Set([...userRelays, ...defaultRelays])];
+
         const relayManager = new RelayManager();
 
         await Promise.all(
-          relayUrls.map(url =>
+          allRelays.map(url =>
             relayManager.connect(url, { read: false, write: true }).catch(() => {})
           )
         );
@@ -121,11 +135,23 @@ export async function publishFavoriteToNostr(
     if (privateKey) {
       const event = createFavoriteEvent(type, itemId, privateKey, title, artistName);
 
-      const relayUrls = relays || getDefaultRelays();
+      // Filter out unreachable relays and combine with defaults
+      const userRelays = (relays || []).filter(url => {
+        const lowerUrl = url.toLowerCase();
+        return !lowerUrl.includes('127.0.0.1') &&
+               !lowerUrl.includes('localhost') &&
+               !lowerUrl.includes('.local') &&
+               !lowerUrl.endsWith('/chat') &&
+               !lowerUrl.endsWith('/private') &&
+               !lowerUrl.endsWith('/outbox');
+      });
+      const defaultRelays = getDefaultRelays();
+      const allRelays = [...new Set([...userRelays, ...defaultRelays])];
+
       const relayManager = new RelayManager();
 
       await Promise.all(
-        relayUrls.map(url =>
+        allRelays.map(url =>
           relayManager.connect(url, { read: false, write: true }).catch(() => {})
         )
       );
@@ -230,20 +256,31 @@ export async function deleteFavoriteFromNostr(
         };
 
         const signedEvent = await signer.signEvent(event as any);
-        
-        // Publish to relays
-        const relayUrls = relays || getDefaultRelays();
+
+        // Filter out unreachable relays and combine with defaults
+        const userRelays = (relays || []).filter(url => {
+          const lowerUrl = url.toLowerCase();
+          return !lowerUrl.includes('127.0.0.1') &&
+                 !lowerUrl.includes('localhost') &&
+                 !lowerUrl.includes('.local') &&
+                 !lowerUrl.endsWith('/chat') &&
+                 !lowerUrl.endsWith('/private') &&
+                 !lowerUrl.endsWith('/outbox');
+        });
+        const defaultRelays = getDefaultRelays();
+        const allRelays = [...new Set([...userRelays, ...defaultRelays])];
+
         const relayManager = new RelayManager();
-        
+
         await Promise.all(
-          relayUrls.map(url =>
+          allRelays.map(url =>
             relayManager.connect(url, { read: false, write: true }).catch(() => {})
           )
         );
 
         const results = await relayManager.publish(signedEvent);
         const hasSuccess = results.some(r => r.status === 'fulfilled');
-        
+
         if (hasSuccess) {
           console.log('✅ Published favorite deletion to Nostr:', signedEvent.id);
           return signedEvent.id;
@@ -257,19 +294,31 @@ export async function deleteFavoriteFromNostr(
     // For manual key logins, sign with the private key
     if (privateKey) {
       const event = createFavoriteDeletionEvent(eventId, privateKey);
-      
-      const relayUrls = relays || getDefaultRelays();
+
+      // Filter out unreachable relays and combine with defaults
+      const userRelays = (relays || []).filter(url => {
+        const lowerUrl = url.toLowerCase();
+        return !lowerUrl.includes('127.0.0.1') &&
+               !lowerUrl.includes('localhost') &&
+               !lowerUrl.includes('.local') &&
+               !lowerUrl.endsWith('/chat') &&
+               !lowerUrl.endsWith('/private') &&
+               !lowerUrl.endsWith('/outbox');
+      });
+      const defaultRelays = getDefaultRelays();
+      const allRelays = [...new Set([...userRelays, ...defaultRelays])];
+
       const relayManager = new RelayManager();
-      
+
       await Promise.all(
-        relayUrls.map(url =>
+        allRelays.map(url =>
           relayManager.connect(url, { read: false, write: true }).catch(() => {})
         )
       );
 
       const results = await relayManager.publish(event);
       const hasSuccess = results.some(r => r.status === 'fulfilled');
-      
+
       if (hasSuccess) {
         console.log('✅ Published favorite deletion to Nostr:', event.id);
         return event.id;
@@ -337,12 +386,24 @@ export async function batchPublishFavoritesToNostr(
     return result;
   }
 
-  const relayUrls = relays || getDefaultRelays();
+  // Filter out unreachable relays and combine with defaults
+  const userRelays = (relays || []).filter(url => {
+    const lowerUrl = url.toLowerCase();
+    return !lowerUrl.includes('127.0.0.1') &&
+           !lowerUrl.includes('localhost') &&
+           !lowerUrl.includes('.local') &&
+           !lowerUrl.endsWith('/chat') &&
+           !lowerUrl.endsWith('/private') &&
+           !lowerUrl.endsWith('/outbox');
+  });
+  const defaultRelays = getDefaultRelays();
+  const allRelays = [...new Set([...userRelays, ...defaultRelays])];
+
   const relayManager = new RelayManager();
 
   // Connect to relays once
   await Promise.all(
-    relayUrls.map(url =>
+    allRelays.map(url =>
       relayManager.connect(url, { read: false, write: true }).catch(() => {})
     )
   );
