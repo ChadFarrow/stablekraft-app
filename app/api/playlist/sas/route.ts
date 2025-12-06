@@ -529,7 +529,7 @@ export async function GET(request: NextRequest) {
         // Filter out api-* and placeholder IDs that don't exist in Track table
         const trackInserts = tracks
           .filter((track: any) => track.id && !track.id.startsWith('api-') && !track.id.startsWith('sas-track-'))
-          .map((track: any, index: number) => ({ playlistId: 'sas', trackId: track.id, position: index, episodeId: null }));
+          .map((track: any, index: number) => ({ playlistId: 'sas', trackId: track.id, position: index, episodeId: track.episodeId || null }));
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
         }

@@ -537,7 +537,7 @@ export async function GET(request: NextRequest) {
         });
         await prisma.systemPlaylistTrack.deleteMany({ where: { playlistId: 'b4ts' } });
         const trackInserts = tracks
-          .map((track: any, index: number) => ({ playlistId: 'b4ts', trackId: track.id, position: index, episodeId: null }))
+          .map((track: any, index: number) => ({ playlistId: 'b4ts', trackId: track.id, position: index, episodeId: track.episodeId || null }))
           .filter((t: any) => t.trackId);
         if (trackInserts.length > 0) {
           await prisma.systemPlaylistTrack.createMany({ data: trackInserts, skipDuplicates: true });
