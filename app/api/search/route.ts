@@ -145,7 +145,12 @@ export async function GET(request: NextRequest) {
         }
 
         const tracks = await prisma.track.findMany({
-          where: { AND: whereConditions },
+          where: {
+            AND: [
+              ...whereConditions,
+              { feedId: { notIn: ['lnurl-testing-podcast', 'lnurl-test-feed'] } }
+            ]
+          },
           include: {
             Feed: {
               select: { title: true, artist: true, image: true }
@@ -222,8 +227,13 @@ export async function GET(request: NextRequest) {
           orderBy: [{ updatedAt: 'desc' }]
         });
 
-        // Filter out Bowl After Bowl podcast content (but keep Bowl Covers)
+        // Filter out Bowl After Bowl podcast content (but keep Bowl Covers) and test feeds
         const filteredAlbums = albums.filter(album => {
+          // Exclude test feeds
+          if (album.id === 'lnurl-testing-podcast' || album.id === 'lnurl-test-feed') {
+            return false;
+          }
+
           const albumTitle = album.title?.toLowerCase() || '';
           const albumArtist = album.artist?.toLowerCase() || '';
           const feedUrl = album.originalUrl?.toLowerCase() || '';

@@ -94,6 +94,7 @@ export async function fuzzySearchTracks(options: FuzzySearchOptions): Promise<Fu
     FROM "Track" t
     LEFT JOIN "Feed" f ON t."feedId" = f.id
     WHERE t."audioUrl" IS NOT NULL
+      AND t."feedId" NOT IN ('lnurl-testing-podcast', 'lnurl-test-feed')
       AND (
         similarity(t.title, ${query}) > ${threshold}
         OR similarity(t.artist, ${query}) > ${threshold}
@@ -139,6 +140,7 @@ export async function fuzzySearchAlbums(options: FuzzySearchOptions): Promise<Fu
         OR similarity(f.artist, ${query}) > ${threshold}
       )
       AND NOT (f.title ILIKE '%Bowl After Bowl%' AND f.title NOT ILIKE '%Bowl Covers%')
+      AND f.id NOT IN ('lnurl-testing-podcast', 'lnurl-test-feed')
     ORDER BY similarity DESC, f."updatedAt" DESC NULLS LAST
     LIMIT ${limit}
     OFFSET ${offset}
