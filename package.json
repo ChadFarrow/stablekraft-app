@@ -45,7 +45,12 @@
     "discover-playlist-feeds": "node scripts/auto-discover-playlist-feeds.js",
     "skills:integrate": "cd skills && npm run integrate",
     "skills:validate": "cd skills && npm run validate",
-    "skills:setup": "cd skills && npm install"
+    "skills:setup": "cd skills && npm install",
+    "perf:db": "npx tsx scripts/perf-db.ts",
+    "perf:api": "npx tsx scripts/perf-api.ts",
+    "perf:memory": "node --expose-gc --import tsx scripts/perf-memory.ts",
+    "perf:lighthouse": "npx tsx scripts/perf-lighthouse.ts",
+    "perf:all": "npm run perf:db && npm run perf:api && npm run perf:memory"
   },
   "dependencies": {
     "@getalby/bitcoin-connect": "^3.11.0",
@@ -97,8 +102,10 @@
     "eslint": "^8",
     "eslint-config-next": "^14.0.4",
     "ignore-loader": "^0.1.2",
+    "lighthouse": "^12.8.2",
     "task-master-ai": "^0.22.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0"
   },
   "engines": {
     "node": ">=18.0.0",

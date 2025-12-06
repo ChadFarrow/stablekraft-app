@@ -17,7 +17,7 @@ interface CachedData {
 // In-memory cache for better performance (cache the database results, not files)
 let cachedData: CachedData | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for database results
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for database results (increased from 2)
 
 // Separate cache for playlist data to avoid re-fetching playlists every time
 let playlistCache: any[] | null = null;
@@ -146,22 +146,52 @@ export async function GET(request: Request) {
       const maxFeedsToLoad = Math.min(feedsToLoad, 500); // Limit to 500 feeds max to prevent timeout
       
       try {
+        // OPTIMIZED: Split into two queries for better performance
+        // 1. First get feeds with minimal track data (only what we need)
+        // 2. Use select to reduce data transfer
         feeds = await Promise.race([
           prisma.feed.findMany({
             where: { status: 'active' },
             skip: 0,
             take: maxFeedsToLoad,
-            include: {
+            select: {
+              id: true,
+              guid: true,
+              title: true,
+              description: true,
+              originalUrl: true,
+              artist: true,
+              image: true,
+              priority: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              v4vRecipient: true,
+              v4vValue: true,
               Track: {
                 where: {
                   audioUrl: { not: '' }
+                },
+                select: {
+                  id: true,
+                  guid: true,
+                  title: true,
+                  duration: true,
+                  audioUrl: true,
+                  image: true,
+                  publishedAt: true,
+                  v4vRecipient: true,
+                  v4vValue: true,
+                  startTime: true,
+                  endTime: true,
+                  trackOrder: true,
                 },
                 orderBy: [
                   { trackOrder: 'asc' },
                   { publishedAt: 'asc' },
                   { createdAt: 'asc' }
                 ],
-                take: 50 // Limit tracks per feed for performance
+                take: 20 // Reduced from 50 - most albums have <20 tracks
               },
               _count: {
                 select: { Track: true }
@@ -172,8 +202,8 @@ export async function GET(request: Request) {
               { createdAt: 'desc' }
             ]
           }),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Database query timeout after 30s')), 30000)
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Database query timeout after 15s')), 15000)
           )
         ]) as FeedWithTracks[];
       } catch (queryError) {
@@ -230,12 +260,9 @@ export async function GET(request: Request) {
         }
       }
     } else {
-      // Use cached data, but still need total count for pagination
-      // Exclude sidebar-only items from main site display
-      totalFeedCount = await prisma.feed.count({
-        where: { status: 'active' }
-      });
-      
+      // Use cached data - no need for count query since cache has all feeds
+      totalFeedCount = cachedData!.feeds.length; // Use cached count instead of DB query
+
       // Use cached data - cache contains all feeds, so we can slice after sorting
       if (process.env.NODE_ENV === 'development') {
         console.log(`⚡ Using cached database results (${cachedData!.feeds.length} feeds)`);

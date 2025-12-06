@@ -57,6 +57,7 @@ model Feed {
   @@index([status, type])
   @@index([type])
   @@index([publisherId])
+  @@index([status, priority, createdAt])  // For albums-fast query optimization
 }
 
 model PlaylistTrack {
