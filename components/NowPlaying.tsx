@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { getPlaceholderImageUrl } from '@/lib/cdn-utils';
+import { Share2 } from 'lucide-react';
 
 interface Track {
   id?: string;
@@ -27,6 +28,7 @@ interface NowPlayingProps {
   onToggleShuffle?: () => void;
   onToggleRepeat?: () => void;
   onOpenFullscreen?: () => void;
+  onShare?: () => void;
 }
 
 const NowPlaying: React.FC<NowPlayingProps> = ({
@@ -43,7 +45,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
   onClose,
   onToggleShuffle,
   onToggleRepeat,
-  onOpenFullscreen
+  onOpenFullscreen,
+  onShare
 }) => {
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
@@ -86,30 +89,47 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
     <div className="container mx-auto">
       {/* Mobile Layout - Three columns: Art | Info | Controls */}
       <div className="md:hidden flex gap-3 items-center">
-        {/* LEFT: Album Art - vertically centered */}
-        <div
-          className="flex-shrink-0 cursor-pointer"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (onOpenFullscreen) {
-              onOpenFullscreen();
-            }
-          }}
-        >
-          <img
-            key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}-mobile`}
-            src={track.albumArt || getPlaceholderImageUrl('thumbnail')}
-            alt={track.title}
-            className="rounded-lg object-cover"
-            style={{ width: '56px', height: '56px' }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              if (!target.src.includes('data:image/svg+xml')) {
-                target.src = getPlaceholderImageUrl('thumbnail');
+        {/* LEFT: Album Art with Share button overlay */}
+        <div className="flex-shrink-0 relative">
+          <div
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onOpenFullscreen) {
+                onOpenFullscreen();
               }
             }}
-          />
+          >
+            <img
+              key={`${track.id || track.title}-${track.artist}-${track.albumArt || 'no-art'}-mobile`}
+              src={track.albumArt || getPlaceholderImageUrl('thumbnail')}
+              alt={track.title}
+              className="rounded-lg object-cover"
+              style={{ width: '56px', height: '56px' }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (!target.src.includes('data:image/svg+xml')) {
+                  target.src = getPlaceholderImageUrl('thumbnail');
+                }
+              }}
+            />
+          </div>
+          {/* Share button overlay on album art */}
+          {onShare && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onShare();
+              }}
+              className="absolute -bottom-1 -left-1 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-1.5 rounded-full transition-all duration-200 active:scale-95"
+              title="Share this page"
+              aria-label="Copy page link to clipboard"
+            >
+              <Share2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         {/* MIDDLE: Title/Artist + Time */}

@@ -145,10 +145,10 @@ const GlobalNowPlayingBar: React.FC = () => {
       borderTop: '1px solid #f97316',
       zIndex: 50
     }}>
-      {/* Share button on far left */}
+      {/* Share button on far left - hidden on mobile, shown on desktop */}
       <button
         onClick={handleShare}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-2 rounded-full transition-all duration-200 active:scale-95"
+        className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-2 rounded-full transition-all duration-200 active:scale-95"
         title="Share this page"
         aria-label="Copy page link to clipboard"
         style={{ zIndex: 51 }}
@@ -170,6 +170,7 @@ const GlobalNowPlayingBar: React.FC = () => {
         onToggleShuffle={toggleShuffle}
         onToggleRepeat={handleToggleRepeat}
         onOpenFullscreen={handleOpenFullscreen}
+        onShare={handleShare}
       />
     </div>
   );

@@ -887,7 +887,17 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
               <span>{calculateTotalDuration(album.tracks)} min</span>
               {album.explicit && <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">EXPLICIT</span>}
             </div>
-            
+
+            {/* Share Button */}
+            <div className="flex items-center justify-center lg:justify-start">
+              <ShareButton
+                feedId={albumId}
+                className="bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white"
+                size="sm"
+                showLabel
+              />
+            </div>
+
             {(album.summary || album.description) && (() => {
               const fullText = (album.summary || album.description || '').replace(/<[^>]*>/g, '');
               const charLimit = 200;

@@ -12,6 +12,7 @@ interface ShareButtonProps {
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
+  showLabel?: boolean;
 }
 
 export default function ShareButton({
@@ -20,6 +21,7 @@ export default function ShareButton({
   className = '',
   variant = 'default',
   size = 'md',
+  showLabel = false,
 }: ShareButtonProps) {
   const handleShare = async () => {
     try {
@@ -50,6 +52,7 @@ export default function ShareButton({
       title="Copy link to clipboard"
     >
       <Share2 className={size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5'} />
+      {showLabel && <span>Share</span>}
     </button>
   );
 }
