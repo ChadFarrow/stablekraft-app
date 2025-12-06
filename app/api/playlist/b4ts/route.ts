@@ -202,7 +202,7 @@ function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
   for (const item of parsedItems) {
     if (item.type === 'episode') {
       foundEpisodeMarker = true;
-      if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+      if (currentEpisode) {
         episodes.push(currentEpisode);
       }
       currentEpisode = { title: item.title, remoteItems: [] };
@@ -219,7 +219,7 @@ function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
     }
   }
 
-  if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+  if (currentEpisode) {
     episodes.push(currentEpisode);
   }
 

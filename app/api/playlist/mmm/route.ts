@@ -152,7 +152,7 @@ function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
     if (item.type === 'episode') {
       foundEpisodeMarker = true;
       // Start new episode group
-      if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+      if (currentEpisode) {
         episodes.push(currentEpisode);
       }
       currentEpisode = {
@@ -178,8 +178,8 @@ function groupItemsByEpisode(parsedItems: ParsedPlaylistItem[]): {
     }
   }
 
-  // Push final episode if it has tracks
-  if (currentEpisode && currentEpisode.remoteItems.length > 0) {
+  // Push final episode
+  if (currentEpisode) {
     episodes.push(currentEpisode);
   }
 
