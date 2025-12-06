@@ -11,7 +11,7 @@ This app follows a **separation of concerns** architecture with two repositories
 - **Schedule**: Runs daily via GitHub Actions
 - **Playlists Generated**: MMM, SAS, HGH, IAM, ITDV, MMT, B4TS, Upbeats, and more
 
-### 2. This Repo (FUCKIT / Stablekraft App)
+### 2. This Repo (stablekraft-app)
 - **Purpose**: Consumes playlist feeds and displays them in the app
 - **Does NOT generate playlists** - only fetches and caches them
 - **Feed Sync**: Daily at 2 AM UTC via `.github/workflows/refresh-playlists.yml`
