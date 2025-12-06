@@ -46,6 +46,7 @@ export default function FavoriteButton({
   const [isFavorite, setIsFavorite] = useState(initialIsFavorite ?? false);
   const [isLoadingState, setIsLoadingState] = useState(initialIsFavorite === undefined);
   const [isToggling, setIsToggling] = useState(false);
+  const [touchHandled, setTouchHandled] = useState(false);
 
   // Determine the API endpoint and ID
   // If singleTrackData is provided, treat this as a track favorite (for single-track albums)
@@ -373,6 +374,11 @@ export default function FavoriteButton({
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    // Skip if this click was triggered by a touch event (already handled)
+    if (touchHandled) {
+      setTouchHandled(false);
+      return;
+    }
     await toggleFavorite();
   };
 
@@ -385,11 +391,12 @@ export default function FavoriteButton({
   const handleTouchEnd = async (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const button = e.currentTarget as HTMLElement;
     if (button.dataset.touched === 'true') {
       delete button.dataset.touched;
-      // Small delay to ensure it's a deliberate tap, not accidental during scroll
+      // Mark that touch handled this - prevents duplicate onClick
+      setTouchHandled(true);
       await toggleFavorite();
     }
   };
@@ -400,6 +407,7 @@ export default function FavoriteButton({
 
   return (
     <button
+      type="button"
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
