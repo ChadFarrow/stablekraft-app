@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Music, Disc, Calendar, Clock, ExternalLink, Info } from 'lucide-react';
+import { Play, Music, Disc, Calendar, Clock, ExternalLink, Info, Share2 } from 'lucide-react';
 import { RSSAlbum, RSSPublisherItem } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { generateAlbumUrl, getPublisherInfo } from '@/lib/url-utils';
@@ -1169,7 +1169,7 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
               )}
 
               {/* Statistics */}
-              <div className="flex flex-wrap gap-6 text-sm">
+              <div className="flex flex-wrap items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <Disc className="w-4 h-4 text-blue-400" />
                   <span className="font-semibold">{albums.length}</span>
@@ -1192,6 +1192,23 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
                     <span className="text-gray-400">Avg. Year</span>
                   </div>
                 )}
+                {/* Share Button - inline with stats */}
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(window.location.href);
+                      toast.success('Link copied!');
+                    } catch (error) {
+                      console.error('Failed to copy:', error);
+                      toast.error('Failed to copy link');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-stablekraft-teal hover:text-white transition-colors"
+                  title="Share this page"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Share</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1302,6 +1319,24 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
           </div>
         </div>
       </div>
+
+      {/* Fixed Share Button - Bottom Left */}
+      <button
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            toast.success('Link copied!');
+          } catch (error) {
+            console.error('Failed to copy:', error);
+            toast.error('Failed to copy link');
+          }
+        }}
+        className="fixed left-4 bottom-20 md:bottom-6 bg-stablekraft-teal/90 hover:bg-stablekraft-teal text-white p-3 rounded-full transition-all duration-200 active:scale-95 shadow-lg z-40"
+        title="Share this page"
+        aria-label="Copy page link to clipboard"
+      >
+        <Share2 className="w-5 h-5" />
+      </button>
     </div>
   );
 }
