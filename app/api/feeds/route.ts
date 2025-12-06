@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { findPublisherFeed } from '@/lib/publisher-detector';
-import { generateAlbumSlug } from '@/lib/url-utils';
+import { generateAlbumSlug, isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 
 /**
  * Generate a URL-friendly feed ID from artist and title
@@ -93,9 +93,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate URL before processing
+    if (!isValidFeedUrl(originalUrl)) {
+      return NextResponse.json(
+        { error: 'Invalid feed URL. Must be a valid http or https URL.' },
+        { status: 400 }
+      );
+    }
+
+    const normalizedOriginalUrl = normalizeUrl(originalUrl);
+
     // Check if feed already exists by URL first (return early to avoid parsing)
     const existingFeed = await prisma.feed.findUnique({
-      where: { originalUrl },
+      where: { originalUrl: normalizedOriginalUrl },
       include: {
         _count: {
           select: { Track: true }
@@ -120,12 +130,12 @@ export async function POST(request: NextRequest) {
       // Use upsert to atomically handle feed creation (prevents race conditions)
       // If another request created the same feed between our check and create, this won't fail
       const feed = await prisma.feed.upsert({
-        where: { originalUrl },
+        where: { originalUrl: normalizedOriginalUrl },
         create: {
           id: feedId,
           guid: parsedFeed.podcastGuid || null,
-          originalUrl,
-          cdnUrl: cdnUrl || originalUrl,
+          originalUrl: normalizedOriginalUrl,
+          cdnUrl: cdnUrl || normalizedOriginalUrl,
           type,
           priority,
           title: parsedFeed.title,

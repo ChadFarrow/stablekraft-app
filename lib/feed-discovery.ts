@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import fs from 'fs';
 import path from 'path';
+import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 
 interface PodcastIndexResponse {
   status: string;
@@ -212,6 +213,14 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
       const resolvedFeed = await resolveFeedGuidWithMetadata(feedGuid);
 
       if (resolvedFeed) {
+        // Validate URL before storing
+        if (!isValidFeedUrl(resolvedFeed.url)) {
+          console.warn(`⚠️ Invalid feed URL for ${feedGuid}: ${resolvedFeed.url}`);
+          continue;
+        }
+
+        const normalizedUrl = normalizeUrl(resolvedFeed.url);
+
         // Use upsert to atomically create or update (prevents race conditions)
         const upsertResult = await prisma.feed.upsert({
           where: { id: feedGuid },
@@ -219,7 +228,7 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
             id: feedGuid, // Use the podcast GUID so parse-feeds can look it up
             title: resolvedFeed.title,
             description: `Auto-discovered from playlist`,
-            originalUrl: resolvedFeed.url,
+            originalUrl: normalizedUrl,
             type: 'album',
             priority: 'normal',
             status: 'active',

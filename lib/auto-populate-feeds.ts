@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -83,6 +84,14 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
           if (data.status === 'true') {
             const feedData = data.feed || (data.feeds && data.feeds[0]);
             if (feedData && feedData.url) {
+              // Validate URL before storing
+              if (!isValidFeedUrl(feedData.url)) {
+                console.warn(`⚠️ Invalid feed URL for ${feedGuid}: ${feedData.url}`);
+                return { status: 'invalid_url', feedGuid };
+              }
+
+              const normalizedUrl = normalizeUrl(feedData.url);
+
               // Use upsert to atomically create or update the feed (prevents race conditions)
               const upsertResult = await prisma.feed.upsert({
                 where: { id: feedGuid },
@@ -92,7 +101,7 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                   description: feedData.description || null,
                   artist: feedData.author || null,
                   image: feedData.image || null,
-                  originalUrl: feedData.url || '',
+                  originalUrl: normalizedUrl,
                   language: feedData.language || null,
                   category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
                   explicit: feedData.explicit || false,

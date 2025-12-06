@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { ValueTagParser } from '@/lib/lightning/value-parser';
+import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -137,6 +138,14 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
     // Ensure feed ID is a string (Podcast Index returns numeric IDs)
     const feedId = String(feedData.id || feedData.guid || `feed-${Date.now()}`);
 
+    // Validate and normalize URL before storing
+    const feedUrl = feedData.url || '';
+    const normalizedFeedUrl = feedUrl && isValidFeedUrl(feedUrl) ? normalizeUrl(feedUrl) : feedUrl;
+
+    if (feedUrl && !isValidFeedUrl(feedUrl)) {
+      console.warn(`⚠️ Invalid feed URL for ${feedId}: ${feedUrl}`);
+    }
+
     // Parse v4v tags from RSS feed if xmlText is provided
     let parsedV4V = null;
     if (xmlText) {
@@ -178,7 +187,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
         id: feedId,
         title: feedData.title || 'Unknown Feed',
         description: feedData.description || null,
-        originalUrl: feedData.url || '',
+        originalUrl: normalizedFeedUrl,
         type: feedData.type === 1 ? 'music' : 'podcast',
         artist: feedData.author || null,
         image: feedData.image || null,

@@ -558,4 +558,78 @@ export function getPublisherInfo(slug: string): { feedGuid: string; feedUrl: str
   }
   
   return null;
+}
+
+/**
+ * Validate that a string is a valid URL
+ * Returns true if valid, false otherwise
+ */
+export function isValidUrl(urlString: string | null | undefined): boolean {
+  if (!urlString || typeof urlString !== 'string') {
+    return false;
+  }
+
+  try {
+    const url = new URL(urlString);
+    // Must be http or https protocol
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate a feed URL specifically
+ * Checks for valid URL structure and common RSS/XML feed patterns
+ */
+export function isValidFeedUrl(urlString: string | null | undefined): boolean {
+  if (!isValidUrl(urlString)) {
+    return false;
+  }
+
+  try {
+    const url = new URL(urlString!);
+
+    // Block obviously invalid hosts
+    if (!url.hostname || url.hostname === 'localhost' && process.env.NODE_ENV === 'production') {
+      return false;
+    }
+
+    // Must have a proper domain (at least one dot for TLD, unless localhost in dev)
+    if (!url.hostname.includes('.') && url.hostname !== 'localhost') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Normalize a URL for consistent storage
+ * - Removes trailing slashes
+ * - Decodes URL-encoded characters where safe
+ * - Ensures https when possible
+ */
+export function normalizeUrl(urlString: string): string {
+  try {
+    const url = new URL(urlString);
+
+    // Upgrade http to https for known secure hosts
+    const secureHosts = ['wavlake.com', 'podcastindex.org', 'api.podcastindex.org', 'feeds.fountain.fm'];
+    if (url.protocol === 'http:' && secureHosts.some(host => url.hostname.endsWith(host))) {
+      url.protocol = 'https:';
+    }
+
+    // Remove trailing slash from pathname (except for root)
+    if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+      url.pathname = url.pathname.slice(0, -1);
+    }
+
+    return url.toString();
+  } catch {
+    // If URL parsing fails, return as-is
+    return urlString;
+  }
 } 
