@@ -1,37 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
-
-const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
-const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
-
-// Generate required headers for Podcast Index API
-async function generateHeaders(apiKey: string, apiSecret: string) {
-  const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
-  const data4Hash = apiKey + apiSecret + apiHeaderTime;
-  
-  const crypto = await import('crypto');
-  const hash = crypto.createHash('sha1').update(data4Hash).digest('hex');
-  
-  return {
-    'Content-Type': 'application/json',
-    'X-Auth-Date': apiHeaderTime,
-    'X-Auth-Key': apiKey,
-    'Authorization': hash,
-    'User-Agent': 'StableKraft-Auto-Feed-Populator/1.0'
-  };
-}
+import { generatePodcastIndexHeaders, normalizeFeedResponse } from '@/lib/podcast-index-api';
 
 /**
  * Automatically populate missing feeds from Podcast Index
  * This runs automatically as part of playlist resolution to ensure high track resolution rates
  */
 export async function autoPopulateFeeds(feedGuids: string[], playlistName: string = 'playlist'): Promise<number> {
-  if (!PODCAST_INDEX_API_KEY || !PODCAST_INDEX_API_SECRET) {
-    console.log('⚠️ Podcast Index API credentials not available - skipping auto-population');
-    return 0;
-  }
-
   try {
     console.log(`🔍 Checking ${feedGuids.length} unique feed GUIDs for auto-population in ${playlistName}...`);
 
@@ -73,7 +49,7 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
 
       // Process batch in parallel for speed
       const batchResults = await Promise.allSettled(batch.map(async (feedGuid) => {
-        const headers = await generateHeaders(PODCAST_INDEX_API_KEY!, PODCAST_INDEX_API_SECRET!);
+        const headers = await generatePodcastIndexHeaders();
         const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
           headers,
           signal: AbortSignal.timeout(5000) // 5 second timeout per request
@@ -81,9 +57,8 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
 
         if (response.ok) {
           const data = await response.json();
-          if (data.status === 'true') {
-            const feedData = data.feed || (data.feeds && data.feeds[0]);
-            if (feedData && feedData.url) {
+          const feedData = normalizeFeedResponse(data);
+          if (feedData && feedData.url) {
               // Validate URL before storing
               if (!isValidFeedUrl(feedData.url)) {
                 console.warn(`⚠️ Invalid feed URL for ${feedGuid}: ${feedData.url}`);
@@ -102,6 +77,7 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                   artist: feedData.author || null,
                   image: feedData.image || null,
                   originalUrl: normalizedUrl,
+                  type: feedData.medium === 'music' ? 'album' : 'podcast',
                   language: feedData.language || null,
                   category: feedData.categories ? Object.keys(feedData.categories)[0] : null,
                   explicit: feedData.explicit || false,
@@ -183,7 +159,6 @@ export async function autoPopulateFeeds(feedGuids: string[], playlistName: strin
                 });
                 return { status: 'created_no_tracks', feedGuid, title: feedData.title };
               }
-            }
           }
         }
         return { status: 'not_found', feedGuid };

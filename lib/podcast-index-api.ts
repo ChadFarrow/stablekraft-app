@@ -384,5 +384,40 @@ export async function getFeedByUrlPreferNewest(feedUrl: string): Promise<Podcast
   return podcastIndexAPI.getFeedByUrl(feedUrl);
 }
 
+/**
+ * Generate Podcast Index API authentication headers
+ * Shared helper for modules that need to make direct API calls
+ */
+export async function generatePodcastIndexHeaders(): Promise<Record<string, string>> {
+  const apiKey = process.env.PODCAST_INDEX_API_KEY;
+  const apiSecret = process.env.PODCAST_INDEX_API_SECRET;
+
+  if (!apiKey || !apiSecret) {
+    throw new Error('PODCAST_INDEX_API_KEY and PODCAST_INDEX_API_SECRET must be set');
+  }
+
+  const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
+  const hash = crypto
+    .createHash('sha1')
+    .update(apiKey + apiSecret + apiHeaderTime)
+    .digest('hex');
+
+  return {
+    'Content-Type': 'application/json',
+    'X-Auth-Date': apiHeaderTime,
+    'X-Auth-Key': apiKey,
+    'Authorization': hash,
+    'User-Agent': 'StableKraft/1.0'
+  };
+}
+
+/**
+ * Normalize Podcast Index API response to handle both 'feed' and 'feeds' formats
+ */
+export function normalizeFeedResponse(data: any): PodcastIndexFeed | null {
+  if (data.status !== 'true') return null;
+  return data.feed || (data.feeds && data.feeds[0]) || null;
+}
+
 // Re-export the PodcastIndexFeed type for use in other modules
 export type { PodcastIndexFeed };

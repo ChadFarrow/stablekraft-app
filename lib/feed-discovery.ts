@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import fs from 'fs';
-import path from 'path';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
+import { generatePodcastIndexHeaders, normalizeFeedResponse, getFeedByUrlPreferNewest } from '@/lib/podcast-index-api';
 
 interface PodcastIndexResponse {
   status: string;
@@ -39,72 +38,16 @@ interface PodcastIndexResponse {
   description: string;
 }
 
-// Load API keys from environment variables or .env.local
-function getApiKeys(): { apiKey: string; apiSecret: string } {
-  // First, try to get from environment variables (works in production/Railway)
-  if (process.env.PODCAST_INDEX_API_KEY && process.env.PODCAST_INDEX_API_SECRET) {
-    return {
-      apiKey: process.env.PODCAST_INDEX_API_KEY,
-      apiSecret: process.env.PODCAST_INDEX_API_SECRET
-    };
-  }
-
-  // Fall back to .env.local for local development
-  try {
-    const envPath = path.join(process.cwd(), '.env.local');
-    
-    // Check if file exists before trying to read it
-    if (!fs.existsSync(envPath)) {
-      throw new Error('PODCAST_INDEX_API_KEY and PODCAST_INDEX_API_SECRET must be set in environment variables or .env.local file');
-    }
-    
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    
-    const apiKeyMatch = envContent.match(/PODCAST_INDEX_API_KEY=(.+)/);
-    const apiSecretMatch = envContent.match(/PODCAST_INDEX_API_SECRET=(.+)/);
-    
-    if (!apiKeyMatch || !apiSecretMatch) {
-      throw new Error('Missing PODCAST_INDEX_API_KEY or PODCAST_INDEX_API_SECRET in .env.local');
-    }
-    
-    return {
-      apiKey: apiKeyMatch[1].trim().replace(/['"]/g, ''),
-      apiSecret: apiSecretMatch[1].trim().replace(/['"]/g, '')
-    };
-  } catch (error) {
-    console.error('❌ Error loading API keys:', error);
-    throw error;
-  }
-}
-
-// Generate required headers for Podcast Index API
-async function generateHeaders(apiKey: string, apiSecret: string): Promise<Record<string, string>> {
-  const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
-  const data4Hash = apiKey + apiSecret + apiHeaderTime;
-  
-  // Generate SHA1 hash for authentication
-  const crypto = await import('crypto');
-  const hash = crypto.createHash('sha1').update(data4Hash).digest('hex');
-  
-  return {
-    'Content-Type': 'application/json',
-    'X-Auth-Date': apiHeaderTime,
-    'X-Auth-Key': apiKey,
-    'Authorization': hash,
-    'User-Agent': 'StableKraft-Feed-Discovery/1.0'
-  };
-}
-
 export async function resolveFeedGuid(feedGuid: string): Promise<string | null> {
   try {
     console.log(`🔍 Resolving feed GUID: ${feedGuid}`);
 
-    const { apiKey, apiSecret } = getApiKeys();
-    const headers = await generateHeaders(apiKey, apiSecret);
+    const headers = await generatePodcastIndexHeaders();
 
     // Use Podcast Index API to resolve GUID to feed URL
     const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
-      headers
+      headers,
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
 
     if (!response.ok) {
@@ -113,11 +56,9 @@ export async function resolveFeedGuid(feedGuid: string): Promise<string | null> 
     }
 
     const data: any = await response.json();
+    const feed = normalizeFeedResponse(data);
 
-    // Handle both singular 'feed' and plural 'feeds' response formats
-    const feed = data.feed || (data.feeds && data.feeds[0]);
-
-    if (data.status === 'true' && feed) {
+    if (feed) {
       console.log(`✅ Resolved feed GUID ${feedGuid} to: ${feed.title} - ${feed.url}`);
       return feed.url;
     } else {
@@ -130,17 +71,17 @@ export async function resolveFeedGuid(feedGuid: string): Promise<string | null> 
   }
 }
 
-// New function that returns full feed metadata
-export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ url: string; title: string; artist: string; image: string } | null> {
+// New function that returns full feed metadata including medium for type determination
+export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ url: string; title: string; artist: string; image: string | null; medium: string } | null> {
   try {
     console.log(`🔍 Resolving feed GUID with metadata: ${feedGuid}`);
 
-    const { apiKey, apiSecret } = getApiKeys();
-    const headers = await generateHeaders(apiKey, apiSecret);
+    const headers = await generatePodcastIndexHeaders();
 
     // Use Podcast Index API to resolve GUID to feed metadata
     const response = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
-      headers
+      headers,
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
 
     if (!response.ok) {
@@ -149,18 +90,15 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
     }
 
     const data: any = await response.json();
+    const feed = normalizeFeedResponse(data);
 
-    // Handle both singular 'feed' and plural 'feeds' response formats
-    const feed = data.feed || (data.feeds && data.feeds[0]);
-
-    if (data.status === 'true' && feed && feed.url) {
+    if (feed && feed.url) {
       let finalFeed = feed;
 
       // For behindthesch3m3s.com feeds, always check for newer Podcast Index entries
       // This handles cases where feeds were re-indexed with different URLs (URL encoding)
       if (feed.url.includes('behindthesch3m3s.com')) {
         try {
-          const { getFeedByUrlPreferNewest } = await import('./podcast-index-api');
           const newestFeed = await getFeedByUrlPreferNewest(feed.url);
 
           if (newestFeed && newestFeed.id !== feed.id) {
@@ -177,7 +115,8 @@ export async function resolveFeedGuidWithMetadata(feedGuid: string): Promise<{ u
         url: finalFeed.url,
         title: finalFeed.title || 'Unknown Feed',
         artist: finalFeed.author || finalFeed.ownerName || 'Unknown Artist',
-        image: finalFeed.artwork || finalFeed.image || ''
+        image: finalFeed.artwork || finalFeed.image || null,
+        medium: finalFeed.medium || 'music'
       };
     } else {
       if (feed && !feed.url) {
@@ -229,7 +168,7 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
             title: resolvedFeed.title,
             description: `Auto-discovered from playlist`,
             originalUrl: normalizedUrl,
-            type: 'album',
+            type: resolvedFeed.medium === 'music' ? 'album' : 'podcast',
             priority: 'normal',
             status: 'active',
             artist: resolvedFeed.artist,
@@ -293,33 +232,29 @@ export async function addUnresolvedFeeds(feedGuids: string[]): Promise<number> {
 export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promise<any | null> {
   try {
     console.log(`🔍 Resolving item GUID: ${itemGuid} from feed: ${feedGuid}`);
-    
-    const { apiKey, apiSecret } = getApiKeys();
-    const headers = await generateHeaders(apiKey, apiSecret);
-    
+
+    const headers = await generatePodcastIndexHeaders();
+
     // Approach 1: Try to resolve via feed GUID first
     console.log(`📡 Approach 1: Feed-based lookup`);
     const feedResponse = await fetch(`https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${encodeURIComponent(feedGuid)}`, {
-      headers
+      headers,
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
-    
+
     if (feedResponse.ok) {
       const feedData = await feedResponse.json();
-      
-      // Handle different response structures
-      let feed = null;
-      if (feedData.status === 'true') {
-        feed = feedData.feed || (feedData.feeds && feedData.feeds[0]);
-      }
-      
+      const feed = normalizeFeedResponse(feedData);
+
       if (feed && feed.id) {
         const feedId = feed.id;
         const feedTitle = feed.title;
         console.log(`✅ Found feed: ${feedTitle} (ID: ${feedId})`);
-        
+
         // Get episodes from this feed (limit to 100 for performance)
         const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=100`, {
-          headers
+          headers,
+          signal: AbortSignal.timeout(10000) // 10 second timeout
         });
         
         if (episodesResponse.ok) {
@@ -352,7 +287,8 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
     // Approach 2: Direct episode GUID lookup as fallback
     console.log(`📡 Approach 2: Direct episode GUID lookup`);
     const episodeResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byguid?guid=${encodeURIComponent(itemGuid)}`, {
-      headers
+      headers,
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
     
     if (episodeResponse.ok) {
