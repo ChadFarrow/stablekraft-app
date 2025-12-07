@@ -122,6 +122,7 @@ export interface ParsedItem {
   v4vValue?: any;
   startTime?: number;
   endTime?: number;
+  episode?: number; // podcast:episode or itunes:episode number for track ordering
 }
 
 // Helper function to parse V4V data from XML directly
@@ -297,6 +298,38 @@ export function parsePodcastGuidFromXML(xmlText: string): string | null {
     console.error('Error extracting podcast:guid from XML:', error);
     return null;
   }
+}
+
+// Helper function to extract episode numbers from XML for all items
+// Returns a Map of guid -> episode number
+export function parseEpisodeNumbersFromXML(xmlText: string): Map<string, number> {
+  const episodeMap = new Map<string, number>();
+  
+  try {
+    // Extract all items from XML
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
+    let itemMatch;
+    
+    while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
+      const itemContent = itemMatch[1];
+      
+      // Extract GUID
+      const guidMatch = itemContent.match(/<guid[^>]*>(.*?)<\/guid>/);
+      const guid = guidMatch ? guidMatch[1].trim() : null;
+      
+      // Extract episode number (try podcast:episode first, then itunes:episode)
+      const episodeMatch = itemContent.match(/<podcast:episode>(\d+)<\/podcast:episode>|<itunes:episode>(\d+)<\/itunes:episode>/);
+      const episode = episodeMatch ? parseInt(episodeMatch[1] || episodeMatch[2]) : null;
+      
+      if (guid && episode !== null) {
+        episodeMap.set(guid, episode);
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting episode numbers from XML:', error);
+  }
+  
+  return episodeMap;
 }
 
 // Helper function to parse V4V data for a specific item from XML
@@ -547,6 +580,19 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           continue;
         }
         
+        // Extract episode number from itunes:episode or from XML (for podcast:episode)
+        let episodeNumber: number | undefined = undefined;
+        if (item.itunes?.episode) {
+          episodeNumber = parseInt(item.itunes.episode);
+        }
+        // If not found in itunes:episode, try to get from XML (for podcast:episode)
+        if (episodeNumber === undefined && xmlText) {
+          const episodeMap = parseEpisodeNumbersFromXML(xmlText);
+          if (item.guid && episodeMap.has(item.guid)) {
+            episodeNumber = episodeMap.get(item.guid);
+          }
+        }
+        
         const parsedItem: ParsedItem = {
           guid: item.guid || undefined,
           title: item.title || 'Untitled',
@@ -566,7 +612,8 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           itunesImage: extractItunesImage(item.itunes?.image),
           itunesDuration: item.itunes?.duration,
           itunesKeywords: parseKeywords(item.itunes?.keywords),
-          itunesCategories: feedCategories // Inherit from feed
+          itunesCategories: feedCategories, // Inherit from feed
+          episode: episodeNumber
         };
         
         // Parse V4V (Value for Value) information if present

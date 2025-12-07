@@ -228,8 +228,8 @@ export async function resolveItemGuid(feedGuid: string, itemGuid: string): Promi
         const feedTitle = feed.title;
         console.log(`✅ Found feed: ${feedTitle} (ID: ${feedId})`);
 
-        // Get episodes from this feed (limit to 100 for performance)
-        const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=100`, {
+        // Get episodes from this feed (limit to 1000 to match individual playlist routes)
+        const episodesResponse = await fetch(`https://api.podcastindex.org/api/1.0/episodes/byfeedid?id=${feedId}&max=1000`, {
           headers,
           signal: AbortSignal.timeout(10000) // 10 second timeout
         });

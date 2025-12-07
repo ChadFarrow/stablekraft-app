@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
           v4vValue: item.v4vValue,
           startTime: item.startTime,
           endTime: item.endTime,
+          trackOrder: item.episode || index + 1, // Use episode number if available, otherwise use RSS position
           updatedAt: new Date()
         }));
         

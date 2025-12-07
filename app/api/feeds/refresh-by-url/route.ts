@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         feed = newFeed; // Assign to feed variable
         
         // For new feeds, add all tracks from parsed feed
-        // Preserve RSS feed order (newest-first, matching podcastindex.org)
+        // Use episode numbers for trackOrder if available, otherwise use RSS position
         if (parsedFeed.items.length > 0) {
           const tracksData = parsedFeed.items.map((item, index) => ({
             id: `${newFeed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
             v4vValue: item.v4vValue,
             startTime: item.startTime,
             endTime: item.endTime,
-            trackOrder: index + 1, // Preserve RSS feed order (1-based, newest first)
+            trackOrder: item.episode || index + 1, // Use episode number if available, otherwise use RSS position
             updatedAt: new Date()
           }));
           
@@ -165,8 +165,9 @@ export async function POST(request: NextRequest) {
         if (track.guid) {
           const parsedData = parsedItemsByGuid.get(track.guid);
           if (parsedData) {
-            order = parsedData.order;
             matchedItem = parsedData.item;
+            // Use episode number if available, otherwise use RSS position
+            order = matchedItem.episode || parsedData.order;
           }
         }
 
@@ -177,8 +178,9 @@ export async function POST(request: NextRequest) {
             item.audioUrl === track.audioUrl
           );
           if (matchingIndex >= 0) {
-            order = matchingIndex + 1; // Preserve RSS feed order (newest-first)
             matchedItem = parsedFeed.items[matchingIndex];
+            // Use episode number if available, otherwise use RSS position
+            order = matchedItem.episode || (matchingIndex + 1);
           }
         }
 
@@ -240,12 +242,13 @@ export async function POST(request: NextRequest) {
         
         const tracksData = newItems.map((item, index) => {
           // Find the item's position in the full parsed feed
-          // Preserve RSS feed order (newest-first, matching podcastindex.org)
           const fullIndex = parsedFeed.items.findIndex(i => 
             i.guid === item.guid || 
             (i.title === item.title && i.audioUrl === item.audioUrl)
           );
-          const order = fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1;
+          const parsedItem = fullIndex >= 0 ? parsedFeed.items[fullIndex] : null;
+          // Use episode number if available, otherwise use RSS position
+          const order = parsedItem?.episode || (fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1);
           
           return {
             id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
@@ -270,7 +273,7 @@ export async function POST(request: NextRequest) {
             v4vValue: item.v4vValue,
             startTime: item.startTime,
             endTime: item.endTime,
-            trackOrder: order, // Preserve RSS feed order (1-based)
+            trackOrder: order, // Use episode number if available, otherwise use RSS position
             updatedAt: new Date()
           };
         });
