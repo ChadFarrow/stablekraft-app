@@ -788,13 +788,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     // If not found by exact slug match, try more flexible matching
     if (!foundAlbum) {
       console.log(`🔍 Trying flexible matching for slug: "${slug}"`);
-      
+
       const searchSlug = slug.toLowerCase();
       const decodedSlug = decodeURIComponent(searchSlug);
       const titleFromSlug = decodedSlug.replace(/-/g, ' ');
-      
+
+      // Get all active feeds with tracks for flexible matching
+      const feeds = await prisma.feed.findMany({
+        where: { status: 'active' },
+        include: trackInclude
+      });
+
       const flexibleMatches = [];
-      
+
       for (const feed of feeds) {
         if (feed.Track.length === 0) continue;
         
