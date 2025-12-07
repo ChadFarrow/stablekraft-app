@@ -61,7 +61,7 @@ export async function GET(
     headers.set('X-Image-Size', `${fileBuffer.length} bytes`);
     headers.set('Vary', 'Accept-Encoding');
     
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers
     });

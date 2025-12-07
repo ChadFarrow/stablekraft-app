@@ -57,7 +57,7 @@ export async function GET(
     // Update access time
     FeedCache.getCachedUrl('', 'audio', '', 0); // This will update access time
     
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers
     });

@@ -78,7 +78,7 @@ async function generatePlaceholderImage(): Promise<Buffer> {
 async function returnPlaceholderImage(): Promise<NextResponse> {
   try {
     const placeholderBuffer = await generatePlaceholderImage();
-    return new NextResponse(placeholderBuffer, {
+    return new NextResponse(new Uint8Array(placeholderBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
       headers.set('Access-Control-Allow-Methods', 'GET, HEAD');
       headers.set('X-Image-Proxy', 'stablekraft.app');
       headers.set('X-Cache', 'HIT');
-      return new NextResponse(cached.buffer, { status: 200, headers });
+      return new NextResponse(new Uint8Array(cached.buffer), { status: 200, headers });
     }
 
     // Validate URL
@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
     const minWidth = parseInt(searchParams.get('minWidth') || '1920');
     const minHeight = parseInt(searchParams.get('minHeight') || '1080');
 
-    let processedBuffer = imageBuffer;
+    let processedBuffer: Buffer = imageBuffer;
     let finalContentType = contentType || 'image/jpeg';
 
     // Enhance image quality for backgrounds if requested (only if sharp is available)
@@ -383,7 +383,7 @@ export async function GET(request: NextRequest) {
     }
     headers.set('Vary', 'Accept-Encoding');
 
-    return new NextResponse(processedBuffer, {
+    return new NextResponse(new Uint8Array(processedBuffer), {
       status: 200,
       headers
     });

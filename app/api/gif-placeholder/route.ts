@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     headers.set('X-Image-Type', 'gif-placeholder');
     headers.set('Vary', 'Accept-Encoding');
 
-    return new NextResponse(firstFrame, {
+    return new NextResponse(new Uint8Array(firstFrame), {
       status: 200,
       headers
     });
