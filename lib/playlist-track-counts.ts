@@ -3,6 +3,19 @@
  * Counts <podcast:remoteItem> tags in each playlist XML
  */
 
+// Fallback counts to return immediately on cold cache (updated Dec 6, 2025)
+const FALLBACK_COUNTS: Record<string, number> = {
+  'mmm': 1606,
+  'upbeats': 609,
+  'b4ts': 562,
+  'sas': 728,
+  'mmt': 172,
+  'hgh': 922,
+  'iam': 340,
+  'itdv': 125,
+  'flowgnar': 188,
+};
+
 // Playlist XML URLs from the chadf-musicl-playlists repo
 const PLAYLIST_URLS: Record<string, string> = {
   'mmm': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml',
@@ -61,8 +74,48 @@ async function fetchPlaylistTrackCount(playlistId: string): Promise<number> {
   }
 }
 
+// Track if background refresh is in progress to avoid duplicate fetches
+let isRefreshing = false;
+
 /**
- * Get all playlist track counts (uses cache)
+ * Trigger background refresh of track counts (non-blocking)
+ */
+function triggerBackgroundRefresh(): void {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
+  console.log('🔄 Background fetching playlist track counts from XML files...');
+
+  const playlistIds = Object.keys(PLAYLIST_URLS);
+  const countPromises = playlistIds.map(async (id) => {
+    const count = await fetchPlaylistTrackCount(id);
+    return { id, count };
+  });
+
+  Promise.all(countPromises)
+    .then((results) => {
+      const counts: Record<string, number> = {};
+      for (const { id, count } of results) {
+        counts[id] = count;
+        console.log(`  📊 ${id}: ${count} tracks`);
+      }
+
+      trackCountCache = {
+        counts,
+        timestamp: Date.now(),
+      };
+      console.log('✅ Playlist track counts cached');
+    })
+    .catch((error) => {
+      console.error('❌ Background refresh failed:', error);
+    })
+    .finally(() => {
+      isRefreshing = false;
+    });
+}
+
+/**
+ * Get all playlist track counts (uses cache, returns fallbacks immediately if cold)
  */
 export async function getAllPlaylistTrackCounts(): Promise<Record<string, number>> {
   // Check cache
@@ -70,31 +123,10 @@ export async function getAllPlaylistTrackCounts(): Promise<Record<string, number
     return trackCountCache.counts;
   }
 
-  console.log('🔄 Fetching playlist track counts from XML files...');
-
-  // Fetch all counts in parallel
-  const playlistIds = Object.keys(PLAYLIST_URLS);
-  const countPromises = playlistIds.map(async (id) => {
-    const count = await fetchPlaylistTrackCount(id);
-    return { id, count };
-  });
-
-  const results = await Promise.all(countPromises);
-
-  const counts: Record<string, number> = {};
-  for (const { id, count } of results) {
-    counts[id] = count;
-    console.log(`  📊 ${id}: ${count} tracks`);
-  }
-
-  // Update cache
-  trackCountCache = {
-    counts,
-    timestamp: Date.now(),
-  };
-
-  console.log('✅ Playlist track counts cached');
-  return counts;
+  // Cache is cold - return fallbacks immediately, refresh in background
+  console.log('⚡ Returning fallback track counts (cache cold)');
+  triggerBackgroundRefresh();
+  return FALLBACK_COUNTS;
 }
 
 /**
