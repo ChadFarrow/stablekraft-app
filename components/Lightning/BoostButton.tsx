@@ -191,6 +191,13 @@ export function BoostButton({
       await connect();
       return;
     }
+    // Reset states for clean modal open
+    setError(null);
+    setSuccess(false);
+    setIsSending(false);
+    setNostrError(null);
+    setNostrStatus('idle');
+    setPaymentStatuses(new Map());
     setShowModal(true);
   };
 
@@ -1162,7 +1169,7 @@ export function BoostButton({
     }
   };
 
-  // Send 2 sat platform fee metaboost via Lightning Address
+  // Send 2 sat platform fee metaboost via keysend (preferred) or Lightning Address (fallback)
   const sendPlatformFeeMetaboost = async (): Promise<void> => {
     const platformFee = LIGHTNING_CONFIG.platform.fee || 2;
     const platformLightningAddress = 'lushnessprecious644398@getalby.com';
@@ -1170,6 +1177,57 @@ export function BoostButton({
     try {
       const metaboostMessage = `Metaboost for ${trackTitle || 'track'} - Platform fee`;
 
+      // Try keysend first for Helipad metadata support
+      if (supportsKeysend) {
+        try {
+          console.log(`🔍 Resolving keysend info for platform fee: ${platformLightningAddress}`);
+          const details = await LNURLService.resolveLightningAddressDetails(platformLightningAddress);
+
+          if (details.keysend?.status === 'OK' && details.keysend.pubkey) {
+            console.log(`✅ Got keysend pubkey for platform fee: ${details.keysend.pubkey.slice(0, 20)}...`);
+
+            // Create Helipad metadata for platform fee
+            const helipadMetadata: any = {
+              podcast: artistName || 'Unknown Artist',
+              episode: trackTitle || 'Unknown Track',
+              action: 'boost',
+              app_name: 'StableKraft',
+              value_msat: platformFee * 1000,
+              value_msat_total: platformFee * 1000,
+              sender_name: senderName || 'Anonymous',
+              name: 'StableKraft',
+              app_version: '1.0.0',
+              uuid: `metaboost-${Date.now()}-${Math.floor(Math.random() * 999)}`
+            };
+
+            if (feedUrl) {
+              helipadMetadata.url = feedUrl;
+              helipadMetadata.feed = feedUrl;
+            }
+            if (remoteFeedGuid) {
+              helipadMetadata.remote_feed_guid = remoteFeedGuid;
+            }
+            if (episodeGuid || trackId) {
+              helipadMetadata.remote_item_guid = episodeGuid || trackId;
+              helipadMetadata.episode_guid = episodeGuid || trackId;
+            }
+            if (metaboostMessage) {
+              helipadMetadata.message = metaboostMessage;
+            }
+
+            const result = await sendKeysend(details.keysend.pubkey, platformFee, metaboostMessage, helipadMetadata);
+            if (!result.error) {
+              console.log(`✅ Platform fee sent via keysend: ${platformFee} sats`);
+              return;
+            }
+            console.warn(`⚠️ Keysend failed for platform fee, falling back to LNURL:`, result.error);
+          }
+        } catch (keysendError) {
+          console.warn(`⚠️ Keysend lookup failed for platform fee, falling back to LNURL:`, keysendError);
+        }
+      }
+
+      // Fallback to Lightning Address (LNURL)
       const { invoice } = await LNURLService.payLightningAddress(
         platformLightningAddress,
         platformFee,
@@ -1255,11 +1313,14 @@ export function BoostButton({
       setCustomAmount('');
     }
 
-    // Clear message and error states
+    // Clear all states for clean re-open
     setMessage('');
     setError(null);
+    setSuccess(false);
+    setIsSending(false);
     setNostrError(null);
     setNostrStatus('idle');
+    setPaymentStatuses(new Map());
 
     if (onClose) {
       onClose();
