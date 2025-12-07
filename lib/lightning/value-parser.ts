@@ -155,8 +155,25 @@ export class ValueTagParser {
         const type = recipient['@_type'] || 'node';
         const address = recipient['@_address'];
         const split = parseInt(recipient['@_split'] || '0');
-        const customKey = recipient['@_customKey'];
-        const customValue = recipient['@_customValue'];
+        // Handle customKey/customValue as both attributes and nested elements
+        // Some feeds use nested <key> and <value> elements instead of attributes
+        let customKey = recipient['@_customKey'];
+        let customValue = recipient['@_customValue'];
+        
+        // Check for nested <key> element (maps to customKey)
+        if (!customKey && recipient.key) {
+          customKey = typeof recipient.key === 'string' 
+            ? recipient.key 
+            : recipient.key._text || recipient.key['#text'] || recipient.key;
+        }
+        
+        // Check for nested <value> element (maps to customValue)
+        if (!customValue && recipient.value) {
+          customValue = typeof recipient.value === 'string'
+            ? recipient.value
+            : recipient.value._text || recipient.value['#text'] || recipient.value;
+        }
+        
         const fee = recipient['@_fee'] === 'true' || recipient['@_fee'] === true;
 
         if (!address || !split) {

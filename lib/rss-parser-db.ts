@@ -148,8 +148,9 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
     console.log('🔍 DEBUG: Type:', typeMatch ? typeMatch[1] : 'not found');
     console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
     
-    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags)
-    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|><\/podcast:valueRecipient>)/g;
+    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags with nested content)
+    // Updated regex to handle nested <value> and <key> elements
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>[\s\S]*?<\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
@@ -163,12 +164,34 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
       const splitMatch = recipientTag.match(/split="([^"]*)"/);
       const feeMatch = recipientTag.match(/fee="([^"]*)"/);
       
+      // Extract nested <key> and <value> elements (some feeds use these instead of attributes)
+      let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
+      let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
+      
+      // Check for nested <key> element
+      if (!customKey) {
+        const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
+        if (keyMatch) {
+          customKey = keyMatch[1].trim();
+        }
+      }
+      
+      // Check for nested <value> element
+      if (!customValue) {
+        const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
+        if (valueMatch) {
+          customValue = valueMatch[1].trim();
+        }
+      }
+      
       const recipient = {
         name: nameMatch ? nameMatch[1] : null,
         address: addressMatch ? addressMatch[1] : null,
         type: typeMatch ? typeMatch[1] : 'node',
         split: splitMatch ? splitMatch[1] : '100',
-        fee: feeMatch ? feeMatch[1] : null
+        fee: feeMatch ? feeMatch[1] : null,
+        customKey: customKey || null,
+        customValue: customValue || null
       };
       
       console.log('🔍 DEBUG: Parsed recipient:', recipient);
@@ -383,8 +406,9 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     valueContent = valueContent.replace(/<podcast:valueTimeSplit[^>]*>[\s\S]*?<\/podcast:valueTimeSplit>/g, '');
     console.log('🔍 DEBUG: Removed valueTimeSplit blocks from value content');
 
-    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags)
-    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|><\/podcast:valueRecipient>)/g;
+    // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags with nested content)
+    // Updated regex to handle nested <value> and <key> elements
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>[\s\S]*?<\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
@@ -398,12 +422,34 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       const splitMatch = recipientTag.match(/split="([^"]*)"/);
       const feeMatch = recipientTag.match(/fee="([^"]*)"/);
       
+      // Extract nested <key> and <value> elements (some feeds use these instead of attributes)
+      let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
+      let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
+      
+      // Check for nested <key> element
+      if (!customKey) {
+        const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
+        if (keyMatch) {
+          customKey = keyMatch[1].trim();
+        }
+      }
+      
+      // Check for nested <value> element
+      if (!customValue) {
+        const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
+        if (valueMatch) {
+          customValue = valueMatch[1].trim();
+        }
+      }
+      
       const recipient = {
         name: nameMatch ? nameMatch[1] : null,
         address: addressMatch ? addressMatch[1] : null,
         type: recipientTypeMatch ? recipientTypeMatch[1] : 'node',
         split: splitMatch ? splitMatch[1] : '100',
-        fee: feeMatch ? feeMatch[1] : null
+        fee: feeMatch ? feeMatch[1] : null,
+        customKey: customKey || null,
+        customValue: customValue || null
       };
       
       console.log('🔍 DEBUG: Parsed recipient:', recipient);
@@ -654,12 +700,32 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
                     })
                     .map(r => {
                       const rData = r.$ || r;
+                      // Handle nested <key> and <value> elements (some feeds use these instead of attributes)
+                      let customKey = rData.customKey;
+                      let customValue = rData.customValue;
+                      
+                      // Check for nested <key> element
+                      if (!customKey && r.key) {
+                        customKey = typeof r.key === 'string' 
+                          ? r.key 
+                          : r.key._text || r.key['#text'] || r.key;
+                      }
+                      
+                      // Check for nested <value> element
+                      if (!customValue && r.value) {
+                        customValue = typeof r.value === 'string'
+                          ? r.value
+                          : r.value._text || r.value['#text'] || r.value;
+                      }
+                      
                       return {
                         name: rData.name,
                         address: rData.address,
                         type: rData.type || 'node',
                         split: rData.split || '100',
-                        fee: rData.fee
+                        fee: rData.fee,
+                        customKey: customKey || undefined,
+                        customValue: customValue || undefined
                       };
                     })
                 };
