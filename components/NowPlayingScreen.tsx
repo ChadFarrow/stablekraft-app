@@ -386,7 +386,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee hover:animate-none' : ''}`}
             >
               {currentTrack.id ? (
-                <Link href={`/music-tracks/${currentTrack.id}`} className="hover:underline">
+                <Link href={`/music-tracks/${currentTrack.id}`} className="underline">
                   {currentTrack.title || 'Unknown Track'}
                 </Link>
               ) : (
@@ -396,7 +396,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
                 <>
                   <span className="px-8" />
                   {currentTrack.id ? (
-                    <Link href={`/music-tracks/${currentTrack.id}`} className="hover:underline">
+                    <Link href={`/music-tracks/${currentTrack.id}`} className="underline">
                       {currentTrack.title || 'Unknown Track'}
                     </Link>
                   ) : (
