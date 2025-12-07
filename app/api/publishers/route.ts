@@ -48,9 +48,9 @@ export async function GET() {
 
     console.log(`📊 Found ${publishers.length} publishers and ${albumFeeds.length} album feeds`);
 
-    // Transform to the expected format, counting albums by artist name match
-    const publisherList = publishers
-      .map(publisher => {
+    // Transform to the expected format, counting albums by artist name match AND publisherId relationship
+    const publisherList = await Promise.all(publishers
+      .map(async publisher => {
         const publisherArtist = (publisher.artist || publisher.title)?.toLowerCase();
 
         // Find albums that match this publisher by artist name
@@ -67,8 +67,28 @@ export async function GET() {
 
         // Only count albums that have tracks
         const albumsWithTracks = matchingAlbums.filter(a => a._count.Track > 0);
-        const albumCount = albumsWithTracks.length;
-        const trackCount = albumsWithTracks.reduce((sum, album) => sum + album._count.Track, 0);
+        let albumCount = albumsWithTracks.length;
+        let trackCount = albumsWithTracks.reduce((sum, album) => sum + album._count.Track, 0);
+
+        // Also count albums linked via publisherId (for publishers like Jimmy V who host multiple artists)
+        const linkedAlbums = await prisma.feed.findMany({
+          where: {
+            publisherId: publisher.id,
+            type: { in: ['album', 'music'] },
+            status: 'active'
+          },
+          select: {
+            id: true,
+            image: true,
+            _count: { select: { Track: true } }
+          }
+        });
+
+        // Use the higher count (artist matching vs publisherId linking)
+        if (linkedAlbums.length > albumCount) {
+          albumCount = linkedAlbums.length;
+          trackCount = linkedAlbums.reduce((sum, album) => sum + album._count.Track, 0);
+        }
 
         // Use publisher image, or fallback to first album's cover art
         const albumCover = albumsWithTracks.find(a => a.image)?.image;
@@ -87,12 +107,14 @@ export async function GET() {
           isPublisherCard: true,
           publisherUrl: `/publisher/${generateAlbumSlug(publisher.title || publisher.id)}`
         };
-      })
-      .filter(publisher => publisher.itemCount > 1); // Hide publishers with 0-1 releases
+      }));
+
+    // Filter out publishers with 0-1 releases
+    const filteredPublisherList = publisherList.filter(publisher => publisher.itemCount > 1);
 
     // Deduplicate publishers by title (keep the one with more releases)
-    const seenTitles = new Map<string, typeof publisherList[0]>();
-    for (const publisher of publisherList) {
+    const seenTitles = new Map<string, typeof filteredPublisherList[0]>();
+    for (const publisher of filteredPublisherList) {
       const key = publisher.title.toLowerCase();
       const existing = seenTitles.get(key);
       if (!existing || publisher.itemCount > existing.itemCount) {
@@ -102,7 +124,7 @@ export async function GET() {
     const deduplicatedList = Array.from(seenTitles.values())
       .sort((a, b) => a.title.localeCompare(b.title));
 
-    console.log(`✅ Publishers API: Returning ${deduplicatedList.length} publishers (from ${publishers.length} total, ${publisherList.length} with releases)`);
+    console.log(`✅ Publishers API: Returning ${deduplicatedList.length} publishers (from ${publishers.length} total, ${filteredPublisherList.length} with releases)`);
 
     const response = {
       publishers: deduplicatedList,
