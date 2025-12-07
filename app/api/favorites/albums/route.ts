@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Also get album count for this publisher
+        // Also get album count for this publisher (if image was fetched)
         if (publisher.artist) {
           const artistAlbums = await prisma.feed.findMany({
             where: {
@@ -141,6 +141,27 @@ export async function GET(request: NextRequest) {
           });
           (publisher as any).itemCount = artistAlbums.length;
         }
+      }
+    }
+
+    // Calculate album count for ALL publisher favorites (not just those without images)
+    const allPublisherFavorites = feedsWithFavorites.filter(f => f.type === 'publisher');
+    for (const publisher of allPublisherFavorites) {
+      // Skip if itemCount already calculated
+      if ((publisher as any).itemCount !== undefined) continue;
+
+      if (publisher.artist) {
+        const artistAlbums = await prisma.feed.findMany({
+          where: {
+            artist: publisher.artist,
+            type: { not: 'publisher' }
+          },
+          select: { id: true },
+          take: 100
+        });
+        (publisher as any).itemCount = artistAlbums.length;
+      } else {
+        (publisher as any).itemCount = 0;
       }
     }
 
