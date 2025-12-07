@@ -385,23 +385,15 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               ref={titleRef}
               className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee hover:animate-none' : ''}`}
             >
-              {currentTrack.id ? (
-                <Link href={`/music-tracks/${currentTrack.id}`} className="underline">
-                  {currentTrack.title || 'Unknown Track'}
-                </Link>
-              ) : (
-                currentTrack.title || 'Unknown Track'
-              )}
+              <Link href={generateAlbumUrl(currentPlayingAlbum.title)} className="underline">
+                {currentTrack.title || 'Unknown Track'}
+              </Link>
               {titleOverflows && (
                 <>
                   <span className="px-8" />
-                  {currentTrack.id ? (
-                    <Link href={`/music-tracks/${currentTrack.id}`} className="underline">
-                      {currentTrack.title || 'Unknown Track'}
-                    </Link>
-                  ) : (
-                    currentTrack.title || 'Unknown Track'
-                  )}
+                  <Link href={generateAlbumUrl(currentPlayingAlbum.title)} className="underline">
+                    {currentTrack.title || 'Unknown Track'}
+                  </Link>
                 </>
               )}
             </h1>
