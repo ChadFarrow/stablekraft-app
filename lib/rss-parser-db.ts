@@ -149,8 +149,9 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
     console.log('🔍 DEBUG: Method:', methodMatch ? methodMatch[1] : 'not found');
     
     // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags with nested content)
-    // Updated regex to handle nested <value> and <key> elements
-    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>[\s\S]*?<\/podcast:valueRecipient>)/g;
+    // Updated regex to properly match each recipient individually, handling nested <value> and <key> elements
+    // Match opening tag with attributes, then either self-closing or content until closing tag
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>(?:(?!<podcast:valueRecipient)[\s\S])*?<\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
@@ -168,7 +169,7 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
       let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
       let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
       
-      // Check for nested <key> element
+      // Check for nested <key> element (only within this recipient tag)
       if (!customKey) {
         const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
         if (keyMatch) {
@@ -176,7 +177,7 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
         }
       }
       
-      // Check for nested <value> element
+      // Check for nested <value> element (only within this recipient tag)
       if (!customValue) {
         const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
         if (valueMatch) {
@@ -202,8 +203,14 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
       // Filter out fee recipients (Podcastindex.org fee injection)
       const nonFeeRecipients = recipients.filter(r => r.fee !== 'true');
 
-      // Use the first recipient with split="100" (usually the artist)
-      const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
+      // Use the recipient with the highest split percentage (usually the artist/main recipient)
+      // Convert splits to numbers for comparison
+      const recipientsWithNumericSplits = nonFeeRecipients.map(r => ({
+        ...r,
+        splitNum: parseInt(r.split) || 0
+      }));
+      recipientsWithNumericSplits.sort((a, b) => b.splitNum - a.splitNum);
+      const primaryRecipient = recipientsWithNumericSplits[0];
 
       console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
       console.log('✅ DEBUG: Filtered out fee recipients, remaining:', nonFeeRecipients.length);
@@ -407,8 +414,9 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
     console.log('🔍 DEBUG: Removed valueTimeSplit blocks from value content');
 
     // Look for podcast:valueRecipient tags within the value (handle both self-closing and opening/closing tags with nested content)
-    // Updated regex to handle nested <value> and <key> elements
-    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>[\s\S]*?<\/podcast:valueRecipient>)/g;
+    // Updated regex to properly match each recipient individually, handling nested <value> and <key> elements
+    // Match opening tag with attributes, then either self-closing or content until closing tag
+    const recipientRegex = /<podcast:valueRecipient[^>]*(?:\/>|>(?:(?!<podcast:valueRecipient)[\s\S])*?<\/podcast:valueRecipient>)/g;
     const recipients = [];
     let match;
     
@@ -426,7 +434,7 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
       let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
       
-      // Check for nested <key> element
+      // Check for nested <key> element (only within this recipient tag)
       if (!customKey) {
         const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
         if (keyMatch) {
@@ -434,7 +442,7 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
         }
       }
       
-      // Check for nested <value> element
+      // Check for nested <value> element (only within this recipient tag)
       if (!customValue) {
         const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
         if (valueMatch) {
@@ -460,8 +468,14 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       // Filter out fee recipients (Podcastindex.org fee injection)
       const nonFeeRecipients = recipients.filter(r => r.fee !== 'true');
 
-      // Use the first recipient with split="100" (usually the artist)
-      const primaryRecipient = nonFeeRecipients.find(r => r.split === '100') || nonFeeRecipients[0];
+      // Use the recipient with the highest split percentage (usually the artist/main recipient)
+      // Convert splits to numbers for comparison
+      const recipientsWithNumericSplits = nonFeeRecipients.map(r => ({
+        ...r,
+        splitNum: parseInt(r.split) || 0
+      }));
+      recipientsWithNumericSplits.sort((a, b) => b.splitNum - a.splitNum);
+      const primaryRecipient = recipientsWithNumericSplits[0];
 
       console.log('✅ DEBUG: Selected primary recipient:', primaryRecipient);
       console.log('✅ DEBUG: Filtered out fee recipients, remaining:', nonFeeRecipients.length);
@@ -681,8 +695,16 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
               ? valueData['podcast:valueRecipient'] 
               : [valueData['podcast:valueRecipient']];
             
-            // Use the first recipient (usually the artist)
-            const primaryRecipient = recipients.find(r => (r.$ && r.$.split === '100') || (r.split === '100')) || recipients[0];
+            // Use the recipient with the highest split percentage (usually the artist/main recipient)
+            const recipientsWithSplits = recipients.map(r => {
+              const rData = r.$ || r;
+              return {
+                recipient: r,
+                splitNum: parseInt(rData.split) || 0
+              };
+            });
+            recipientsWithSplits.sort((a, b) => b.splitNum - a.splitNum);
+            const primaryRecipient = recipientsWithSplits[0]?.recipient || recipients[0];
             
             if (primaryRecipient) {
               // Handle both $ attribute format and direct attribute format
@@ -795,8 +817,16 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
             ? valueData['podcast:valueRecipient'] 
             : [valueData['podcast:valueRecipient']];
           
-          // Use the first recipient (usually the artist)
-          const primaryRecipient = recipients.find(r => (r.$ && r.$.split === '100') || (r.split === '100')) || recipients[0];
+          // Use the recipient with the highest split percentage (usually the artist/main recipient)
+          const recipientsWithSplits = recipients.map(r => {
+            const rData = r.$ || r;
+            return {
+              recipient: r,
+              splitNum: parseInt(rData.split) || 0
+            };
+          });
+          recipientsWithSplits.sort((a, b) => b.splitNum - a.splitNum);
+          const primaryRecipient = recipientsWithSplits[0]?.recipient || recipients[0];
           
           if (primaryRecipient) {
             // Handle both $ attribute format and direct attribute format
