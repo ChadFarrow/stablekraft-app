@@ -618,8 +618,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
           // TLV record 7629169 is used for Helipad metadata (JSON)
           const helipadJson = JSON.stringify(cleanMetadata);
-          // Try sending as raw JSON string instead of hex-encoded
-          customRecords['7629169'] = helipadJson;
+          // Hex-encode to match message format (consistent with TLV standard)
+          customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
         } catch (jsonError) {
           // Continue without Helipad metadata if JSON fails
         }
@@ -649,9 +649,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         customRecords,
       };
 
+      console.log('🔑 Sending keysend:', { destination: pubkey.slice(0, 20) + '...', amount, hasCustomRecords: Object.keys(customRecords).length > 0 });
       const result = await currentProvider.keysend(keysendPayload);
+      console.log('✅ Keysend succeeded:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
+      // Log full error for debugging
+      console.error('❌ Keysend error details:', error);
       const errorMessage = error instanceof Error ? error.message : 'Keysend failed';
 
       // Parse common Lightning errors and provide helpful feedback
@@ -678,6 +682,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return {
           error: 'Your wallet doesn\'t support keysend payments. This artist only accepts keysend. Try Alby or Coinos.'
         };
+      } else if (errorMessage === 'Keysend payment failed' || errorMessage.includes('Keysend payment failed')) {
+        // Generic keysend failure from Coinos or other custodial wallets
+        // Retry up to 3 times with increasing delays to give the wallet time to process
+        // Coinos in particular benefits from longer delays between retries
+        if (retryCount < 3) {
+          const retryDelay = 4000 + (retryCount * 2000); // 4s, 6s, 8s
+          console.log(`⚠️ Generic keysend failure, retrying in ${retryDelay/1000}s (attempt ${retryCount + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
+        }
+        return { error: 'Keysend payment failed - the wallet may be busy or recipient unreachable' };
       }
 
       return { error: errorMessage };

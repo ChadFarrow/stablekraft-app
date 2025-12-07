@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
@@ -55,7 +55,7 @@ export function BoostButton({
 }: BoostButtonProps) {
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { isConnected, connect, sendKeysend, sendPayment, supportsKeysend } = useBitcoinConnect();
+  const { isConnected, connect, sendKeysend, sendPayment, supportsKeysend, walletProviderType } = useBitcoinConnect();
   const { user: nostrUser, isAuthenticated: isNostrAuthenticated } = useNostr();
   const { settings } = useUserSettings();
   const [showModal, setShowModal] = useState(false);
@@ -67,7 +67,7 @@ export function BoostButton({
   const [success, setSuccess] = useState(false);
   const [nostrError, setNostrError] = useState<string | null>(null);
   const [nostrStatus, setNostrStatus] = useState<'idle' | 'connecting' | 'signing' | 'success' | 'failed'>('idle');
-  const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
+  const [paymentStatuses, setPaymentStatuses] = useState<Map<string, { status: 'waiting' | 'pending' | 'sending' | 'success' | 'failed'; error?: string; amount?: number }>>(new Map());
   const [showSplitDetails, setShowSplitDetails] = useState(false);
   const [fetchedValueSplits, setFetchedValueSplits] = useState<typeof valueSplits>([]);
   // Resolved Nostr pubkeys from Lightning Addresses (for tagging musicians in boost posts)
@@ -119,12 +119,27 @@ export function BoostButton({
     }
   }, [autoOpen, isClient, isConnected]);
 
+  // Track if we've already fetched to prevent repeated fetches
+  const hasFetchedRef = useRef(false);
+  const lastTrackIdRef = useRef<string | undefined>(undefined);
+
   // Fetch track v4vValue data if trackId is provided and valueSplits is empty
   useEffect(() => {
+    // Reset fetch flag if trackId changes
+    if (lastTrackIdRef.current !== trackId) {
+      hasFetchedRef.current = false;
+      lastTrackIdRef.current = trackId;
+    }
+
+    // Skip if already fetched for this trackId
+    if (hasFetchedRef.current) return;
+
     // Skip if trackId looks like a composite ID (contains '-https' or multiple UUIDs)
     const isCompositeId = trackId && (trackId.includes('-https') || trackId.split('-').length > 5);
 
-    if (trackId && !isCompositeId && valueSplits.length === 0 && !fetchedValueSplits.length) {
+    if (trackId && !isCompositeId && valueSplits.length === 0) {
+      hasFetchedRef.current = true; // Mark as fetched before async call to prevent duplicates
+
       fetch(`/api/music-tracks/${trackId}`)
         .then(res => {
           if (!res.ok) {
@@ -168,7 +183,7 @@ export function BoostButton({
           }
         });
     }
-  }, [trackId, valueSplits, fetchedValueSplits]);
+  }, [trackId, valueSplits.length]); // Only depend on valueSplits.length, not the array itself
 
   // Use fetched value splits if available, otherwise use prop value splits
   const activeValueSplits = fetchedValueSplits.length > 0 ? fetchedValueSplits : valueSplits;
@@ -1076,10 +1091,12 @@ export function BoostButton({
         setResolvedMusicianPubkeys(resolvedNostrPubkeys);
       }
 
-      // Initialize payment statuses for all recipients
+      // Initialize payment statuses for all recipients to 'waiting' (no icon shown)
+      // Status will change to 'sending' when each payment starts
+      // Use name|address as key since multiple recipients may share the same node address
       const initialStatuses = new Map(recipients.map(r => [
-        r.address,
-        { status: 'pending' as const, amount: 0 }
+        `${r.name || 'Unknown'}|${r.address}`,
+        { status: 'waiting' as const, amount: 0 }
       ]));
       setPaymentStatuses(initialStatuses);
 
@@ -1134,15 +1151,17 @@ export function BoostButton({
       console.log('📋 Final Helipad metadata (value splits):', helipadMetadata);
 
       // Progress callback to update UI as each payment completes
-      const onProgress = (recipientAddress: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => {
+      // recipientKey is in format "name|address" to handle multiple recipients with same address
+      const onProgress = (recipientKey: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => {
         setPaymentStatuses(prev => {
           const updated = new Map(prev);
-          updated.set(recipientAddress, { status, error, amount });
+          updated.set(recipientKey, { status, error, amount });
           return updated;
         });
       };
 
       // Use ValueSplitsService for proper multi-recipient payments
+      // Pass wallet type so delays can be adjusted (Coinos needs longer delays than Alby)
       const result = await ValueSplitsService.sendMultiRecipientPayment(
         recipients,
         totalAmount,
@@ -1150,7 +1169,8 @@ export function BoostButton({
         sendKeysend,
         message,
         helipadMetadata,
-        onProgress
+        onProgress,
+        walletProviderType
       );
 
       if (!result.success) {
@@ -1433,7 +1453,9 @@ export function BoostButton({
                           <div className="flex flex-col gap-1">
                             {sortedSplits.map((split, index) => {
                               const amount = split.calculatedAmount;
-                              const status = paymentStatuses.get(split.address);
+                              // Use name|address key to match how statuses are stored
+                              const statusKey = `${split.name || 'Unknown'}|${split.address}`;
+                              const status = paymentStatuses.get(statusKey);
 
                             return (
                               <div
@@ -1453,6 +1475,9 @@ export function BoostButton({
                                       </span>
                                       {status && (
                                         <span className="flex items-center gap-1 text-xs flex-shrink-0">
+                                          {status.status === 'waiting' && (
+                                            <span className="text-gray-500" title="Queued">⏳</span>
+                                          )}
                                           {status.status === 'pending' && (
                                             <span className="text-gray-400">⏳</span>
                                           )}

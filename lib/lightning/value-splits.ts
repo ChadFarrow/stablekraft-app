@@ -1,6 +1,7 @@
 import { ValueRecipient, ValueTag } from './value-parser';
 import { LNURLService } from './lnurl';
 import { LIGHTNING_CONFIG } from './config';
+import type { WalletProviderType } from './wallet-detection';
 
 export interface PaymentResult {
   success: boolean;
@@ -72,7 +73,8 @@ export class ValueSplitsService {
     sendKeysend: (pubkey: string, amount: number, message?: string, helipadMetadata?: any) => Promise<{ preimage?: string; error?: string }>,
     message?: string,
     helipadMetadata?: any,
-    onProgress?: (recipientAddress: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => void
+    onProgress?: (recipientKey: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => void,
+    walletType?: WalletProviderType
   ): Promise<MultiRecipientResult> {
     const splitAmounts = this.calculateSplitAmounts(recipients, totalAmount);
     const successfulPayments: ValueSplitPayment[] = [];
@@ -85,16 +87,24 @@ export class ValueSplitsService {
     for (let i = 0; i < splitAmounts.length; i++) {
       const { recipient, amount } = splitAmounts[i];
 
-      // Add delay between payments to prevent overwhelming custodial wallets
-      // Custodial services like Alby need time to process each payment on their backend
-      if (i > 0) {
-        const delay = 1500; // 1.5 seconds - gives custodial wallets time to process
-        await new Promise(resolve => setTimeout(resolve, delay));
+      // Add delay between payments - delays vary by wallet type
+      // Coinos needs slightly longer delays but retries handle most failures
+      // Alby Hub and browser extensions can handle faster payments
+      const isSlowWallet = walletType === 'coinos';
+      const warmupDelay = isSlowWallet ? 2000 : 500;  // 2s for Coinos, 0.5s for others
+      const betweenDelay = isSlowWallet ? 2000 : 1000; // 2s for Coinos, 1s for others
+
+      if (i === 0) {
+        console.log(`⏳ Initial warm-up delay ${warmupDelay}ms before first payment (wallet: ${walletType || 'unknown'})...`);
+        await new Promise(resolve => setTimeout(resolve, warmupDelay));
+      } else {
+        console.log(`⏳ Waiting ${betweenDelay}ms before payment ${i + 1}/${splitAmounts.length}...`);
+        await new Promise(resolve => setTimeout(resolve, betweenDelay));
       }
 
       // Notify that this payment is starting
       if (onProgress) {
-        onProgress(recipient.address, 'sending', undefined, amount);
+        onProgress(`${recipient.name || 'Unknown'}|${recipient.address}`, 'sending', undefined, amount);
       }
 
       let result: PaymentResult;
@@ -141,7 +151,20 @@ export class ValueSplitsService {
             return await this.payLightningAddress(recipient, amount, message, sendPayment);
           } else if (recipient.type === 'node') {
             // Pay via keysend (with Helipad metadata)
-            return await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
+            const keysendResult = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
+
+            // If keysend fails and recipient has a Lightning Address fallback, try LNURL
+            if (!keysendResult.success && recipient.lnurlFallback) {
+              console.log(`⚠️ Keysend failed for ${recipient.name || recipient.address.slice(0, 20)}, trying LNURL fallback: ${recipient.lnurlFallback}`);
+              const lnurlRecipient: ValueRecipient = {
+                ...recipient,
+                type: 'lnaddress',
+                address: recipient.lnurlFallback
+              };
+              return await this.payLightningAddress(lnurlRecipient, amount, message, sendPayment);
+            }
+
+            return keysendResult;
           } else {
             return {
               success: false,
@@ -152,10 +175,12 @@ export class ValueSplitsService {
           }
         })();
 
-        // Add 20 second timeout for individual payments
-        // Custodial wallets may take longer due to backend processing and retries
+        // Timeout varies by wallet type:
+        // - Coinos: 30s to allow for 3 retries with 4s/6s/8s delays (~18s total)
+        // - Others: 15s is plenty for fast wallets
+        const timeoutMs = isSlowWallet ? 30000 : 15000;
         const timeoutPromise = new Promise<PaymentResult>((_, reject) => {
-          setTimeout(() => reject(new Error('Payment timeout after 20 seconds')), 20000);
+          setTimeout(() => reject(new Error(`Payment timeout after ${timeoutMs/1000} seconds`)), timeoutMs);
         });
 
         result = await Promise.race([paymentPromise, timeoutPromise]);
@@ -166,7 +191,7 @@ export class ValueSplitsService {
           successfulPayments.push(payment);
           // Notify success
           if (onProgress) {
-            onProgress(recipient.address, 'success', undefined, amount);
+            onProgress(`${recipient.name || 'Unknown'}|${recipient.address}`, 'success', undefined, amount);
           }
         } else {
           failedPayments.push(payment);
@@ -174,7 +199,7 @@ export class ValueSplitsService {
           console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${result.error}`);
           // Notify failure
           if (onProgress) {
-            onProgress(recipient.address, 'failed', result.error, amount);
+            onProgress(`${recipient.name || 'Unknown'}|${recipient.address}`, 'failed', result.error, amount);
           }
         }
       } catch (error) {
@@ -209,7 +234,7 @@ export class ValueSplitsService {
         console.error(`❌ ${recipient.name || recipient.address.slice(0, 20)}: ${errorMessage}`);
         // Notify failure
         if (onProgress) {
-          onProgress(recipient.address, 'failed', errorMessage, amount);
+          onProgress(`${recipient.name || 'Unknown'}|${recipient.address}`, 'failed', errorMessage, amount);
         }
       }
     }
