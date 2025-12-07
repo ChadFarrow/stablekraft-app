@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
+import { WalletInfoDisplay } from './WalletInfoDisplay';
 import { Zap, Wallet, LogOut, Settings, ChevronDown } from 'lucide-react';
 
 interface LightningWalletButtonProps {
@@ -146,17 +147,11 @@ export function LightningWalletButton({
             <div className="p-4">
               {isConnected ? (
                 <>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">Lightning Wallet</h3>
-                      <p className="text-sm text-gray-400">Connected</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
+                  {/* Enhanced Wallet Info Display */}
+                  <WalletInfoDisplay variant="full" />
+
+                  {/* Wallet Actions */}
+                  <div className="space-y-2 mt-4 pt-4 border-t border-gray-700">
                     <button
                       onClick={async () => {
                         setShowDropdown(false);

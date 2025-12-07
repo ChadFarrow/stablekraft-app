@@ -1,9 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import type { WebLNProvider } from '@webbtc/webln-types';
 import { LIGHTNING_CONFIG } from '@/lib/lightning/config';
 import { useNostr } from '@/contexts/NostrContext';
+import {
+  WalletProviderType,
+  WalletInfo,
+  detectWalletProviderType,
+  inferLightningAddress,
+  fetchCoinosProfile,
+  fetchCoinosUserByPubkey,
+} from '@/lib/lightning/wallet-detection';
 
 interface BitcoinConnectContextType {
   isConnected: boolean;
@@ -37,8 +45,15 @@ interface BitcoinConnectContextType {
       uuid?: string;
     }
   ) => Promise<{ preimage?: string; error?: string }>;
+  makeInvoice: (amount: number, memo?: string) => Promise<{ invoice?: string; error?: string }>;
   isLoading: boolean;
   supportsKeysend: boolean;
+  // Enhanced wallet info
+  walletInfo: WalletInfo | null;
+  balance: number | null;
+  isBalanceLoading: boolean;
+  refreshBalance: () => Promise<void>;
+  walletProviderType: WalletProviderType;
 }
 
 const BitcoinConnectContext = createContext<BitcoinConnectContextType | null>(null);
@@ -55,6 +70,13 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     return false;
   });
   const { isAuthenticated: isNostrAuthenticated, user: nostrUser } = useNostr();
+
+  // Enhanced wallet info state
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+  const [walletProviderType, setWalletProviderType] = useState<WalletProviderType>('unknown');
+  const balanceIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // CRITICAL: Check login type FIRST - skip WebLN initialization if user logged in with Amber (NIP-46/NIP-55)
@@ -240,6 +262,172 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     }
     prevAuthRef.current = isNostrAuthenticated;
   }, [isNostrAuthenticated]);
+
+  // Fetch wallet balance
+  const fetchBalance = useCallback(async (currentProvider: WebLNProvider): Promise<number | null> => {
+    try {
+      // Check if getBalance method exists
+      if (!currentProvider.getBalance) {
+        console.log('ℹ️ Wallet does not support getBalance');
+        return null;
+      }
+
+      setIsBalanceLoading(true);
+      const response = await currentProvider.getBalance();
+      return response.balance;
+    } catch (error) {
+      console.warn('Failed to fetch balance:', error);
+      return null;
+    } finally {
+      setIsBalanceLoading(false);
+    }
+  }, []);
+
+  // Refresh balance function exposed to context
+  const refreshBalance = useCallback(async () => {
+    if (!provider) return;
+    const newBalance = await fetchBalance(provider);
+    if (newBalance !== null) {
+      setBalance(newBalance);
+    }
+  }, [provider, fetchBalance]);
+
+  // Fetch wallet info when provider changes
+  useEffect(() => {
+    const fetchWalletInfo = async () => {
+      if (!provider || !isConnected) {
+        setWalletInfo(null);
+        setBalance(null);
+        setWalletProviderType('unknown');
+        return;
+      }
+
+      try {
+        // Detect wallet provider type
+        const { type, name, nwcPubkey } = await detectWalletProviderType();
+        setWalletProviderType(type);
+
+        // Try to get wallet info via getInfo()
+        let alias = '';
+        let pubkey = '';
+
+        try {
+          if (provider.getInfo) {
+            const info = await provider.getInfo();
+            alias = info.node?.alias || '';
+            pubkey = info.node?.pubkey || '';
+          }
+        } catch (infoError) {
+          console.warn('Failed to get wallet info:', infoError);
+        }
+
+        // Infer Lightning Address based on provider type and alias
+        const lightningAddress = inferLightningAddress(alias, type);
+
+        // Check capabilities
+        const supportsBalance = !!provider.getBalance;
+        const supportsKeysendCapability = !!provider.keysend;
+
+        // Fetch Coinos profile for avatar and username
+        let avatarUrl: string | undefined;
+        let username: string | undefined;
+
+        if (type === 'coinos') {
+          // First try to auto-lookup by NWC pubkey (no user input needed!)
+          if (nwcPubkey) {
+            const profile = await fetchCoinosUserByPubkey(nwcPubkey);
+            if (profile) {
+              avatarUrl = profile.avatarUrl;
+              username = profile.username;
+              // Save to localStorage so WalletInfoDisplay can use it
+              if (username && typeof window !== 'undefined') {
+                localStorage.setItem('coinos_username', username);
+              }
+            }
+          }
+
+          // Fallback to alias-based lookup if pubkey lookup failed
+          if (!username && alias && alias !== 'ln.coinos.io') {
+            const profile = await fetchCoinosProfile(alias);
+            if (profile) {
+              avatarUrl = profile.avatarUrl;
+              username = profile.username;
+            }
+          }
+        }
+
+        setWalletInfo({
+          alias,
+          pubkey,
+          lightningAddress,
+          providerType: type,
+          providerName: name,
+          supportsBalance,
+          supportsKeysend: supportsKeysendCapability,
+          avatarUrl,
+          username,
+        });
+
+        console.log('📋 Wallet info fetched:', {
+          providerType: type,
+          providerName: name,
+          alias,
+          lightningAddress,
+          supportsBalance,
+        });
+
+        // Fetch initial balance
+        if (supportsBalance) {
+          const initialBalance = await fetchBalance(provider);
+          if (initialBalance !== null) {
+            setBalance(initialBalance);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch wallet info:', error);
+      }
+    };
+
+    fetchWalletInfo();
+  }, [provider, isConnected, fetchBalance]);
+
+  // Set up balance polling interval (every 60 seconds)
+  useEffect(() => {
+    // Clear any existing interval
+    if (balanceIntervalRef.current) {
+      clearInterval(balanceIntervalRef.current);
+      balanceIntervalRef.current = null;
+    }
+
+    // Only set up polling if connected and wallet supports balance
+    if (!isConnected || !provider || !provider.getBalance) {
+      return;
+    }
+
+    // Poll balance every 60 seconds
+    balanceIntervalRef.current = setInterval(async () => {
+      const newBalance = await fetchBalance(provider);
+      if (newBalance !== null) {
+        setBalance(newBalance);
+      }
+    }, 60000);
+
+    return () => {
+      if (balanceIntervalRef.current) {
+        clearInterval(balanceIntervalRef.current);
+        balanceIntervalRef.current = null;
+      }
+    };
+  }, [isConnected, provider, fetchBalance]);
+
+  // Clear wallet info on disconnect
+  useEffect(() => {
+    if (!isConnected) {
+      setWalletInfo(null);
+      setBalance(null);
+      setWalletProviderType('unknown');
+    }
+  }, [isConnected]);
 
   const connect = async () => {
     try {
@@ -496,6 +684,46 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     }
   };
 
+  const makeInvoice = async (
+    amount: number,
+    memo?: string
+  ): Promise<{ invoice?: string; error?: string }> => {
+    try {
+      let currentProvider = provider;
+
+      if (!currentProvider) {
+        await connect();
+        currentProvider = provider;
+        if (!currentProvider) {
+          return { error: 'No wallet connected - please connect your Lightning wallet' };
+        }
+      }
+
+      // Ensure provider is enabled before using it
+      if (currentProvider.enable && typeof currentProvider.enable === 'function') {
+        try {
+          await currentProvider.enable();
+        } catch (enableError) {
+          return { error: 'Wallet must be unlocked - please check your Lightning wallet' };
+        }
+      }
+
+      if (!currentProvider.makeInvoice) {
+        return { error: 'Your wallet does not support creating invoices' };
+      }
+
+      const result = await currentProvider.makeInvoice({
+        amount,
+        defaultMemo: memo || 'StableKraft deposit',
+      });
+
+      return { invoice: result.paymentRequest };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create invoice';
+      return { error: errorMessage };
+    }
+  };
+
   // Check if connected wallet supports keysend (direct node-to-node payments)
   const supportsKeysend = !!(provider?.keysend);
 
@@ -508,8 +736,15 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         disconnect: disconnectWallet,
         sendPayment,
         sendKeysend,
+        makeInvoice,
         isLoading,
         supportsKeysend,
+        // Enhanced wallet info
+        walletInfo,
+        balance,
+        isBalanceLoading,
+        refreshBalance,
+        walletProviderType,
       }}
     >
       {children}

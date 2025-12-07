@@ -8,6 +8,7 @@ import { useBitcoinConnect } from '@/components/Lightning/BitcoinConnectProvider
 import { useAudio } from '@/contexts/AudioContext';
 import Link from 'next/link';
 import { Menu, Zap, Settings, LogOut, User, Wallet, Info } from 'lucide-react';
+import { WalletInfoDisplay } from '@/components/Lightning/WalletInfoDisplay';
 
 // Lazy load LoginModal
 const LoginModal = dynamic(() => import('./Nostr/LoginModal'), {
@@ -180,21 +181,27 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
                 {/* Wallet Section */}
                 <div className="mb-4 pb-4 border-b border-gray-700">
                   {isConnected ? (
-                    <div className="space-y-2">
-                      <button
-                        onClick={handleSwitchWallet}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        Switch Wallet
-                      </button>
-                      <button
-                        onClick={handleDisconnect}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Disconnect Wallet
-                      </button>
+                    <div className="space-y-3">
+                      {/* Enhanced Wallet Info Display */}
+                      <WalletInfoDisplay variant="full" />
+
+                      {/* Wallet Actions */}
+                      <div className="space-y-2 pt-3 border-t border-gray-700/50">
+                        <button
+                          onClick={handleSwitchWallet}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Switch Wallet
+                        </button>
+                        <button
+                          onClick={handleDisconnect}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Disconnect Wallet
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button
