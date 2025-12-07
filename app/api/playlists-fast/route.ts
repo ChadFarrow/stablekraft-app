@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAllPlaylistTrackCounts } from '@/lib/playlist-track-counts';
 
 // Fast playlist endpoint for filter UI - returns basic info only
 // This avoids the expensive track resolution in individual playlist APIs
@@ -46,6 +47,9 @@ export async function GET() {
       });
     }
 
+    // Fetch dynamic track counts from playlist XMLs
+    const trackCounts = await getAllPlaylistTrackCounts();
+
     // Create lightweight playlist summaries without expensive resolution
     const playlists: PlaylistSummary[] = [
       {
@@ -83,7 +87,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Upbeats-music-playlist.xml',
         feedId: 'upbeats-playlist',
         type: 'playlist',
-        totalTracks: 554,
+        totalTracks: trackCounts['upbeats'] || 0,
         tracks: [],
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -105,7 +109,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/b4ts-music-playlist.xml',
         feedId: 'b4ts-playlist',
         type: 'playlist',
-        totalTracks: 565,
+        totalTracks: trackCounts['b4ts'] || 0,
         tracks: [],
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -129,7 +133,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/IAM-music-playlist.xml',
         feedId: 'iam-playlist',
         type: 'playlist',
-        totalTracks: 342,
+        totalTracks: trackCounts['iam'] || 0,
         tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -151,7 +155,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml',
         feedId: 'itdv-playlist',
         type: 'playlist',
-        totalTracks: 50, // Estimated count
+        totalTracks: trackCounts['itdv'] || 0,
         tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -173,7 +177,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml',
         feedId: 'hgh-playlist',
         type: 'playlist',
-        totalTracks: 75, // Estimated count
+        totalTracks: trackCounts['hgh'] || 0,
         tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -195,7 +199,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml',
         feedId: 'mmm-playlist',
         type: 'playlist',
-        totalTracks: 1468, // Actual count - 100% resolved with placeholders
+        totalTracks: trackCounts['mmm'] || 0,
         tracks: [], // Add empty tracks array for compatibility
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -219,7 +223,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMT-muic-playlist.xml',
         feedId: 'mmt-playlist',
         type: 'playlist',
-        totalTracks: 146,
+        totalTracks: trackCounts['mmt'] || 0,
         tracks: [],
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -243,7 +247,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-music-playlist.xml',
         feedId: 'sas-playlist',
         type: 'playlist',
-        totalTracks: 500, // Estimated based on analysis
+        totalTracks: trackCounts['sas'] || 0,
         tracks: [],
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
@@ -267,7 +271,7 @@ export async function GET() {
         url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/main/docs/flowgnar-playlist.xml',
         feedId: 'flowgnar-playlist',
         type: 'playlist',
-        totalTracks: 200, // Estimated based on analysis
+        totalTracks: trackCounts['flowgnar'] || 0,
         tracks: [],
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,

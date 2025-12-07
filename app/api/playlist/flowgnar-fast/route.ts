@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { playlistCache } from '@/lib/playlist-cache';
+import { getPlaylistTrackCount } from '@/lib/playlist-track-counts';
 
 // Fast-loading version of Flowgnar playlist with minimal data
 export async function GET(request: NextRequest) {
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(cachedData);
       }
     }
+
+    // Get dynamic track count from XML
+    const totalTracks = await getPlaylistTrackCount('flowgnar');
 
     // Return lightweight placeholder data immediately while real data loads
     const placeholderPlaylist = {
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
         tracks: [], // Start with empty tracks, will load via regular endpoint
         feedId: 'flowgnar-playlist',
         type: 'playlist',
-        totalTracks: 0,
+        totalTracks,
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/flowgnar',

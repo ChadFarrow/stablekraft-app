@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { playlistCache } from '@/lib/playlist-cache';
+import { getPlaylistTrackCount } from '@/lib/playlist-track-counts';
 
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 
@@ -17,6 +18,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get dynamic track count from XML
+    const totalTracks = await getPlaylistTrackCount('mmm');
+
     // Return lightweight placeholder data immediately while real data loads
     const placeholderPlaylist = {
       success: true,
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
         tracks: [], // Start with empty tracks, will load via regular endpoint
         feedId: 'mmm-playlist',
         type: 'playlist',
-        totalTracks: 1468, // Known count from fast endpoint data
+        totalTracks,
         publishedAt: new Date().toISOString(),
         isPlaylistCard: true,
         playlistUrl: '/playlist/mmm',
