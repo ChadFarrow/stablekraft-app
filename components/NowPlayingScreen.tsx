@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAudio } from '@/contexts/AudioContext';
 import { SkipBack, SkipForward, Play, Pause, Shuffle, Repeat, ChevronDown, Zap, Share2 } from 'lucide-react';
 import { toast } from '@/components/Toast';
@@ -384,11 +385,23 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               ref={titleRef}
               className={`text-2xl font-bold mb-2 whitespace-nowrap ${titleOverflows ? 'animate-marquee hover:animate-none' : ''}`}
             >
-              {currentTrack.title || 'Unknown Track'}
+              {currentTrack.id ? (
+                <Link href={`/music-tracks/${currentTrack.id}`} className="hover:underline">
+                  {currentTrack.title || 'Unknown Track'}
+                </Link>
+              ) : (
+                currentTrack.title || 'Unknown Track'
+              )}
               {titleOverflows && (
                 <>
                   <span className="px-8" />
-                  {currentTrack.title || 'Unknown Track'}
+                  {currentTrack.id ? (
+                    <Link href={`/music-tracks/${currentTrack.id}`} className="hover:underline">
+                      {currentTrack.title || 'Unknown Track'}
+                    </Link>
+                  ) : (
+                    currentTrack.title || 'Unknown Track'
+                  )}
                 </>
               )}
             </h1>
