@@ -165,24 +165,21 @@ export function parseV4VFromXML(xmlText: string): { recipient: string | null; va
       const splitMatch = recipientTag.match(/split="([^"]*)"/);
       const feeMatch = recipientTag.match(/fee="([^"]*)"/);
       
-      // Extract nested <key> and <value> elements (some feeds use these instead of attributes)
+      // Extract customKey/customValue - prefer nested elements over attributes
+      // Some feeds use attributes, others use nested <key>/<value> elements, some use both
       let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
       let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
-      
-      // Check for nested <key> element (only within this recipient tag)
-      if (!customKey) {
-        const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
-        if (keyMatch) {
-          customKey = keyMatch[1].trim();
-        }
+
+      // Check for nested <key> element - these override attributes when present
+      const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
+      if (keyMatch) {
+        customKey = keyMatch[1].trim();
       }
-      
-      // Check for nested <value> element (only within this recipient tag)
-      if (!customValue) {
-        const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
-        if (valueMatch) {
-          customValue = valueMatch[1].trim();
-        }
+
+      // Check for nested <value> element - these override attributes when present
+      const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
+      if (valueMatch) {
+        customValue = valueMatch[1].trim();
       }
       
       const recipient = {
@@ -430,24 +427,21 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
       const splitMatch = recipientTag.match(/split="([^"]*)"/);
       const feeMatch = recipientTag.match(/fee="([^"]*)"/);
       
-      // Extract nested <key> and <value> elements (some feeds use these instead of attributes)
+      // Extract customKey/customValue - prefer nested elements over attributes
+      // Some feeds use attributes, others use nested <key>/<value> elements, some use both
       let customKey = recipientTag.match(/customKey="([^"]*)"/)?.[1];
       let customValue = recipientTag.match(/customValue="([^"]*)"/)?.[1];
-      
-      // Check for nested <key> element (only within this recipient tag)
-      if (!customKey) {
-        const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
-        if (keyMatch) {
-          customKey = keyMatch[1].trim();
-        }
+
+      // Check for nested <key> element - these override attributes when present
+      const keyMatch = recipientTag.match(/<key>([\s\S]*?)<\/key>/);
+      if (keyMatch) {
+        customKey = keyMatch[1].trim();
       }
-      
-      // Check for nested <value> element (only within this recipient tag)
-      if (!customValue) {
-        const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
-        if (valueMatch) {
-          customValue = valueMatch[1].trim();
-        }
+
+      // Check for nested <value> element - these override attributes when present
+      const valueMatch = recipientTag.match(/<value>([\s\S]*?)<\/value>/);
+      if (valueMatch) {
+        customValue = valueMatch[1].trim();
       }
       
       const recipient = {
