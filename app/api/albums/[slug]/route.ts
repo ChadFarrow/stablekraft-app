@@ -584,60 +584,89 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       });
     }
     
-    // Get all feeds with their tracks from database
-    const feeds = await prisma.feed.findMany({
-      where: { status: 'active' },
-      include: {
-        Track: {
-          where: {
-            audioUrl: { not: '' }
-          },
-          orderBy: [
-            { trackOrder: 'asc' },
-            { publishedAt: 'asc' },
-            { createdAt: 'asc' }
-          ]
-        }
+    // OPTIMIZED: Try targeted database queries first instead of loading all feeds
+    const trackInclude = {
+      Track: {
+        where: { audioUrl: { not: '' } },
+        orderBy: [
+          { trackOrder: 'asc' as const },
+          { publishedAt: 'asc' as const },
+          { createdAt: 'asc' as const }
+        ]
+      }
+    };
+
+    // 1. Try exact ID match first (fastest)
+    let potentialMatches: Array<{ feed: any; trackCount: number }> = [];
+
+    const exactMatch = await prisma.feed.findFirst({
+      where: {
+        status: 'active',
+        id: { equals: slug, mode: 'insensitive' }
       },
-      orderBy: [
-        { priority: 'asc' },
-        { createdAt: 'desc' }
-      ]
+      include: trackInclude
     });
-    
-    console.log(`📊 Loaded ${feeds.length} feeds from database for album lookup`);
-    
-    // Transform feeds into albums and search for matching slug
-    let foundAlbum = null;
-    
-    // First pass: collect all potential matches
-    const potentialMatches = [];
-    
-    for (const feed of feeds) {
-      if (feed.Track.length === 0) continue;
-      
-      // Create album from feed
-      const albumTitle = feed.title;
-      const albumSlug = generateAlbumSlug(albumTitle);
-      const albumId = albumSlug + '-' + feed.id.split('-')[0];
-      
-      // Check if this album matches the requested slug
-      // Also check if slug matches the feed ID or GUID directly
-      if (albumId === slug ||
-          albumSlug === slug ||
-          albumTitle.toLowerCase().replace(/\s+/g, '-') === slug ||
-          feed.id === slug ||  // Direct feed ID match
-          feed.id.toLowerCase() === slug.toLowerCase() ||  // Case-insensitive feed ID match
-          feed.guid === slug ||  // Podcast Index GUID match
-          (feed.guid && feed.guid.toLowerCase() === slug.toLowerCase())) {  // Case-insensitive GUID match
-        console.log(`🔍 Found potential match: "${albumTitle}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
-        potentialMatches.push({ feed, trackCount: feed.Track.length });
+
+    if (exactMatch && exactMatch.Track.length > 0) {
+      console.log(`⚡ Found exact ID match: "${exactMatch.title}" (feed ID: ${exactMatch.id})`);
+      potentialMatches.push({ feed: exactMatch, trackCount: exactMatch.Track.length });
+    }
+
+    // 2. Try ID contains match (e.g., "bloodshot-lies" matches "bloodshot-lies-album")
+    if (potentialMatches.length === 0) {
+      const containsMatches = await prisma.feed.findMany({
+        where: {
+          status: 'active',
+          OR: [
+            { id: { contains: slug, mode: 'insensitive' } },
+            { id: { startsWith: slug, mode: 'insensitive' } },
+            { guid: { equals: slug, mode: 'insensitive' } }
+          ]
+        },
+        include: trackInclude
+      });
+
+      for (const feed of containsMatches) {
+        if (feed.Track.length > 0) {
+          console.log(`🔍 Found ID/GUID match: "${feed.title}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
+          potentialMatches.push({ feed, trackCount: feed.Track.length });
+        }
       }
     }
-    
+
+    // 3. Try title-based match if no ID matches found
+    if (potentialMatches.length === 0) {
+      // Convert slug back to title words (e.g., "bloodshot-lies" -> "bloodshot lies")
+      const titleSearch = slug.replace(/-/g, ' ');
+
+      const titleMatches = await prisma.feed.findMany({
+        where: {
+          status: 'active',
+          title: { contains: titleSearch, mode: 'insensitive' }
+        },
+        include: trackInclude
+      });
+
+      for (const feed of titleMatches) {
+        if (feed.Track.length > 0) {
+          // Verify slug actually matches
+          const albumSlug = generateAlbumSlug(feed.title);
+          if (albumSlug === slug || feed.title.toLowerCase().replace(/\s+/g, '-') === slug) {
+            console.log(`🔍 Found title match: "${feed.title}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
+            potentialMatches.push({ feed, trackCount: feed.Track.length });
+          }
+        }
+      }
+    }
+
+    console.log(`📊 Found ${potentialMatches.length} potential matches for slug "${slug}"`);
+
+    // Transform feeds into albums and search for matching slug
+    let foundAlbum = null;
+
     // If we have multiple matches, prefer the one with the most tracks (full album over single)
     if (potentialMatches.length > 0) {
-      const bestMatchData = potentialMatches.reduce((best, current) => 
+      const bestMatchData = potentialMatches.reduce((best, current) =>
         current.trackCount > best.trackCount ? current : best
       );
       

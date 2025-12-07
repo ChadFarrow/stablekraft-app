@@ -46,3 +46,4 @@ When working with playlists:
 - any time we fix an issue make sure the change is added to the main code base
 - all feeds that get added to the site need to be parsed including publisher feeds. This site cant display anything if the feed isnt parsed.
 - this was changed from FUCKIT to stablekraft-app
+- coinos supports keysend now

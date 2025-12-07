@@ -13,10 +13,12 @@ function getDatabaseUrl(): string {
     return url
   }
 
-  // Add serverless-optimized connection pooling params
+  // Add connection pooling params
   const separator = url.includes('?') ? '&' : '?'
-  // connection_limit=1 per serverless instance, pool_timeout short to fail fast
-  return `${url}${separator}connection_limit=1&pool_timeout=10`
+  // Use higher connection limit for dev, lower for production serverless
+  const connectionLimit = process.env.NODE_ENV === 'development' ? 5 : 3
+  const poolTimeout = 30 // Allow more time for busy connections
+  return `${url}${separator}connection_limit=${connectionLimit}&pool_timeout=${poolTimeout}`
 }
 
 export const prisma =

@@ -19,12 +19,18 @@ export interface ValueRecipient {
     customKey?: string;
     customValue?: string;
   };
-  /** 
+  /**
    * Nostr pubkey (hex) resolved from Lightning Address NIP-05 verification
    * Extracted from the Lightning Address details API response. Used to tag musicians
    * in Nostr boost posts so they receive notifications when boosted.
    */
   nostrPubkey?: string;
+  /**
+   * LNURL/Lightning Address fallback for node pubkey recipients
+   * When a keysend payment fails (e.g., wallet doesn't support keysend),
+   * this address can be used for LNURL-pay as a fallback.
+   */
+  lnurlFallback?: string;
 }
 
 export interface ValueTag {
