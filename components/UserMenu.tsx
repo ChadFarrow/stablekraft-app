@@ -183,7 +183,7 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
                   {isConnected ? (
                     <div className="space-y-3">
                       {/* Enhanced Wallet Info Display */}
-                      <WalletInfoDisplay variant="full" />
+                      <WalletInfoDisplay variant="full" showAddress={false} showExternalLink={false} />
 
                       {/* Wallet Actions */}
                       <div className="space-y-2 pt-3 border-t border-gray-700/50">

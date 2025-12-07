@@ -14,6 +14,7 @@ interface WalletInfoDisplayProps {
   variant?: 'compact' | 'full' | 'card';
   showBalance?: boolean;
   showAddress?: boolean;
+  showExternalLink?: boolean;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export function WalletInfoDisplay({
   variant = 'compact',
   showBalance = true,
   showAddress = true,
+  showExternalLink = true,
   className = '',
 }: WalletInfoDisplayProps) {
   const {
@@ -370,7 +372,7 @@ export function WalletInfoDisplay({
         )}
 
         {/* External Link */}
-        {externalUrl && (
+        {showExternalLink && externalUrl && (
           <a
             href={externalUrl}
             target="_blank"
