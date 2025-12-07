@@ -46,7 +46,7 @@ export default function AboutPage() {
               </p>
               <p className="text-lg leading-relaxed mb-4">
                 <a href="https://github.com/ChadFarrow/stablekraft-app" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
-                  GitHub
+                  StableKraft GitHub
                 </a>
               </p>
               <p className="text-gray-400 text-right">-ChadF</p>
