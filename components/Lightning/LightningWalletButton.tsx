@@ -130,9 +130,9 @@ export function LightningWalletButton({
                 />
                 
                 {/* Dropdown Menu */}
-                <div 
-                  className="w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg"
-                  style={{ 
+                <div
+                  className="w-[calc(100vw-32px)] sm:w-72 max-w-sm bg-gray-900 border border-gray-700 rounded-lg shadow-lg"
+                  style={{
                     zIndex: 2147483647, // Maximum possible z-index value
                     position: 'fixed',
                     backgroundColor: '#111827',
@@ -140,7 +140,7 @@ export function LightningWalletButton({
                     borderRadius: '8px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                     top: '80px', // Position below header
-                    right: '20px', // Position from right edge
+                    right: '16px', // Position from right edge
                     isolation: 'isolate' // Create new stacking context
                   }}
                 >

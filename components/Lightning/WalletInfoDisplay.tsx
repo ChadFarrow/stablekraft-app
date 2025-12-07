@@ -244,7 +244,7 @@ export function WalletInfoDisplay({
             onClick={handleCloseReceive}
           >
             <div
-              className="bg-gray-900 rounded-xl p-6 w-full max-w-sm mx-4 border border-gray-700 shadow-2xl"
+              className="bg-gray-900 rounded-xl p-4 sm:p-6 w-[calc(100vw-32px)] max-w-sm border border-gray-700 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {isPaid ? (
@@ -300,33 +300,31 @@ export function WalletInfoDisplay({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="flex justify-center bg-white p-5 rounded-lg">
-                        <QRCodeSVG value={invoice} size={260} />
+                      <div className="flex justify-center bg-white p-3 sm:p-5 rounded-lg">
+                        <QRCodeSVG value={invoice} size={220} className="w-full max-w-[220px] sm:max-w-[260px] h-auto" />
                       </div>
                       <p className="text-center text-white font-medium">
                         {parseInt(receiveAmount).toLocaleString()} sats
                       </p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={invoice}
-                          readOnly
-                          className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 text-xs font-mono truncate border border-gray-700"
-                        />
-                        <button
-                          onClick={handleCopyInvoice}
-                          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                          title={invoiceCopied ? 'Copied!' : 'Copy invoice'}
-                        >
-                          {invoiceCopied ? (
-                            <Check className="w-5 h-5 text-green-400" />
-                          ) : (
+                      {/* Prominent Copy Button for mobile */}
+                      <button
+                        onClick={handleCopyInvoice}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        {invoiceCopied ? (
+                          <>
+                            <Check className="w-5 h-5" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
                             <Copy className="w-5 h-5" />
-                          )}
-                        </button>
-                      </div>
+                            Copy Invoice
+                          </>
+                        )}
+                      </button>
                       <p className="text-gray-400 text-sm text-center">
-                        Scan or copy this invoice to fund your wallet
+                        Scan QR or copy invoice to fund your wallet
                       </p>
                       <button
                         onClick={() => {
