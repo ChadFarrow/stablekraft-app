@@ -71,10 +71,9 @@ export async function generateMetadata({
     : (process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app');
 
   try {
-    // Fetch from database API using the album slug
+    // Fetch from database API using the album slug (cached for 1 hour - album metadata rarely changes)
     const response = await fetch(`${baseUrl}/api/albums/${encodeURIComponent(id)}`, {
-      cache: 'no-store',
-      next: { revalidate: 0 }
+      next: { revalidate: 3600 }
     });
 
     if (response.ok) {

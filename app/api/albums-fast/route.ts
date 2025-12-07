@@ -17,12 +17,12 @@ interface CachedData {
 // In-memory cache for better performance (cache the database results, not files)
 let cachedData: CachedData | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for database results (increased from 2)
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache for database results (increased for performance)
 
 // Separate cache for playlist data to avoid re-fetching playlists every time
 let playlistCache: any[] | null = null;
 let playlistCacheTimestamp = 0;
-const PLAYLIST_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for playlists
+const PLAYLIST_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache for playlists
 
 // Function to get playlist albums
 async function getPlaylistAlbums() {
@@ -146,66 +146,58 @@ export async function GET(request: Request) {
       const maxFeedsToLoad = Math.min(feedsToLoad, 500); // Limit to 500 feeds max to prevent timeout
       
       try {
-        // OPTIMIZED: Split into two queries for better performance
-        // 1. First get feeds with minimal track data (only what we need)
-        // 2. Use select to reduce data transfer
-        feeds = await Promise.race([
-          prisma.feed.findMany({
-            where: { status: 'active' },
-            skip: 0,
-            take: maxFeedsToLoad,
-            select: {
-              id: true,
-              guid: true,
-              title: true,
-              description: true,
-              originalUrl: true,
-              artist: true,
-              image: true,
-              priority: true,
-              status: true,
-              createdAt: true,
-              updatedAt: true,
-              v4vRecipient: true,
-              v4vValue: true,
-              Track: {
-                where: {
-                  audioUrl: { not: '' }
-                },
-                select: {
-                  id: true,
-                  guid: true,
-                  title: true,
-                  duration: true,
-                  audioUrl: true,
-                  image: true,
-                  publishedAt: true,
-                  v4vRecipient: true,
-                  v4vValue: true,
-                  startTime: true,
-                  endTime: true,
-                  trackOrder: true,
-                },
-                orderBy: [
-                  { trackOrder: 'asc' },
-                  { publishedAt: 'asc' },
-                  { createdAt: 'asc' }
-                ],
-                take: 20 // Reduced from 50 - most albums have <20 tracks
+        // Fetch feeds with minimal track data (optimized select)
+        feeds = await prisma.feed.findMany({
+          where: { status: 'active' },
+          take: maxFeedsToLoad,
+          select: {
+            id: true,
+            guid: true,
+            title: true,
+            description: true,
+            originalUrl: true,
+            artist: true,
+            image: true,
+            priority: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            v4vRecipient: true,
+            v4vValue: true,
+            Track: {
+              where: {
+                audioUrl: { not: '' }
               },
-              _count: {
-                select: { Track: true }
-              }
+              select: {
+                id: true,
+                guid: true,
+                title: true,
+                duration: true,
+                audioUrl: true,
+                image: true,
+                publishedAt: true,
+                v4vRecipient: true,
+                v4vValue: true,
+                startTime: true,
+                endTime: true,
+                trackOrder: true,
+              },
+              orderBy: [
+                { trackOrder: 'asc' },
+                { publishedAt: 'asc' },
+                { createdAt: 'asc' }
+              ],
+              take: 20 // Most albums have <20 tracks
             },
-            orderBy: [
-              { priority: 'asc' },
-              { createdAt: 'desc' }
-            ]
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Database query timeout after 15s')), 15000)
-          )
-        ]) as FeedWithTracks[];
+            _count: {
+              select: { Track: true }
+            }
+          },
+          orderBy: [
+            { priority: 'asc' },
+            { createdAt: 'desc' }
+          ]
+        }) as FeedWithTracks[];
       } catch (queryError) {
         console.error('❌ Database query error:', queryError);
         // Return cached data if available, or empty result

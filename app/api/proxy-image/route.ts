@@ -10,8 +10,8 @@ try {
 
 // In-memory cache for proxied images (LRU-style with max entries)
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
-const MAX_CACHE_ENTRIES = 100;
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_ENTRIES = 500; // Increased from 100 for better cache hit rate
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (increased from 30 minutes)
 
 function getCachedImage(url: string) {
   const cached = imageCache.get(url);
