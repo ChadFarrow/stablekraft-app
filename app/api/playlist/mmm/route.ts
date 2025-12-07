@@ -506,13 +506,13 @@ export async function GET(request: Request) {
           where: { playlistId: 'mmm' }
         });
 
-        // Insert tracks with positions (only resolved tracks with valid IDs)
-        const trackInserts = resolvedTracks
+        // Insert tracks with positions (use tracks array which has episodeId from XML parsing)
+        const trackInserts = tracks
           .map((track, index) => ({
             playlistId: 'mmm',
             trackId: track.id,
             position: index,
-            episodeId: track.playlistContext?.episodeTitle || null,
+            episodeId: track.episodeId || null,
           }))
           .filter(t => t.trackId); // Ensure trackId exists
 
