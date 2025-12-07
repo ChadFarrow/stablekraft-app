@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
       if (nostrEventId && !existing.nostrEventId) {
         const updated = await prisma.favoriteAlbum.update({
           where: { id: existing.id },
-          data: { nostrEventId }
+          data: { nostrEventId, nip51Format: true }
         });
         return NextResponse.json({
           success: true,
@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
         ...(sessionId ? { sessionId } : {}),
         feedId,
         type: favoriteType,
-        ...(nostrEventId ? { nostrEventId } : {})
+        ...(nostrEventId ? { nostrEventId, nip51Format: true } : {})
       }
     });
 

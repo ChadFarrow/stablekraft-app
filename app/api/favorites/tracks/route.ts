@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
         try {
           const updated = await prisma.favoriteTrack.update({
             where: { id: existing.id },
-            data: { nostrEventId }
+            data: { nostrEventId, nip51Format: true }
           });
           return NextResponse.json({
             success: true,
@@ -308,6 +308,7 @@ export async function POST(request: NextRequest) {
     // Only add nostrEventId if it's a valid non-empty string
     if (nostrEventId && typeof nostrEventId === 'string' && nostrEventId.trim().length > 0) {
       createData.nostrEventId = nostrEventId.trim();
+      createData.nip51Format = true;  // Mark as published in NIP-51 format
     }
     
     let favorite;
@@ -329,7 +330,7 @@ export async function POST(request: NextRequest) {
             try {
               const updated = await prisma.favoriteTrack.update({
                 where: { id: existingFavorite.id },
-                data: { nostrEventId: nostrEventId.trim() }
+                data: { nostrEventId: nostrEventId.trim(), nip51Format: true }
               });
               return NextResponse.json({
                 success: true,
