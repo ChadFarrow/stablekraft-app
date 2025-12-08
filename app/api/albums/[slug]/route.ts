@@ -650,15 +650,39 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     }
 
     // 3. Try ID contains match (e.g., "bloodshot-lies" matches "bloodshot-lies-album")
+    // Also try matching slug as part of feed ID (e.g., "all-thats-haunting-me" matches "ariel-powell-all-that-s-haunting-me")
     if (potentialMatches.length === 0) {
+      // Try matching slug with variations (with/without hyphens in common words)
+      // Handle cases like "thats" vs "that-s" vs "that's"
+      const slugVariations = [
+        slug,
+        slug.replace(/thats/g, 'that-s'),
+        slug.replace(/thats/g, 'that s'),
+        slug.replace(/thats/g, "that's"),
+        slug.replace(/dont/g, "don't"),
+        slug.replace(/dont/g, "don-t"),
+        slug.replace(/cant/g, "can't"),
+        slug.replace(/cant/g, "can-t")
+      ].filter((v, i, arr) => arr.indexOf(v) === i); // Remove duplicates
+
+      const orConditions: any[] = [
+        { id: { contains: slug, mode: 'insensitive' as const } },
+        { id: { startsWith: slug, mode: 'insensitive' as const } },
+        { guid: { equals: slug, mode: 'insensitive' as const } }
+      ];
+      
+      // Add variations
+      for (const variation of slugVariations) {
+        if (variation !== slug) {
+          orConditions.push({ id: { contains: variation, mode: 'insensitive' as const } });
+          orConditions.push({ id: { endsWith: variation, mode: 'insensitive' as const } });
+        }
+      }
+
       const containsMatches = await prisma.feed.findMany({
         where: {
           status: 'active',
-          OR: [
-            { id: { contains: slug, mode: 'insensitive' } },
-            { id: { startsWith: slug, mode: 'insensitive' } },
-            { guid: { equals: slug, mode: 'insensitive' } }
-          ]
+          OR: orConditions
         },
         include: trackInclude
       });
