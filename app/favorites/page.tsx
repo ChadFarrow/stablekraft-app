@@ -320,7 +320,7 @@ function FavoritesPageContent() {
 
       // Always fetch all types - filtering is done client-side for faster switching
       const response = await fetch(
-        `/api/nostr/global-favorites?type=all&limit=50&excludeSelf=true`,
+        `/api/nostr/global-favorites?type=all&limit=200&excludeSelf=true`,
         { headers }
       );
 

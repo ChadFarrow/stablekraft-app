@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'all';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
     const excludeSelf = searchParams.get('excludeSelf') !== 'false';
     const userPubkey = request.headers.get('x-nostr-pubkey');
 
@@ -93,21 +93,19 @@ export async function GET(request: NextRequest) {
     const kinds = [FAVORITE_KIND, FAVORITE_ALBUM_KIND];
     const typeFilter: 'track' | 'album' | 'all' = type === 'tracks' ? 'track' : type === 'albums' ? 'album' : 'all';
 
-    // Fixed cutoff date: November 27th, 2025 UTC - don't show anything older
-    const cutoffTimestamp = Math.floor(Date.UTC(2025, 10, 27) / 1000); // Month is 0-indexed, so 10 = November
-
     // Combine user relays with default relays for querying
     // This ensures we find favorites published to user-specific relays
     const queryRelays = userRelays.size > 0 ? Array.from(userRelays) : undefined;
 
-    // Fetch favorites from Nostr relays - only from cutoff date onwards
+    // Fetch favorites from Nostr relays
+    // Removed cutoff date to show all available favorites
     const favorites = await fetchGlobalFavorites({
       limit: limit * 4, // Fetch more to account for filtering
       kinds,
       type: typeFilter, // NIP-51: filter by type tag instead of kind
       excludePubkey: excludeSelf && userPubkey ? userPubkey : undefined,
       timeout: 15000, // Increased timeout for more relays
-      since: cutoffTimestamp, // Only get favorites from Nov 27, 2025 onwards
+      // No since parameter - fetch all available favorites
       relays: queryRelays, // Query user relays if available
     });
 
