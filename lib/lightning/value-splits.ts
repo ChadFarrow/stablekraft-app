@@ -87,18 +87,14 @@ export class ValueSplitsService {
     for (let i = 0; i < splitAmounts.length; i++) {
       const { recipient, amount } = splitAmounts[i];
 
-      // Add delay between payments - delays vary by wallet type
-      // Coinos needs slightly longer delays but retries handle most failures
-      // Alby Hub and browser extensions can handle faster payments
+      // Add minimal delay between payments to avoid overwhelming wallets
+      // Fast wallets (Alby Hub, browser extensions) handle rapid payments well
+      // Coinos relies on retry logic in BitcoinConnectProvider for failed payments
       const isSlowWallet = walletType === 'coinos';
-      const warmupDelay = isSlowWallet ? 2000 : 500;  // 2s for Coinos, 0.5s for others
-      const betweenDelay = isSlowWallet ? 2000 : 1000; // 2s for Coinos, 1s for others
+      const betweenDelay = isSlowWallet ? 300 : 100; // 300ms for Coinos, 100ms debounce for fast wallets
 
-      if (i === 0) {
-        console.log(`⏳ Initial warm-up delay ${warmupDelay}ms before first payment (wallet: ${walletType || 'unknown'})...`);
-        await new Promise(resolve => setTimeout(resolve, warmupDelay));
-      } else {
-        console.log(`⏳ Waiting ${betweenDelay}ms before payment ${i + 1}/${splitAmounts.length}...`);
+      // Only add delay between payments (not before the first one)
+      if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, betweenDelay));
       }
 
