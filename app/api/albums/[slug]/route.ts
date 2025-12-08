@@ -596,9 +596,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       }
     };
 
-    // 1. Try exact ID match first (fastest)
     let potentialMatches: Array<{ feed: any; trackCount: number }> = [];
 
+    // 1. Try exact ID match first (fastest)
     const exactMatch = await prisma.feed.findFirst({
       where: {
         status: 'active',
@@ -612,7 +612,44 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       potentialMatches.push({ feed: exactMatch, trackCount: exactMatch.Track.length });
     }
 
-    // 2. Try ID contains match (e.g., "bloodshot-lies" matches "bloodshot-lies-album")
+    // 2. Try matching by generated slug from feed titles (most accurate for title-based slugs)
+    // First, try to find feeds with titles that could generate this slug
+    if (potentialMatches.length === 0) {
+      // Convert slug back to title words for searching (e.g., "all-thats-haunting-me" -> "all thats haunting me")
+      const titleSearch = slug.replace(/-/g, ' ');
+      // Also try without "the" prefix if present
+      const titleSearchWithoutThe = titleSearch.replace(/^the\s+/i, '');
+
+      // Build OR conditions array
+      const orConditions: any[] = [
+        { title: { contains: titleSearch, mode: 'insensitive' as const } }
+      ];
+      if (titleSearchWithoutThe !== titleSearch) {
+        orConditions.push({ title: { contains: titleSearchWithoutThe, mode: 'insensitive' as const } });
+      }
+
+      const candidateFeeds = await prisma.feed.findMany({
+        where: {
+          status: 'active',
+          OR: orConditions
+        },
+        include: trackInclude,
+        take: 50 // Limit candidates to prevent performance issues
+      });
+
+      // Verify each candidate's generated slug matches
+      for (const feed of candidateFeeds) {
+        if (feed.Track.length > 0) {
+          const albumSlug = generateAlbumSlug(feed.title);
+          if (albumSlug === slug) {
+            console.log(`🔍 Found slug match: "${feed.title}" (feed ID: ${feed.id}) with ${feed.Track.length} tracks`);
+            potentialMatches.push({ feed, trackCount: feed.Track.length });
+          }
+        }
+      }
+    }
+
+    // 3. Try ID contains match (e.g., "bloodshot-lies" matches "bloodshot-lies-album")
     if (potentialMatches.length === 0) {
       const containsMatches = await prisma.feed.findMany({
         where: {
@@ -634,7 +671,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       }
     }
 
-    // 3. Try title-based match if no ID matches found
+    // 4. Try title-based match if no ID matches found (fallback)
     if (potentialMatches.length === 0) {
       // Convert slug back to title words (e.g., "bloodshot-lies" -> "bloodshot lies")
       const titleSearch = slug.replace(/-/g, ' ');

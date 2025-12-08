@@ -10,6 +10,7 @@ import { SessionProvider } from '@/contexts/SessionContext'
 import { NostrProvider } from '@/contexts/NostrContext'
 import { UserSettingsProvider } from '@/contexts/UserSettingsContext'
 import { SidebarProvider } from '@/contexts/SidebarContext'
+import { BatchedFavoritesProvider } from '@/contexts/BatchedFavoritesContext'
 import LightningWrapper from '@/components/LightningWrapper'
 import GlobalNowPlayingBar from '@/components/GlobalNowPlayingBar'
 import NowPlayingScreen from '@/components/NowPlayingScreen'
@@ -246,6 +247,7 @@ export default function RootLayout({
                     <ScrollDetectionProvider>
                       <ScrollRestorationProvider>
                       <SessionProvider>
+                        <BatchedFavoritesProvider>
                         <AudioProvider>
                           <div className="min-h-screen relative">
                             {/* Background Image - Lazy loaded for better performance */}
@@ -277,6 +279,7 @@ export default function RootLayout({
                           <ToastContainer />
                           <ServiceWorkerRegistration />
                         </AudioProvider>
+                        </BatchedFavoritesProvider>
                       </SessionProvider>
                       </ScrollRestorationProvider>
                     </ScrollDetectionProvider>

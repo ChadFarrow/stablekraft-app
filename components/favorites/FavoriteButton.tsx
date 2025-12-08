@@ -7,6 +7,39 @@ import { useNostr } from '@/contexts/NostrContext';
 import { getSessionId } from '@/lib/session-utils';
 import { toast } from '@/components/Toast';
 import { publishFavoriteTrackToNostr, publishFavoriteAlbumToNostr } from '@/lib/nostr/favorites';
+import { useBatchedFavorites } from '@/contexts/BatchedFavoritesContext';
+
+// Helper hook that safely uses batched favorites, with fallback
+function useBatchedFavoritesSafe() {
+  try {
+    return useBatchedFavorites();
+  } catch (error) {
+    // Context not available, return fallback functions
+    return {
+      checkFavorites: async (trackIds: string[], feedIds: string[]) => {
+        // Fallback to individual check (shouldn't happen if provider is set up correctly)
+        const currentSessionId = getSessionId();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (currentSessionId) {
+          headers['x-session-id'] = currentSessionId;
+        }
+        const response = await fetch('/api/favorites/check', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ trackIds, feedIds })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.success ? data.data : { tracks: {}, albums: {} };
+        }
+        return { tracks: {}, albums: {} };
+      },
+      getFavoriteStatus: () => undefined
+    };
+  }
+}
 
 interface FavoriteButtonProps {
   trackId?: string;
@@ -43,6 +76,7 @@ export default function FavoriteButton({
 }: FavoriteButtonProps) {
   const { sessionId, isLoading } = useSession();
   const { user, isAuthenticated: isNostrAuthenticated } = useNostr();
+  const { checkFavorites, getFavoriteStatus } = useBatchedFavoritesSafe();
   const [isFavorite, setIsFavorite] = useState(initialIsFavorite ?? false);
   const [isLoadingState, setIsLoadingState] = useState(initialIsFavorite === undefined);
   const [isToggling, setIsToggling] = useState(false);
@@ -71,37 +105,26 @@ export default function FavoriteButton({
       return;
     }
 
+    // Check if we already have the status cached
+    const cachedStatus = getFavoriteStatus(effectiveTrackId, feedId);
+    if (cachedStatus !== undefined) {
+      setIsFavorite(cachedStatus);
+      setIsLoadingState(false);
+      return;
+    }
+
+    // Use batched favorites check
     const checkFavorite = async () => {
       try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
+        const result = await checkFavorites(
+          isTrack ? [effectiveTrackId!] : [],
+          !isTrack ? [feedId!] : []
+        );
         
-        // Use Nostr user ID if authenticated, otherwise use session ID
-        if (currentUserId) {
-          headers['x-nostr-user-id'] = currentUserId;
-        } else if (currentSessionId) {
-          headers['x-session-id'] = currentSessionId;
-        }
-
-        const response = await fetch('/api/favorites/check', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            trackIds: isTrack ? [effectiveTrackId] : [],
-            feedIds: !isTrack ? [feedId] : []
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            const favoriteStatus = isTrack
-              ? data.data.tracks[effectiveTrackId!] || false
-              : data.data.albums[feedId!] || false;
-            setIsFavorite(favoriteStatus);
-          }
-        }
+        const favoriteStatus = isTrack
+          ? result.tracks[effectiveTrackId!] || false
+          : result.albums[feedId!] || false;
+        setIsFavorite(favoriteStatus);
       } catch (error) {
         console.error('Error checking favorite status:', error);
         // If tables don't exist yet, just show as not favorited
@@ -112,7 +135,7 @@ export default function FavoriteButton({
     };
 
     checkFavorite();
-  }, [sessionId, itemId, effectiveTrackId, feedId, isTrack, isLoading, isNostrAuthenticated, user]);
+  }, [sessionId, itemId, effectiveTrackId, feedId, isTrack, isLoading, isNostrAuthenticated, user, checkFavorites, getFavoriteStatus]);
 
   const toggleFavorite = async () => {
     if (isToggling || isLoadingState || !itemId) {
