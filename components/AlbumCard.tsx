@@ -13,6 +13,46 @@ import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
 
+// Hook to manage prefetch based on visibility and hover
+function usePrefetchControl() {
+  const [shouldPrefetch, setShouldPrefetch] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const isIntersectingRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!cardRef.current) return;
+
+    // Only prefetch if card is visible in viewport or hovered
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          isIntersectingRef.current = entry.isIntersecting;
+          // Enable prefetch if card is visible (within 200px of viewport) or hovered
+          setShouldPrefetch(entry.isIntersecting || isHovered);
+        });
+      },
+      {
+        rootMargin: '200px', // Start checking 200px before entering viewport
+        threshold: 0
+      }
+    );
+
+    observer.observe(cardRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []); // Empty deps - observer doesn't need to be recreated
+
+  // Update prefetch state when hover changes
+  useEffect(() => {
+    setShouldPrefetch(isIntersectingRef.current || isHovered);
+  }, [isHovered]);
+
+  return { shouldPrefetch, setIsHovered, cardRef };
+}
+
 interface AlbumCardProps {
   album: RSSAlbum;
   isPlaying?: boolean;
@@ -27,6 +67,9 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
   const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   const [showBoostModal, setShowBoostModal] = useState(false);
   const { shouldPreventClick } = useScrollDetectionContext();
+  
+  // Prefetch control - only prefetch visible or hovered cards
+  const { shouldPrefetch, setIsHovered, cardRef } = usePrefetchControl();
 
   // Minimum swipe/scroll distance (in px)
   const minSwipeDistance = 50;
@@ -132,9 +175,13 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
 
   return (
     <>
+    <div ref={cardRef}>
     <Link 
       href={albumUrl}
+      prefetch={shouldPrefetch}
       className={`group relative bg-gray-900/95 rounded-xl border border-gray-700/50 overflow-hidden transition-all duration-300 hover:bg-gray-900 hover:border-cyan-400/30 hover:scale-[1.02] active:scale-[0.98] block shadow-lg hover:shadow-xl hover:shadow-cyan-400/10 ${className}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         // Prevent navigation if user was scrolling
         if (shouldPreventClick()) {
@@ -356,6 +403,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '' }: AlbumCa
         <div className="absolute inset-0 bg-white/5 opacity-0 group-active:opacity-100 transition-opacity duration-150" />
       </div>
     </Link>
+    </div>
 
     {showBoostModal && (
       <BoostButton
