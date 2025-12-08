@@ -175,7 +175,9 @@ function HomePageContent() {
 
     // Only update if needed and we're not already updating from URL
     if (needsReload && !isUpdatingFromUrlRef.current && handleFilterChangeRef.current) {
-      console.log(`🔄 URL filter changed: "${activeFilter}" -> "${newFilter}" (hasData: ${hasDataForFilter})`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔄 URL filter changed: "${activeFilter}" -> "${newFilter}" (hasData: ${hasDataForFilter})`);
+      }
       isUpdatingFromUrlRef.current = true;
       // Trigger filter change with skipUrlUpdate to avoid loop
       handleFilterChangeRef.current(newFilter, true).finally(() => {
@@ -200,7 +202,9 @@ function HomePageContent() {
   // Shuffle functionality is now handled by the global AudioContext
   const handleShuffle = async () => {
     try {
-      console.log('🎲 Shuffle button clicked - starting shuffle all tracks');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎲 Shuffle button clicked - starting shuffle all tracks');
+      }
       await shuffleAllTracks();
     } catch (error) {
       console.error('Error starting shuffle:', error);
@@ -258,7 +262,9 @@ function HomePageContent() {
         }
       }
       keysToRemove.forEach(key => {
-        console.log('🗑️ Removing old cache:', key);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🗑️ Removing old cache:', key);
+        }
         localStorage.removeItem(key);
       });
 
@@ -291,7 +297,9 @@ function HomePageContent() {
           const stats = data.publisherStats || [];
           if (stats.length > 0) {
             setPublisherStats(stats);
-            console.log(`📊 Loaded ${stats.length} publisher stats separately`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`📊 Loaded ${stats.length} publisher stats separately`);
+            }
           }
         }
       } catch (error) {
@@ -333,7 +341,9 @@ function HomePageContent() {
 
       // Handle publishers filter separately - redirect to handleFilterChange
       if (activeFilter === 'publishers') {
-        console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 loadCriticalAlbums: Redirecting ${activeFilter} filter to handleFilterChange`);
+        }
         setIsLoading(false);
         await handleFilterChange(activeFilter, true); // skipUrlUpdate = true to avoid conflicts
         return;
@@ -379,7 +389,9 @@ function HomePageContent() {
 
     // Don't load more for publishers filter - all publishers are already loaded
     if (activeFilter === 'publishers') {
-      console.log(`🚫 loadMoreAlbums: Skipping - all publishers already loaded for ${activeFilter} filter`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 loadMoreAlbums: Skipping - all publishers already loaded for ${activeFilter} filter`);
+      }
       return;
     }
 
@@ -406,13 +418,17 @@ function HomePageContent() {
             // 1. If we loaded fewer albums than requested, we've reached the end
             // 2. Otherwise, check if total loaded is less than total count
             const hasMore = newAlbums.length >= ALBUMS_PER_PAGE && totalLoaded < newTotalCount;
-            console.log(`📊 Pagination check: loaded=${newAlbums.length}, totalLoaded=${totalLoaded}, totalCount=${newTotalCount}, hasMore=${hasMore}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`📊 Pagination check: loaded=${newAlbums.length}, totalLoaded=${totalLoaded}, totalCount=${newTotalCount}, hasMore=${hasMore}`);
+            }
             setHasMoreAlbums(hasMore);
             return updated;
           });
           setCurrentPage(nextPage);
         } else {
-          console.log('📊 No more albums returned, stopping pagination');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('📊 No more albums returned, stopping pagination');
+          }
           setHasMoreAlbums(false);
         }
     } catch (error) {
@@ -435,9 +451,13 @@ function HomePageContent() {
     const observer = new IntersectionObserver(
       (entries) => {
         const target = entries[0];
-        console.log(`👁 Intersection: isIntersecting=${target.isIntersecting}, hasMore=${hasMoreAlbums}, loading=${isLoading}, enhanced=${isEnhancedLoaded}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`👁 Intersection: isIntersecting=${target.isIntersecting}, hasMore=${hasMoreAlbums}, loading=${isLoading}, enhanced=${isEnhancedLoaded}`);
+        }
         if (target.isIntersecting && hasMoreAlbums && !isLoading && isEnhancedLoaded) {
-          console.log('📄 Triggering loadMoreAlbums');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('📄 Triggering loadMoreAlbums');
+          }
           loadMoreAlbums();
         }
       },
@@ -459,16 +479,22 @@ function HomePageContent() {
 
   // Handle filter changes - reload data and reset to page 1
   const handleFilterChange = async (newFilter: FilterType, skipUrlUpdate = false) => {
-    console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 handleFilterChange called with filter: "${newFilter}"`);
+    }
 
     // Check if filter is the same AND we already have data
     if (newFilter === activeFilter) {
       const hasData = displayedAlbums.length > 0 || enhancedAlbums.length > 0 || criticalAlbums.length > 0;
       if (hasData) {
-        console.log(`🚫 Filter unchanged and data exists, skipping reload`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Filter unchanged and data exists, skipping reload`);
+        }
         return;
       }
-      console.log(`⚠️ Filter unchanged but no data, continuing to load`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚠️ Filter unchanged but no data, continuing to load`);
+      }
     }
 
     // Set activeFilter immediately so UI updates right away
@@ -492,7 +518,9 @@ function HomePageContent() {
     // Check cache first
     const cachedData = filterCache.get(newFilter);
     if (cachedData) {
-      console.log(`📦 Using cached data for filter: ${newFilter}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📦 Using cached data for filter: ${newFilter}`);
+      }
       setCurrentPage(1);
       setDisplayedAlbums(cachedData.albums);
       setCriticalAlbums(cachedData.albums.slice(0, 12));
@@ -515,7 +543,9 @@ function HomePageContent() {
       let resultData;
 
       if (newFilter === 'publishers') {
-        console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🎯 handleFilterChange: Processing ${newFilter} filter`);
+        }
         // Load publishers instead of albums
         const publishersResponse = await fetch('/api/publishers');
         if (!publishersResponse.ok) {
@@ -523,7 +553,9 @@ function HomePageContent() {
         }
         const publishersData = await publishersResponse.json();
         const publishers = publishersData.publishers || [];
-        console.log(`🎯 handleFilterChange: Received ${publishers.length} publishers from API`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🎯 handleFilterChange: Received ${publishers.length} publishers from API`);
+        }
         
         // Update publisher stats for sidebar from publishers data
         const publisherStatsFromPublishers = publishers.map((publisher: any) => ({
@@ -639,13 +671,17 @@ function HomePageContent() {
     try {
       // Handle publishers filter separately - don't call albums API for publishers
       if (filter === 'publishers') {
-        console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`⚠️ loadAlbumsData called with ${filter} filter - this should be handled by handleFilterChange`);
+        }
         return { albums: [], totalCount: 0 }; // Return empty array to prevent showing wrong data
       }
 
       // Handle playlist filter separately - use fast endpoint for better performance
       if (filter === 'playlist') {
-        console.log('🎵 Loading playlists using fast endpoint...');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎵 Loading playlists using fast endpoint...');
+        }
 
         try {
           const response = await fetch('/api/playlists-fast');
@@ -653,7 +689,9 @@ function HomePageContent() {
           if (response.ok) {
             const data = await response.json();
             if (data.success && data.albums) {
-              console.log(`✅ Loaded ${data.albums.length} playlists from fast endpoint`);
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`✅ Loaded ${data.albums.length} playlists from fast endpoint`);
+              }
               return { albums: data.albums, totalCount: data.albums.length };
             }
           }
@@ -790,7 +828,9 @@ function HomePageContent() {
         if (cached && timestamp) {
           const age = Date.now() - parseInt(timestamp);
           if (age < 15 * 60 * 1000) { // 15 minutes cache for better performance
-            console.log('📦 Using cached albums');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('📦 Using cached albums');
+            }
             const cachedAlbums = JSON.parse(cached);
             // For cached data, we need to estimate totalCount - use a large number to allow pagination
             // The actual totalCount will be updated from the next API call
@@ -808,7 +848,9 @@ function HomePageContent() {
         // Remove cache busting for better performance
       });
       
-      console.log(`🌐 Fetching: /api/albums-fast?${params}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🌐 Fetching: /api/albums-fast?${params}`);
+      }
       const response = await fetch(`/api/albums-fast?${params}`);
       
       if (!response.ok) {

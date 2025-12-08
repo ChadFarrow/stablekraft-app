@@ -4,7 +4,8 @@ async function getAlbums() {
   try {
     // Use internal URL for server-side fetch
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app';
-    const res = await fetch(`${baseUrl}/api/albums?limit=0`, {
+    // Use albums-fast API for better performance (includes pagination support)
+    const res = await fetch(`${baseUrl}/api/albums-fast?limit=1000&offset=0&tier=all&filter=all`, {
       next: { revalidate: 300 } // Cache for 5 minutes
     });
 
