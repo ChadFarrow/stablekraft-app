@@ -671,13 +671,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         { guid: { equals: slug, mode: 'insensitive' as const } }
       ];
       
-      // Add variations
+      // Add variations - check if feed ID contains or ends with the variation
+      // Also check if feed ID ends with "-{variation}" (common pattern like "ariel-powell-all-that-s-haunting-me")
       for (const variation of slugVariations) {
         if (variation !== slug) {
           orConditions.push({ id: { contains: variation, mode: 'insensitive' as const } });
           orConditions.push({ id: { endsWith: variation, mode: 'insensitive' as const } });
+          orConditions.push({ id: { endsWith: `-${variation}`, mode: 'insensitive' as const } });
         }
       }
+      
+      // Also try matching the slug itself with the "-" prefix pattern
+      orConditions.push({ id: { endsWith: `-${slug}`, mode: 'insensitive' as const } });
 
       const containsMatches = await prisma.feed.findMany({
         where: {
