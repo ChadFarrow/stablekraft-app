@@ -1408,6 +1408,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       } else if (mediaError?.code === 1) {
         console.log('🔄 Aborted error - retry logic will handle this');
       }
+
+      // Auto-skip to next track on error (especially important for shuffle mode)
+      // This prevents playback from stopping when a track fails
+      if (playNextTrackRef.current) {
+        console.log('⏭️ Auto-skipping to next track after error');
+        setTimeout(() => {
+          if (playNextTrackRef.current) {
+            playNextTrackRef.current();
+          }
+        }, 500);
+      }
     };
 
     // iOS-specific: Handle stalled event - iOS fires this when buffering
