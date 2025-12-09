@@ -354,6 +354,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
   }, []);
 
+  // Ensure Web Audio context is running (call on every playback)
+  const ensureWebAudioRunning = useCallback(() => {
+    const ctx = webAudioContextRef.current;
+    if (ctx && ctx.state === 'suspended') {
+      console.log('🔊 Resuming suspended Web Audio context');
+      ctx.resume().catch(err => {
+        console.warn('⚠️ Failed to resume Web Audio context:', err);
+      });
+    }
+  }, []);
+
   // Connect media element to compressor for volume normalization
   const connectToCompressor = useCallback((mediaElement: HTMLMediaElement, isVideo: boolean) => {
     if (!webAudioContextRef.current || !compressorRef.current) {
@@ -363,10 +374,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     const ctx = webAudioContextRef.current;
     const sourceRef = isVideo ? videoSourceRef : audioSourceRef;
 
-    // Resume audio context if suspended (browser autoplay policy)
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    // Always resume audio context if suspended (critical for continued playback)
+    ensureWebAudioRunning();
 
     // MediaElementSourceNode can only be created once per element
     if (!sourceRef.current) {
@@ -384,7 +393,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
 
     return true; // Already connected
-  }, []);
+  }, [ensureWebAudioRunning]);
 
   // AudioContext state version - increment when structure changes to invalidate old cache
   const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
@@ -1799,6 +1808,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Resume function - uses DOM ID as fallback for iOS background reliability
   const resume = () => {
+    // Ensure Web Audio context is running (critical for volume normalization)
+    ensureWebAudioRunning();
+
     // Try ref first, then fallback to DOM query for iOS background compatibility
     let currentElement: HTMLAudioElement | HTMLVideoElement | null = isVideoMode
       ? videoRef.current
