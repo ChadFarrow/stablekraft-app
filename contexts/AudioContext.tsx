@@ -1695,6 +1695,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }> = [];
 
     let skippedPlaylists = 0;
+    let skippedTracks = 0;
     let includedAlbums = 0;
 
     albums.forEach(album => {
@@ -1706,6 +1707,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       includedAlbums++;
       if (album.tracks && album.tracks.length > 0) {
         album.tracks.forEach((track, trackIndex) => {
+          // Skip tracks without valid audio URLs
+          if (!track.url || track.url === '' || track.url.endsWith('.xml') || track.url.endsWith('/feed')) {
+            skippedTracks++;
+            return;
+          }
           allTracks.push({
             album,
             trackIndex,
@@ -1715,7 +1721,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       }
     });
 
-    console.log(`🎲 Shuffle pool: ${includedAlbums} albums, ${allTracks.length} tracks (skipped ${skippedPlaylists} playlists)`);
+    console.log(`🎲 Shuffle pool: ${includedAlbums} albums, ${allTracks.length} playable tracks (skipped ${skippedPlaylists} playlists, ${skippedTracks} tracks without audio URL)`);
 
     if (allTracks.length === 0) {
       console.warn('No tracks available for shuffle');
@@ -1802,9 +1808,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       track: any;
     }> = [];
 
+    let skippedTracks = 0;
     albumsToShuffle.forEach(album => {
       if (album.tracks && album.tracks.length > 0) {
         album.tracks.forEach((track, trackIndex) => {
+          // Skip tracks without valid audio URLs
+          if (!track.url || track.url === '' || track.url.endsWith('.xml') || track.url.endsWith('/feed')) {
+            skippedTracks++;
+            return;
+          }
           allTracks.push({
             album,
             trackIndex,
@@ -1814,7 +1826,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       }
     });
 
-    console.log(`🎲 Page shuffle pool: ${albumsToShuffle.length} albums, ${allTracks.length} tracks`);
+    console.log(`🎲 Page shuffle pool: ${albumsToShuffle.length} albums, ${allTracks.length} playable tracks (skipped ${skippedTracks} without audio URL)`);
 
     if (allTracks.length === 0) {
       console.warn('No tracks available for shuffle');
