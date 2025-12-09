@@ -1091,16 +1091,6 @@
       "lastUpdated": "2025-01-27T00:00:00.000Z"
     },
     {
-      "id": "bitpunk-fm",
-      "originalUrl": "https://zine.bitpunk.fm/feeds/bitpunk-fm.xml",
-      "type": "album",
-      "title": "bitpunk.fm",
-      "priority": "extended",
-      "status": "active",
-      "addedAt": "2025-01-27T00:00:00.000Z",
-      "lastUpdated": "2025-01-27T00:00:00.000Z"
-    },
-    {
       "id": "vance-latta-love-in-its-purest-form",
       "originalUrl": "https://feed.falsefinish.club/Vance Latta/Vance Latta - Love In Its Purest Form/love in its purest form.xml",
       "type": "album",
