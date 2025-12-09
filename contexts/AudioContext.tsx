@@ -111,6 +111,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const pauseRef = useRef<() => void>();
   const resumeRef = useRef<() => void>();
 
+  // Web Audio API for volume normalization (compressor)
+  const webAudioContextRef = useRef<AudioContext | null>(null);
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null);
+  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const videoSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+
   // NIP-38 status publishing
   const { user, isAuthenticated } = useNostr();
   const { settings } = useUserSettings();
@@ -323,6 +329,62 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   useEffect(() => {
     triggerAutoBoostRef.current = triggerAutoBoost;
   }, [triggerAutoBoost]);
+
+  // Initialize Web Audio API for volume normalization (compressor)
+  const initWebAudio = useCallback(() => {
+    if (webAudioContextRef.current) return;
+
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      webAudioContextRef.current = ctx;
+
+      // Create compressor with music normalization settings
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -24;  // Start compressing at -24dB
+      compressor.knee.value = 30;        // Soft knee for natural sound
+      compressor.ratio.value = 12;       // 12:1 compression ratio
+      compressor.attack.value = 0.003;   // 3ms attack
+      compressor.release.value = 0.25;   // 250ms release
+      compressor.connect(ctx.destination);
+      compressorRef.current = compressor;
+
+      console.log('🔊 Web Audio initialized for volume normalization');
+    } catch (err) {
+      console.warn('⚠️ Web Audio not available:', err);
+    }
+  }, []);
+
+  // Connect media element to compressor for volume normalization
+  const connectToCompressor = useCallback((mediaElement: HTMLMediaElement, isVideo: boolean) => {
+    if (!webAudioContextRef.current || !compressorRef.current) {
+      return false;
+    }
+
+    const ctx = webAudioContextRef.current;
+    const sourceRef = isVideo ? videoSourceRef : audioSourceRef;
+
+    // Resume audio context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    // MediaElementSourceNode can only be created once per element
+    if (!sourceRef.current) {
+      try {
+        const source = ctx.createMediaElementSource(mediaElement);
+        source.connect(compressorRef.current);
+        sourceRef.current = source;
+        console.log(`🔊 ${isVideo ? 'Video' : 'Audio'} connected to compressor for volume normalization`);
+        return true;
+      } catch (err) {
+        // CORS error or already connected - audio will play without normalization
+        console.log('⚠️ Cannot connect to compressor (likely CORS restriction):', err);
+        return false;
+      }
+    }
+
+    return true; // Already connected
+  }, []);
 
   // AudioContext state version - increment when structure changes to invalidate old cache
   const AUDIO_STATE_VERSION = 2; // v2 includes V4V fields in tracks
@@ -851,6 +913,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
               if (!hasResolved) {
                 videoElement.play().then(() => {
                   console.log(`✅ ${context} started successfully`);
+                  // Initialize Web Audio for volume normalization (HLS via hls.js)
+                  initWebAudio();
+                  connectToCompressor(videoElement, true);
                   hasResolved = true;
                   resolve(true);
                 }).catch(error => {
@@ -911,6 +976,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           if (playPromise !== undefined) {
             await playPromise;
             console.log(`✅ ${context} started successfully with Safari native HLS`);
+            // Initialize Web Audio for volume normalization (Safari native HLS)
+            initWebAudio();
+            connectToCompressor(videoElement, true);
             return true;
           }
         } else {
@@ -1031,7 +1099,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
             mode: isVideo ? 'video' : 'audio',
             url: originalUrl
           });
-          
+
+          // Initialize Web Audio and connect to compressor for volume normalization
+          // This will only work for CORS-enabled sources (proxied or properly configured)
+          initWebAudio();
+          connectToCompressor(currentMediaElement, isVideo);
+
           // Clear retry flag on success
           isRetryingRef.current = false;
           return true;
