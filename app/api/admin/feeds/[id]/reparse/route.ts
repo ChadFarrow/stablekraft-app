@@ -80,9 +80,9 @@ export async function POST(
       const existingTracksByGuid = new Map(existingTracks.map(t => [t.guid, t]));
 
       // Create a map of all parsed items by GUID for order lookup
-      // Preserve RSS feed order (newest-first, matching podcastindex.org)
+      // Use episode number from podcast:episode/itunes:episode if available, otherwise use RSS order
       const parsedItemsByGuid = new Map(
-        parsedFeed.items.map((item, index) => [item.guid, { item, order: index + 1 }])
+        parsedFeed.items.map((item, index) => [item.guid, { item, order: item.episode || index + 1 }])
       );
 
       // Update trackOrder AND v4v data for ALL existing tracks based on current RSS feed
@@ -168,12 +168,15 @@ export async function POST(
         );
 
         const tracksData = newItems.map((item, index) => {
-          // Find the item's position in the full parsed feed
-          const fullIndex = parsedFeed.items.findIndex(i =>
-            i.guid === item.guid ||
-            (i.title === item.title && i.audioUrl === item.audioUrl)
-          );
-          const order = fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1;
+          // Use episode number if available, otherwise find position in feed
+          let order = item.episode;
+          if (!order) {
+            const fullIndex = parsedFeed.items.findIndex(i =>
+              i.guid === item.guid ||
+              (i.title === item.title && i.audioUrl === item.audioUrl)
+            );
+            order = fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1;
+          }
 
           return {
             id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
