@@ -3,6 +3,8 @@
  * Prefetches upcoming audio tracks using the Cache API for smooth radio playback
  */
 
+import { getProxiedAudioUrl } from './audio-url-utils';
+
 const CACHE_NAME = 'stablekraft-audio-cache-v1';
 const MAX_CACHED_TRACKS = 3;
 
@@ -13,6 +15,7 @@ const cachedUrls = new Set<string>();
 
 /**
  * Prefetch an audio URL into the browser cache
+ * Automatically uses proxy for CORS-problematic domains
  */
 export async function prefetchAudio(url: string): Promise<boolean> {
   if (!url || cachedUrls.has(url) || fetchingUrls.has(url)) {
@@ -22,10 +25,13 @@ export async function prefetchAudio(url: string): Promise<boolean> {
   // Upgrade HTTP to HTTPS
   const secureUrl = url.startsWith('http://') ? url.replace(/^http:/, 'https:') : url;
 
+  // Use proxy for CORS-problematic domains
+  const prefetchUrl = getProxiedAudioUrl(secureUrl);
+
   try {
     fetchingUrls.add(secureUrl);
 
-    // Check if already in cache
+    // Check if already in cache (use original URL as cache key)
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(secureUrl);
 
@@ -36,16 +42,17 @@ export async function prefetchAudio(url: string): Promise<boolean> {
       return true;
     }
 
-    // Fetch and cache the audio
-    console.log('⬇️ Prefetching audio:', secureUrl.slice(-50));
+    // Fetch and cache the audio (using proxy if needed)
+    console.log('⬇️ Prefetching audio:', secureUrl.slice(-50), prefetchUrl !== secureUrl ? '(via proxy)' : '');
 
-    const response = await fetch(secureUrl, {
+    const response = await fetch(prefetchUrl, {
       mode: 'cors',
       credentials: 'omit',
     });
 
     if (response.ok) {
       // Clone the response before caching (responses can only be used once)
+      // Cache using original URL as key for consistency
       await cache.put(secureUrl, response.clone());
       cachedUrls.add(secureUrl);
       console.log('✅ Audio cached successfully:', secureUrl.slice(-50));
@@ -57,8 +64,8 @@ export async function prefetchAudio(url: string): Promise<boolean> {
       return false;
     }
   } catch (error) {
-    // CORS errors are expected for some audio sources - fail silently
-    console.log('⚠️ Could not prefetch (likely CORS):', secureUrl.slice(-50));
+    // CORS errors should be rare now that we use proxy, but fail silently anyway
+    console.log('⚠️ Could not prefetch audio:', secureUrl.slice(-50), error instanceof Error ? error.message : '');
     fetchingUrls.delete(secureUrl);
     return false;
   }

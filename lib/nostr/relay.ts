@@ -26,18 +26,35 @@ export class RelayManager {
       return this.relays.get(url)!;
     }
 
-    const relay = await Relay.connect(url);
+    // Filter out unreachable relays before attempting connection
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('127.0.0.1') ||
+        lowerUrl.includes('localhost') ||
+        lowerUrl.includes('.local') ||
+        lowerUrl.endsWith('/chat') ||
+        lowerUrl.endsWith('/private') ||
+        lowerUrl.endsWith('/outbox')) {
+      throw new Error(`Skipping unreachable relay: ${url}`);
+    }
 
-    const config: RelayConfig = {
-      url,
-      read: options.read !== false,
-      write: options.write !== false,
-    };
+    try {
+      const relay = await Relay.connect(url);
 
-    this.relays.set(url, relay);
-    this.configs.set(url, config);
+      const config: RelayConfig = {
+        url,
+        read: options.read !== false,
+        write: options.write !== false,
+      };
 
-    return relay;
+      this.relays.set(url, relay);
+      this.configs.set(url, config);
+
+      return relay;
+    } catch (error) {
+      // Log connection errors but don't throw - let callers handle failures gracefully
+      console.warn(`⚠️ Failed to connect to relay ${url}:`, error instanceof Error ? error.message : error);
+      throw error;
+    }
   }
 
   /**
@@ -154,29 +171,59 @@ export class RelayManager {
 }
 
 /**
+ * Filter out unreachable relay URLs (localhost, .local, etc.)
+ * @param urls - Array of relay URLs
+ * @returns Filtered array of reachable relay URLs
+ */
+export function filterReachableRelays(urls: string[]): string[] {
+  return urls.filter(url => {
+    if (!url || typeof url !== 'string') return false;
+    
+    const lowerUrl = url.toLowerCase();
+    
+    // Filter out obviously unreachable relays
+    return !lowerUrl.includes('127.0.0.1') &&
+           !lowerUrl.includes('localhost') &&
+           !lowerUrl.includes('.local') &&
+           !lowerUrl.endsWith('/chat') &&
+           !lowerUrl.endsWith('/private') &&
+           !lowerUrl.endsWith('/outbox');
+  });
+}
+
+/**
  * Get default relay URLs from environment or use common defaults
+ * Automatically filters out unreachable relays (localhost, .local, etc.)
  * @returns Array of relay URLs
  */
 export function getDefaultRelays(): string[] {
+  let relays: string[] = [];
+  
   if (typeof window !== 'undefined') {
     // Client-side: use environment variable
     const envRelays = process.env.NEXT_PUBLIC_NOSTR_RELAYS;
     if (envRelays) {
-      return envRelays.split(',').map(url => url.trim()).filter(Boolean);
+      relays = envRelays.split(',').map(url => url.trim()).filter(Boolean);
     }
   }
 
-  // Default relays (commonly used public relays)
-  // Note: relay.damus.io is often rate-limited, so we prioritize other relays
-  return [
-    'wss://relay.nsec.app',      // More reliable, less rate-limited
-    'wss://nos.lol',              // Popular and stable
-    'wss://relay.snort.social',   // Snort's relay
-    'wss://nostr.oxtr.dev',       // Alternative relay
-    'wss://relay.primal.net',     // Primal relay
-    'wss://theforest.nostr1.com', // Forest relay
-    'wss://relay.damus.io',       // Damus relay (moved to end due to frequent rate limiting)
-  ];
+  // If no env relays, use defaults
+  if (relays.length === 0) {
+    // Default relays (commonly used public relays)
+    // Note: relay.damus.io is often rate-limited, so we prioritize other relays
+    relays = [
+      'wss://relay.nsec.app',      // More reliable, less rate-limited
+      'wss://nos.lol',              // Popular and stable
+      'wss://relay.snort.social',   // Snort's relay
+      'wss://nostr.oxtr.dev',       // Alternative relay
+      'wss://relay.primal.net',     // Primal relay
+      'wss://theforest.nostr1.com', // Forest relay
+      'wss://relay.damus.io',       // Damus relay (moved to end due to frequent rate limiting)
+    ];
+  }
+
+  // Filter out unreachable relays before returning
+  return filterReachableRelays(relays);
 }
 
 /**

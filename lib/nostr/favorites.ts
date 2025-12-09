@@ -95,16 +95,9 @@ export async function publishFavoriteToNostr(
         const signedEvent = await signer.signEvent(event as any);
 
         // Publish to relays - combine user relays with reliable defaults
-        // Filter out obviously unreachable relays (localhost, .local)
-        const userRelays = (relays || []).filter(url => {
-          const lowerUrl = url.toLowerCase();
-          return !lowerUrl.includes('127.0.0.1') &&
-                 !lowerUrl.includes('localhost') &&
-                 !lowerUrl.includes('.local') &&
-                 !lowerUrl.endsWith('/chat') &&
-                 !lowerUrl.endsWith('/private') &&
-                 !lowerUrl.endsWith('/outbox');
-        });
+        // Note: getDefaultRelays() now automatically filters unreachable relays
+        const { filterReachableRelays } = await import('./relay');
+        const userRelays = filterReachableRelays(relays || []);
 
         // Always include reliable defaults that accept kind 30001
         const defaultRelays = getDefaultRelays();
@@ -112,11 +105,19 @@ export async function publishFavoriteToNostr(
 
         const relayManager = new RelayManager();
 
-        await Promise.all(
+        // Connect to relays, silently failing for unreachable ones
+        const connectionResults = await Promise.allSettled(
           allRelays.map(url =>
-            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+            relayManager.connect(url, { read: false, write: true })
           )
         );
+
+        // Log connection failures only if all failed
+        const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+        if (successfulConnections === 0 && allRelays.length > 0) {
+          console.warn('⚠️ Favorites: Could not connect to any relay');
+          return null;
+        }
 
         const results = await relayManager.publish(signedEvent);
         const hasSuccess = results.some(r => r.status === 'fulfilled');
@@ -136,25 +137,27 @@ export async function publishFavoriteToNostr(
       const event = createFavoriteEvent(type, itemId, privateKey, title, artistName);
 
       // Filter out unreachable relays and combine with defaults
-      const userRelays = (relays || []).filter(url => {
-        const lowerUrl = url.toLowerCase();
-        return !lowerUrl.includes('127.0.0.1') &&
-               !lowerUrl.includes('localhost') &&
-               !lowerUrl.includes('.local') &&
-               !lowerUrl.endsWith('/chat') &&
-               !lowerUrl.endsWith('/private') &&
-               !lowerUrl.endsWith('/outbox');
-      });
+      // Note: getDefaultRelays() now automatically filters unreachable relays
+      const { filterReachableRelays } = await import('./relay');
+      const userRelays = filterReachableRelays(relays || []);
       const defaultRelays = getDefaultRelays();
       const allRelays = [...new Set([...userRelays, ...defaultRelays])];
 
       const relayManager = new RelayManager();
 
-      await Promise.all(
+      // Connect to relays, silently failing for unreachable ones
+      const connectionResults = await Promise.allSettled(
         allRelays.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          relayManager.connect(url, { read: false, write: true })
         )
       );
+
+      // Log connection failures only if all failed
+      const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+      if (successfulConnections === 0 && allRelays.length > 0) {
+        console.warn('⚠️ Favorites: Could not connect to any relay');
+        return null;
+      }
 
       const results = await relayManager.publish(event);
       const hasSuccess = results.some(r => r.status === 'fulfilled');
@@ -258,25 +261,27 @@ export async function deleteFavoriteFromNostr(
         const signedEvent = await signer.signEvent(event as any);
 
         // Filter out unreachable relays and combine with defaults
-        const userRelays = (relays || []).filter(url => {
-          const lowerUrl = url.toLowerCase();
-          return !lowerUrl.includes('127.0.0.1') &&
-                 !lowerUrl.includes('localhost') &&
-                 !lowerUrl.includes('.local') &&
-                 !lowerUrl.endsWith('/chat') &&
-                 !lowerUrl.endsWith('/private') &&
-                 !lowerUrl.endsWith('/outbox');
-        });
+        // Note: getDefaultRelays() now automatically filters unreachable relays
+        const { filterReachableRelays } = await import('./relay');
+        const userRelays = filterReachableRelays(relays || []);
         const defaultRelays = getDefaultRelays();
         const allRelays = [...new Set([...userRelays, ...defaultRelays])];
 
         const relayManager = new RelayManager();
 
-        await Promise.all(
+        // Connect to relays, silently failing for unreachable ones
+        const connectionResults = await Promise.allSettled(
           allRelays.map(url =>
-            relayManager.connect(url, { read: false, write: true }).catch(() => {})
+            relayManager.connect(url, { read: false, write: true })
           )
         );
+
+        // Log connection failures only if all failed
+        const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+        if (successfulConnections === 0 && allRelays.length > 0) {
+          console.warn('⚠️ Favorites: Could not connect to any relay');
+          return null;
+        }
 
         const results = await relayManager.publish(signedEvent);
         const hasSuccess = results.some(r => r.status === 'fulfilled');
@@ -296,25 +301,27 @@ export async function deleteFavoriteFromNostr(
       const event = createFavoriteDeletionEvent(eventId, privateKey);
 
       // Filter out unreachable relays and combine with defaults
-      const userRelays = (relays || []).filter(url => {
-        const lowerUrl = url.toLowerCase();
-        return !lowerUrl.includes('127.0.0.1') &&
-               !lowerUrl.includes('localhost') &&
-               !lowerUrl.includes('.local') &&
-               !lowerUrl.endsWith('/chat') &&
-               !lowerUrl.endsWith('/private') &&
-               !lowerUrl.endsWith('/outbox');
-      });
+      // Note: getDefaultRelays() now automatically filters unreachable relays
+      const { filterReachableRelays } = await import('./relay');
+      const userRelays = filterReachableRelays(relays || []);
       const defaultRelays = getDefaultRelays();
       const allRelays = [...new Set([...userRelays, ...defaultRelays])];
 
       const relayManager = new RelayManager();
 
-      await Promise.all(
+      // Connect to relays, silently failing for unreachable ones
+      const connectionResults = await Promise.allSettled(
         allRelays.map(url =>
-          relayManager.connect(url, { read: false, write: true }).catch(() => {})
+          relayManager.connect(url, { read: false, write: true })
         )
       );
+
+      // Log connection failures only if all failed
+      const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+      if (successfulConnections === 0 && allRelays.length > 0) {
+        console.warn('⚠️ Favorites: Could not connect to any relay');
+        return null;
+      }
 
       const results = await relayManager.publish(event);
       const hasSuccess = results.some(r => r.status === 'fulfilled');
@@ -387,26 +394,28 @@ export async function batchPublishFavoritesToNostr(
   }
 
   // Filter out unreachable relays and combine with defaults
-  const userRelays = (relays || []).filter(url => {
-    const lowerUrl = url.toLowerCase();
-    return !lowerUrl.includes('127.0.0.1') &&
-           !lowerUrl.includes('localhost') &&
-           !lowerUrl.includes('.local') &&
-           !lowerUrl.endsWith('/chat') &&
-           !lowerUrl.endsWith('/private') &&
-           !lowerUrl.endsWith('/outbox');
-  });
+  // Note: getDefaultRelays() now automatically filters unreachable relays
+  const { filterReachableRelays } = await import('./relay');
+  const userRelays = filterReachableRelays(relays || []);
   const defaultRelays = getDefaultRelays();
   const allRelays = [...new Set([...userRelays, ...defaultRelays])];
 
   const relayManager = new RelayManager();
 
-  // Connect to relays once
-  await Promise.all(
+  // Connect to relays once, silently failing for unreachable ones
+  const connectionResults = await Promise.allSettled(
     allRelays.map(url =>
-      relayManager.connect(url, { read: false, write: true }).catch(() => {})
+      relayManager.connect(url, { read: false, write: true })
     )
   );
+
+  // Log connection failures only if all failed
+  const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+  if (successfulConnections === 0 && allRelays.length > 0) {
+    console.warn('⚠️ Batch sync: Could not connect to any relay');
+    result.failed = favorites.map(f => ({ id: f.id, error: 'Could not connect to any relay' }));
+    return result;
+  }
 
   // Process each favorite sequentially with delay
   for (let i = 0; i < favorites.length; i++) {

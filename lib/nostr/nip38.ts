@@ -146,14 +146,23 @@ export async function publishUserStatus(
     const signedEvent = await signer.signEvent(template as any);
 
     // Publish to relays - use user's write relays if available
+    // Note: getUserWriteRelays() now automatically filters unreachable relays
     const relayUrls = relays || getUserWriteRelays();
     const relayManager = new RelayManager();
 
-    await Promise.all(
+    // Connect to relays, silently failing for unreachable ones
+    const connectionResults = await Promise.allSettled(
       relayUrls.map(url =>
-        relayManager.connect(url, { read: false, write: true }).catch(() => {})
+        relayManager.connect(url, { read: false, write: true })
       )
     );
+
+    // Log connection failures only if all failed
+    const successfulConnections = connectionResults.filter(r => r.status === 'fulfilled').length;
+    if (successfulConnections === 0 && relayUrls.length > 0) {
+      console.warn('⚠️ NIP-38: Could not connect to any relay');
+      return null;
+    }
 
     const results = await relayManager.publish(signedEvent);
     const hasSuccess = results.some(r => r.status === 'fulfilled');

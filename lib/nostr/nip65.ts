@@ -4,7 +4,7 @@
  * Spec: https://github.com/nostr-protocol/nips/blob/master/65.md
  */
 
-import { getDefaultRelays } from './relay';
+import { getDefaultRelays, filterReachableRelays } from './relay';
 
 export interface RelayInfo {
   url: string;
@@ -161,6 +161,7 @@ export function getStoredUserRelays(pubkey?: string): UserRelays | null {
 /**
  * Get user's write relays for publishing events
  * Falls back to default relays if user has none stored
+ * Automatically filters out unreachable relays (localhost, .local, etc.)
  * @param pubkey - Optional pubkey to validate
  * @returns Array of relay URLs
  */
@@ -168,8 +169,9 @@ export function getUserWriteRelays(pubkey?: string): string[] {
   const stored = getStoredUserRelays(pubkey);
 
   if (stored && stored.write.length > 0) {
-    console.log(`📡 NIP-65: Using ${stored.write.length} user write relays`);
-    return stored.write;
+    const filtered = filterReachableRelays(stored.write);
+    console.log(`📡 NIP-65: Using ${filtered.length} user write relays (filtered from ${stored.write.length})`);
+    return filtered;
   }
 
   console.log('📡 NIP-65: No user relays, using defaults');
@@ -179,6 +181,7 @@ export function getUserWriteRelays(pubkey?: string): string[] {
 /**
  * Get user's read relays for querying events
  * Falls back to default relays if user has none stored
+ * Automatically filters out unreachable relays (localhost, .local, etc.)
  * @param pubkey - Optional pubkey to validate
  * @returns Array of relay URLs
  */
@@ -186,7 +189,8 @@ export function getUserReadRelays(pubkey?: string): string[] {
   const stored = getStoredUserRelays(pubkey);
 
   if (stored && stored.read.length > 0) {
-    return stored.read;
+    const filtered = filterReachableRelays(stored.read);
+    return filtered;
   }
 
   return getDefaultRelays();
