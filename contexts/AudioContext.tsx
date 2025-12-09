@@ -932,8 +932,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
                 videoElement.play().then(() => {
                   console.log(`✅ ${context} started successfully`);
                   // Initialize Web Audio for volume normalization (HLS via hls.js)
-                  initWebAudio();
-                  connectToCompressor(videoElement, true);
+                  // Only connect for proxied URLs to avoid CORS-related silence
+                  const isProxied = typeof currentUrl === 'string' && currentUrl.includes('proxy-');
+                  if (isProxied) {
+                    initWebAudio();
+                    connectToCompressor(videoElement, true);
+                  }
                   hasResolved = true;
                   resolve(true);
                 }).catch(error => {
@@ -995,8 +999,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
             await playPromise;
             console.log(`✅ ${context} started successfully with Safari native HLS`);
             // Initialize Web Audio for volume normalization (Safari native HLS)
-            initWebAudio();
-            connectToCompressor(videoElement, true);
+            // Only connect for proxied URLs to avoid CORS-related silence
+            const isProxied = typeof currentUrl === 'string' && currentUrl.includes('proxy-');
+            if (isProxied) {
+              initWebAudio();
+              connectToCompressor(videoElement, true);
+            }
             return true;
           }
         } else {
@@ -1119,9 +1127,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           });
 
           // Initialize Web Audio and connect to compressor for volume normalization
-          // This will only work for CORS-enabled sources (proxied or properly configured)
-          initWebAudio();
-          connectToCompressor(currentMediaElement, isVideo);
+          // IMPORTANT: Only connect for proxied URLs because:
+          // 1. Once connected, ALL audio goes through Web Audio (can't undo)
+          // 2. Cross-origin audio without CORS headers outputs SILENCE
+          // 3. Our proxy has CORS headers, but direct URLs often don't
+          if (isProxied) {
+            initWebAudio();
+            connectToCompressor(currentMediaElement, isVideo);
+          }
 
           // Clear retry flag on success
           isRetryingRef.current = false;
