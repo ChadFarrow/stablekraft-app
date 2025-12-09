@@ -44,6 +44,7 @@ interface AudioContextType {
   playTrack: (audioUrl: string, startTime?: number, endTime?: number) => Promise<boolean>;
   playShuffledTrack: (index: number) => Promise<boolean>;
   shuffleAllTracks: () => Promise<boolean>;
+  shuffleAlbums: (albums: RSSAlbum[]) => Promise<boolean>;
   toggleShuffle: () => void;
   pause: () => void;
   resume: () => void;
@@ -1779,6 +1780,103 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     return success;
   };
 
+  // Shuffle specific albums (for page-specific shuffle like publisher pages)
+  const shuffleAlbums = async (albumsToShuffle: RSSAlbum[]): Promise<boolean> => {
+    if (!albumsToShuffle || albumsToShuffle.length === 0) {
+      console.warn('No albums provided for shuffle');
+      return false;
+    }
+
+    // Clear any existing shuffle state to ensure a fresh random shuffle
+    setShuffledPlaylist([]);
+    setCurrentShuffleIndex(0);
+    setIsShuffleMode(false);
+    if (typeof window !== 'undefined') {
+      storage.removeItem('audioPlayerState');
+    }
+
+    // Create a flat array of all tracks with their album info
+    const allTracks: Array<{
+      album: RSSAlbum;
+      trackIndex: number;
+      track: any;
+    }> = [];
+
+    albumsToShuffle.forEach(album => {
+      if (album.tracks && album.tracks.length > 0) {
+        album.tracks.forEach((track, trackIndex) => {
+          allTracks.push({
+            album,
+            trackIndex,
+            track
+          });
+        });
+      }
+    });
+
+    console.log(`🎲 Page shuffle pool: ${albumsToShuffle.length} albums, ${allTracks.length} tracks`);
+
+    if (allTracks.length === 0) {
+      console.warn('No tracks available for shuffle');
+      return false;
+    }
+
+    // Simple Fisher-Yates shuffle - pure random
+    const shuffledTracks = [...allTracks];
+    for (let i = shuffledTracks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledTracks[i], shuffledTracks[j]] = [shuffledTracks[j], shuffledTracks[i]];
+    }
+
+    console.log(`🎲 Random shuffle: ${shuffledTracks.length} tracks`);
+
+    // Set up shuffle state
+    setShuffledPlaylist(shuffledTracks);
+    setCurrentShuffleIndex(0);
+    setIsShuffleMode(true);
+
+    // Play the first track in the shuffled playlist
+    const firstTrack = shuffledTracks[0];
+    console.log('🎲 Starting shuffle with:', firstTrack.track.title, 'from', firstTrack.album.title);
+
+    const track = firstTrack.track;
+    const album = firstTrack.album;
+
+    if (!track || !track.url) {
+      console.error('❌ No valid track found in shuffled playlist');
+      return false;
+    }
+
+    // IMPORTANT: Update state BEFORE attempting playback
+    setCurrentPlayingAlbum(album);
+    setCurrentTrackIndex(firstTrack.trackIndex);
+    setCurrentShuffleIndex(0);
+    setHasUserInteracted(true);
+
+    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
+
+    // If initial track failed, auto-skip to find a playable track
+    if (!success) {
+      console.log('⏭️ Initial shuffle track failed, auto-skipping to next...');
+      setTimeout(() => {
+        if (playNextTrackRef.current) {
+          playNextTrackRef.current();
+        }
+      }, 500);
+      return true;
+    }
+
+    // Prefetch upcoming tracks in the background for smooth playback
+    if (shuffledTracks.length > 1) {
+      const upcomingTracks = shuffledTracks.slice(1, 4).map(item => item.track);
+      prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
+        // Silent fail - prefetching is best-effort
+      });
+    }
+
+    return success;
+  };
+
   // Pause function - uses DOM ID as fallback for iOS background reliability
   const pause = () => {
     // Try ref first, then fallback to DOM query for iOS background compatibility
@@ -2242,6 +2340,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     playTrack,
     playShuffledTrack,
     shuffleAllTracks,
+    shuffleAlbums,
     toggleShuffle,
     pause,
     resume,

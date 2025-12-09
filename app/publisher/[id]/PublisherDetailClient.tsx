@@ -154,13 +154,13 @@ export default function PublisherDetailClient({ publisherId, initialData }: Publ
   const [sortType, setSortType] = useState<SortType>('year'); // Default to newest first
   
   // Global audio context for shuffle functionality
-  const { shuffleAllTracks } = useAudio();
-  
-  // Shuffle functionality for publisher albums
+  const { shuffleAlbums } = useAudio();
+
+  // Shuffle functionality for publisher albums (only shuffles albums on this page)
   const handleShuffle = async () => {
     try {
-      console.log('🎲 Shuffle button clicked - starting shuffle for publisher albums');
-      await shuffleAllTracks();
+      console.log(`🎲 Shuffle button clicked - shuffling ${albums.length} publisher albums`);
+      await shuffleAlbums(albums);
     } catch (error) {
       console.error('Error starting shuffle:', error);
     }
