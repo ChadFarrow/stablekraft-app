@@ -117,6 +117,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const compressorRef = useRef<DynamicsCompressorNode | null>(null);
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const videoSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  // Track if Web Audio has been activated - once true, ALL external audio must use proxy
+  // This prevents silence from cross-origin audio going through Web Audio without CORS headers
+  const webAudioActivatedRef = useRef<boolean>(false);
 
   // NIP-38 status publishing
   const { user, isAuthenticated } = useNostr();
@@ -384,7 +387,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         const source = ctx.createMediaElementSource(mediaElement);
         source.connect(compressorRef.current);
         sourceRef.current = source;
-        console.log(`🔊 ${isVideo ? 'Video' : 'Audio'} connected to compressor for volume normalization`);
+        // Mark Web Audio as activated - from now on, ALL external audio must use proxy
+        // to prevent silence from cross-origin audio without CORS headers
+        webAudioActivatedRef.current = true;
+        console.log(`🔊 ${isVideo ? 'Video' : 'Audio'} connected to compressor for volume normalization (Web Audio now active)`);
         return true;
       } catch (err) {
         // CORS error or already connected - audio will play without normalization
@@ -795,6 +801,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           urlsToTry.push(sanitizedUrl);
         }
       } else if (isExternal) {
+        // CRITICAL: If Web Audio has been activated, ALWAYS use proxy for external URLs
+        // Once createMediaElementSource() connects an element to Web Audio, ALL audio
+        // from that element goes through Web Audio. Cross-origin audio without CORS
+        // headers outputs SILENCE as a security measure. Using proxy ensures CORS headers.
+        if (webAudioActivatedRef.current) {
+          console.log('🔊 [URL Strategy] Web Audio active - forcing proxy for CORS compliance');
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
+          console.log('📋 [URL Strategy] Final URLs to try:', urlsToTry.length, 'URLs');
+          return urlsToTry;
+        }
+
         // Normalize hostname for case-insensitive matching
         const hostname = url.hostname.toLowerCase();
 
