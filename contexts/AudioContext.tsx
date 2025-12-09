@@ -748,10 +748,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       return [];
     }
 
+    // Sanitize URL: encode spaces that aren't already encoded
+    // Many RSS feeds have unencoded spaces in URLs which break playback
+    let sanitizedUrl = originalUrl;
+    if (originalUrl.includes(' ') && !originalUrl.includes('%20')) {
+      sanitizedUrl = originalUrl.replace(/ /g, '%20');
+      console.log('🔧 [URL Strategy] Encoded spaces in URL');
+    }
+
     try {
-      const url = new URL(originalUrl);
+      const url = new URL(sanitizedUrl);
       const isExternal = url.hostname !== window.location.hostname;
-      const isHls = isHlsUrl(originalUrl);
+      const isHls = isHlsUrl(sanitizedUrl);
 
       console.log(`🔍 [URL Strategy] Parsed - hostname: ${url.hostname}, isExternal: ${isExternal}, isHls: ${isHls}`);
 
@@ -759,17 +767,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       if (isHls) {
         // For HLS streams, try video proxy first, then audio proxy, then direct
         console.log('📺 [URL Strategy] HLS stream detected - using proxy + direct fallback');
-        urlsToTry.push(`/api/proxy-video?url=${encodeURIComponent(originalUrl)}`);
-        urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
-        urlsToTry.push(originalUrl);
+        urlsToTry.push(`/api/proxy-video?url=${encodeURIComponent(sanitizedUrl)}`);
+        urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
+        urlsToTry.push(sanitizedUrl);
         console.log('📋 [URL Strategy] Final URLs to try:', urlsToTry.length, 'URLs');
         return urlsToTry;
       }
 
       // Special handling for op3.dev analytics URLs - extract direct URL
-      if (originalUrl.includes('op3.dev/e,') && originalUrl.includes('/https://')) {
+      if (sanitizedUrl.includes('op3.dev/e,') && sanitizedUrl.includes('/https://')) {
         console.log('🔗 [URL Strategy] op3.dev analytics URL detected');
-        const directUrl = originalUrl.split('/https://')[1];
+        const directUrl = sanitizedUrl.split('/https://')[1];
         if (directUrl) {
           const fullDirectUrl = `https://${directUrl}`;
           console.log('🔗 Extracted direct URL from op3.dev:', fullDirectUrl);
@@ -778,13 +786,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           // Then try proxy with direct URL
           urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(fullDirectUrl)}`);
           // Fallback to original op3 URL with proxy
-          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
           // Last resort: original op3 URL direct
-          urlsToTry.push(originalUrl);
+          urlsToTry.push(sanitizedUrl);
         } else {
           // If extraction fails, use normal logic
-          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
-          urlsToTry.push(originalUrl);
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
+          urlsToTry.push(sanitizedUrl);
         }
       } else if (isExternal) {
         // Normalize hostname for case-insensitive matching
@@ -835,27 +843,27 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         if (isDomainProblematic || isCloudFront) {
           // For known CORS-problematic domains, use proxy first and skip direct URL
           console.log(`🚫 [URL Strategy] CORS-problematic domain detected (${hostname}) - PROXY ONLY`);
-          monitoring.info('audio-playback', `CORS-problematic domain detected: ${hostname}`, { originalUrl });
-          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
+          monitoring.info('audio-playback', `CORS-problematic domain detected: ${hostname}`, { sanitizedUrl });
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
         } else if (isDirectFirst) {
           // For domains known to work directly, try direct first for faster playback
           console.log(`⚡ [URL Strategy] Direct-first domain (${hostname}) - direct then proxy fallback`);
-          urlsToTry.push(originalUrl);
-          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
+          urlsToTry.push(sanitizedUrl);
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
         } else {
           console.log(`✅ [URL Strategy] External domain OK (${hostname}) - proxy first, then direct fallback`);
           // For other external URLs, try proxy first then direct as fallback
-          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(originalUrl)}`);
-          urlsToTry.push(originalUrl);
+          urlsToTry.push(`/api/proxy-audio?url=${encodeURIComponent(sanitizedUrl)}`);
+          urlsToTry.push(sanitizedUrl);
         }
       } else {
         console.log('🏠 [URL Strategy] Local URL - direct only');
         // For local URLs, try direct first
-        urlsToTry.push(originalUrl);
+        urlsToTry.push(sanitizedUrl);
       }
     } catch (urlError) {
-      console.warn('⚠️ Could not parse audio URL, using as-is:', originalUrl, urlError);
-      urlsToTry.push(originalUrl);
+      console.warn('⚠️ Could not parse audio URL, using as-is:', sanitizedUrl, urlError);
+      urlsToTry.push(sanitizedUrl);
     }
 
     console.log(`📋 [URL Strategy] Final strategy: ${urlsToTry.length} URL(s) to try:`, urlsToTry.map((u, i) =>
