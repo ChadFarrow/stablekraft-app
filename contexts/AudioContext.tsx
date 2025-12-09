@@ -1197,6 +1197,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         // This keeps the audio session "warm" on iOS
         currentElement.src = secureUrl;
 
+        // Reset currentTime to 0 for iOS - the src change may not automatically reset it
+        currentElement.currentTime = 0;
+
         // Attempt immediate play
         const playPromise = currentElement.play();
         if (playPromise !== undefined) {
@@ -1370,6 +1373,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
             currentElement.currentTime = track.startTime;
           } else {
             console.warn(`⚠️ Start time ${track.startTime}s is beyond track duration ${currentElement.duration}s for track: ${track.title}`);
+          }
+        } else {
+          // No startTime - ensure we start from the beginning
+          // This is important for iOS where currentTime may not reset automatically on source change
+          if (currentElement.currentTime > 1) {
+            console.log(`🎵 Resetting currentTime from ${currentElement.currentTime}s to 0 for track: ${track.title}`);
+            currentElement.currentTime = 0;
           }
         }
       }
@@ -1580,6 +1590,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     setCurrentPlayingAlbum(album);
     setCurrentTrackIndex(trackIndex);
 
+    // Reset currentTime immediately when switching tracks to avoid stale time showing in UI
+    // This is especially important on iOS where timeupdate events may be delayed
+    const startTime = track.startTime && typeof track.startTime === 'number' ? track.startTime : 0;
+    setCurrentTime(startTime);
+
     // When manually playing an album/track, always exit shuffle mode
     // This ensures shuffle is turned off when you play something specific
     setIsShuffleMode(false);
@@ -1650,6 +1665,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     setCurrentTrackIndex(trackData.trackIndex);
     setCurrentShuffleIndex(index);
     setHasUserInteracted(true);
+
+    // Reset currentTime immediately when switching tracks to avoid stale time showing in UI
+    const startTime = track.startTime && typeof track.startTime === 'number' ? track.startTime : 0;
+    setCurrentTime(startTime);
 
     // In shuffle mode, if we're playing, use seamless playback for iOS background
     if (isPlaying) {
