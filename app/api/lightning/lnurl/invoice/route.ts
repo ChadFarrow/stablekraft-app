@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 interface LNURLPayResponse {
   pr: string; // Lightning invoice
+  verify?: string; // URL to poll for payment verification
   successAction?: {
     tag: string;
     message?: string;
@@ -55,6 +56,9 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Log the full response for debugging
+    console.log('[LNURL Invoice] Response from provider:', JSON.stringify(data, null, 2));
 
     if (data.status === 'ERROR') {
       return NextResponse.json(

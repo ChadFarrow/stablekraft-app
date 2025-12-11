@@ -20,6 +20,7 @@ export interface LNURLPayParams {
 
 export interface LNURLPayResponse {
   pr: string; // Lightning invoice
+  verify?: string; // URL to poll for payment verification
   successAction?: {
     tag: string;
     message?: string;
@@ -370,7 +371,7 @@ export class LNURLService {
     amountSats: number,
     comment?: string,
     payerData?: any
-  ): Promise<{ invoice: string; successAction?: any }> {
+  ): Promise<{ invoice: string; verify?: string; successAction?: any }> {
     try {
       // Resolve Lightning Address to LNURL-pay params
       const params = await this.resolveLightningAddress(address);
@@ -383,6 +384,7 @@ export class LNURLService {
 
       return {
         invoice: invoiceResponse.pr,
+        verify: invoiceResponse.verify,
         successAction: invoiceResponse.successAction,
       };
     } catch (error) {
@@ -415,6 +417,56 @@ export class LNURLService {
       };
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Check if an invoice has been paid using the verify URL
+   * Returns true if paid, false if not paid yet
+   */
+  static async checkPaymentStatus(verifyUrl: string): Promise<{ settled: boolean; preimage?: string }> {
+    try {
+      // Use proxy endpoint in browser to avoid CORS issues
+      if (this.isBrowser()) {
+        const response = await fetch('/api/lightning/lnurl/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ verifyUrl }),
+        });
+
+        if (!response.ok) {
+          return { settled: false };
+        }
+
+        const data = await response.json();
+        return {
+          settled: data.settled === true,
+          preimage: data.preimage,
+        };
+      }
+
+      // Server-side: direct fetch
+      const response = await fetch(verifyUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'StableKraft-Lightning/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        return { settled: false };
+      }
+
+      const data = await response.json();
+      return {
+        settled: data.settled === true,
+        preimage: data.preimage,
+      };
+    } catch (error) {
+      console.error('Failed to check payment status:', error);
+      return { settled: false };
     }
   }
 
