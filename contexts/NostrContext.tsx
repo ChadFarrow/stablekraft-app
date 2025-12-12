@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getPublicKey, nip19 } from 'nostr-tools';
-import { getPublicKeyFromPrivate, publicKeyToNpub } from '@/lib/nostr/keys';
+// Note: nostr-tools functions are imported via @/lib/nostr/keys when needed (lazy-loaded)
 import { fetchAndStoreUserRelays, clearStoredUserRelays } from '@/lib/nostr/nip65';
 
 export interface NostrUser {

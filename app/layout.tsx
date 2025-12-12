@@ -258,12 +258,12 @@ export default function RootLayout({
                                 opacity: 0.8
                               }}
                             />
-                            {/* Background image loads after critical content */}
+                            {/* Background image loads after critical content - using WebP for 55% smaller file */}
                             <div
                               className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
                               id="background-image"
                               style={{
-                                background: 'url(/stablekraft-rocket.png) center/contain fixed',
+                                background: 'url(/stablekraft-rocket.webp) center/contain fixed',
                                 backgroundAttachment: 'fixed',
                                 opacity: 0.6
                               }}

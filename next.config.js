@@ -529,26 +529,62 @@ const nextConfig = {
 
   // Webpack optimizations for performance
   webpack: (config, { dev, isServer }) => {
-    // Performance optimizations
+    // Performance optimizations - aggressive bundle splitting for first-visit performance
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
+        maxInitialRequests: 25,
+        minSize: 20000,
         cacheGroups: {
+          // Split heavy Nostr libraries into async chunk (loaded on auth)
+          nostr: {
+            test: /[\\/]node_modules[\\/](nostr-tools|@noble|@scure|nostr-login)[\\/]/,
+            name: 'nostr',
+            chunks: 'async',
+            priority: 40,
+            enforce: true,
+          },
+          // Split Bitcoin/Lightning libraries into async chunk (loaded on wallet connect)
+          bitcoin: {
+            test: /[\\/]node_modules[\\/](@getalby|webln|@webbtc|lnc-web|bitcoin-connect)[\\/]/,
+            name: 'bitcoin',
+            chunks: 'async',
+            priority: 40,
+            enforce: true,
+          },
+          // Split HLS.js into async chunk (loaded on video playback)
+          hls: {
+            test: /[\\/]node_modules[\\/]hls\.js[\\/]/,
+            name: 'hls',
+            chunks: 'async',
+            priority: 40,
+            enforce: true,
+          },
+          // Split QR code library (loaded when needed)
+          qrcode: {
+            test: /[\\/]node_modules[\\/](qrcode\.react|qrcode)[\\/]/,
+            name: 'qrcode',
+            chunks: 'async',
+            priority: 30,
+          },
+          // Keep common vendor chunk for essential libraries
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendors',
             chunks: 'all',
+            priority: 10,
           },
           common: {
             name: 'common',
             minChunks: 2,
             chunks: 'all',
+            priority: 5,
             enforce: true,
           },
         },
       };
     }
-    
+
     return config;
   },
   

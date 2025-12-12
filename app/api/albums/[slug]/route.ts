@@ -619,6 +619,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       const titleSearch = slug.replace(/-/g, ' ');
       // Also try without "the" prefix if present
       const titleSearchWithoutThe = titleSearch.replace(/^the\s+/i, '');
+      // Also try with "and" converted back to "&" (common in album titles)
+      const titleSearchWithAmpersand = titleSearch.replace(/\band\b/g, '&');
 
       // Build OR conditions array
       const orConditions: any[] = [
@@ -626,6 +628,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       ];
       if (titleSearchWithoutThe !== titleSearch) {
         orConditions.push({ title: { contains: titleSearchWithoutThe, mode: 'insensitive' as const } });
+      }
+      // Add ampersand variant for titles like "Aged Friends & Old Whiskey"
+      if (titleSearchWithAmpersand !== titleSearch) {
+        orConditions.push({ title: { contains: titleSearchWithAmpersand, mode: 'insensitive' as const } });
       }
 
       const candidateFeeds = await prisma.feed.findMany({

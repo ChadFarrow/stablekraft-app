@@ -245,40 +245,49 @@ function HomePageContent() {
     if (hasLoadedRef.current) {
       return;
     }
-    
+
     hasLoadedRef.current = true;
-    
-    // Clear ALL old cache versions to prevent stale data issues
+
+    // Defer localStorage cleanup to idle time to avoid blocking initial render
     if (typeof window !== 'undefined') {
-      // Clear any old cache versions (pre-v4)
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('cachedAlbums_') || key.includes('albumsCacheTimestamp_'))) {
-          // Only keep current version cache
-          if (!key.includes(`_${API_VERSION}`)) {
-            keysToRemove.push(key);
+      const cleanupCache = () => {
+        // Clear any old cache versions (pre-v4)
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('cachedAlbums_') || key.includes('albumsCacheTimestamp_'))) {
+            // Only keep current version cache
+            if (!key.includes(`_${API_VERSION}`)) {
+              keysToRemove.push(key);
+            }
           }
         }
-      }
-      keysToRemove.forEach(key => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🗑️ Removing old cache:', key);
-        }
-        localStorage.removeItem(key);
-      });
+        keysToRemove.forEach(key => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🗑️ Removing old cache:', key);
+          }
+          localStorage.removeItem(key);
+        });
 
-      // Also clear current cache if it's stale (older than 15 minutes for better performance)
-      const timestamp = localStorage.getItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`);
-      if (timestamp) {
-        const age = Date.now() - parseInt(timestamp);
-        if (age > 15 * 60 * 1000) { // 15 minutes - increased for better performance
-          localStorage.removeItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`);
-          localStorage.removeItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`);
+        // Also clear current cache if it's stale (older than 15 minutes for better performance)
+        const timestamp = localStorage.getItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`);
+        if (timestamp) {
+          const age = Date.now() - parseInt(timestamp);
+          if (age > 15 * 60 * 1000) { // 15 minutes - increased for better performance
+            localStorage.removeItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`);
+            localStorage.removeItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`);
+          }
         }
+      };
+
+      // Use requestIdleCallback if available, otherwise setTimeout
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(cleanupCache, { timeout: 2000 });
+      } else {
+        setTimeout(cleanupCache, 100);
       }
     }
-    
+
     // Progressive loading: Load critical data first, then enhance
     loadCriticalAlbums();
   }, []); // Run only once on mount
@@ -313,20 +322,15 @@ function HomePageContent() {
   }, [publisherStats.length]);
 
 
-  // Delay background image loading until after critical content
+  // Show background image after critical content loads (no artificial delay)
   useEffect(() => {
-    // Only start loading background after critical albums are loaded
     if (isCriticalLoaded && !backgroundImageLoaded) {
-      const timer = setTimeout(() => {
-        // Load background image after critical content
-        const bgElement = document.getElementById('background-image');
-        if (bgElement) {
-          bgElement.style.opacity = '0.6';
-          setBackgroundImageLoaded(true);
-        }
-      }, 1000); // Delay after critical content loads
-      
-      return () => clearTimeout(timer);
+      // Show background immediately when critical content is ready
+      const bgElement = document.getElementById('background-image');
+      if (bgElement) {
+        bgElement.style.opacity = '0.6';
+        setBackgroundImageLoaded(true);
+      }
     }
   }, [isCriticalLoaded, backgroundImageLoaded]);
 

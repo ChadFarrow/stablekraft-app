@@ -430,6 +430,11 @@ export async function GET(request: Request) {
         cacheAge: now - cacheTimestamp,
         source: 'database'
       }
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800',
+        'CDN-Cache-Control': 'public, s-maxage=900',
+      }
     });
     
   } catch (error) {
