@@ -7,60 +7,6 @@ import AlbumDetailClient from '@/app/album/[id]/AlbumDetailClient';
 import { RSSAlbum } from '@/lib/rss-parser';
 import confetti from 'canvas-confetti';
 
-function SandboxControls({
-  album,
-  onGenerateInvoice,
-}: {
-  album: RSSAlbum | null;
-  onGenerateInvoice: () => void;
-}) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [showRawData, setShowRawData] = useState(false);
-
-  return (
-    <div className="bg-yellow-900/90 text-white p-4 sticky top-0 z-50 border-b-2 border-yellow-500">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🐛</span>
-          <span className="font-bold">SANDBOX MODE</span>
-          <span className="text-yellow-300 text-sm">Use QR Invoice button for Lightning payments</span>
-        </div>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xl"
-        >
-          {isExpanded ? '▲' : '▼'}
-        </button>
-      </div>
-
-      {isExpanded && (
-        <div className="mt-4">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={onGenerateInvoice}
-              className="flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded text-sm"
-            >
-              ⚡ Generate QR Invoice
-            </button>
-            <button
-              onClick={() => setShowRawData(!showRawData)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-sm"
-            >
-              {showRawData ? '🙈 Hide' : '👁️ Show'} Raw Data
-            </button>
-          </div>
-
-          {showRawData && album && (
-            <pre className="mt-4 bg-black/50 p-3 rounded text-xs max-h-64 overflow-auto">
-              {JSON.stringify(album, null, 2)}
-            </pre>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function QRModal({
   isOpen,
   onClose,
@@ -74,6 +20,7 @@ function QRModal({
   trackTitle?: string;
   albumTitle?: string;
 }) {
+  const [step, setStep] = useState<'intro' | 'payment'>('intro');
   const [invoice, setInvoice] = useState<string | null>(null);
   const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
@@ -105,13 +52,9 @@ function QRModal({
     }, 200);
   }, []);
 
-  // Close handler that fires confetti if invoice was shown
   const handleClose = useCallback(() => {
-    if (invoice && !isPaid) {
-      triggerConfetti();
-    }
     onClose();
-  }, [invoice, isPaid, triggerConfetti, onClose]);
+  }, [onClose]);
 
   const generateInvoice = useCallback(async (newDollarAmount?: number) => {
     const dollars = newDollarAmount || dollarAmount;
@@ -233,16 +176,17 @@ function QRModal({
     };
   }, [verifyUrl, invoice, isPaid, triggerConfetti, onClose]);
 
-  // Auto-generate invoice when modal opens and BTC price is loaded
+  // Auto-generate invoice when user reaches payment step and BTC price is loaded
   useEffect(() => {
-    if (isOpen && lightningAddress && btcPrice && !invoice && !isGenerating && !invoiceError) {
+    if (isOpen && step === 'payment' && lightningAddress && btcPrice && !invoice && !isGenerating && !invoiceError) {
       generateInvoice();
     }
-  }, [isOpen, lightningAddress, btcPrice]);
+  }, [isOpen, step, lightningAddress, btcPrice]);
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
+      setStep('intro');
       setInvoice(null);
       setVerifyUrl(null);
       setInvoiceError(null);
@@ -270,12 +214,35 @@ function QRModal({
     >
       <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-white">Lightning Payment (QR)</h3>
+          <h3 className="text-xl font-bold text-white">
+            {step === 'intro' ? 'CashApp Demo' : 'Lightning Payment (QR)'}
+          </h3>
           <button onClick={handleClose} className="text-gray-400 hover:text-white text-2xl">
             &times;
           </button>
         </div>
 
+        {/* Intro Screen */}
+        {step === 'intro' && (
+          <div className="text-center py-8">
+            <p className="text-white text-lg mb-4">
+              This is a demo for using CashApp to pay lightning invoices
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              CashApp has a $1 min to use this feature so thats why the min here is $1.25 to make sure that it works with the Cash balance in CashApp
+            </p>
+            <button
+              onClick={() => setStep('payment')}
+              className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Payment Flow */}
+        {step === 'payment' && (
+          <>
         {/* Track info */}
         {trackTitle && (
           <div className="mb-4 p-3 bg-gray-700/50 rounded-lg">
@@ -389,6 +356,8 @@ function QRModal({
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
@@ -466,12 +435,6 @@ function SandboxAlbumContent() {
 
   return (
     <div className="min-h-screen" ref={containerRef}>
-      {/* Sandbox Controls */}
-      <SandboxControls
-        album={album}
-        onGenerateInvoice={openAlbumQR}
-      />
-
       {/* QR Modal */}
       <QRModal
         isOpen={showQRModal}
@@ -489,12 +452,12 @@ function SandboxAlbumContent() {
         extraAlbumActions={
           <button
             onClick={openAlbumQR}
-            className="flex items-center gap-2 px-6 py-3 text-base bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-3 text-base bg-[#00D632] hover:bg-[#00C22D] text-white rounded-lg font-medium transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h3v2h-3v-2zm2 4h3v2h-3v-2zm3 3h2v3h-2v-3zm-5 0h3v3h-3v-3z"/>
             </svg>
-            QR Invoice
+            CashApp Demo
           </button>
         }
       />
