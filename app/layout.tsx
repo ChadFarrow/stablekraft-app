@@ -264,7 +264,8 @@ export default function RootLayout({
                               id="background-image"
                               style={{
                                 background: 'url(/stablekraft-rocket.webp) center/contain fixed',
-                                backgroundAttachment: 'fixed'
+                                backgroundAttachment: 'fixed',
+                                opacity: 0.6
                               }}
                             />
 
