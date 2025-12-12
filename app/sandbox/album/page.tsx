@@ -25,10 +25,13 @@ function QRModal({
   const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [dollarAmount, setDollarAmount] = useState(3); // Default $3
+  const [dollarAmount, setDollarAmount] = useState(1.25); // Default $1.25
   const [btcPrice, setBtcPrice] = useState<number | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const [invoiceCreatedAt, setInvoiceCreatedAt] = useState<number | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const INVOICE_EXPIRY_SECONDS = 600; // 10 minutes
 
   const triggerConfetti = useCallback(() => {
     // Fire confetti from both sides
@@ -117,6 +120,8 @@ function QRModal({
       console.log('[Sandbox] Verify URL:', result.verify || 'none');
       setInvoice(result.invoice);
       setVerifyUrl(result.verify || null);
+      setInvoiceCreatedAt(Date.now());
+      setTimeRemaining(INVOICE_EXPIRY_SECONDS);
     } catch (err: any) {
       console.error('[Sandbox] Invoice error:', err);
       console.error('[Sandbox] Error details:', { message: err.message, stack: err.stack });
@@ -183,6 +188,28 @@ function QRModal({
     }
   }, [isOpen, step, lightningAddress, btcPrice]);
 
+  // Countdown timer for invoice expiry
+  useEffect(() => {
+    if (!invoiceCreatedAt || !invoice || isPaid) return;
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - invoiceCreatedAt) / 1000);
+      const remaining = INVOICE_EXPIRY_SECONDS - elapsed;
+
+      if (remaining <= 0) {
+        setTimeRemaining(0);
+        setInvoiceError('Invoice expired. Please generate a new one.');
+        setInvoice(null);
+        setInvoiceCreatedAt(null);
+        clearInterval(timer);
+      } else {
+        setTimeRemaining(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [invoiceCreatedAt, invoice, isPaid]);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -190,9 +217,11 @@ function QRModal({
       setInvoice(null);
       setVerifyUrl(null);
       setInvoiceError(null);
-      setDollarAmount(3); // Reset to default $3
+      setDollarAmount(1.25); // Reset to default $1.25
       setIsPaid(false);
       setIsPolling(false);
+      setInvoiceCreatedAt(null);
+      setTimeRemaining(null);
     }
   }, [isOpen]);
 
@@ -318,9 +347,17 @@ function QRModal({
               <div className="bg-white p-4 rounded-lg mb-4">
                 <QRCodeSVG value={invoice.toUpperCase()} size={256} level="M" />
               </div>
-              <p className="text-sm text-gray-400 mb-4 text-center">
+              <p className="text-sm text-gray-400 mb-2 text-center">
                 Scan with any Lightning wallet
               </p>
+              {/* Timer display */}
+              {timeRemaining !== null && (
+                <p className={`text-sm mb-4 text-center font-mono ${
+                  timeRemaining < 60 ? 'text-red-400' : timeRemaining < 180 ? 'text-yellow-400' : 'text-gray-400'
+                }`}>
+                  Expires in {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                </p>
+              )}
               <div className="flex gap-2 w-full">
                 <button
                   onClick={copyInvoice}
@@ -343,6 +380,18 @@ function QRModal({
                   <span className="text-sm">Waiting for payment...</span>
                 </div>
               )}
+
+              {/* Manual paid button */}
+              <button
+                onClick={() => {
+                  setIsPaid(true);
+                  triggerConfetti();
+                  setTimeout(() => onClose(), 3000);
+                }}
+                className="mt-4 w-full px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white font-medium"
+              >
+                Paid
+              </button>
 
             </>
           )}
