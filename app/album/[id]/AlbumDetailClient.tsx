@@ -23,9 +23,10 @@ interface AlbumDetailClientProps {
   albumTitle: string;
   albumId: string; // Add albumId prop
   initialAlbum: RSSAlbum | null;
+  extraAlbumActions?: React.ReactNode; // Optional extra buttons next to album Boost
 }
 
-export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }: AlbumDetailClientProps) {
+export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, extraAlbumActions }: AlbumDetailClientProps) {
   const [album, setAlbum] = useState<RSSAlbum | null>(initialAlbum);
   const [isLoading, setIsLoading] = useState(!initialAlbum);
   const [error, setError] = useState<string | null>(null);
@@ -952,7 +953,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
             <div className="space-y-4">
               {/* Lightning Boost Button - only show if v4v data exists */}
               {checkHasV4V(album) ? (
-                <div className="flex justify-center lg:justify-start">
+                <div className="flex justify-center lg:justify-start gap-2">
                   <BoostButton
                     trackId={`album-${album.id}`}
                     feedId={album.feedId}
@@ -964,12 +965,14 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum }:
                     publisherUrl={album.publisher?.feedGuid ? `https://stablekraft.app${generatePublisherUrl({ artist: album.artist, feedGuid: album.publisher.feedGuid })}` : undefined}
                     className="flex items-center gap-2 px-6 py-3 text-base"
                   />
+                  {extraAlbumActions}
                 </div>
               ) : (
-                <div className="flex justify-center lg:justify-start">
+                <div className="flex justify-center lg:justify-start gap-2">
                   <div className="px-6 py-3 bg-gray-800/50 rounded-lg text-gray-400 text-sm">
                     No Lightning payment info available for this album
                   </div>
+                  {extraAlbumActions}
                 </div>
               )}
 

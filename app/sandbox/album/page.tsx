@@ -23,7 +23,7 @@ function SandboxControls({
         <div className="flex items-center gap-2">
           <span className="text-xl">🐛</span>
           <span className="font-bold">SANDBOX MODE</span>
-          <span className="text-yellow-300 text-sm">Boost buttons show QR codes</span>
+          <span className="text-yellow-300 text-sm">Use QR Invoice button for Lightning payments</span>
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -78,8 +78,7 @@ function QRModal({
   const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [amount, setAmount] = useState(21);
-  const [dollarAmount, setDollarAmount] = useState('');
+  const [dollarAmount, setDollarAmount] = useState(3); // Default $3
   const [btcPrice, setBtcPrice] = useState<number | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
@@ -114,16 +113,24 @@ function QRModal({
     onClose();
   }, [invoice, isPaid, triggerConfetti, onClose]);
 
-  const generateInvoice = useCallback(async (newAmount?: number) => {
-    const amountToUse = newAmount || amount;
+  const generateInvoice = useCallback(async (newDollarAmount?: number) => {
+    const dollars = newDollarAmount || dollarAmount;
 
     if (!lightningAddress) {
       setInvoiceError('No Lightning address found');
       return;
     }
 
+    if (!btcPrice) {
+      setInvoiceError('Waiting for BTC price...');
+      return;
+    }
+
+    // Convert dollars to sats
+    const amountToUse = Math.round((dollars / btcPrice) * 100000000);
+
     if (amountToUse < 1) {
-      setInvoiceError('Amount must be at least 1 sat');
+      setInvoiceError('Amount too small');
       return;
     }
 
@@ -175,7 +182,7 @@ function QRModal({
       console.log('[Sandbox] Invoice generation complete');
       setIsGenerating(false);
     }
-  }, [lightningAddress, amount, trackTitle, albumTitle]);
+  }, [lightningAddress, dollarAmount, btcPrice, trackTitle, albumTitle]);
 
   // Fetch BTC price on modal open
   useEffect(() => {
@@ -226,27 +233,12 @@ function QRModal({
     };
   }, [verifyUrl, invoice, isPaid, triggerConfetti, onClose]);
 
-  // Convert dollars to sats
-  const dollarsToSats = (dollars: number): number => {
-    if (!btcPrice) return 0;
-    // 1 BTC = 100,000,000 sats
-    return Math.round((dollars / btcPrice) * 100000000);
-  };
-
-  const handleDollarChange = (value: string) => {
-    setDollarAmount(value);
-    const dollars = parseFloat(value);
-    if (!isNaN(dollars) && dollars > 0 && btcPrice) {
-      const sats = dollarsToSats(dollars);
-      setAmount(sats);
-    }
-  };
-
+  // Auto-generate invoice when modal opens and BTC price is loaded
   useEffect(() => {
-    if (isOpen && lightningAddress && !invoice && !isGenerating && !invoiceError) {
+    if (isOpen && lightningAddress && btcPrice && !invoice && !isGenerating && !invoiceError) {
       generateInvoice();
     }
-  }, [isOpen, lightningAddress]);
+  }, [isOpen, lightningAddress, btcPrice]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -254,8 +246,7 @@ function QRModal({
       setInvoice(null);
       setVerifyUrl(null);
       setInvoiceError(null);
-      setAmount(21);
-      setDollarAmount('');
+      setDollarAmount(3); // Reset to default $3
       setIsPaid(false);
       setIsPolling(false);
     }
@@ -296,78 +287,36 @@ function QRModal({
 
         {/* Amount selector */}
         <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-2">Amount (sats)</label>
+          <label className="block text-sm text-gray-400 mb-2">Select Amount</label>
           <div className="flex gap-2 flex-wrap">
-            {[21, 100, 500, 1000].map(amt => (
+            {[1.25, 3, 5, 10, 20].map(amt => (
               <button
                 key={amt}
                 onClick={() => {
-                  setAmount(amt);
-                  setDollarAmount('');
+                  setDollarAmount(amt);
                   generateInvoice(amt);
                 }}
-                className={`px-3 py-1 rounded ${
-                  amount === amt && !dollarAmount ? 'bg-yellow-500 text-black' : 'bg-gray-700 hover:bg-gray-600 text-white'
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  dollarAmount === amt
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-white'
                 }`}
               >
-                {amt}
+                ${amt < 10 ? amt.toFixed(2) : amt}
               </button>
             ))}
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => {
-                setAmount(parseInt(e.target.value) || 21);
-                setDollarAmount('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  generateInvoice();
-                }
-              }}
-              className="w-20 px-2 py-1 bg-gray-700 rounded text-center text-white"
-              min="1"
-            />
-            <button
-              onClick={() => generateInvoice()}
-              className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-white"
-            >
-              Go
-            </button>
           </div>
 
-          {/* Dollar amount input */}
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-gray-400">$</span>
-            <input
-              type="number"
-              step="0.01"
-              placeholder="USD"
-              value={dollarAmount}
-              onChange={(e) => handleDollarChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  generateInvoice();
-                }
-              }}
-              className="w-24 px-2 py-1 bg-gray-700 rounded text-center text-white"
-              min="0.01"
-            />
-            {btcPrice && dollarAmount && (
-              <span className="text-sm text-gray-400">
-                = {amount.toLocaleString()} sats
-              </span>
-            )}
-            {!btcPrice && (
-              <span className="text-xs text-gray-500">Loading price...</span>
-            )}
-          </div>
+          {/* Show sats equivalent */}
           {btcPrice && (
-            <p className="text-xs text-gray-500 mt-1">
-              BTC: ${btcPrice.toLocaleString()}
-            </p>
+            <div className="mt-3 text-sm text-gray-400">
+              <p>${dollarAmount.toFixed(2)} = {Math.round((dollarAmount / btcPrice) * 100000000).toLocaleString()} sats</p>
+            </div>
+          )}
+          {!btcPrice && (
+            <div className="mt-3">
+              <span className="text-xs text-gray-500">Loading BTC price...</span>
+            </div>
           )}
         </div>
 
@@ -428,9 +377,6 @@ function QRModal({
                 </div>
               )}
 
-              <p className="text-xs text-gray-500 mt-4 break-all max-h-20 overflow-auto">
-                {invoice}
-              </p>
             </>
           )}
 
@@ -487,111 +433,6 @@ function SandboxAlbumContent() {
       });
   }, []);
 
-  // Override boost buttons with QR functionality
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !album) return;
-
-    const overrideBoostButton = (button: HTMLButtonElement) => {
-      // Skip if already overridden
-      if (button.dataset.sandboxOverride) return;
-      button.dataset.sandboxOverride = 'true';
-
-      // Find track context - look for the track row (has rounded-lg and group classes)
-      const trackRow = button.closest('.group');
-
-      let trackTitle: string | undefined;
-      let trackV4v: any = null;
-
-      if (trackRow) {
-        // The title is in a p element with line-clamp-2 class
-        const titleEl = trackRow.querySelector('p.line-clamp-2');
-        if (titleEl) {
-          // Get the text content, but the title might have " • Artist" after it
-          const fullText = titleEl.textContent || '';
-          // Split on the bullet separator to get just the title
-          trackTitle = fullText.split(' • ')[0].trim();
-        }
-
-        // Fallback: try to get title from image alt attribute
-        if (!trackTitle) {
-          const img = trackRow.querySelector('img[alt]');
-          if (img) {
-            trackTitle = img.getAttribute('alt') || undefined;
-          }
-        }
-
-        // Try to match with album tracks by title
-        if (trackTitle && album.tracks) {
-          const matchingTrack = album.tracks.find(t => t.title === trackTitle);
-          if (matchingTrack) {
-            trackV4v = matchingTrack.v4vValue;
-            trackTitle = matchingTrack.title; // Use exact title from data
-          }
-        }
-      }
-
-      // Clone and replace the button to remove all React event handlers
-      const newButton = button.cloneNode(true) as HTMLButtonElement;
-      newButton.dataset.sandboxOverride = 'true';
-
-      newButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-
-        console.log('[Sandbox] QR boost for:', trackTitle || 'album');
-
-        const lightningAddress = getLightningAddress(trackV4v) || getLightningAddress(album.v4vValue);
-
-        setQrPaymentInfo({
-          lightningAddress,
-          trackTitle,
-        });
-        setShowQRModal(true);
-      });
-
-      button.parentNode?.replaceChild(newButton, button);
-    };
-
-    const findAndOverrideBoostButtons = () => {
-      // Find all boost buttons (yellow background with Zap icon or "Boost" text)
-      const buttons = container.querySelectorAll('button');
-      buttons.forEach(button => {
-        const hasZap = button.querySelector('svg.lucide-zap');
-        const hasBoostText = button.textContent?.includes('Boost');
-        const isYellow = button.className.includes('yellow');
-
-        if ((hasZap || hasBoostText) && isYellow && !button.dataset.sandboxOverride) {
-          overrideBoostButton(button as HTMLButtonElement);
-        }
-      });
-    };
-
-    // Initial override
-    const timeoutId = setTimeout(findAndOverrideBoostButtons, 500);
-
-    // Watch for new buttons being added
-    const observer = new MutationObserver((mutations) => {
-      let shouldCheck = false;
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          shouldCheck = true;
-          break;
-        }
-      }
-      if (shouldCheck) {
-        findAndOverrideBoostButtons();
-      }
-    });
-
-    observer.observe(container, { childList: true, subtree: true });
-
-    return () => {
-      clearTimeout(timeoutId);
-      observer.disconnect();
-    };
-  }, [album]);
 
   const openAlbumQR = () => {
     setQrPaymentInfo({
@@ -645,6 +486,17 @@ function SandboxAlbumContent() {
         albumTitle={album?.title || 'Beach Trash'}
         albumId="beach-trash"
         initialAlbum={album}
+        extraAlbumActions={
+          <button
+            onClick={openAlbumQR}
+            className="flex items-center gap-2 px-6 py-3 text-base bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h3v2h-3v-2zm2 4h3v2h-3v-2zm3 3h2v3h-2v-3zm-5 0h3v3h-3v-3z"/>
+            </svg>
+            QR Invoice
+          </button>
+        }
       />
     </div>
   );
