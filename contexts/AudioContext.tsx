@@ -107,6 +107,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const hlsRef = useRef<HlsType | null>(null);
   const albumsLoadedRef = useRef(false);
   const isRetryingRef = useRef(false);
+  const playbackSessionRef = useRef(0); // Session ID to cancel stale playback attempts
   const playNextTrackRef = useRef<() => Promise<void>>();
   const playPreviousTrackRef = useRef<() => Promise<void>>();
   const pauseRef = useRef<() => void>();
@@ -1049,7 +1050,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   };
 
   // Helper function to attempt media playback with fallback URLs
-  const attemptAudioPlayback = async (originalUrl: string, context = 'playback'): Promise<boolean> => {
+  const attemptAudioPlayback = async (originalUrl: string, context = 'playback', sessionId?: number): Promise<boolean> => {
     console.log('🎵 Attempting audio playback:', { originalUrl, context });
     const isVideo = isVideoUrl(originalUrl);
     const isHls = isHlsUrl(originalUrl);
@@ -1078,6 +1079,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     isRetryingRef.current = true;
     
     for (let i = 0; i < urlsToTry.length; i++) {
+      // Check if this session is still current before each attempt
+      if (sessionId !== undefined && playbackSessionRef.current !== sessionId) {
+        console.log(`⏭️ Session ${sessionId} cancelled, newer session ${playbackSessionRef.current} active`);
+        isRetryingRef.current = false;
+        return false;
+      }
+
       const audioUrl = urlsToTry[i];
       const isProxied = typeof audioUrl === 'string' && audioUrl.includes('proxy-audio');
       console.log(`🔄 [Playback Attempt ${i + 1}/${urlsToTry.length}] ${isProxied ? '🔄 PROXY' : '📡 DIRECT'}: ${audioUrl.substring(0, 150)}${audioUrl.length > 150 ? '...' : ''}`);
@@ -1207,7 +1215,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Seamless playback for track transitions - keeps iOS audio session warm
   // by directly swapping source without pause/clear/delay
-  const attemptSeamlessPlayback = async (audioUrl: string, context: string): Promise<boolean> => {
+  const attemptSeamlessPlayback = async (audioUrl: string, context: string, sessionId?: number): Promise<boolean> => {
     const isVideo = isVideoUrl(audioUrl);
     const currentElement = isVideo ? videoRef.current : audioRef.current;
 
@@ -1220,6 +1228,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     const urlsToTry = getAudioUrlsToTry(audioUrl);
 
     for (let i = 0; i < urlsToTry.length; i++) {
+      // Check if this session is still current before each attempt
+      if (sessionId !== undefined && playbackSessionRef.current !== sessionId) {
+        console.log(`⏭️ Seamless session ${sessionId} cancelled, newer session ${playbackSessionRef.current} active`);
+        return false;
+      }
+
       let secureUrl = urlsToTry[i];
 
       // Upgrade HTTP to HTTPS
@@ -1450,10 +1464,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       // Auto-skip to next track on error (especially important for shuffle mode)
       // This prevents playback from stopping when a track fails
       if (playNextTrackRef.current) {
-        console.log('⏭️ Auto-skipping to next track after error');
+        const currentSession = playbackSessionRef.current;
+        console.log(`⏭️ Auto-skipping to next track after error (session ${currentSession})`);
         setTimeout(() => {
-          if (playNextTrackRef.current) {
+          // Only auto-skip if no new session started (i.e., user hasn't manually skipped)
+          if (playbackSessionRef.current === currentSession && playNextTrackRef.current) {
             playNextTrackRef.current();
+          } else {
+            console.log(`⏭️ Skipping auto-skip: session changed from ${currentSession} to ${playbackSessionRef.current}`);
           }
         }, 500);
       }
@@ -1628,6 +1646,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // Set loading state immediately for UI feedback
     setIsLoading(true);
 
+    // Increment session ID to cancel any stale playback attempts
+    const sessionId = ++playbackSessionRef.current;
+    console.log(`🎵 Starting playback session ${sessionId}`);
+
     // Since playAlbum is called from user clicks, we can safely set hasUserInteracted
     if (!hasUserInteracted) {
       console.log('🎵 First user interaction detected - enabling audio');
@@ -1659,8 +1681,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     if (isTrackTransition) {
       console.log('🔄 Track transition detected, using seamless playback for iOS');
       // Try seamless playback first for iOS background compatibility
-      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Track transition');
+      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Track transition', sessionId);
       if (seamlessSuccess) {
+        // Check if session is still current before updating state
+        if (playbackSessionRef.current !== sessionId) {
+          console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+          return false;
+        }
         setIsLoading(false); // Clear loading on success
         updateMediaSession(album, track);
         console.log('✅ Seamless track transition successful');
@@ -1671,7 +1698,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
 
     // Try to play the track (full playback for fresh starts or fallback)
-    const success = await attemptAudioPlayback(track.url, 'Album playback');
+    const success = await attemptAudioPlayback(track.url, 'Album playback', sessionId);
+
+    // Check if session is still current before updating state
+    if (playbackSessionRef.current !== sessionId) {
+      console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+      return false;
+    }
 
     // Clear loading state
     setIsLoading(false);
@@ -1709,6 +1742,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       return false;
     }
 
+    // Increment session ID to cancel any stale playback attempts
+    const sessionId = ++playbackSessionRef.current;
+    console.log(`🎵 Starting shuffle playback session ${sessionId}`);
+
     // IMPORTANT: Update state BEFORE attempting playback
     setCurrentPlayingAlbum(album);
     setCurrentTrackIndex(trackData.trackIndex);
@@ -1722,8 +1759,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // In shuffle mode, if we're playing, use seamless playback for iOS background
     if (isPlaying) {
       console.log('🔄 Shuffle track transition, using seamless playback for iOS');
-      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Shuffle track transition');
+      const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Shuffle track transition', sessionId);
       if (seamlessSuccess) {
+        // Check if session is still current before updating state
+        if (playbackSessionRef.current !== sessionId) {
+          console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+          return false;
+        }
         updateMediaSession(album, track);
         console.log('✅ Seamless shuffle transition successful');
         return true;
@@ -1731,7 +1773,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       console.log('⚠️ Seamless playback failed, trying full playback');
     }
 
-    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
+    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback', sessionId);
+    // Check if session is still current before updating state
+    if (playbackSessionRef.current !== sessionId) {
+      console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+      return false;
+    }
     if (success) {
       // Update media session for lockscreen display
       updateMediaSession(album, track);
@@ -1823,19 +1870,31 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       return false;
     }
 
+    // Increment session ID to cancel any stale playback attempts
+    const sessionId = ++playbackSessionRef.current;
+    console.log(`🎵 Starting shuffleAll playback session ${sessionId}`);
+
     // IMPORTANT: Update state BEFORE attempting playback
     setCurrentPlayingAlbum(album);
     setCurrentTrackIndex(firstTrack.trackIndex);
     setCurrentShuffleIndex(0);
     setHasUserInteracted(true);
 
-    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
+    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback', sessionId);
+
+    // Check if session is still current before updating state
+    if (playbackSessionRef.current !== sessionId) {
+      console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+      return false;
+    }
 
     // If initial track failed, auto-skip to find a playable track
     if (!success) {
       console.log('⏭️ Initial shuffle track failed, auto-skipping to next...');
+      const currentSession = playbackSessionRef.current;
       setTimeout(() => {
-        if (playNextTrackRef.current) {
+        // Only auto-skip if no new session started
+        if (playbackSessionRef.current === currentSession && playNextTrackRef.current) {
           playNextTrackRef.current();
         }
       }, 500);
@@ -1927,19 +1986,31 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       return false;
     }
 
+    // Increment session ID to cancel any stale playback attempts
+    const sessionId = ++playbackSessionRef.current;
+    console.log(`🎵 Starting shuffleAlbums playback session ${sessionId}`);
+
     // IMPORTANT: Update state BEFORE attempting playback
     setCurrentPlayingAlbum(album);
     setCurrentTrackIndex(firstTrack.trackIndex);
     setCurrentShuffleIndex(0);
     setHasUserInteracted(true);
 
-    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback');
+    const success = await attemptAudioPlayback(track.url, 'Shuffled track playback', sessionId);
+
+    // Check if session is still current before updating state
+    if (playbackSessionRef.current !== sessionId) {
+      console.log(`⏭️ Session ${sessionId} completed but newer session active, skipping state update`);
+      return false;
+    }
 
     // If initial track failed, auto-skip to find a playable track
     if (!success) {
       console.log('⏭️ Initial shuffle track failed, auto-skipping to next...');
+      const currentSession = playbackSessionRef.current;
       setTimeout(() => {
-        if (playNextTrackRef.current) {
+        // Only auto-skip if no new session started
+        if (playbackSessionRef.current === currentSession && playNextTrackRef.current) {
           playNextTrackRef.current();
         }
       }, 500);
