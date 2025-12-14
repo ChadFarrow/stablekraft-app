@@ -87,14 +87,20 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           const now = Date.now();
           const cacheAge = now - data.timestamp;
           
-          // Simplified cache validation - just check timestamp and track count
-          // This dramatically improves cache hit rates by removing complex V4V validation
-          const isCacheValid = cacheAge < config.cacheDuration && data.tracks && data.tracks.length > 0;
+          // Simplified cache validation - check timestamp, track count, and episode integrity
+          // If cache claims to have episodes but they're missing/empty, it's stale
+          const hasValidEpisodes = !data.hasEpisodeMarkers ||
+            (data.episodes && Array.isArray(data.episodes) && data.episodes.length > 0);
+          const isCacheValid = cacheAge < config.cacheDuration &&
+            data.tracks && data.tracks.length > 0 && hasValidEpisodes;
 
           console.log(`🔍 Cache validation for ${config.title}:`, {
             cacheAge: Math.round(cacheAge / 1000) + 's',
             maxAge: Math.round(config.cacheDuration / 1000) + 's',
             trackCount: data.tracks.length,
+            hasEpisodeMarkers: data.hasEpisodeMarkers,
+            episodeCount: data.episodes?.length || 0,
+            hasValidEpisodes,
             isValid: isCacheValid
           });
 
