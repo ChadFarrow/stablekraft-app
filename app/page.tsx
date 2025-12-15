@@ -1376,7 +1376,7 @@ function HomePageContent() {
           </div>
         </div>
         {/* Main Content */}
-        <div className="container mx-auto px-3 sm:px-6 py-6 sm:py-8 pb-28">
+        <div className="container mx-auto px-3 sm:px-6 py-6 sm:py-8">
           
 
           {isLoading && !isCriticalLoaded ? (

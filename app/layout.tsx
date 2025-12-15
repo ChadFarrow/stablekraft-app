@@ -270,7 +270,7 @@ export default function RootLayout({
                             />
 
                             {/* Content overlay */}
-                            <div className="relative z-10">
+                            <div className="relative z-10 pb-28">
                               {children}
                             </div>
                           </div>
