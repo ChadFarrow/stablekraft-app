@@ -598,6 +598,108 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
   }, []); // Run only once on mount
 
+  // iOS Background Audio Fix: Handle visibility changes (screen lock/unlock)
+  // When the user locks their phone, iOS may pause audio. This handler resumes playback
+  // when the app becomes visible again (user unlocks phone).
+  const wasPlayingBeforeHiddenRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === 'visible';
+
+      if (!isVisible) {
+        // Page is being hidden (screen locked or app backgrounded)
+        // Remember if we were playing so we can resume
+        const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+        const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+        wasPlayingBeforeHiddenRef.current = !!(
+          (audio && !audio.paused) ||
+          (video && !video.paused)
+        );
+        console.log('📱 Page hidden, was playing:', wasPlayingBeforeHiddenRef.current);
+      } else {
+        // Page is visible again (screen unlocked)
+        console.log('📱 Page visible, checking audio state...');
+
+        // Resume Web Audio context if suspended
+        const ctx = webAudioContextRef.current;
+        if (ctx && ctx.state === 'suspended') {
+          console.log('🔊 Resuming suspended Web Audio context after visibility change');
+          ctx.resume().catch(err => {
+            console.warn('⚠️ Failed to resume Web Audio context:', err);
+          });
+        }
+
+        // Check if audio should be playing but isn't
+        const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+        const video = document.getElementById('stablekraft-video-player') as HTMLVideoElement;
+
+        // If we were playing before and audio is now paused, try to resume
+        if (wasPlayingBeforeHiddenRef.current) {
+          if (audio && audio.paused && audio.currentTime > 0 && audio.src) {
+            console.log('📱 Attempting to resume audio after visibility change');
+            audio.play().then(() => {
+              console.log('✅ Audio resumed after screen unlock');
+              if ('mediaSession' in navigator && navigator.mediaSession) {
+                navigator.mediaSession.playbackState = 'playing';
+              }
+            }).catch(err => {
+              console.warn('⚠️ Failed to resume audio:', err);
+            });
+          }
+          if (video && video.paused && video.currentTime > 0 && video.src) {
+            console.log('📱 Attempting to resume video after visibility change');
+            video.play().then(() => {
+              console.log('✅ Video resumed after screen unlock');
+              if ('mediaSession' in navigator && navigator.mediaSession) {
+                navigator.mediaSession.playbackState = 'playing';
+              }
+            }).catch(err => {
+              console.warn('⚠️ Failed to resume video:', err);
+            });
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Also handle pageshow event - more reliable on iOS for app switching
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // event.persisted is true when page is restored from bfcache
+      console.log('📱 pageshow event, persisted:', event.persisted);
+
+      // Resume Web Audio context if needed
+      const ctx = webAudioContextRef.current;
+      if (ctx && ctx.state === 'suspended') {
+        console.log('🔊 Resuming Web Audio context on pageshow');
+        ctx.resume().catch(err => {
+          console.warn('⚠️ Failed to resume Web Audio on pageshow:', err);
+        });
+      }
+
+      // Check if audio was interrupted and needs to be resumed
+      if (wasPlayingBeforeHiddenRef.current) {
+        const audio = document.getElementById('stablekraft-audio-player') as HTMLAudioElement;
+        if (audio && audio.paused && audio.currentTime > 0 && audio.src) {
+          console.log('📱 Resuming audio on pageshow');
+          audio.play().catch(err => {
+            console.warn('⚠️ Failed to resume audio on pageshow:', err);
+          });
+        }
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []); // Run only once on mount
+
   // Save state to IndexedDB when it changes - with debouncing
   useEffect(() => {
     if (typeof window !== 'undefined' && currentPlayingAlbum) {
@@ -2514,7 +2616,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   return (
     <AudioContext.Provider value={value}>
       {children}
-      {/* Hidden audio element - ID used for iOS background fallback */}
+      {/* Hidden audio element - ID used for iOS background fallback
+          Note: Using position absolute off-screen instead of opacity:0/1px
+          as some iOS versions don't treat very small elements as real media */}
       <audio
         id="stablekraft-audio-player"
         ref={audioRef}
@@ -2526,13 +2630,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         controls={true}
         muted={false}
         style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
           width: '1px',
           height: '1px',
-          opacity: 0,
-          zIndex: -1,
           pointerEvents: 'none'
         }}
       />
@@ -2548,13 +2650,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         controls={true}
         muted={false}
         style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
           width: '1px',
           height: '1px',
-          opacity: 0,
-          zIndex: -1,
           pointerEvents: 'none'
         }}
       />
