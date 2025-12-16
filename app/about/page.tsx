@@ -222,6 +222,11 @@ export default function AboutPage() {
                       </a>
                     </li>
                     <li>
+                      <a href="https://podverse.fm/episode/_5Xj24JXlt" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                        MSP demo video
+                      </a>
+                    </li>
+                    <li>
                       <a href="https://sovereignfeeds.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
                         sovereignfeeds.com
                       </a>
