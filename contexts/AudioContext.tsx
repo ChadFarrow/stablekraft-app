@@ -335,9 +335,23 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     triggerAutoBoostRef.current = triggerAutoBoost;
   }, [triggerAutoBoost]);
 
+  // Detect iOS devices - Web Audio interferes with background playback on iOS
+  const isIOSDevice = useCallback(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad on iOS 13+
+  }, []);
+
   // Initialize Web Audio API for volume normalization (compressor)
+  // SKIP on iOS - Web Audio breaks background playback when app is minimized
   const initWebAudio = useCallback(() => {
     if (webAudioContextRef.current) return;
+
+    // Skip Web Audio on iOS to preserve background playback
+    if (isIOSDevice()) {
+      console.log('📱 Skipping Web Audio on iOS to preserve background playback');
+      return;
+    }
 
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -357,7 +371,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     } catch (err) {
       console.warn('⚠️ Web Audio not available:', err);
     }
-  }, []);
+  }, [isIOSDevice]);
 
   // Ensure Web Audio context is running (call on every playback)
   const ensureWebAudioRunning = useCallback(() => {
