@@ -1035,11 +1035,12 @@ export function BoostButton({
   ): Promise<{ preimage?: string; error?: string; resolvedPubkeys?: Array<{ address: string; pubkey: string }> }> => {
     try {
       // Convert valueSplits to ValueRecipient format
+      // Ensure split is numeric to prevent string concatenation bugs in calculations
       const recipients = activeValueSplits.map(split => ({
         name: split.name,
         type: split.type as 'node' | 'lnaddress',
         address: split.address,
-        split: split.split,
+        split: Number(split.split) || 0,
         fee: false,
         keysendFallback: undefined as { pubkey: string; customKey?: string; customValue?: string } | undefined,
         nostrPubkey: undefined as string | undefined

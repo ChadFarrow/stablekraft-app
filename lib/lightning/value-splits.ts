@@ -36,7 +36,9 @@ export class ValueSplitsService {
     recipients: ValueRecipient[],
     totalAmount: number
   ): Array<{ recipient: ValueRecipient; amount: number }> {
-    const totalSplits = recipients.reduce((sum, r) => sum + r.split, 0);
+    // Ensure splits are numeric to prevent string concatenation bugs
+    // (e.g., "50" + "50" = "5050" instead of 100)
+    const totalSplits = recipients.reduce((sum, r) => sum + Number(r.split), 0);
 
     if (totalSplits === 0) {
       console.warn('No splits defined for recipients');
@@ -46,7 +48,7 @@ export class ValueSplitsService {
     // Calculate amounts and ensure minimum 1 sat per recipient
     const splits = recipients.map(recipient => ({
       recipient,
-      amount: Math.max(1, Math.floor((recipient.split / totalSplits) * totalAmount)),
+      amount: Math.max(1, Math.floor((Number(recipient.split) / totalSplits) * totalAmount)),
     }));
 
     // Adjust for rounding errors by adding remaining sats to largest recipient
@@ -415,8 +417,9 @@ export class ValueSplitsService {
       return { valid: false, errors };
     }
 
-    const totalSplits = recipients.reduce((sum, r) => sum + r.split, 0);
-    
+    // Ensure splits are numeric to prevent string concatenation
+    const totalSplits = recipients.reduce((sum, r) => sum + Number(r.split), 0);
+
     if (totalSplits <= 0) {
       errors.push('Total split percentage must be greater than 0');
     }
@@ -430,7 +433,7 @@ export class ValueSplitsService {
         errors.push(`Recipient ${recipient.name || 'Unknown'} has no address`);
       }
 
-      if (recipient.split <= 0) {
+      if (Number(recipient.split) <= 0) {
         errors.push(`Recipient ${recipient.name || recipient.address} has invalid split percentage`);
       }
 
