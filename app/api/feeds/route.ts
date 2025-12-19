@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { parseRSSFeedWithSegments, calculateTrackOrder } from '@/lib/rss-parser-db';
 import { findPublisherFeed } from '@/lib/publisher-detector';
 import { generateAlbumSlug, isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
           v4vValue: item.v4vValue,
           startTime: item.startTime,
           endTime: item.endTime,
-          trackOrder: item.episode || index + 1, // Use episode number if available, otherwise use RSS position
+          trackOrder: item.episode ? calculateTrackOrder(item.episode, item.season) : index + 1, // Use season/episode if available
           updatedAt: new Date()
         }));
         

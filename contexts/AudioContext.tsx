@@ -108,6 +108,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const albumsLoadedRef = useRef(false);
   const isRetryingRef = useRef(false);
   const playbackSessionRef = useRef(0); // Session ID to cancel stale playback attempts
+  const isAutoTransitioningRef = useRef(false); // Track when transitioning from ended track (for iOS)
   const playNextTrackRef = useRef<() => Promise<void>>();
   const playPreviousTrackRef = useRef<() => Promise<void>>();
   const pauseRef = useRef<() => void>();
@@ -1403,6 +1404,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     };
 
     const handlePause = () => {
+      // Check if this pause is due to track ending naturally
+      // On iOS, the 'pause' event fires before/with 'ended' event
+      // We need to keep isPlaying true so seamless playback works for next track
+      const currentElement = isVideoMode ? video : audio;
+      if (currentElement.ended) {
+        console.log('🎵 Pause event ignored - track ended naturally, handleEnded will handle transition');
+        return;
+      }
+
       setIsPlaying(false);
       // Update media session playback state immediately for iOS
       if ('mediaSession' in navigator && navigator.mediaSession) {
@@ -1413,6 +1423,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     const handleEnded = async () => {
       console.log('🎵 Track ended, attempting to play next track');
+
+      // CRITICAL for iOS PWA: Set auto-transitioning flag so playAlbum uses seamless playback
+      // This flag ensures seamless playback is used even if isPlaying state has changed
+      isAutoTransitioningRef.current = true;
 
       // CRITICAL for iOS PWA: Keep audio session warm by maintaining 'playing' state
       // before triggering next track. This prevents iOS from releasing the audio session.
@@ -1442,6 +1456,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       } catch (error) {
         console.error('❌ Error in auto-play:', error);
         // Don't let errors in auto-play crash the application
+        isAutoTransitioningRef.current = false;
         setIsPlaying(false);
         if ('mediaSession' in navigator && navigator.mediaSession) {
           navigator.mediaSession.playbackState = 'paused';
@@ -1790,14 +1805,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Detect if this is a track transition (same album, different track while playing)
     // This is critical for iOS PWA background playback
-    const isTrackTransition = currentPlayingAlbum?.id === album.id &&
+    // Also check isAutoTransitioningRef for when track ended naturally (iOS fires pause before ended)
+    const isTrackTransition = (currentPlayingAlbum?.id === album.id &&
                                currentTrackIndex !== trackIndex &&
-                               isPlaying;
+                               isPlaying) || isAutoTransitioningRef.current;
 
     if (isTrackTransition) {
-      console.log('🔄 Track transition detected, using seamless playback for iOS');
+      console.log('🔄 Track transition detected, using seamless playback for iOS', {
+        isPlaying,
+        isAutoTransitioning: isAutoTransitioningRef.current
+      });
       // Try seamless playback first for iOS background compatibility
       const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Track transition', sessionId);
+      // Clear auto-transitioning flag after attempt
+      isAutoTransitioningRef.current = false;
       if (seamlessSuccess) {
         // Check if session is still current before updating state
         if (playbackSessionRef.current !== sessionId) {
@@ -1812,6 +1833,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       // If seamless fails, fall through to normal playback
       console.log('⚠️ Seamless playback failed, trying full playback');
     }
+
+    // Clear auto-transitioning flag before full playback attempt
+    isAutoTransitioningRef.current = false;
 
     // Try to play the track (full playback for fresh starts or fallback)
     const success = await attemptAudioPlayback(track.url, 'Album playback', sessionId);
@@ -1872,10 +1896,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     const startTime = track.startTime && typeof track.startTime === 'number' ? track.startTime : 0;
     setCurrentTime(startTime);
 
-    // In shuffle mode, if we're playing, use seamless playback for iOS background
-    if (isPlaying) {
-      console.log('🔄 Shuffle track transition, using seamless playback for iOS');
+    // In shuffle mode, if we're playing or auto-transitioning, use seamless playback for iOS background
+    if (isPlaying || isAutoTransitioningRef.current) {
+      console.log('🔄 Shuffle track transition, using seamless playback for iOS', {
+        isPlaying,
+        isAutoTransitioning: isAutoTransitioningRef.current
+      });
       const seamlessSuccess = await attemptSeamlessPlayback(track.url, 'Shuffle track transition', sessionId);
+      // Clear auto-transitioning flag after attempt
+      isAutoTransitioningRef.current = false;
       if (seamlessSuccess) {
         // Check if session is still current before updating state
         if (playbackSessionRef.current !== sessionId) {

@@ -123,6 +123,7 @@ export interface ParsedItem {
   startTime?: number;
   endTime?: number;
   episode?: number; // podcast:episode or itunes:episode number for track ordering
+  season?: number; // podcast:season or itunes:season number for track ordering
 }
 
 // Helper function to parse V4V data from XML directly
@@ -327,36 +328,49 @@ export function parsePodcastGuidFromXML(xmlText: string): string | null {
   }
 }
 
-// Helper function to extract episode numbers from XML for all items
-// Returns a Map of guid -> episode number
-export function parseEpisodeNumbersFromXML(xmlText: string): Map<string, number> {
-  const episodeMap = new Map<string, number>();
-  
+// Helper function to extract episode and season numbers from XML for all items
+// Returns a Map of guid -> { episode, season } for track ordering
+export function parseEpisodeNumbersFromXML(xmlText: string): Map<string, { episode: number; season?: number }> {
+  const episodeMap = new Map<string, { episode: number; season?: number }>();
+
   try {
     // Extract all items from XML
     const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
     let itemMatch;
-    
+
     while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
       const itemContent = itemMatch[1];
-      
+
       // Extract GUID
       const guidMatch = itemContent.match(/<guid[^>]*>(.*?)<\/guid>/);
       const guid = guidMatch ? guidMatch[1].trim() : null;
-      
+
       // Extract episode number (try podcast:episode first, then itunes:episode)
       const episodeMatch = itemContent.match(/<podcast:episode>(\d+)<\/podcast:episode>|<itunes:episode>(\d+)<\/itunes:episode>/);
       const episode = episodeMatch ? parseInt(episodeMatch[1] || episodeMatch[2]) : null;
-      
+
+      // Extract season number (try podcast:season first, then itunes:season)
+      const seasonMatch = itemContent.match(/<podcast:season>(\d+)<\/podcast:season>|<itunes:season>(\d+)<\/itunes:season>/);
+      const season = seasonMatch ? parseInt(seasonMatch[1] || seasonMatch[2]) : undefined;
+
       if (guid && episode !== null) {
-        episodeMap.set(guid, episode);
+        episodeMap.set(guid, { episode, season });
       }
     }
   } catch (error) {
-    console.error('Error extracting episode numbers from XML:', error);
+    console.error('Error extracting episode/season numbers from XML:', error);
   }
-  
+
   return episodeMap;
+}
+
+// Helper function to calculate trackOrder from season and episode
+// Uses formula: (season * 1000) + episode to ensure proper ordering across seasons
+export function calculateTrackOrder(episode: number, season?: number): number {
+  if (season !== undefined && season > 0) {
+    return (season * 1000) + episode;
+  }
+  return episode;
 }
 
 // Helper function to parse V4V data for a specific item from XML
@@ -634,19 +648,33 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           continue;
         }
         
-        // Extract episode number from itunes:episode or from XML (for podcast:episode)
+        // Extract episode and season numbers from itunes or from XML (for podcast: namespace)
         let episodeNumber: number | undefined = undefined;
+        let seasonNumber: number | undefined = undefined;
+
         if (item.itunes?.episode) {
           episodeNumber = parseInt(item.itunes.episode);
         }
-        // If not found in itunes:episode, try to get from XML (for podcast:episode)
-        if (episodeNumber === undefined && xmlText) {
+        if (item.itunes?.season) {
+          seasonNumber = parseInt(item.itunes.season);
+        }
+
+        // If not found in itunes, try to get from XML (for podcast:episode and podcast:season)
+        if ((episodeNumber === undefined || seasonNumber === undefined) && xmlText) {
           const episodeMap = parseEpisodeNumbersFromXML(xmlText);
           if (item.guid && episodeMap.has(item.guid)) {
-            episodeNumber = episodeMap.get(item.guid);
+            const episodeData = episodeMap.get(item.guid);
+            if (episodeData) {
+              if (episodeNumber === undefined) {
+                episodeNumber = episodeData.episode;
+              }
+              if (seasonNumber === undefined) {
+                seasonNumber = episodeData.season;
+              }
+            }
           }
         }
-        
+
         const parsedItem: ParsedItem = {
           guid: item.guid || undefined,
           title: item.title || 'Untitled',
@@ -655,11 +683,11 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           artist: item.itunes?.author || feedArtist,
           audioUrl: item.enclosure.url,
           duration: validateDuration(parseDuration(item.itunes?.duration), item.title),
-          explicit: item.itunes?.explicit?.toLowerCase() === 'yes' || 
+          explicit: item.itunes?.explicit?.toLowerCase() === 'yes' ||
                    item.itunes?.explicit?.toLowerCase() === 'true' ||
                    feedExplicit,
           image: extractItunesImage(item.itunes?.image) || feedImage,
-          publishedAt: item.isoDate ? new Date(item.isoDate) : 
+          publishedAt: item.isoDate ? new Date(item.isoDate) :
                       item.pubDate ? new Date(item.pubDate) : undefined,
           itunesAuthor: item.itunes?.author,
           itunesSummary: item.itunes?.summary,
@@ -667,7 +695,8 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
           itunesDuration: item.itunes?.duration,
           itunesKeywords: parseKeywords(item.itunes?.keywords),
           itunesCategories: feedCategories, // Inherit from feed
-          episode: episodeNumber
+          episode: episodeNumber,
+          season: seasonNumber
         };
         
         // Parse V4V (Value for Value) information if present

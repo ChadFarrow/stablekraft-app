@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { parseRSSFeedWithSegments, calculateTrackOrder } from '@/lib/rss-parser-db';
 
 /**
  * POST /api/admin/feeds/[id]/reparse
@@ -80,9 +80,12 @@ export async function POST(
       const existingTracksByGuid = new Map(existingTracks.map(t => [t.guid, t]));
 
       // Create a map of all parsed items by GUID for order lookup
-      // Use episode number from podcast:episode/itunes:episode if available, otherwise use RSS order
+      // Use season/episode numbers from podcast:/itunes: if available, otherwise use RSS order
       const parsedItemsByGuid = new Map(
-        parsedFeed.items.map((item, index) => [item.guid, { item, order: item.episode || index + 1 }])
+        parsedFeed.items.map((item, index) => [item.guid, {
+          item,
+          order: item.episode ? calculateTrackOrder(item.episode, item.season) : index + 1
+        }])
       );
 
       // Update trackOrder AND v4v data for ALL existing tracks based on current RSS feed
@@ -109,8 +112,11 @@ export async function POST(
             item.audioUrl === track.audioUrl
           );
           if (matchingIndex >= 0) {
-            order = matchingIndex + 1;
             matchedItem = parsedFeed.items[matchingIndex];
+            // Use season/episode from matched item if available, otherwise use RSS position
+            order = matchedItem.episode
+              ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
+              : matchingIndex + 1;
           }
         }
 
@@ -168,9 +174,11 @@ export async function POST(
         );
 
         const tracksData = newItems.map((item, index) => {
-          // Use episode number if available, otherwise find position in feed
-          let order = item.episode;
-          if (!order) {
+          // Use season/episode numbers if available, otherwise find position in feed
+          let order: number;
+          if (item.episode) {
+            order = calculateTrackOrder(item.episode, item.season);
+          } else {
             const fullIndex = parsedFeed.items.findIndex(i =>
               i.guid === item.guid ||
               (i.title === item.title && i.audioUrl === item.audioUrl)

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { ValueTagParser } from '@/lib/lightning/value-parser';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
+import { calculateTrackOrder } from '@/lib/rss-parser-db';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -82,6 +83,8 @@ async function parseFeedXML(feedUrl: string) {
       const pubDateMatch = itemContent.match(/<pubDate>([^<]*)<\/pubDate>/);
       // Extract episode number for track ordering (podcast:episode or itunes:episode)
       const episodeMatch = itemContent.match(/<podcast:episode>(\d+)<\/podcast:episode>|<itunes:episode>(\d+)<\/itunes:episode>/);
+      // Extract season number for track ordering (podcast:season or itunes:season)
+      const seasonMatch = itemContent.match(/<podcast:season>(\d+)<\/podcast:season>|<itunes:season>(\d+)<\/itunes:season>/);
 
       const title = titleMatch ? (titleMatch[1] || titleMatch[2] || '').trim() : '';
       const description = descMatch ? (descMatch[1] || descMatch[2] || '').trim() : '';
@@ -91,6 +94,7 @@ async function parseFeedXML(feedUrl: string) {
       const duration = durationMatch ? durationMatch[1] : '';
       const pubDate = pubDateMatch ? pubDateMatch[1] : '';
       const episode = episodeMatch ? parseInt(episodeMatch[1] || episodeMatch[2]) : null;
+      const season = seasonMatch ? parseInt(seasonMatch[1] || seasonMatch[2]) : undefined;
 
       if (title && guid) {
         episodes.push({
@@ -101,7 +105,8 @@ async function parseFeedXML(feedUrl: string) {
           image,
           duration,
           pubDate,
-          episode
+          episode,
+          season
         });
       }
     }
@@ -289,8 +294,10 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
           }
         }
 
-        // Use episode number for track order if available, otherwise use sequential order
-        const trackOrderValue = episode.episode || trackCount + 1;
+        // Use season/episode for track order if available, otherwise use sequential order
+        const trackOrderValue = episode.episode
+          ? calculateTrackOrder(episode.episode, episode.season)
+          : trackCount + 1;
 
         if (!existingTrack) {
           // Create new track with v4v data

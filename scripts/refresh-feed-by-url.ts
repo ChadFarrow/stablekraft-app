@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { parseRSSFeedWithSegments } from '../lib/rss-parser-db';
+import { parseRSSFeedWithSegments, calculateTrackOrder } from '../lib/rss-parser-db';
 
 const prisma = new PrismaClient();
 
@@ -72,7 +72,7 @@ async function refreshFeedByUrl(feedUrl: string) {
           v4vValue: item.v4vValue,
           startTime: item.startTime,
           endTime: item.endTime,
-          trackOrder: item.episode || index + 1, // Use episode number if available
+          trackOrder: item.episode ? calculateTrackOrder(item.episode, item.season) : index + 1, // Use season/episode if available
           updatedAt: new Date()
         }));
 
@@ -139,8 +139,10 @@ async function refreshFeedByUrl(feedUrl: string) {
         const parsedData = parsedItemsByGuid.get(track.guid);
         if (parsedData) {
           matchedItem = parsedData.item;
-          // Use episode number if available, otherwise use RSS position
-          order = matchedItem.episode || parsedData.order;
+          // Use season/episode if available, otherwise use RSS position
+          order = matchedItem.episode
+            ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
+            : parsedData.order;
         }
       }
 
@@ -152,8 +154,10 @@ async function refreshFeedByUrl(feedUrl: string) {
         );
         if (matchingIndex >= 0) {
           matchedItem = parsedFeed.items[matchingIndex];
-          // Use episode number if available, otherwise use RSS position
-          order = matchedItem.episode || (matchingIndex + 1);
+          // Use season/episode if available, otherwise use RSS position
+          order = matchedItem.episode
+            ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
+            : (matchingIndex + 1);
         }
       }
 
@@ -190,8 +194,10 @@ async function refreshFeedByUrl(feedUrl: string) {
           (i.title === item.title && i.audioUrl === item.audioUrl)
         );
         const parsedItem = fullIndex >= 0 ? parsedFeed.items[fullIndex] : null;
-        // Use episode number if available, otherwise use RSS position
-        const order = parsedItem?.episode || (fullIndex >= 0 ? fullIndex + 1 : parsedFeed.items.length + index + 1);
+        // Use season/episode if available, otherwise use RSS position
+        const order = parsedItem?.episode
+          ? calculateTrackOrder(parsedItem.episode, parsedItem.season)
+          : (fullIndex >= 0 ? fullIndex + 1 : parsedFeed.items.length + index + 1);
 
         return {
           id: `${feed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
