@@ -59,6 +59,21 @@ export default function SyncToNostrButton({
     fetchCounts();
   }, [fetchCounts]);
 
+  // Debug logging on mount and state changes
+  useEffect(() => {
+    console.warn('=== SyncToNostrButton MOUNTED ===');
+    console.warn('SyncToNostrButton state:', {
+      isAuthenticated,
+      isNip05Login,
+      isLoading,
+      unpublishedCount,
+      totalCount,
+      needsRepublishCount,
+      userId: user?.id,
+      loginType: user?.loginType
+    });
+  }, [isAuthenticated, isNip05Login, isLoading, unpublishedCount, totalCount, needsRepublishCount, user?.id, user?.loginType]);
+
   const handleSync = async (forceAll = false) => {
     if (!user || isSyncing) return;
 
@@ -161,20 +176,6 @@ export default function SyncToNostrButton({
       setProgress({ completed: 0, total: 0 });
     }
   };
-
-  // Debug logging
-  if (process.env.NODE_ENV === 'development' || true) {
-    console.log('SyncToNostrButton state:', {
-      isAuthenticated,
-      isNip05Login,
-      isLoading,
-      unpublishedCount,
-      totalCount,
-      needsRepublishCount,
-      userId: user?.id,
-      loginType: user?.loginType
-    });
-  }
 
   // Don't render if not authenticated or NIP-05
   if (!isAuthenticated || isNip05Login || isLoading) {
