@@ -13,6 +13,26 @@ export interface PlaylistRequestParams {
   enhanced?: boolean;
 }
 
+export interface CreatePlaylistRequest {
+  action: 'create';
+  name: string;
+  description?: string;
+  tracks?: string[];
+}
+
+export interface GenerateRSSRequest {
+  action: 'generate-rss';
+  type: string;
+  title: string;
+  description?: string;
+  tracks: Array<{
+    title: string;
+    artist?: string;
+    audioUrl: string;
+    guid?: string;
+  }>;
+}
+
 export class PlaylistAPIHandler {
   /**
    * Handle GET requests for playlists
@@ -246,7 +266,7 @@ export class PlaylistAPIHandler {
     }
   }
 
-  private static async handleCreatePlaylist(body: any): Promise<NextResponse> {
+  private static async handleCreatePlaylist(body: CreatePlaylistRequest): Promise<NextResponse> {
     // Implementation for creating custom playlists
     logger.info('Create playlist request', body);
 
@@ -256,7 +276,7 @@ export class PlaylistAPIHandler {
     }, { status: 501 });
   }
 
-  private static async handleGenerateRSS(body: any): Promise<NextResponse> {
+  private static async handleGenerateRSS(body: GenerateRSSRequest): Promise<NextResponse> {
     try {
       const { type, title, description, tracks } = body;
 

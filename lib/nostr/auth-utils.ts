@@ -6,13 +6,28 @@
 import { getUnifiedSigner } from './signer';
 import { saveNIP46Connection, savePreferredSigner } from './nip46-storage';
 import { publicKeyToNpub } from './keys';
-import { createLoginEventTemplate } from './events';
+import { createLoginEventTemplate, EventTemplate } from './events';
 
 export type LoginType = 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | 'amber';
 
+/**
+ * User data returned from login API
+ */
+export interface AuthenticatedUser {
+  id: string;
+  nostrPubkey: string;
+  nostrNpub: string;
+  displayName: string | null;
+  avatar: string | null;
+  bio: string | null;
+  lightningAddress: string | null;
+  relays: string[];
+  loginType?: LoginType;
+}
+
 export interface LoginResult {
   success: boolean;
-  user?: any;
+  user?: AuthenticatedUser;
   error?: string;
 }
 
@@ -106,7 +121,7 @@ export async function sendLoginRequest(
 /**
  * Save user data to localStorage after successful login
  */
-export function saveUserData(user: any, loginType: LoginType): void {
+export function saveUserData(user: AuthenticatedUser, loginType: LoginType): void {
   localStorage.setItem('nostr_user', JSON.stringify(user));
   localStorage.setItem('nostr_login_type', loginType);
   // Only save preferred signer for signer-based login types
@@ -134,7 +149,7 @@ export function startFavoritesSync(userId: string): void {
  * Complete login flow - save data, sync favorites, reload
  */
 export async function completeLogin(
-  user: any,
+  user: AuthenticatedUser,
   loginType: LoginType,
   onClose: () => void,
   reloadDelay = 500
@@ -149,7 +164,7 @@ export async function completeLogin(
 /**
  * Get challenge and create event template for signing
  */
-export async function prepareLoginEvent(): Promise<{ challenge: string; eventTemplate: any }> {
+export async function prepareLoginEvent(): Promise<{ challenge: string; eventTemplate: EventTemplate }> {
   const challenge = await getAuthChallenge();
   const eventTemplate = createLoginEventTemplate(challenge);
   return { challenge, eventTemplate };

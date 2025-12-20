@@ -10,7 +10,7 @@ export interface CacheRequestParams {
   type?: 'artwork' | 'audio' | 'all';
   id?: string;
   key?: string;
-  value?: any;
+  value?: unknown;
   ttl?: number;
 }
 
@@ -222,7 +222,7 @@ export class CacheAPIHandler {
     }
   }
 
-  private static async handleCacheSet(key: string, value: any, ttl: number = 3600): Promise<NextResponse> {
+  private static async handleCacheSet(key: string, value: unknown, ttl: number = 3600): Promise<NextResponse> {
     try {
       if (!key) {
         return NextResponse.json(
