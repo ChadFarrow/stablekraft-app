@@ -27,13 +27,17 @@ export class RelayManager {
     }
 
     // Filter out unreachable relays before attempting connection
+    // Exception: localrelay.link is used by Aegis (iOS Nostr signer) for NIP-46
     const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes('127.0.0.1') ||
+    const isKnownSignerRelay = lowerUrl.includes('localrelay.link');
+
+    if (!isKnownSignerRelay && (
+        lowerUrl.includes('127.0.0.1') ||
         lowerUrl.includes('localhost') ||
         lowerUrl.includes('.local') ||
         lowerUrl.endsWith('/chat') ||
         lowerUrl.endsWith('/private') ||
-        lowerUrl.endsWith('/outbox')) {
+        lowerUrl.endsWith('/outbox'))) {
       throw new Error(`Skipping unreachable relay: ${url}`);
     }
 

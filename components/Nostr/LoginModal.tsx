@@ -51,6 +51,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [isNip55Available, setIsNip55Available] = useState(false);
   const [pastedConnectionUri, setPastedConnectionUri] = useState<string>('');
   const [showPasteUri, setShowPasteUri] = useState(false);
+  const [aegisRetryError, setAegisRetryError] = useState<{ message: string; troubleshooting: string } | null>(null);
 
   // Ensure we're mounted before rendering portal
   useEffect(() => {
@@ -372,7 +373,17 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       // Complete login flow using the connected client
       await handleNip46ConnectedWithClient(client);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect with URI');
+      // Check if this is an Aegis-specific error with retry info
+      if (err && typeof err === 'object' && (err as any).isAegisRelay) {
+        setAegisRetryError({
+          message: (err as Error).message,
+          troubleshooting: (err as any).troubleshooting || 'Please ensure Aegis is running and try again.'
+        });
+        setError(null); // Clear regular error, show Aegis-specific UI
+      } else {
+        setAegisRetryError(null);
+        setError(err instanceof Error ? err.message : 'Failed to connect with URI');
+      }
       setIsSubmitting(false);
     }
   };
@@ -1428,10 +1439,28 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           </div>
         )}
 
+        {/* Aegis-specific error with retry option */}
+        {aegisRetryError && (
+          <div className="mb-4 p-4 bg-orange-50 border border-orange-300 text-orange-900 rounded-lg">
+            <div className="font-semibold mb-2">⚠️ {aegisRetryError.message}</div>
+            <div className="text-sm whitespace-pre-line mb-4">{aegisRetryError.troubleshooting}</div>
+            <button
+              onClick={() => {
+                setAegisRetryError(null);
+                handlePastedUriConnect();
+              }}
+              disabled={isSubmitting}
+              className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Connecting...' : 'Retry Connection'}
+            </button>
+          </div>
+        )}
+
         {/* Login Method Tabs */}
         <div className="mb-4 flex gap-2 border-b border-gray-200 flex-wrap">
           <button
-            onClick={() => setLoginMethod('extension')}
+            onClick={() => { setLoginMethod('extension'); setAegisRetryError(null); }}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               loginMethod === 'extension'
                 ? 'border-b-2 border-blue-600 text-blue-600'
@@ -1441,7 +1470,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             Extension
           </button>
           <button
-            onClick={() => setLoginMethod('amber')}
+            onClick={() => { setLoginMethod('amber'); setAegisRetryError(null); }}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               loginMethod === 'amber'
                 ? 'border-b-2 border-blue-600 text-blue-600'
@@ -1451,7 +1480,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             Amber
           </button>
           <button
-            onClick={() => setLoginMethod('nip05')}
+            onClick={() => { setLoginMethod('nip05'); setAegisRetryError(null); }}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               loginMethod === 'nip05'
                 ? 'border-b-2 border-blue-600 text-blue-600'
