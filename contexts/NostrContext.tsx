@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 // Note: nostr-tools functions are imported via @/lib/nostr/keys when needed (lazy-loaded)
 import { fetchAndStoreUserRelays, clearStoredUserRelays } from '@/lib/nostr/nip65';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 export interface NostrUser {
   id: string;
@@ -57,7 +58,6 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
         try {
           const userData = JSON.parse(storedUser);
           if (userData.nostrPubkey) {
-            const { normalizePubkey } = await import('@/lib/nostr/normalize');
             const hex = normalizePubkey(userData.nostrPubkey);
             if (hex) userData.nostrPubkey = hex;
           }

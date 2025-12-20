@@ -8,10 +8,11 @@ import { normalizePubkey } from '@/lib/nostr/normalize';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pubkey: string } }
+  { params }: { params: Promise<{ pubkey: string }> }
 ) {
   try {
-    const raw = params.pubkey;
+    const { pubkey } = await params;
+    const raw = pubkey;
 
     // Normalize npub or hex → strict hex
     const hexPubkey = normalizePubkey(raw);

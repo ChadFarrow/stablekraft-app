@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
         if (!normalized) return null;
         return { ...f, favoritedBy: { ...f.favoritedBy, pubkey: normalized } };
       })
-      .filter(Boolean);
+      .filter((f): f is NonNullable<typeof f> => f !== null);
 
     // Filter to only favorites from site users
     const siteUserFavorites = normalizedFavorites.filter((f) =>

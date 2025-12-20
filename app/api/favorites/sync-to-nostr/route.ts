@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 export interface UnpublishedFavorite {
   type: 'track' | 'album';
@@ -17,7 +18,7 @@ export interface UnpublishedFavorite {
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
     const forceAll = request.nextUrl.searchParams.get('force') === 'true';
 
     if (!userId) {
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
 
     if (!userId) {
       return NextResponse.json({

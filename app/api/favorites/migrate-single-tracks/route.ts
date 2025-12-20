@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 /**
  * POST /api/favorites/migrate-single-tracks
@@ -9,7 +10,7 @@ import { getSessionIdFromRequest } from '@/lib/session-utils';
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
 
     if (!sessionId && !userId) {
       return NextResponse.json(

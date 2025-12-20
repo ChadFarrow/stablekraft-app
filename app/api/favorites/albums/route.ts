@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
 import { getPublisherInfo } from '@/lib/url-utils';
 import { podcastIndexAPI } from '@/lib/podcast-index-api';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 /**
  * GET /api/favorites/albums
@@ -11,7 +12,7 @@ import { podcastIndexAPI } from '@/lib/podcast-index-api';
 export async function GET(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
     
     // Build where clause - support both session and user
     const where: any = {};
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
     
     if (!sessionId && !userId) {
       return NextResponse.json(
@@ -343,7 +344,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
     
     if (!sessionId && !userId) {
       return NextResponse.json(
@@ -422,7 +423,7 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = request.headers.get('x-nostr-user-id');
+    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
     
     if (!sessionId && !userId) {
       return NextResponse.json(
