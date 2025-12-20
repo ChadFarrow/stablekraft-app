@@ -583,7 +583,82 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         }
       });
     }
-    
+
+    // Handle Top 100 V4V Music playlist
+    if (slug === 'top-100-v4v-music' || slug === 'top100-playlist' || slug === 'top-100-playlist') {
+      console.log('🏆 Fetching Top 100 V4V Music playlist album details...');
+
+      // Fetch from Top 100 API
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app';
+      const top100Response = await fetch(`${baseUrl}/api/playlist/top100`);
+
+      if (!top100Response.ok) {
+        throw new Error(`Failed to fetch Top 100: ${top100Response.status}`);
+      }
+
+      const top100Data = await top100Response.json();
+      const playlistAlbum = top100Data.albums?.[0];
+
+      if (!playlistAlbum) {
+        throw new Error('Top 100 playlist data not available');
+      }
+
+      // Convert tracks to album format expected by AlbumDetailClient
+      const tracks = playlistAlbum.tracks.map((track: any, index: number) => ({
+        title: track.title,
+        duration: track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '3:00',
+        url: track.audioUrl || '',
+        trackNumber: index + 1,
+        subtitle: track.artist,
+        summary: track.description || `#${track.rank} on the V4V Music charts`,
+        image: track.image || '/placeholder-podcast.jpg',
+        explicit: false,
+        keywords: [],
+        albumTitle: track.albumTitle || track.feedTitle,
+        feedTitle: track.feedTitle,
+        guid: track.guid || track.itemGuid
+      }));
+
+      const top100Album = {
+        id: 'top-100-v4v-music',
+        title: 'Top 100 V4V Music',
+        artist: 'Various Artists',
+        description: playlistAlbum.description || 'The hottest tracks in the Value4Value music economy',
+        summary: playlistAlbum.description || 'The hottest tracks in the Value4Value music economy',
+        subtitle: '',
+        coverArt: playlistAlbum.coverArt || playlistAlbum.image || '/placeholder-podcast.jpg',
+        releaseDate: playlistAlbum.publishedAt || new Date().toISOString(),
+        explicit: false,
+        tracks: tracks,
+        podroll: null,
+        publisher: null,
+        funding: null,
+        feedId: 'top-100-v4v-music',
+        feedUrl: 'https://stats.podcastindex.org/v4vmusic.json',
+        lastUpdated: new Date().toISOString()
+      };
+
+      console.log(`✅ Created Top 100 album with ${top100Album.tracks.length} tracks`);
+
+      return NextResponse.json({
+        album: top100Album,
+        lastUpdated: new Date().toISOString()
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'ETag': `"${Date.now()}"`,
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY'
+        }
+      });
+    }
+
     // OPTIMIZED: Try targeted database queries first instead of loading all feeds
     const trackInclude = {
       Track: {

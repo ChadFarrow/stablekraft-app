@@ -20,7 +20,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <>
       {/* User Menu - Top Right */}
-      <div className="fixed top-4 right-4 z-40">
+      <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] right-4 z-40">
         <UserMenu className="bg-gray-900/80 backdrop-blur-sm" />
       </div>
 
