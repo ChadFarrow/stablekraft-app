@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { getProxiedAudioUrl } from '@/lib/audio-url-utils';
 import Link from 'next/link';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats, Episode, EpisodeViewMode } from '@/types/playlist';
+import type { V4VRecipient } from '@/lib/v4v-utils';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { Share2, List, Layers } from 'lucide-react';
@@ -1098,11 +1099,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                                       lightningAddress={track.v4vRecipient}
                                       valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
                                         ? (track.v4vValue.recipients || track.v4vValue.destinations)
-                                            .filter((r: any) => !r.fee)
-                                            .map((r: any) => ({
+                                            .filter((r: V4VRecipient) => !r.fee)
+                                            .map((r: V4VRecipient) => ({
                                               name: r.name || track.artist,
                                               address: r.address || '',
-                                              split: parseInt(r.split) || 100,
+                                              split: r.split ?? 100,
                                               type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
                                             }))
                                         : undefined}
@@ -1278,11 +1279,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                         lightningAddress={track.v4vRecipient}
                         valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations
                           ? (track.v4vValue.recipients || track.v4vValue.destinations)
-                              .filter((r: any) => !r.fee)
-                              .map((r: any) => ({
+                              .filter((r: V4VRecipient) => !r.fee)
+                              .map((r: V4VRecipient) => ({
                                 name: r.name || track.artist,
                                 address: r.address || '',
-                                split: parseInt(r.split) || 100,
+                                split: r.split ?? 100,
                                 type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
                               }))
                           : undefined}

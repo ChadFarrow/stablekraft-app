@@ -6,6 +6,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { logger } from '@/lib/logger';
 import { getProxiedAudioUrl } from '@/lib/audio-url-utils';
 import type { Track, SortOption, FilterSource, ViewMode, CacheStatus, CachedData, PlaylistConfig, PlaylistStats } from '@/types/playlist';
+import type { V4VRecipient } from '@/lib/v4v-utils';
 import { BoostButton } from '@/components/Lightning/BoostButton';
 
 interface PlaylistTemplateProps {
@@ -585,11 +586,11 @@ export default function PlaylistTemplate({ config }: PlaylistTemplateProps) {
                             lightningAddress={track.v4vRecipient}
                             valueSplits={track.v4vValue?.recipients || track.v4vValue?.destinations 
                               ? (track.v4vValue.recipients || track.v4vValue.destinations)
-                                  .filter((r: any) => !r.fee)
-                                  .map((r: any) => ({
+                                  .filter((r: V4VRecipient) => !r.fee)
+                                  .map((r: V4VRecipient) => ({
                                     name: r.name || track.artist,
                                     address: r.address || '',
-                                    split: parseInt(r.split) || 100,
+                                    split: r.split ?? 100,
                                     type: r.type === 'lnaddress' ? 'lnaddress' : 'node'
                                   }))
                               : undefined}
