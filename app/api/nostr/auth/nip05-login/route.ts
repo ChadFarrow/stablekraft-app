@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { NostrClient } from '@/lib/nostr/client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { publicKeyToNpub } from '@/lib/nostr/keys';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 import { getSessionIdFromRequest } from '@/lib/session-utils';
 
 /**
@@ -14,277 +15,141 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { identifier } = body;
 
-    // Validate required fields
     if (!identifier || typeof identifier !== 'string') {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'NIP-05 identifier is required (e.g., user@domain.com)',
-        },
+        { success: false, error: 'NIP-05 identifier required' },
         { status: 400 }
       );
     }
 
-    // Validate NIP-05 format
-    const nip05Regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!nip05Regex.test(identifier)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid NIP-05 identifier format. Expected: user@domain.com',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Split identifier into name and domain
     const [name, domain] = identifier.split('@');
     if (!name || !domain) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid NIP-05 identifier format',
-        },
+        { success: false, error: 'Invalid NIP-05 identifier' },
         { status: 400 }
       );
     }
 
-    // Look up pubkey from NIP-05 identifier
     const url = `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`;
-    let nip05Response;
-    try {
-      nip05Response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-        },
-        // Add timeout to prevent hanging
-        signal: AbortSignal.timeout(10000), // 10 seconds
-      });
-    } catch (fetchError) {
-      console.error('NIP-05 lookup error:', fetchError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to fetch NIP-05 data from ${domain}. Please check your identifier.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!nip05Response.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `NIP-05 lookup failed: ${nip05Response.status} ${nip05Response.statusText}`,
-        },
-        { status: 400 }
-      );
-    }
 
     let nip05Data;
     try {
-      nip05Data = await nip05Response.json();
-    } catch (parseError) {
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!res.ok) {
+        return NextResponse.json(
+          { success: false, error: `NIP-05 lookup failed: ${res.status}` },
+          { status: 400 }
+        );
+      }
+      nip05Data = await res.json();
+    } catch {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid response from NIP-05 server',
-        },
+        { success: false, error: `Failed to fetch NIP-05 data for ${identifier}` },
         { status: 400 }
       );
     }
 
-    // Extract pubkey from NIP-05 response
-    const publicKey = nip05Data.names?.[name];
-    if (!publicKey || typeof publicKey !== 'string') {
+    const rawPubkey = nip05Data.names?.[name];
+    if (!rawPubkey) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `NIP-05 identifier "${identifier}" not found or invalid`,
-        },
+        { success: false, error: `NIP-05 name not found: ${identifier}` },
         { status: 404 }
       );
     }
 
-    // Normalize pubkey (lowercase)
-    const normalizedPubkey = publicKey.toLowerCase();
-
-    // Calculate npub from public key
-    let npub: string;
-    try {
-      npub = publicKeyToNpub(normalizedPubkey);
-    } catch (error) {
-      console.error('Failed to calculate npub:', error);
+    const hexPubkey = normalizePubkey(rawPubkey);
+    if (!hexPubkey) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to calculate npub from public key',
-        },
+        { success: false, error: 'Invalid pubkey returned by NIP-05 server' },
         { status: 400 }
       );
     }
 
-    // Fetch user's profile metadata from Nostr relays (kind 0)
-    let profileMetadata: any = null;
-    let relayList: string[] | null = null;
+    let npub: string;
+    try {
+      npub = publicKeyToNpub(hexPubkey);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Failed to derive npub from pubkey' },
+        { status: 400 }
+      );
+    }
+
+    let profile = null;
+    let relayList: string[] = [];
     try {
       const client = new NostrClient(getDefaultRelays());
       await client.connect();
-
-      // Fetch profile metadata (kind 0)
-      profileMetadata = await client.getProfile(normalizedPubkey);
-
-      // Fetch relay list (kind 10002 - NIP-65)
-      relayList = await client.getRelayList(normalizedPubkey);
-      if (relayList && relayList.length > 0) {
-        console.log(`✅ Fetched ${relayList.length} relays from Nostr profile:`, relayList);
-      }
-
+      profile = await client.getProfile(hexPubkey);
+      relayList = await client.getRelayList(hexPubkey) || [];
       await client.disconnect();
-    } catch (error) {
-      console.warn('Failed to fetch profile/relays from Nostr:', error);
-      // Continue without profile metadata - not critical for login
-    }
+    } catch {}
 
-    // Extract profile fields from Nostr metadata (Nostr is source of truth)
-    const displayName = profileMetadata?.name || null;
-    const avatar = profileMetadata?.picture || null;
-    const bio = profileMetadata?.about || null;
-    const lightningAddress = profileMetadata?.lud16 || profileMetadata?.lud06 || null;
-    const nip05FromProfile = profileMetadata?.nip05 || null;
+    const displayName = profile?.name ?? null;
+    const avatar = profile?.picture ?? null;
+    const bio = profile?.about ?? null;
+    const lightningAddress = profile?.lud16 ?? profile?.lud06 ?? null;
 
-    // Verify that the NIP-05 from profile matches what user entered (if available)
-    if (nip05FromProfile && nip05FromProfile.toLowerCase() !== identifier.toLowerCase()) {
-      console.warn(`NIP-05 mismatch: profile has ${nip05FromProfile}, user entered ${identifier}`);
-      // Continue anyway - user might have entered a different valid identifier
-    }
+    const nip05Relays = nip05Data.relays?.[hexPubkey] || [];
+    const relays = relayList.length > 0 ? relayList : nip05Relays;
 
-    // Get relay URLs - prioritize kind 10002 relay list (NIP-65), fall back to NIP-05 response
-    // NIP-65 relay list is more up-to-date and user-controlled
-    const nip05Relays: string[] = nip05Data.relays?.[normalizedPubkey] || [];
-    const relays: string[] = (relayList && relayList.length > 0) ? relayList : nip05Relays;
-
-    // Find existing user by pubkey
-    let user = await prisma.user.findUnique({
-      where: { nostrPubkey: normalizedPubkey },
-    });
+    let user = await prisma.user.findUnique({ where: { nostrPubkey: hexPubkey } });
 
     if (!user) {
-      // Create new user
       user = await prisma.user.create({
         data: {
-          nostrPubkey: normalizedPubkey,
+          nostrPubkey: hexPubkey,
           nostrNpub: npub,
           displayName,
           avatar,
           bio,
           lightningAddress,
-          relays,
-        },
+          relays
+        }
       });
     } else {
-      // Update existing user with latest profile data from Nostr
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          displayName: displayName || user.displayName,
-          avatar: avatar || user.avatar,
-          bio: bio || user.bio,
-          lightningAddress: lightningAddress || user.lightningAddress,
+          nostrNpub: npub,
+          displayName: displayName ?? user.displayName,
+          avatar: avatar ?? user.avatar,
+          bio: bio ?? user.bio,
+          lightningAddress: lightningAddress ?? user.lightningAddress,
           relays: relays.length > 0 ? relays : user.relays,
-          updatedAt: new Date(),
-        },
+          updatedAt: new Date()
+        }
       });
     }
 
-    // Migrate session-based favorites to user-based favorites (same as extension login)
     const sessionId = getSessionIdFromRequest(request);
-    
     if (sessionId) {
       try {
-        // Migrate favorite tracks
-        const sessionTracks = await prisma.favoriteTrack.findMany({
-          where: {
-            sessionId,
-            userId: null, // Only migrate tracks that aren't already user-based
-          },
-        });
-
-        let migratedTracks = 0;
-        for (const favorite of sessionTracks) {
-          // Check if user already has this track favorited
-          const existing = await prisma.favoriteTrack.findUnique({
-            where: {
-              userId_trackId: {
-                userId: user.id,
-                trackId: favorite.trackId,
-              },
-            },
-          });
-
-          if (!existing) {
-            // Migrate to user-based favorite
-            await prisma.favoriteTrack.update({
-              where: { id: favorite.id },
-              data: {
-                userId: user.id,
-                sessionId: null, // Remove sessionId
-              },
-            });
-            migratedTracks++;
+        const tracks = await prisma.favoriteTrack.findMany({ where: { sessionId, userId: null } });
+        for (const fav of tracks) {
+          const exists = await prisma.favoriteTrack.findUnique({ where: { userId_trackId: { userId: user.id, trackId: fav.trackId } } });
+          if (!exists) {
+            await prisma.favoriteTrack.update({ where: { id: fav.id }, data: { userId: user.id, sessionId: null } });
           } else {
-            // User already has this favorite, delete the session-based one
-            await prisma.favoriteTrack.delete({
-              where: { id: favorite.id },
-            });
+            await prisma.favoriteTrack.delete({ where: { id: fav.id } });
           }
         }
 
-        // Migrate favorite albums
-        const sessionAlbums = await prisma.favoriteAlbum.findMany({
-          where: {
-            sessionId,
-            userId: null,
-          },
-        });
-
-        let migratedAlbums = 0;
-        for (const favorite of sessionAlbums) {
-          const existing = await prisma.favoriteAlbum.findUnique({
-            where: {
-              userId_feedId: {
-                userId: user.id,
-                feedId: favorite.feedId,
-              },
-            },
-          });
-
-          if (!existing) {
-            await prisma.favoriteAlbum.update({
-              where: { id: favorite.id },
-              data: {
-                userId: user.id,
-                sessionId: null,
-              },
-            });
-            migratedAlbums++;
+        const albums = await prisma.favoriteAlbum.findMany({ where: { sessionId, userId: null } });
+        for (const fav of albums) {
+          const exists = await prisma.favoriteAlbum.findUnique({ where: { userId_feedId: { userId: user.id, feedId: fav.feedId } } });
+          if (!exists) {
+            await prisma.favoriteAlbum.update({ where: { id: fav.id }, data: { userId: user.id, sessionId: null } });
           } else {
-            await prisma.favoriteAlbum.delete({
-              where: { id: favorite.id },
-            });
+            await prisma.favoriteAlbum.delete({ where: { id: fav.id } });
           }
         }
-
-        if (migratedTracks > 0 || migratedAlbums > 0) {
-          console.log(`✅ Migrated ${migratedTracks} tracks and ${migratedAlbums} albums from session to user (NIP-05 login)`);
-        }
-      } catch (migrationError) {
-        // Log error but don't fail login if migration fails
-        console.error('⚠️ Failed to migrate favorites:', migrationError);
-      }
+      } catch {}
     }
 
-    // Return user data (similar to extension login)
     return NextResponse.json({
       success: true,
       user: {
@@ -296,19 +161,14 @@ export async function POST(request: NextRequest) {
         bio: user.bio,
         lightningAddress: user.lightningAddress,
         relays: user.relays,
-        nip05Verified: true, // NIP-05 login means verified
-        loginType: 'nip05', // Mark as NIP-05 login (read-only)
-      },
+        nip05Verified: true,
+        loginType: 'nip05'
+      }
     });
-  } catch (error) {
-    console.error('NIP-05 login error:', error);
+  } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'NIP-05 login failed',
-      },
+      { success: false, error: err.message ?? 'NIP-05 login failed' },
       { status: 500 }
     );
   }
 }
-
