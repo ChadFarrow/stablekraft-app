@@ -225,7 +225,7 @@ export function createMetadata(
     about?: string;
     picture?: string;
     nip05?: string;
-    [key: string]: any;
+    [key: string]: string | undefined;
   },
   privateKey: string
 ): Event {
@@ -386,16 +386,17 @@ export function createFavoriteDeletionEvent(
  * @param event - Event to validate
  * @returns true if valid, false otherwise
  */
-export function isValidEvent(event: any): event is Event {
+export function isValidEvent(event: unknown): event is Event {
+  if (!event || typeof event !== 'object') return false;
+  const e = event as Record<string, unknown>;
   return (
-    event &&
-    typeof event.id === 'string' &&
-    typeof event.sig === 'string' &&
-    typeof event.kind === 'number' &&
-    Array.isArray(event.tags) &&
-    typeof event.content === 'string' &&
-    typeof event.created_at === 'number' &&
-    typeof event.pubkey === 'string'
+    typeof e.id === 'string' &&
+    typeof e.sig === 'string' &&
+    typeof e.kind === 'number' &&
+    Array.isArray(e.tags) &&
+    typeof e.content === 'string' &&
+    typeof e.created_at === 'number' &&
+    typeof e.pubkey === 'string'
   );
 }
 
