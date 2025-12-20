@@ -4,11 +4,12 @@ import { verifyEvent } from 'nostr-tools';
 import { Metadata } from 'nostr-tools/kinds';
 import { NostrClient } from '@/lib/nostr/client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 /**
  * POST /api/nostr/profile/update
- * Update user profile - publishes to Nostr relays (kind 0) and caches in database
- * Body: { displayName?: string, avatar?: string, bio?: string, lightningAddress?: string, relays?: string[], signedEvent?: Event }
+ * Update user profile metadata and publish a kind 0 event.
+ * Auto-normalizes pubkeys, fixes legacy DB entries, and ensures strict hex-only comparisons.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,140 +17,150 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
+        { success: false, error: 'Missing user ID' },
         { status: 401 }
       );
     }
 
     const body = await request.json();
-    const { displayName, avatar, bio, lightningAddress, relays, signedEvent } = body;
+    const {
+      displayName,
+      avatar,
+      bio,
+      lightningAddress,
+      relays: incomingRelays,
+      signedEvent
+    } = body;
 
-    // Get current user to merge with existing data
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    // Fetch current user
+    let currentUser = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!currentUser) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User not found',
-        },
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Validate signedEvent if provided (for NIP-07 signing)
-    if (signedEvent) {
-      // Verify the signed event
-      if (!verifyEvent(signedEvent)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid signed event signature',
-          },
-          { status: 401 }
-        );
-      }
+    // --- AUTO-NORMALIZE DB PUBKEY IF NEEDED ---
+    const normalizedDbKey = normalizePubkey(currentUser.nostrPubkey);
+    if (!normalizedDbKey) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid pubkey stored for this user' },
+        { status: 500 }
+      );
+    }
 
-      // Verify event kind is 0 (metadata)
-      if (signedEvent.kind !== Metadata) {
+    // Fix DB if pubkey was npub or wrong-case hex
+    if (normalizedDbKey !== currentUser.nostrPubkey) {
+      currentUser = await prisma.user.update({
+        where: { id: currentUser.id },
+        data: { nostrPubkey: normalizedDbKey },
+      });
+    }
+
+    const userPubkeyHex = normalizedDbKey;
+
+    // --- VERIFY SIGNED EVENT IF PROVIDED ---
+    let metadataEvent = null;
+    let published = false;
+
+    if (signedEvent) {
+      const eventPubkeyHex = normalizePubkey(signedEvent.pubkey);
+      if (!eventPubkeyHex) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Signed event must be kind 0 (metadata)',
-          },
+          { success: false, error: 'Invalid signed event pubkey' },
           { status: 400 }
         );
       }
 
-      if (signedEvent.pubkey !== currentUser.nostrPubkey) {
+      if (eventPubkeyHex !== userPubkeyHex) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Signed event pubkey does not match user',
-          },
+          { success: false, error: 'Signed event pubkey does not match your account' },
           { status: 401 }
         );
       }
-    }
 
-    // Build metadata object (merge with existing)
-    const metadata: any = {
-      name: displayName !== undefined ? displayName : currentUser.displayName || '',
-      about: bio !== undefined ? bio : currentUser.bio || '',
-      picture: avatar !== undefined ? avatar : currentUser.avatar || '',
-    };
-
-    if (lightningAddress !== undefined && lightningAddress) {
-      metadata.lud16 = lightningAddress;
-    }
-
-    // If signedEvent is provided, use it directly (NIP-07 signing)
-    let metadataEvent = signedEvent;
-    let published = false;
-
-    if (signedEvent) {
-      // Use user's relays or default relays
-      const relayUrls = relays && relays.length > 0 ? relays : (currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays());
-      const client = new NostrClient(relayUrls);
-      await client.connect();
-      const publishResults = await client.publish(signedEvent, {
-        relays: relayUrls,
-        waitForRelay: true,
-      });
-      await client.disconnect();
-
-      published = publishResults.some(r => r.status === 'fulfilled');
-      if (!published) {
-        console.warn('⚠️ Failed to publish profile update to any Nostr relay');
+      if (!verifyEvent(signedEvent)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid Nostr event signature' },
+          { status: 401 }
+        );
       }
-    } else {
-      // No signed event provided - just update database (client should sign on their end)
-      console.warn('⚠️ No signed event provided - profile update will not be published to Nostr');
+
+      if (signedEvent.kind !== Metadata) {
+        return NextResponse.json(
+          { success: false, error: 'Signed event must be kind 0 (metadata)' },
+          { status: 400 }
+        );
+      }
+
+      metadataEvent = signedEvent;
+
+      // Select relay set
+      const relayUrls =
+        Array.isArray(incomingRelays) && incomingRelays.length > 0
+          ? incomingRelays
+          : currentUser.relays?.length > 0
+          ? currentUser.relays
+          : getDefaultRelays();
+
+      const client = new NostrClient(relayUrls);
+
+      try {
+        await client.connect();
+        const publishResults = await client.publish(signedEvent, {
+          relays: relayUrls,
+          waitForRelay: true,
+        });
+        published = publishResults.some((r) => r.status === 'fulfilled');
+      } finally {
+        await client.disconnect();
+      }
     }
 
-    // Update database cache AFTER publishing to Nostr
+    // --- UPDATE DB AFTER PUBLISHING ---
     const updateData: any = {};
+
     if (displayName !== undefined) updateData.displayName = displayName;
     if (avatar !== undefined) updateData.avatar = avatar;
     if (bio !== undefined) updateData.bio = bio;
     if (lightningAddress !== undefined) updateData.lightningAddress = lightningAddress;
-    if (relays !== undefined) updateData.relays = relays;
 
-    const user = await prisma.user.update({
-      where: { id: userId },
+    if (incomingRelays !== undefined) {
+      updateData.relays = Array.isArray(incomingRelays)
+        ? incomingRelays.filter((r: string) => typeof r === 'string' && r.startsWith('wss://'))
+        : currentUser.relays;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUser.id },
       data: updateData,
     });
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        nostrPubkey: user.nostrPubkey,
-        nostrNpub: user.nostrNpub,
-        displayName: user.displayName,
-        avatar: user.avatar,
-        bio: user.bio,
-        lightningAddress: user.lightningAddress,
-        relays: user.relays,
+        id: updatedUser.id,
+        nostrPubkey: updatedUser.nostrPubkey,
+        nostrNpub: updatedUser.nostrNpub,
+        displayName: updatedUser.displayName,
+        avatar: updatedUser.avatar,
+        bio: updatedUser.bio,
+        lightningAddress: updatedUser.lightningAddress,
+        relays: updatedUser.relays,
       },
       eventId: metadataEvent?.id || null,
       published,
-      message: signedEvent ? 'Profile updated and published to Nostr successfully' : 'Profile updated successfully (Nostr publishing requires signed event)',
+      message: signedEvent
+        ? 'Profile updated and published to Nostr'
+        : 'Profile updated (no Nostr publish — missing signed event)',
     });
-  } catch (error) {
-    console.error('Update profile error:', error);
+  } catch (err: any) {
+    console.error('Profile update error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update profile',
-      },
+      { success: false, error: err.message || 'Failed to update profile' },
       { status: 500 }
     );
   }
 }
-
