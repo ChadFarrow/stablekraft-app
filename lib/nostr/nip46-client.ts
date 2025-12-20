@@ -502,66 +502,32 @@ export class NIP46Client {
     
     // CRITICAL: Verify primary relay is connected before subscribing
     // If this relay fails, connection will not work because Amber/Aegis publishes to this relay
-    // Retry logic with exponential backoff for local relay connections (like Aegis)
-    const maxRetries = 3;
-    let connected = false;
-    let lastError: Error | null = null;
-    const isAegisRelay = relayUrl.includes('localrelay.link');
-
     console.log(`🔌 NIP-46: Connecting to relays:`, subscribeRelays);
+    try {
+      await this.relayClient.connectToRelays(subscribeRelays);
+      const connectedRelays = this.relayClient.getConnectedRelays();
+      console.log('✅ NIP-46: Connected to relay(s):', connectedRelays);
 
-    for (let attempt = 1; attempt <= maxRetries && !connected; attempt++) {
-      try {
-        await this.relayClient.connectToRelays(subscribeRelays);
-        const connectedRelays = this.relayClient.getConnectedRelays();
-        console.log(`✅ NIP-46: Connected to relay(s) (attempt ${attempt}/${maxRetries}):`, connectedRelays);
-
-        // Verify the primary relay is actually connected
-        if (connectedRelays.includes(relayUrl)) {
-          connected = true;
-          console.log(`✅ NIP-46: Primary relay ${relayUrl} is connected and ready`);
-
-          if (backupRelays.length > 0) {
-            const connectedBackups = backupRelays.filter(url => connectedRelays.includes(url));
-            if (connectedBackups.length > 0) {
-              console.log(`✅ NIP-46: Also connected to ${connectedBackups.length} backup relay(s):`, connectedBackups);
-            } else {
-              console.warn(`⚠️ NIP-46: No backup relays connected, but primary relay is ready`);
-            }
-          }
-        } else if (attempt < maxRetries) {
-          console.log(`⏳ NIP-46: Primary relay not in connected list, retrying (${attempt}/${maxRetries})...`);
-          await new Promise(r => setTimeout(r, 1000 * attempt)); // 1s, 2s, 3s backoff
-        }
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        if (attempt < maxRetries) {
-          console.log(`⏳ NIP-46: Connection failed, retrying (${attempt}/${maxRetries})...`, lastError.message);
-          await new Promise(r => setTimeout(r, 1000 * attempt)); // 1s, 2s, 3s backoff
-        }
-      }
-    }
-
-    if (!connected) {
-      const baseMsg = lastError?.message || 'Connection failed';
-      console.error(`❌ NIP-46: Failed to connect to primary relay ${relayUrl} after ${maxRetries} attempts:`, baseMsg);
-
-      // Create Aegis-specific error with troubleshooting info
-      if (isAegisRelay) {
-        const error = new Error(`Aegis connection not supported in Safari`);
-        (error as any).isAegisRelay = true;
-        (error as any).troubleshooting = `iOS Safari blocks connections to local relays (localhost) from HTTPS websites for security reasons.
-
-Aegis uses a local relay that cannot be accessed from Safari.
-
-Alternatives:
-• Use a desktop browser with Alby extension
-• Use Amber on Android (has better web support)
-• Request public relay support from Aegis developers`;
-        throw error;
+      // Verify the primary relay is actually connected
+      if (!connectedRelays.includes(relayUrl)) {
+        const errorMsg = `CRITICAL: Primary relay ${relayUrl} failed to connect. Signer app will publish to this relay, so connection will fail.`;
+        console.error(`❌ NIP-46: ${errorMsg}`);
+        throw new Error(errorMsg);
       }
 
-      throw new Error(`Failed to connect to relay ${relayUrl}: ${baseMsg}. The signer app will publish to this relay, so connection cannot proceed.`);
+      console.log(`✅ NIP-46: Primary relay ${relayUrl} is connected and ready`);
+      if (backupRelays.length > 0) {
+        const connectedBackups = backupRelays.filter(url => connectedRelays.includes(url));
+        if (connectedBackups.length > 0) {
+          console.log(`✅ NIP-46: Also connected to ${connectedBackups.length} backup relay(s):`, connectedBackups);
+        } else {
+          console.warn(`⚠️ NIP-46: No backup relays connected, but primary relay is ready`);
+        }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`❌ NIP-46: Failed to connect to primary relay ${relayUrl}:`, errorMsg);
+      throw new Error(`Failed to connect to relay ${relayUrl}: ${errorMsg}. Signer app will publish to this relay, so connection cannot proceed.`);
     }
     
     // Track subscription start time for debugging
