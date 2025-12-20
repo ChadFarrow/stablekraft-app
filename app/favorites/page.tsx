@@ -1453,16 +1453,20 @@ function FavoritesPageContent() {
                     </div>
 
                     {/* Favorite Button - Add to own favorites */}
-                    <FavoriteButton
-                      trackId={fav.type === 'track' ? fav.originalItemId : undefined}
-                      feedId={fav.type === 'album' && !fav.item.singleTrack ? fav.originalItemId : undefined}
-                      onToggle={handleCommunityFavoriteToggle(fav.nostrEventId)}
-                      singleTrackData={fav.item.singleTrack ? {
-                        id: fav.item.singleTrack.id,
-                        title: fav.item.singleTrack.title,
-                        artist: fav.item.artist,
-                      } : undefined}
-                    />
+                    {(fav.originalItemId || fav.item.singleTrack?.id) ? (
+                      <FavoriteButton
+                        trackId={fav.type === 'track' ? fav.originalItemId : undefined}
+                        feedId={fav.type === 'album' && !fav.item.singleTrack ? fav.originalItemId : undefined}
+                        onToggle={handleCommunityFavoriteToggle(fav.nostrEventId)}
+                        singleTrackData={fav.item.singleTrack ? {
+                          id: fav.item.singleTrack.id,
+                          title: fav.item.singleTrack.title,
+                          artist: fav.item.artist,
+                        } : undefined}
+                      />
+                    ) : (
+                      <div className="w-6 h-6" /> // Placeholder to maintain grid layout
+                    )}
 
                     {/* Play and View Buttons */}
                     <div className="flex items-center gap-2">
