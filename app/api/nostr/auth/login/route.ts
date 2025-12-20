@@ -145,51 +145,75 @@ export async function POST(request: NextRequest) {
 
     if (sessionId) {
       try {
+        // Migrate session tracks to user (batch operations to fix N+1)
         const sessionTracks = await prisma.favoriteTrack.findMany({
           where: { sessionId, userId: null },
         });
 
-        for (const fav of sessionTracks) {
-          const exists = await prisma.favoriteTrack.findUnique({
+        if (sessionTracks.length > 0) {
+          // Get all existing user tracks in one query
+          const existingUserTracks = await prisma.favoriteTrack.findMany({
             where: {
-              userId_trackId: {
-                userId: user.id,
-                trackId: fav.trackId,
-              },
+              userId: user.id,
+              trackId: { in: sessionTracks.map(t => t.trackId) }
             },
+            select: { trackId: true }
           });
+          const existingTrackIds = new Set(existingUserTracks.map(t => t.trackId));
 
-          if (!exists) {
-            await prisma.favoriteTrack.update({
-              where: { id: fav.id },
-              data: { userId: user.id, sessionId: null },
+          // Separate into tracks to migrate vs duplicates to delete
+          const toMigrate = sessionTracks.filter(t => !existingTrackIds.has(t.trackId));
+          const toDelete = sessionTracks.filter(t => existingTrackIds.has(t.trackId));
+
+          // Batch update tracks to migrate
+          if (toMigrate.length > 0) {
+            await prisma.favoriteTrack.updateMany({
+              where: { id: { in: toMigrate.map(t => t.id) } },
+              data: { userId: user.id, sessionId: null }
             });
-          } else {
-            await prisma.favoriteTrack.delete({ where: { id: fav.id } });
+          }
+
+          // Batch delete duplicates
+          if (toDelete.length > 0) {
+            await prisma.favoriteTrack.deleteMany({
+              where: { id: { in: toDelete.map(t => t.id) } }
+            });
           }
         }
 
+        // Migrate session albums to user (batch operations to fix N+1)
         const sessionAlbums = await prisma.favoriteAlbum.findMany({
           where: { sessionId, userId: null },
         });
 
-        for (const fav of sessionAlbums) {
-          const exists = await prisma.favoriteAlbum.findUnique({
+        if (sessionAlbums.length > 0) {
+          // Get all existing user albums in one query
+          const existingUserAlbums = await prisma.favoriteAlbum.findMany({
             where: {
-              userId_feedId: {
-                userId: user.id,
-                feedId: fav.feedId,
-              },
+              userId: user.id,
+              feedId: { in: sessionAlbums.map(a => a.feedId) }
             },
+            select: { feedId: true }
           });
+          const existingFeedIds = new Set(existingUserAlbums.map(a => a.feedId));
 
-          if (!exists) {
-            await prisma.favoriteAlbum.update({
-              where: { id: fav.id },
-              data: { userId: user.id, sessionId: null },
+          // Separate into albums to migrate vs duplicates to delete
+          const toMigrate = sessionAlbums.filter(a => !existingFeedIds.has(a.feedId));
+          const toDelete = sessionAlbums.filter(a => existingFeedIds.has(a.feedId));
+
+          // Batch update albums to migrate
+          if (toMigrate.length > 0) {
+            await prisma.favoriteAlbum.updateMany({
+              where: { id: { in: toMigrate.map(a => a.id) } },
+              data: { userId: user.id, sessionId: null }
             });
-          } else {
-            await prisma.favoriteAlbum.delete({ where: { id: fav.id } });
+          }
+
+          // Batch delete duplicates
+          if (toDelete.length > 0) {
+            await prisma.favoriteAlbum.deleteMany({
+              where: { id: { in: toDelete.map(a => a.id) } }
+            });
           }
         }
       } catch (err) {
