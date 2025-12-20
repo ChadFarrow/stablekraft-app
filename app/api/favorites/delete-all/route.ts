@@ -12,7 +12,7 @@ import { normalizePubkey } from '@/lib/nostr/normalize';
 export async function DELETE(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     const { searchParams } = new URL(request.url);
     const deleteType = searchParams.get('type') || 'all';
 
@@ -97,7 +97,7 @@ export async function DELETE(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     const { searchParams } = new URL(request.url);
     const countType = searchParams.get('type') || 'all';
     const includeEventIds = searchParams.get('includeEventIds') === 'true';

@@ -17,7 +17,7 @@ export async function DELETE(
     feedId = decodeURIComponent(feedId);
     
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     
     if (!sessionId && !userId) {
       return NextResponse.json(

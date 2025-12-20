@@ -11,7 +11,7 @@ import { normalizePubkey } from '@/lib/nostr/normalize';
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     
     if (!sessionId && !userId) {
       return NextResponse.json({

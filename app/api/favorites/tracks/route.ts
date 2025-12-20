@@ -11,7 +11,7 @@ import { normalizePubkey } from '@/lib/nostr/normalize';
 export async function GET(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     
     // Build where clause - support both session and user
     const where: any = {};
@@ -487,7 +487,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     
     if (!sessionId && !userId) {
       return NextResponse.json(
@@ -604,7 +604,7 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const sessionId = getSessionIdFromRequest(request);
-    const userId = normalizePubkey(request.headers.get('x-nostr-user-id'));
+    const userId = request.headers.get('x-nostr-user-id');
     
     if (!sessionId && !userId) {
       return NextResponse.json(
