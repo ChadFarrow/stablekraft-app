@@ -446,7 +446,9 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
               e.preventDefault();
               e.stopPropagation();
               try {
-                const albumUrl = generateAlbumUrl(currentPlayingAlbum.title);
+                // Use track's source album (feedTitle/albumTitle) for playlist tracks, fall back to album title
+                const sourceAlbum = (currentTrack as any).feedTitle || (currentTrack as any).albumTitle || currentPlayingAlbum.title;
+                const albumUrl = generateAlbumUrl(sourceAlbum);
                 // Include track parameter if track has an ID
                 const trackParam = currentTrack.id ? `?track=${currentTrack.id}` : '';
                 const shareUrl = `${window.location.origin}${albumUrl}${trackParam}`;
