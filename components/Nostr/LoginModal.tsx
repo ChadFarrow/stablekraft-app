@@ -9,31 +9,18 @@ import { getUnifiedSigner } from '@/lib/nostr/signer';
 import { saveNIP46Connection } from '@/lib/nostr/nip46-storage';
 import { isAndroid, isIOS } from '@/lib/utils/device';
 import Nip46Connect from './Nip46Connect';
+import {
+  preserveWalletConnection,
+  prepareLoginEvent,
+  processSignedLogin,
+  saveUserData,
+  startFavoritesSync,
+  completeLogin,
+} from '@/lib/nostr/auth-utils';
 
 interface LoginModalProps {
   onClose: () => void;
 }
-
-// Helper function to preserve wallet connection state before page reload
-const preserveWalletConnection = async () => {
-  try {
-    // Check if Bitcoin Connect has saved connection data
-    // Bitcoin Connect stores its state with keys starting with 'bc:'
-    const hasBitcoinConnectData = Object.keys(localStorage).some(key => key.startsWith('bc:'));
-
-    if (hasBitcoinConnectData) {
-      console.log('💾 Preserving wallet connection before Nostr login reload...');
-      localStorage.setItem('wallet_restore_after_login', 'true');
-      // Ensure manual disconnect flag is cleared
-      localStorage.setItem('wallet_manually_disconnected', 'false');
-    } else {
-      console.log('ℹ️ No wallet connection to preserve (no bc: keys found)');
-    }
-  } catch (err) {
-    // Shouldn't happen, but just in case
-    console.log('ℹ️ Error checking wallet connection:', err);
-  }
-};
 
 export default function LoginModal({ onClose }: LoginModalProps) {
   const [error, setError] = useState<string | null>(null);
@@ -1117,140 +1104,31 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       console.log('📱 NIP-55: Starting login with Android signer...');
 
       // Use existing client or create new one
-      // If client was created early in useEffect, reuse it to preserve callback handler
       const client = nip55Client || new NIP55Client();
       if (!nip55Client) {
         setNip55Client(client);
       }
 
-      // Connect and get public key
-      const publicKey = await client.getPublicKey();
-      console.log('✅ NIP-55: Got public key:', publicKey.slice(0, 16) + '...');
-
-      // Generate challenge for authentication
-      const challengeResponse = await fetch('/api/nostr/auth/challenge', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error('Failed to get challenge');
-      }
-
-      const challengeData = await challengeResponse.json();
-      const challenge = challengeData.challenge;
-
-      // Create standardized login event template
-      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
-      const challengeEventTemplate = createLoginEventTemplate(challenge);
+      // Get challenge and prepare event
+      const { challenge, eventTemplate } = await prepareLoginEvent();
 
       // Sign challenge event using NIP-55
-      const signedEvent = await client.signEvent(challengeEventTemplate);
+      const signedEvent = await client.signEvent(eventTemplate);
       console.log('✅ NIP-55: Signed challenge event');
 
-      // Send login request
-      const { publicKeyToNpub } = await import('@/lib/nostr/keys');
-      const npub = publicKeyToNpub(publicKey);
+      // Register signer before completing login
+      const signer = getUnifiedSigner();
+      await signer.setNIP55Signer(client);
 
-      const loginResponse = await fetch('/api/nostr/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          publicKey,
-          npub,
-          challenge,
-          signature: signedEvent.sig,
-          eventId: signedEvent.id,
-          createdAt: signedEvent.created_at,
-          kind: signedEvent.kind, // Include kind so API can verify correctly
-          content: signedEvent.content, // Include content so API can verify correctly
-        }),
-      });
-
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json();
-        throw new Error(errorData.error || 'Login failed');
-      }
-
-      const loginData = await loginResponse.json();
-      if (loginData.success && loginData.user) {
-        console.log('✅ NIP-55: Login successful!');
-
-        // Save connection info
-        try {
-          localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
-          localStorage.setItem('nostr_login_type', 'nip55');
-          
-          // Save preferred signer for better UX on return visits
-          const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
-          savePreferredSigner(loginData.user.nostrPubkey, 'nip55');
-          
-          // Store NIP-55 client reference (we'll need to recreate it on reload)
-          // For now, just mark that we're using NIP-55
-          console.log('💾 NIP-55: Saved user to localStorage');
-        } catch (storageError) {
-          console.error('❌ NIP-55: Failed to save to localStorage:', storageError);
-        }
-
-        // Update signer in context
-        const signer = getUnifiedSigner();
-        await signer.setNIP55Signer(client);
-
-        // Sync favorites to Nostr (fire and forget - don't block login)
-        try {
-          console.log('🔄 Syncing favorites to Nostr...');
-          // Import dynamically to avoid issues with server-side rendering
-          import('@/lib/nostr/sync-favorites').then(({ syncFavoritesToNostr }) => {
-            syncFavoritesToNostr(loginData.user.id).then((results) => {
-              console.log('✅ Favorites synced to Nostr:', results);
-            }).catch((err) => {
-              console.error('❌ Error syncing favorites:', err);
-            });
-          }).catch((err) => {
-            console.error('❌ Error importing sync module:', err);
-          });
-        } catch (syncError) {
-          // Don't fail login if sync fails
-          console.error('❌ Error initiating favorites sync:', syncError);
-        }
-
-        // Close modal and reload (delay to let sync messages show)
-        onClose();
-        // Preserve wallet connection before reload (Android fix)
-        await preserveWalletConnection();
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000); // 2 second delay to see sync messages
-      } else {
-        throw new Error(loginData.error || 'Login failed');
+      // Complete login flow
+      const result = await processSignedLogin(signedEvent, challenge, 'nip55', onClose, 2000);
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : typeof err === 'string'
-        ? err
-        : JSON.stringify(err, Object.getOwnPropertyNames(err));
-      const errorDetails = err instanceof Error
-        ? {
-            message: err.message,
-            name: err.name,
-            stack: err.stack,
-            ...(err as any).cause && { cause: (err as any).cause },
-          }
-        : err;
-      
-      setError(errorMessage || 'NIP-55 login failed');
-      console.error('❌ NIP-55: Login error:', {
-        error: errorDetails,
-        errorMessage,
-        errorType: typeof err,
-        errorConstructor: err?.constructor?.name,
-        stringified: JSON.stringify(err, Object.getOwnPropertyNames(err)),
-      });
+      const errorMessage = err instanceof Error ? err.message : 'NIP-55 login failed';
+      setError(errorMessage);
+      console.error('❌ NIP-55: Login error:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -1264,129 +1142,21 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       console.log('🔌 LoginModal: Starting extension login...');
       const nostr = (window as any).nostr;
       if (!nostr) {
-        console.error('❌ LoginModal: Nostr extension not found');
         throw new Error('Nostr extension not found');
       }
-      console.log('✅ LoginModal: Nostr extension found');
 
-      // Get public key from extension
-      console.log('🔑 LoginModal: Getting public key from extension...');
-      const publicKey = await nostr.getPublicKey();
-      console.log('✅ LoginModal: Got public key', publicKey.slice(0, 16) + '...');
+      // Get challenge and prepare event
+      const { challenge, eventTemplate } = await prepareLoginEvent();
 
-      // Request signature for challenge
-      let challengeResponse;
-      try {
-        challengeResponse = await fetch('/api/nostr/auth/challenge', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (fetchError) {
-        console.error('❌ LoginModal: Network error fetching challenge:', fetchError);
-        throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Failed to connect to server'}`);
-      }
-
-      if (!challengeResponse.ok) {
-        const errorText = await challengeResponse.text().catch(() => 'Unknown error');
-        console.error('❌ LoginModal: Challenge request failed:', {
-          status: challengeResponse.status,
-          statusText: challengeResponse.statusText,
-          body: errorText,
-        });
-        throw new Error(`Failed to get challenge: ${challengeResponse.status} ${challengeResponse.statusText}`);
-      }
-
-      let challengeData;
-      try {
-        challengeData = await challengeResponse.json();
-      } catch (parseError) {
-        console.error('❌ LoginModal: Failed to parse challenge response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (!challengeData.challenge) {
-        console.error('❌ LoginModal: Challenge response missing challenge field:', challengeData);
-        throw new Error('Invalid challenge response from server');
-      }
-
-      const challenge = challengeData.challenge;
-
-      // Create standardized login event template
-      const { createLoginEventTemplate } = await import('@/lib/nostr/events');
-      const eventTemplate = createLoginEventTemplate(challenge);
-
-      console.log('✍️ LoginModal: Requesting signature from extension...');
-      // Use unified signer for consistency
+      // Sign with unified signer (uses extension)
       const signer = getUnifiedSigner();
       const signedEvent = await signer.signEvent(eventTemplate as any);
-      console.log('✅ LoginModal: Got signed event', {
-        id: signedEvent.id.slice(0, 16) + '...',
-        pubkey: signedEvent.pubkey.slice(0, 16) + '...',
-      });
+      console.log('✅ LoginModal: Got signed event from extension');
 
-      // Calculate npub from public key
-      const { publicKeyToNpub } = await import('@/lib/nostr/keys');
-      const npub = publicKeyToNpub(signedEvent.pubkey);
-      console.log('✅ LoginModal: Calculated npub', npub.slice(0, 16) + '...');
-
-      // Login with signed event
-      const loginResponse = await fetch('/api/nostr/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          publicKey: signedEvent.pubkey,
-          npub: npub,
-          challenge,
-          signature: signedEvent.sig,
-          eventId: signedEvent.id,
-          createdAt: signedEvent.created_at,
-          kind: signedEvent.kind, // Include kind so API can verify correctly
-          content: signedEvent.content, // Include content so API can verify correctly
-        }),
-      });
-
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || `Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
-      }
-
-      const loginData = await loginResponse.json();
-      console.log('📥 LoginModal: Login response', { success: loginData.success, error: loginData.error });
-      if (loginData.success && loginData.user) {
-        console.log('✅ LoginModal: Login successful!', { userId: loginData.user?.id });
-        
-        // Save user data to localStorage before reload
-        // Note: For extension login, we don't have the private key, so we'll need to handle this differently
-        // For now, we'll save the user data and let the context handle the rest
-        try {
-          localStorage.setItem('nostr_user', JSON.stringify(loginData.user));
-          localStorage.setItem('nostr_login_type', 'extension'); // Mark as extension login
-          
-          // Save preferred signer for better UX on return visits
-          const { savePreferredSigner } = await import('@/lib/nostr/nip46-storage');
-          savePreferredSigner(loginData.user.nostrPubkey, 'extension');
-          console.log('💾 LoginModal: Saved user to localStorage (extension login)');
-          
-          // For extension login, we can't store the private key, but we can store a flag
-          // The context will need to handle extension-based sessions differently
-          // For now, we'll just save the user and reload
-        } catch (storageError) {
-          console.error('❌ LoginModal: Failed to save to localStorage:', storageError);
-        }
-
-        onClose();
-        // Preserve wallet connection before reload (Android fix)
-        await preserveWalletConnection();
-        // Small delay to let UI update before reload
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      } else {
-        throw new Error(loginData.error || 'Login failed');
+      // Complete login flow
+      const result = await processSignedLogin(signedEvent, challenge, 'extension', onClose);
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
