@@ -17,7 +17,6 @@ export default function SyncToNostrButton({
 }: SyncToNostrButtonProps) {
   const { user, isAuthenticated } = useNostr();
   const [unpublishedCount, setUnpublishedCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
   const [needsRepublishCount, setNeedsRepublishCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
@@ -44,7 +43,6 @@ export default function SyncToNostrButton({
         const data = await unpubResponse.json();
         if (data.success) {
           setUnpublishedCount(data.unpublished.total);
-          setTotalCount(data.total || 0);
           setNeedsRepublishCount(data.needsRepublish?.total || 0);
         }
       }
@@ -59,11 +57,11 @@ export default function SyncToNostrButton({
     fetchCounts();
   }, [fetchCounts]);
 
-  // forceMode: 'none' = unpublished only, 'nip51' = needs NIP-51 update, 'all' = everything
-  const handleSync = async (forceMode: 'none' | 'nip51' | 'all' = 'none') => {
+  // forceMode: 'none' = unpublished only, 'nip51' = needs NIP-51 update
+  const handleSync = async (forceMode: 'none' | 'nip51' = 'none') => {
     if (!user || isSyncing) return;
 
-    const countToSync = forceMode === 'all' ? totalCount : (forceMode === 'nip51' ? needsRepublishCount : unpublishedCount);
+    const countToSync = forceMode === 'nip51' ? needsRepublishCount : unpublishedCount;
     if (countToSync === 0) return;
 
     setIsSyncing(true);
@@ -72,9 +70,7 @@ export default function SyncToNostrButton({
     try {
       // Fetch favorites to sync
       let url = '/api/favorites/sync-to-nostr';
-      if (forceMode === 'all') {
-        url += '?force=all';
-      } else if (forceMode === 'nip51') {
+      if (forceMode === 'nip51') {
         url += '?force=true';
       }
 
@@ -171,8 +167,8 @@ export default function SyncToNostrButton({
     return null;
   }
 
-  // Show republish button even if no unpublished (for NIP-51 migration)
-  if (unpublishedCount === 0 && totalCount === 0) {
+  // Only show if there's something to sync
+  if (unpublishedCount === 0 && needsRepublishCount === 0) {
     return null;
   }
 
@@ -223,26 +219,7 @@ export default function SyncToNostrButton({
         </button>
       )}
 
-      {/* Force republish button - for when data is out of sync (all marked published but not on relays) */}
-      {unpublishedCount === 0 && needsRepublishCount === 0 && totalCount > 0 && (
-        <button
-          onClick={() => handleSync('all')}
-          disabled={isSyncing}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-all
-            ${isSyncing
-              ? 'bg-orange-600/50 text-orange-200 cursor-wait'
-              : 'bg-orange-600 hover:bg-orange-500 text-white cursor-pointer'
-            }`}
-          title={`Force republish all ${totalCount} favorites to Nostr`}
-        >
-          <Upload size={16} className={isSyncing ? 'animate-pulse' : ''} />
-          {isSyncing ? (
-            <span>Publishing... ({progress.completed}/{progress.total})</span>
-          ) : (
-            <span>Republish ({totalCount})</span>
-          )}
-        </button>
-      )}
+{/* Force republish button removed - only show sync buttons when actually needed */}
     </div>
   );
 }
