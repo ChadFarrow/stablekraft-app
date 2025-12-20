@@ -967,7 +967,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           'digitaloceanspaces.com',
           'rocknrollbreakheart.com',
           'mmmusic.show',
-          'cypherpunk.today'
+          'cypherpunk.today',
+          'thunderroad.media'
         ];
 
         const isDirectFirst = directFirstDomains.some(domain =>
