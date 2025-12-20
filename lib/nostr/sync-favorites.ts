@@ -68,7 +68,7 @@ export async function syncFavoritesToNostr(userId: string): Promise<SyncResults>
 
           if (checkResponse.ok) {
             const checkData = await checkResponse.json();
-            const existingTrack = checkData.data?.find((t: any) => t.id === track.id);
+            const existingTrack = checkData.data?.find((t: { id: string; nostrEventId?: string }) => t.id === track.id);
 
             if (existingTrack?.nostrEventId) {
               results.tracks.skipped++;
@@ -137,7 +137,7 @@ export async function syncFavoritesToNostr(userId: string): Promise<SyncResults>
 
           if (checkResponse.ok) {
             const checkData = await checkResponse.json();
-            const existingAlbum = checkData.data?.find((a: any) => a.id === album.id);
+            const existingAlbum = checkData.data?.find((a: { id: string; nostrEventId?: string }) => a.id === album.id);
 
             if (existingAlbum?.nostrEventId) {
               results.albums.skipped++;

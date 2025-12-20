@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
-import { 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Volume2, 
+import type { V4VValue } from '@/lib/v4v-utils';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
   Search,
   Music,
   Zap,
@@ -25,7 +26,7 @@ interface Track {
   duration?: number;
   image?: string;
   explicit: boolean;
-  v4vValue?: any;
+  v4vValue?: V4VValue | null;
   feed?: {
     title: string;
     artist?: string;
@@ -140,8 +141,8 @@ export default function DatabaseMusicPlayer() {
         });
         const data = await response.json();
         if (data.facets) {
-          setUniqueArtists(data.facets.artists?.map((a: any) => a.value) || []);
-          setUniqueAlbums(data.facets.albums?.map((a: any) => a.value) || []);
+          setUniqueArtists(data.facets.artists?.map((a: { value: string }) => a.value) || []);
+          setUniqueAlbums(data.facets.albums?.map((a: { value: string }) => a.value) || []);
         }
       } catch (error) {
         console.error('Error fetching filter options:', error);
