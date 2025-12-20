@@ -56,6 +56,11 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
+          if (userData.nostrPubkey) {
+            const { normalizePubkey } = await import('@/lib/nostr/normalize');
+            const hex = normalizePubkey(userData.nostrPubkey);
+            if (hex) userData.nostrPubkey = hex;
+          }
           // Get login type from localStorage
           const loginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
           if (loginType) {
@@ -113,6 +118,16 @@ export function NostrProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
+          if (data.user.nostrPubkey) {
+            const { normalizePubkey } = await import('@/lib/nostr/normalize');
+            const hex = normalizePubkey(data.user.nostrPubkey);
+            if (hex) data.user.nostrPubkey = hex;
+          }
+          if (data.user.nostrPubkey) {
+            const { normalizePubkey } = await import('@/lib/nostr/normalize');
+            const hex = normalizePubkey(data.user.nostrPubkey);
+            if (hex) data.user.nostrPubkey = hex;
+          }
           // Preserve loginType from localStorage if not in response
           const storedLoginType = localStorage.getItem('nostr_login_type') as 'extension' | 'nip05' | 'nip46' | 'nip55' | 'nsecbunker' | null;
           if (storedLoginType && !data.user.loginType) {
