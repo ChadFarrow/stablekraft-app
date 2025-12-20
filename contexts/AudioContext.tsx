@@ -107,6 +107,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const hlsRef = useRef<HlsType | null>(null);
   const albumsLoadedRef = useRef(false);
   const isRetryingRef = useRef(false);
+  const skipAutoSkipRef = useRef(false); // Prevent auto-skip when failure is handled programmatically
   const playbackSessionRef = useRef(0); // Session ID to cancel stale playback attempts
   const isAutoTransitioningRef = useRef(false); // Track when transitioning from ended track (for iOS)
   const playNextTrackRef = useRef<() => Promise<void>>();
@@ -777,17 +778,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       }
 
       const maxRetries = 5;
-      const retryDelay = 3000; // 3 seconds between retries
+      // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+      const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 32000);
 
       try {
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
         const response = await fetch('/api/albums?limit=0', {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
           },
-          signal: AbortSignal.timeout(15000) // 15 second timeout per attempt
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           // Check if response is valid JSON
@@ -1327,6 +1335,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // Clear retry flag
     isRetryingRef.current = false;
 
+    // Set flag to prevent error handler from auto-skipping (we'll handle failure programmatically)
+    skipAutoSkipRef.current = true;
+    // Clear the flag after a short delay to allow error events to fire
+    setTimeout(() => { skipAutoSkipRef.current = false; }, 1000);
+
     return false; // All attempts failed
   };
 
@@ -1384,6 +1397,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
 
     console.warn(`⚠️ Seamless playback failed after ${urlsToTry.length} attempts, will fall back`);
+
+    // Set flag to prevent error handler from auto-skipping (we'll handle failure programmatically)
+    skipAutoSkipRef.current = true;
+    setTimeout(() => { skipAutoSkipRef.current = false; }, 1000);
+
     return false;
   };
 
@@ -1594,6 +1612,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
       // Auto-skip to next track on error (especially important for shuffle mode)
       // This prevents playback from stopping when a track fails
+      // BUT: Skip if the failure is being handled programmatically (e.g., retry logic completed)
+      if (skipAutoSkipRef.current) {
+        console.log('⏭️ Skipping auto-skip: failure being handled programmatically');
+        return;
+      }
+
       if (playNextTrackRef.current) {
         const currentSession = playbackSessionRef.current;
         console.log(`⏭️ Auto-skipping to next track after error (session ${currentSession})`);
@@ -1604,7 +1628,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           } else {
             console.log(`⏭️ Skipping auto-skip: session changed from ${currentSession} to ${playbackSessionRef.current}`);
           }
-        }, 500);
+        }, 1000); // Increased from 500ms to 1000ms to give more time for retries
       }
     };
 
@@ -1933,9 +1957,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Shuffle all tracks function
   const shuffleAllTracks = async (): Promise<boolean> => {
+    // Wait for albums to load if they haven't yet (race condition fix)
     if (albums.length === 0) {
-      console.warn('No albums available for shuffle');
-      return false;
+      // Check if albums are still loading (ref not set yet means loading in progress)
+      if (!albumsLoadedRef.current) {
+        console.log('⏳ Waiting for albums to load before shuffle...');
+        // Wait up to 5 seconds for albums to load
+        for (let i = 0; i < 50; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          if (albums.length > 0 || albumsLoadedRef.current) {
+            break;
+          }
+        }
+      }
+      // Check again after waiting
+      if (albums.length === 0) {
+        console.warn('No albums available for shuffle after waiting');
+        return false;
+      }
     }
 
     // Clear any existing shuffle state to ensure a fresh random shuffle

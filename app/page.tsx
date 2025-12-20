@@ -930,7 +930,30 @@ function HomePageContent() {
           localStorage.setItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`, Date.now().toString());
           console.log(`💾 Cached ${rssAlbums.length} albums with ${publisherStatsFromAPI.length} publisher stats`);
         } catch (error) {
-          console.warn('⚠️ Failed to cache albums:', error);
+          // Handle quota exceeded error by clearing old caches
+          if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22)) {
+            console.warn('⚠️ Storage quota exceeded, clearing old caches...');
+            // Clear old album caches (different versions/page sizes)
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.startsWith('cachedAlbums_') || key.startsWith('albumsCacheTimestamp_'))) {
+                keysToRemove.push(key);
+              }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            console.log(`🧹 Cleared ${keysToRemove.length} old cache entries`);
+            // Try caching again after cleanup
+            try {
+              localStorage.setItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`, JSON.stringify(rssAlbums));
+              localStorage.setItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`, Date.now().toString());
+            } catch {
+              // Still failing - cache is too large, skip caching
+              console.warn('⚠️ Cache too large to store, skipping');
+            }
+          } else {
+            console.warn('⚠️ Failed to cache albums:', error);
+          }
         }
       }
       

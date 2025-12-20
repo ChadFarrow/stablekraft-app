@@ -272,6 +272,16 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return null;
       }
 
+      // Ensure provider is enabled before calling getBalance
+      if (currentProvider.enable && typeof currentProvider.enable === 'function') {
+        try {
+          await currentProvider.enable();
+        } catch (enableError) {
+          // Provider not enabled - silently skip balance fetch
+          return null;
+        }
+      }
+
       setIsBalanceLoading(true);
       const response = await currentProvider.getBalance();
       return response.balance;
@@ -313,12 +323,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
         try {
           if (provider.getInfo) {
+            // Ensure provider is enabled before calling getInfo
+            if (provider.enable && typeof provider.enable === 'function') {
+              await provider.enable();
+            }
             const info = await provider.getInfo();
             alias = info.node?.alias || '';
             pubkey = info.node?.pubkey || '';
           }
         } catch (infoError) {
-          console.warn('Failed to get wallet info:', infoError);
+          // Silently handle enable/getInfo failures - wallet may not be unlocked yet
+          console.log('ℹ️ Could not get wallet info (wallet may need to be unlocked)');
         }
 
         // Infer Lightning Address based on provider type and alias

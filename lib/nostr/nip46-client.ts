@@ -510,7 +510,8 @@ export class NIP46Client {
 
       // Verify the primary relay is actually connected
       if (!connectedRelays.includes(relayUrl)) {
-        const errorMsg = `CRITICAL: Primary relay ${relayUrl} failed to connect. Signer app will publish to this relay, so connection will fail.`;
+        const helpMessage = `Try regenerating your bunker:// URI in your signer app with a different relay like wss://relay.nsec.app or wss://relay.damus.io`;
+        const errorMsg = `Primary relay ${relayUrl} failed to connect. ${helpMessage}`;
         console.error(`❌ NIP-46: ${errorMsg}`);
         throw new Error(errorMsg);
       }
@@ -527,7 +528,9 @@ export class NIP46Client {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(`❌ NIP-46: Failed to connect to primary relay ${relayUrl}:`, errorMsg);
-      throw new Error(`Failed to connect to relay ${relayUrl}: ${errorMsg}. Signer app will publish to this relay, so connection cannot proceed.`);
+      // Provide a helpful error message with suggestions
+      const helpMessage = `The relay "${relayUrl}" may be offline or unreachable. Try regenerating your bunker:// URI in your signer app (Aegis/Amber) with a different relay like wss://relay.nsec.app or wss://relay.damus.io`;
+      throw new Error(`Failed to connect to relay ${relayUrl}. ${helpMessage}`);
     }
     
     // Track subscription start time for debugging
