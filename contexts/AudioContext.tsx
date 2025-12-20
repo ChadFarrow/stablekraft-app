@@ -966,7 +966,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           'sirtjthewrathful.com',
           'digitaloceanspaces.com',
           'rocknrollbreakheart.com',
-          'mmmusic.show'
+          'mmmusic.show',
+          'cypherpunk.today'
         ];
 
         const isDirectFirst = directFirstDomains.some(domain =>
@@ -1165,8 +1166,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           hlsRef.current = null;
         }
         
-        // Add a small delay before trying the next URL (reduced from 1000ms for faster retries)
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Add a small delay before trying the next URL (reduced for faster skipping)
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
@@ -1326,9 +1327,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           }
         }
 
-        console.log(`⏳ [Error Handler] Waiting 150ms before trying next URL...`);
-        // Add a small delay before trying the next URL (reduced from 500ms for faster retries)
-        await new Promise(resolve => setTimeout(resolve, 150));
+        console.log(`⏳ [Error Handler] Waiting 50ms before trying next URL...`);
+        // Add a small delay before trying the next URL (reduced from 150ms for faster skipping)
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
     
@@ -1338,7 +1339,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // Set flag to prevent error handler from auto-skipping (we'll handle failure programmatically)
     skipAutoSkipRef.current = true;
     // Clear the flag after a short delay to allow error events to fire
-    setTimeout(() => { skipAutoSkipRef.current = false; }, 1000);
+    setTimeout(() => { skipAutoSkipRef.current = false; }, 500);
 
     return false; // All attempts failed
   };
@@ -1400,7 +1401,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Set flag to prevent error handler from auto-skipping (we'll handle failure programmatically)
     skipAutoSkipRef.current = true;
-    setTimeout(() => { skipAutoSkipRef.current = false; }, 1000);
+    setTimeout(() => { skipAutoSkipRef.current = false; }, 500);
 
     return false;
   };
@@ -1628,7 +1629,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           } else {
             console.log(`⏭️ Skipping auto-skip: session changed from ${currentSession} to ${playbackSessionRef.current}`);
           }
-        }, 1000); // Increased from 500ms to 1000ms to give more time for retries
+        }, 300); // Reduced from 1000ms for faster skipping on CORS/unavailable tracks
       }
     };
 
