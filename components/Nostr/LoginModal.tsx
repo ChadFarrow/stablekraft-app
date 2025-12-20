@@ -1439,20 +1439,19 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           </div>
         )}
 
-        {/* Aegis-specific error with retry option */}
+        {/* Aegis-specific error - iOS Safari limitation */}
         {aegisRetryError && (
           <div className="mb-4 p-4 bg-orange-50 border border-orange-300 text-orange-900 rounded-lg">
             <div className="font-semibold mb-2">⚠️ {aegisRetryError.message}</div>
-            <div className="text-sm whitespace-pre-line mb-4">{aegisRetryError.troubleshooting}</div>
+            <div className="text-sm whitespace-pre-line mb-3">{aegisRetryError.troubleshooting}</div>
             <button
               onClick={() => {
                 setAegisRetryError(null);
-                handlePastedUriConnect();
+                setPastedConnectionUri('');
               }}
-              disabled={isSubmitting}
-              className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium"
             >
-              {isSubmitting ? 'Connecting...' : 'Retry Connection'}
+              Try Different Method
             </button>
           </div>
         )}

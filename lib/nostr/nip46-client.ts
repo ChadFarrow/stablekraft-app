@@ -548,13 +548,16 @@ export class NIP46Client {
 
       // Create Aegis-specific error with troubleshooting info
       if (isAegisRelay) {
-        const error = new Error(`Aegis local relay not responding`);
+        const error = new Error(`Aegis connection not supported in Safari`);
         (error as any).isAegisRelay = true;
-        (error as any).troubleshooting = `The Aegis local relay isn't responding. This can happen if:
-• Aegis needs to be opened/restarted
-• The local relay service needs time to start
+        (error as any).troubleshooting = `iOS Safari blocks connections to local relays (localhost) from HTTPS websites for security reasons.
 
-Please open Aegis, wait a few seconds, and try again.`;
+Aegis uses a local relay that cannot be accessed from Safari.
+
+Alternatives:
+• Use a desktop browser with Alby extension
+• Use Amber on Android (has better web support)
+• Request public relay support from Aegis developers`;
         throw error;
       }
 
