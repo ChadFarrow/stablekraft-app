@@ -2,6 +2,8 @@
  * Shared types for playlist handling
  */
 
+import type { V4VValue } from '@/lib/v4v-utils';
+
 export interface PlaylistConfig {
   id: string;                    // e.g., 'mmm', 'hgh', 'sas'
   url: string;                   // XML feed URL
@@ -58,7 +60,7 @@ export interface ResolvedTrack {
   feedId?: string;
   guid: string;
   v4vRecipient?: string | null;
-  v4vValue?: any;
+  v4vValue?: V4VValue | null;
   playlistContext?: {
     feedGuid: string;
     itemGuid: string;

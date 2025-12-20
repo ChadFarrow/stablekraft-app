@@ -5,6 +5,7 @@
 import { prisma } from '@/lib/prisma';
 import { validateDuration } from '@/lib/duration-validation';
 import type { RemoteItem, ResolvedTrack, EpisodeGroup, PlaylistConfig, GroupedItems } from './types';
+import type { V4VValue } from '@/lib/v4v-utils';
 import { generateEpisodeId } from './parser';
 
 /**
@@ -80,7 +81,7 @@ export async function resolvePlaylistItems(
           feedId: track.Feed.id,
           guid: track.guid,
           v4vRecipient: track.v4vRecipient,
-          v4vValue: track.v4vValue,
+          v4vValue: track.v4vValue as V4VValue | null,
           episodeTitle: remoteItem.episodeTitle,
           episodeId: remoteItem.episodeId,
           episodeIndex: remoteItem.episodeIndex,
