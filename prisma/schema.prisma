@@ -281,4 +281,5 @@ model SystemPlaylistTrack {
 
   @@unique([playlistId, trackId])
   @@index([playlistId, position])
-  @@index([playlistId, episodeId])}
+  @@index([playlistId, episodeId])
+}
