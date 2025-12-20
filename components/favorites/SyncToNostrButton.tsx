@@ -59,21 +59,6 @@ export default function SyncToNostrButton({
     fetchCounts();
   }, [fetchCounts]);
 
-  // Debug logging on mount and state changes
-  useEffect(() => {
-    console.warn('=== SyncToNostrButton MOUNTED ===');
-    console.warn('SyncToNostrButton state:', {
-      isAuthenticated,
-      isNip05Login,
-      isLoading,
-      unpublishedCount,
-      totalCount,
-      needsRepublishCount,
-      userId: user?.id,
-      loginType: user?.loginType
-    });
-  }, [isAuthenticated, isNip05Login, isLoading, unpublishedCount, totalCount, needsRepublishCount, user?.id, user?.loginType]);
-
   // forceMode: 'none' = unpublished only, 'nip51' = needs NIP-51 update, 'all' = everything
   const handleSync = async (forceMode: 'none' | 'nip51' | 'all' = 'none') => {
     if (!user || isSyncing) return;
