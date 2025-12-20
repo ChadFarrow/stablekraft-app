@@ -621,7 +621,10 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
           url: t.valueForValue?.resolvedAudioUrl || t.audioUrl,
           duration: (t.valueForValue?.resolvedDuration || t.duration).toString(),
           image: t.image,
-          artwork: t.image
+          artwork: t.image,
+          // Preserve metadata for share links
+          feedTitle: t.feedTitle,
+          albumTitle: t.albumTitle
         }))
       };
 
