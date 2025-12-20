@@ -114,55 +114,70 @@ export async function GET(request: NextRequest) {
     });
 
     // For publisher favorites without images, try to fetch from Podcast Index
+    // Limit to first 5 to avoid too many API calls (batch image fetch optimization)
     const publisherFavorites = feedsWithFavorites.filter(f => f.type === 'publisher' && !f.image);
     if (publisherFavorites.length > 0) {
-      // Fetch publisher images from Podcast Index using their feedGuid
-      for (const publisher of publisherFavorites) {
-        const publisherInfo = getPublisherInfo(publisher.id);
-        if (publisherInfo?.feedGuid) {
-          try {
-            const feed = await podcastIndexAPI.getFeedByGuid(publisherInfo.feedGuid);
-            if (feed) {
-              (publisher as any).image = feed.artwork || feed.image || null;
-            }
-          } catch (error) {
-            console.warn(`Failed to fetch publisher image from Podcast Index for ${publisher.id}:`, error);
-          }
-        }
+      // Collect all feedGuids for batch lookup
+      const publisherGuids = publisherFavorites
+        .slice(0, 5) // Limit API calls
+        .map(p => ({ id: p.id, info: getPublisherInfo(p.id) }))
+        .filter(p => p.info?.feedGuid);
 
-        // Also get album count for this publisher (if image was fetched)
-        if (publisher.artist) {
-          const artistAlbums = await prisma.feed.findMany({
-            where: {
-              artist: publisher.artist,
-              type: { not: 'publisher' }
-            },
-            select: { id: true },
-            take: 100
-          });
-          (publisher as any).itemCount = artistAlbums.length;
+      // Fetch publisher images from Podcast Index (limited parallel calls)
+      const imageResults = await Promise.allSettled(
+        publisherGuids.map(async ({ id, info }) => {
+          try {
+            const feed = await podcastIndexAPI.getFeedByGuid(info!.feedGuid!);
+            return { id, image: feed?.artwork || feed?.image || null };
+          } catch {
+            return { id, image: null };
+          }
+        })
+      );
+
+      // Apply images to publishers
+      for (const result of imageResults) {
+        if (result.status === 'fulfilled' && result.value.image) {
+          const publisher = publisherFavorites.find(p => p.id === result.value.id);
+          if (publisher) {
+            (publisher as any).image = result.value.image;
+          }
         }
       }
     }
 
-    // Calculate album count for ALL publisher favorites (not just those without images)
+    // Calculate album count for ALL publisher favorites (batch query - fixes N+1)
     const allPublisherFavorites = feedsWithFavorites.filter(f => f.type === 'publisher');
-    for (const publisher of allPublisherFavorites) {
-      // Skip if itemCount already calculated
-      if ((publisher as any).itemCount !== undefined) continue;
+    const artistNames = allPublisherFavorites
+      .filter(p => p.artist && (p as any).itemCount === undefined)
+      .map(p => p.artist as string);
 
-      if (publisher.artist) {
-        const artistAlbums = await prisma.feed.findMany({
-          where: {
-            artist: publisher.artist,
-            type: { not: 'publisher' }
-          },
-          select: { id: true },
-          take: 100
-        });
-        (publisher as any).itemCount = artistAlbums.length;
-      } else {
-        (publisher as any).itemCount = 0;
+    if (artistNames.length > 0) {
+      // Single batch query to get album counts for all artists
+      const albumCounts = await prisma.feed.groupBy({
+        by: ['artist'],
+        where: {
+          artist: { in: artistNames },
+          type: { not: 'publisher' }
+        },
+        _count: { id: true }
+      });
+
+      // Create a map for quick lookup
+      const countByArtist = new Map(albumCounts.map(c => [c.artist, c._count.id]));
+
+      // Apply counts to publishers
+      for (const publisher of allPublisherFavorites) {
+        if ((publisher as any).itemCount === undefined) {
+          (publisher as any).itemCount = publisher.artist ? (countByArtist.get(publisher.artist) || 0) : 0;
+        }
+      }
+    } else {
+      // No artists to look up, just set 0
+      for (const publisher of allPublisherFavorites) {
+        if ((publisher as any).itemCount === undefined) {
+          (publisher as any).itemCount = 0;
+        }
       }
     }
 

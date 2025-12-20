@@ -230,13 +230,21 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
 
     // Import tracks/episodes
     let trackCount = 0;
+
+    // Batch lookup: Get all existing tracks by guid in one query (fixes N+1)
+    const episodeGuids = episodes.map(e => e.guid).filter(Boolean);
+    const existingTracks = episodeGuids.length > 0
+      ? await prisma.track.findMany({
+          where: { guid: { in: episodeGuids } },
+          select: { id: true, guid: true, v4vValue: true }
+        })
+      : [];
+    const existingTracksByGuid = new Map(existingTracks.map(t => [t.guid, t]));
+
     for (const episode of episodes) {
       try {
-        // Check if track already exists
-        const existingTrack = await prisma.track.findFirst({
-          where: { guid: episode.guid },
-          select: { id: true, v4vValue: true }
-        });
+        // Check if track already exists (from our pre-fetched map)
+        const existingTrack = episode.guid ? existingTracksByGuid.get(episode.guid) : null;
 
         // Get v4v data for this track
         let v4vData = null;
