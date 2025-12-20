@@ -1,38 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { npubToPublicKey } from '@/lib/nostr/keys';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 /**
  * GET /api/nostr/profile/[pubkey]
- * Get user profile by public key (npub or hex)
+ * Accepts npub or hex, normalizes to hex, and returns user profile.
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ pubkey: string }> }
+  { params }: { params: { pubkey: string } }
 ) {
   try {
-    const { pubkey } = await params;
+    const raw = params.pubkey;
 
-    // Convert npub to hex if needed
-    let publicKeyHex: string;
-    try {
-      if (pubkey.startsWith('npub')) {
-        publicKeyHex = npubToPublicKey(pubkey);
-      } else {
-        publicKeyHex = pubkey;
-      }
-    } catch (error) {
+    // Normalize npub or hex → strict hex
+    const hexPubkey = normalizePubkey(raw);
+    if (!hexPubkey) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid public key format',
-        },
+        { success: false, error: 'Invalid pubkey format' },
         { status: 400 }
       );
     }
 
     const user = await prisma.user.findUnique({
-      where: { nostrPubkey: publicKeyHex },
+      where: { nostrPubkey: hexPubkey },
       select: {
         id: true,
         nostrPubkey: true,
@@ -48,10 +39,7 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User not found',
-        },
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
@@ -60,15 +48,11 @@ export async function GET(
       success: true,
       data: user,
     });
-  } catch (error) {
-    console.error('Get profile error:', error);
+  } catch (err) {
+    console.error('Get profile error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get profile',
-      },
+      { success: false, error: 'Failed to get profile' },
       { status: 500 }
     );
   }
 }
-
