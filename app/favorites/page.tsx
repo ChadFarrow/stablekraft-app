@@ -269,8 +269,11 @@ function FavoritesPageContent() {
 
   // Handler for community favorites - removes item when unfavorited
   const handleCommunityFavoriteToggle = (nostrEventId: string) => (isFavorite: boolean) => {
-    // Also trigger the regular favorite reload
-    handleFavoriteToggle();
+    // Delay the favorites reload to let the API call complete first
+    // This prevents the button from re-checking status before the add/remove completes
+    setTimeout(() => {
+      handleFavoriteToggle();
+    }, 1000);
 
     // If unfavorited, remove from community list immediately
     if (!isFavorite) {
