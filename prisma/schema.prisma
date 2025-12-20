@@ -57,7 +57,7 @@ model Feed {
   @@index([status, type])
   @@index([type])
   @@index([publisherId])
-  @@index([status, priority, createdAt])  // For albums-fast query optimization
+  @@index([status, priority, createdAt])
 }
 
 model PlaylistTrack {
@@ -113,8 +113,8 @@ model Track {
   @@index([feedId, publishedAt])
   @@index([feedId, status])
   @@index([guid])
-  @@index([guid, feedId])  // Composite index for playlist lookups
-  @@index([guid, status])  // For active track filtering in playlists
+  @@index([guid, feedId])
+  @@index([guid, status])
   @@index([publishedAt])
   @@index([status])
   @@index([title])
@@ -174,21 +174,23 @@ model Follow {
 }
 
 model NostrPost {
-  id        String   @id @default(cuid())
-  userId    String
-  eventId   String   @unique
-  kind      Int
-  content   String
-  trackId   String?
-  feedId    String?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  userId      String
+  eventId     String   @unique
+  kind        Int
+  content     String
+  trackId     String?
+  feedId      String?
+  nostrPubkey String?  // NEW
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([eventId])
   @@index([kind])
   @@index([trackId])
   @@index([feedId])
+  @@index([nostrPubkey]) // NEW
   @@index([userId, createdAt])
 }
 
@@ -201,12 +203,14 @@ model BoostEvent {
   message     String?
   paymentHash String?
   relayUrls   String[] @default([])
+  nostrPubkey String?  // NEW
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([trackId])
   @@index([eventId])
+  @@index([nostrPubkey]) // NEW
   @@index([userId, createdAt])
   @@index([trackId, createdAt])
 }
@@ -216,8 +220,8 @@ model FavoriteTrack {
   sessionId    String?
   userId       String?
   trackId      String
-  nostrEventId String?  // ID of the Nostr event published to relays
-  nip51Format  Boolean  @default(false)  // Whether published in NIP-51 format
+  nostrEventId String?
+  nip51Format  Boolean  @default(false)
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -236,9 +240,9 @@ model FavoriteAlbum {
   sessionId    String?
   userId       String?
   feedId       String
-  type         String   @default("album")  // 'album', 'publisher', or 'playlist' - determines which favorites tab it appears in
-  nostrEventId String?  // ID of the Nostr event published to relays
-  nip51Format  Boolean  @default(false)  // Whether published in NIP-51 format
+  type         String   @default("album")
+  nostrEventId String?
+  nip51Format  Boolean  @default(false)
   createdAt    DateTime @default(now())
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -252,9 +256,8 @@ model FavoriteAlbum {
   @@index([userId, createdAt])
 }
 
-// System playlists (MMM, HGH, SAS, etc.) - stored in DB for instant loading
 model SystemPlaylist {
-  id          String   @id  // "mmm", "hgh", "sas", "iam", "itdv", "b4ts", "mmt", "upbeats"
+  id          String   @id
   title       String
   description String?
   artwork     String?
@@ -271,12 +274,11 @@ model SystemPlaylistTrack {
   playlistId String
   trackId    String
   position   Int
-  episodeId  String?  // For episode grouping (MMM has episode markers)
+  episodeId  String?
 
   playlist   SystemPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   track      Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
   @@unique([playlistId, trackId])
   @@index([playlistId, position])
-  @@index([playlistId, episodeId])
-}
+  @@index([playlistId, episodeId])}
