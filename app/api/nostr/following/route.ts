@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizePubkey } from '@/lib/nostr/normalize';
 
 /**
  * GET /api/nostr/following
- * Get users being followed
+ * Get the users someone is following.
  * Query: ?userId=string (optional, defaults to current user)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+
     const targetUserId = searchParams.get('userId');
     const currentUserId = request.headers.get('x-nostr-user-id');
 
@@ -16,14 +18,12 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User ID required',
-        },
+        { success: false, error: 'User ID required' },
         { status: 400 }
       );
     }
 
+    // Load follow entries
     const follows = await prisma.follow.findMany({
       where: { followerId: userId },
       include: {
@@ -41,25 +41,49 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    const following = follows.map(follow => ({
-      ...follow.following,
-      followedAt: follow.createdAt,
-    }));
+    const normalized = [];
+
+    for (const follow of follows) {
+      const user = follow.following;
+
+      if (!user) continue;
+
+      const hex = normalizePubkey(user.nostrPubkey);
+
+      if (!hex) {
+        console.warn('Invalid nostrPubkey for following user:', user.id, user.nostrPubkey);
+        continue;
+      }
+
+      // Auto-fix DB if needed
+      if (hex !== user.nostrPubkey) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { nostrPubkey: hex },
+        });
+      }
+
+      normalized.push({
+        id: user.id,
+        nostrPubkey: hex,
+        nostrNpub: user.nostrNpub,
+        displayName: user.displayName,
+        avatar: user.avatar,
+        bio: user.bio,
+        followedAt: follow.createdAt,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      data: following,
-      count: following.length,
+      data: normalized,
+      count: normalized.length,
     });
   } catch (error) {
     console.error('Get following error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get following',
-      },
+      { success: false, error: 'Failed to get following' },
       { status: 500 }
     );
   }
 }
-
