@@ -685,7 +685,7 @@ export function BoostButton({
               console.log('📥 Boost: API response data:', zapData);
 
               if (zapData.success && zapData.eventId) {
-                const published = zapData.data?.published ?? false;
+                const published = zapData.published ?? false;
                 if (published) {
                   console.log('✅ Boost posted to Nostr successfully:', {
                     eventId: zapData.eventId,
