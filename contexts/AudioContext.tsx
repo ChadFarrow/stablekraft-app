@@ -1377,9 +1377,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         const isProxied = secureUrl.includes('proxy-audio');
         console.log(`🔄 Attempting seamless playback (${i + 1}/${urlsToTry.length}): ${context} - ${isProxied ? 'PROXY' : 'DIRECT'}`);
 
-        // Direct source swap - no pause, no clearing, no delay
+        // Direct source swap - no pause, no clearing, minimal delay
         // This keeps the audio session "warm" on iOS
         currentElement.src = secureUrl;
+        currentElement.load(); // Required on iOS Safari to properly initialize new source
 
         // Reset currentTime to 0 for iOS - the src change may not automatically reset it
         currentElement.currentTime = 0;
