@@ -175,9 +175,23 @@ export function buildEpisodeGroups(
     return [];
   }
 
+  // Pre-index tracks by episodeId for O(1) lookups instead of O(n) per episode
+  // This changes O(episodes × tracks) to O(tracks + episodes)
+  const tracksByEpisode = new Map<string, ResolvedTrack[]>();
+  for (const track of tracks) {
+    if (track.episodeId) {
+      const existing = tracksByEpisode.get(track.episodeId);
+      if (existing) {
+        existing.push(track);
+      } else {
+        tracksByEpisode.set(track.episodeId, [track]);
+      }
+    }
+  }
+
   return groupedItems.episodes.map((group, index) => {
     const episodeId = generateEpisodeId(group.title);
-    const episodeTracks = tracks.filter(t => t.episodeId === episodeId);
+    const episodeTracks = tracksByEpisode.get(episodeId) || [];
     return {
       id: episodeId,
       title: group.title,
@@ -260,18 +274,26 @@ export async function getPlaylistFromDatabase(config: PlaylistConfig): Promise<{
       }
     }));
 
-    // Build episode groups from database data
-    const episodeIds = [...new Set(tracks.filter(t => t.episodeId).map(t => t.episodeId))];
-    const episodes: EpisodeGroup[] = episodeIds.map((epId, idx) => {
-      const episodeTracks = tracks.filter(t => t.episodeId === epId);
-      return {
-        id: epId!,
-        title: epId?.replace('ep-', '').replace(/-/g, ' ') || 'Unknown Episode',
-        trackCount: episodeTracks.length,
-        tracks: episodeTracks as any,
-        index: idx
-      };
-    });
+    // Build episode groups from database data using O(n) pre-indexing
+    const tracksByEpisode = new Map<string, typeof tracks>();
+    for (const track of tracks) {
+      if (track.episodeId) {
+        const existing = tracksByEpisode.get(track.episodeId);
+        if (existing) {
+          existing.push(track);
+        } else {
+          tracksByEpisode.set(track.episodeId, [track]);
+        }
+      }
+    }
+
+    const episodes: EpisodeGroup[] = Array.from(tracksByEpisode.entries()).map(([epId, episodeTracks], idx) => ({
+      id: epId,
+      title: epId.replace('ep-', '').replace(/-/g, ' ') || 'Unknown Episode',
+      trackCount: episodeTracks.length,
+      tracks: episodeTracks as any,
+      index: idx
+    }));
 
     const playlistAlbum = {
       id: `${config.id}-playlist`,

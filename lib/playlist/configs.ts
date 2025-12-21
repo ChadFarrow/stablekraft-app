@@ -24,7 +24,7 @@ export const PLAYLIST_CONFIGS: Record<string, PlaylistConfig> = {
     author: 'ChadF',
     description: 'Curated playlist from Mutton, Mead & Music podcast featuring Value4Value independent artists',
     cacheDuration: CACHE_12_HOURS,
-    maxDuration: TIMEOUT_FAST,
+    maxDuration: TIMEOUT_STANDARD, // MMM has 1,685+ tracks - needs longer timeout
     playlistUrl: '/playlist/mmm',
     albumUrl: '/album/modern-music-movements-playlist',
   },
