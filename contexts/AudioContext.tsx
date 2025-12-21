@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useRef, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { RSSAlbum } from '@/lib/rss-parser';
 import { toast } from '@/components/Toast';
 // Type-only import for TypeScript (hls.js is ~150KB, loaded dynamically when needed)
@@ -2660,7 +2660,19 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     }
   };
 
-  const value: AudioContextType = {
+  // Memoize setInitialAlbums to prevent recreation on every render
+  const setInitialAlbums = useCallback((initialAlbums: RSSAlbum[]) => {
+    // Only set if we don't already have albums loaded
+    if (!albumsLoadedRef.current && initialAlbums.length > 0) {
+      setAlbums(initialAlbums);
+      albumsLoadedRef.current = true;
+      console.log(`✅ Pre-loaded ${initialAlbums.length} albums from server`);
+    }
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  // Without this, every currentTime update (every second) would re-render all consumers
+  const value: AudioContextType = useMemo(() => ({
     currentPlayingAlbum,
     isPlaying,
     isLoading,
@@ -2687,15 +2699,32 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     stop,
     audioRef,
     videoRef,
-    setInitialAlbums: (initialAlbums: RSSAlbum[]) => {
-      // Only set if we don't already have albums loaded
-      if (!albumsLoadedRef.current && initialAlbums.length > 0) {
-        setAlbums(initialAlbums);
-        albumsLoadedRef.current = true;
-        console.log(`✅ Pre-loaded ${initialAlbums.length} albums from server`);
-      }
-    }
-  };
+    setInitialAlbums,
+  }), [
+    currentPlayingAlbum,
+    isPlaying,
+    isLoading,
+    currentTrackIndex,
+    currentTime,
+    duration,
+    isVideoMode,
+    isShuffleMode,
+    isFullscreenMode,
+    repeatMode,
+    playAlbum,
+    playTrack,
+    playShuffledTrack,
+    shuffleAllTracks,
+    shuffleAlbums,
+    toggleShuffle,
+    pause,
+    resume,
+    seek,
+    playNextTrack,
+    playPreviousTrack,
+    stop,
+    setInitialAlbums,
+  ]);
 
   return (
     <AudioContext.Provider value={value}>
