@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     const boostEvent = await prisma.boostEvent.create({
       data: {
         userId,
-        trackId: trackId ?? '',
+        trackId: trackId || null,
         eventId: noteEvent.id,
         amount,
         message: message ?? null,

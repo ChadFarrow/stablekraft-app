@@ -955,7 +955,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               {checkHasV4V(album) ? (
                 <div className="flex justify-center lg:justify-start gap-2">
                   <BoostButton
-                    trackId={`album-${album.id}`}
+                    trackId={undefined}
                     feedId={album.feedId}
                     trackTitle={album.title}
                     artistName={album.artist}

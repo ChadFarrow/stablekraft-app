@@ -197,7 +197,7 @@ model NostrPost {
 model BoostEvent {
   id          String   @id @default(cuid())
   userId      String
-  trackId     String
+  trackId     String?
   eventId     String   @unique
   amount      Int
   message     String?
