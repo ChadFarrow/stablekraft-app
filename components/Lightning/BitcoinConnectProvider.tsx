@@ -785,8 +785,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   };
 
   // Check if connected wallet supports keysend (direct node-to-node payments)
-  // Use probed result if available, otherwise fall back to method check
-  const supportsKeysend = keysendSupported !== null ? keysendSupported : !!(provider?.keysend);
+  // Use probed result if available. If not probed yet (null), assume false to avoid failed attempts
+  // This prevents keysend attempts before the probe completes
+  const supportsKeysend = keysendSupported === true;
 
   return (
     <BitcoinConnectContext.Provider
