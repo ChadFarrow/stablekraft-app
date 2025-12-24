@@ -150,6 +150,27 @@ export class ValueSplitsService {
             // Pay via Lightning Address (LNURL) - either as fallback or primary method
             return await this.payLightningAddress(recipient, amount, message, sendPayment);
           } else if (recipient.type === 'node') {
+            // If wallet doesn't support keysend and we have LNURL fallback, use it directly
+            if (supportsKeysend === false && recipient.lnurlFallback) {
+              console.log(`⚡ Wallet doesn't support keysend, using LNURL fallback for ${recipient.name || recipient.address.slice(0, 20)}`);
+              const lnurlRecipient: ValueRecipient = {
+                ...recipient,
+                type: 'lnaddress',
+                address: recipient.lnurlFallback
+              };
+              return await this.payLightningAddress(lnurlRecipient, amount, message, sendPayment);
+            }
+
+            // If wallet doesn't support keysend and no fallback, return error
+            if (supportsKeysend === false) {
+              return {
+                success: false,
+                error: 'Keysend not supported and no LNURL fallback available',
+                recipient: recipient.address,
+                amount
+              };
+            }
+
             // Pay via keysend (with Helipad metadata)
             const keysendResult = await this.payKeysend(recipient, amount, message, sendKeysend, helipadMetadata);
 
