@@ -341,7 +341,17 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         // Infer Lightning Address based on provider type and alias
         const lightningAddress = inferLightningAddress(alias, type);
 
-        // Check capabilities
+        // Check capabilities - ensure provider is enabled first
+        // Some providers (like Alby extension) only expose methods after enable()
+        try {
+          if (provider.enable && typeof provider.enable === 'function') {
+            await provider.enable();
+          }
+        } catch (enableError) {
+          // Continue anyway - some providers don't need enable
+          console.log('ℹ️ Provider enable failed or not needed');
+        }
+
         const supportsBalance = !!provider.getBalance;
         const hasKeysendMethod = !!provider.keysend;
 
@@ -369,6 +379,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
               keysendActuallySupported = true;
             }
           }
+        } else {
+          console.log('🔍 Keysend probe: method not available on provider');
         }
         setKeysendSupported(keysendActuallySupported);
 
