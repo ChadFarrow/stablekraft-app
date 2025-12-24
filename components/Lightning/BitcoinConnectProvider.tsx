@@ -664,7 +664,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       // Add boostagram message if provided
       if (message) {
         // TLV record 34349334 is used for boostagram messages
-        customRecords['34349334'] = Buffer.from(message).toString('hex');
+        // WebLN provider handles encoding - pass plain string
+        customRecords['34349334'] = message;
       }
 
       // Add Helipad metadata if provided
@@ -675,10 +676,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
             Object.entries(helipadMetadata).filter(([_, value]) => value !== undefined && value !== null)
           );
 
-          // TLV record 7629169 is used for Helipad metadata (JSON)
-          const helipadJson = JSON.stringify(cleanMetadata);
-          // Hex-encode to match message format (consistent with TLV standard)
-          customRecords['7629169'] = Buffer.from(helipadJson).toString('hex');
+          // TLV record 7629169 is used for Helipad/Podcast 2.0 metadata (JSON)
+          // WebLN provider handles encoding - pass plain JSON string
+          customRecords['7629169'] = JSON.stringify(cleanMetadata);
         } catch (jsonError) {
           // Continue without Helipad metadata if JSON fails
         }
