@@ -76,6 +76,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const [balance, setBalance] = useState<number | null>(null);
   const [isBalanceLoading, setIsBalanceLoading] = useState(false);
   const [walletProviderType, setWalletProviderType] = useState<WalletProviderType>('unknown');
+  const [keysendSupported, setKeysendSupported] = useState<boolean | null>(null); // null = not probed yet
   const balanceIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -309,6 +310,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         setWalletInfo(null);
         setBalance(null);
         setWalletProviderType('unknown');
+        setKeysendSupported(null);
         return;
       }
 
@@ -341,7 +343,34 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
 
         // Check capabilities
         const supportsBalance = !!provider.getBalance;
-        const supportsKeysendCapability = !!provider.keysend;
+        const hasKeysendMethod = !!provider.keysend;
+
+        // Probe keysend capability by attempting a call with 0 sats
+        // This detects wallets that have the method but don't actually support keysend (e.g., Cashu)
+        let keysendActuallySupported = hasKeysendMethod;
+        if (hasKeysendMethod && provider.keysend) {
+          try {
+            // Try keysend with 0 sats - will fail but error tells us if keysend is supported
+            await provider.keysend({
+              destination: '000000000000000000000000000000000000000000000000000000000000000000', // Invalid pubkey
+              amount: '0',
+            });
+            // If we get here somehow, keysend is supported
+            keysendActuallySupported = true;
+          } catch (probeError) {
+            const errorMsg = probeError instanceof Error ? probeError.message.toLowerCase() : '';
+            // If error mentions "not supported" or "cashu", keysend is not supported
+            if (errorMsg.includes('not supported') || errorMsg.includes('cashu') || errorMsg.includes('not implemented')) {
+              console.log('🔍 Keysend probe: NOT supported (wallet rejected keysend)');
+              keysendActuallySupported = false;
+            } else {
+              // Other errors (invalid pubkey, invalid amount, etc.) mean keysend IS supported
+              console.log('🔍 Keysend probe: supported (failed for other reason:', errorMsg, ')');
+              keysendActuallySupported = true;
+            }
+          }
+        }
+        setKeysendSupported(keysendActuallySupported);
 
         // Fetch Coinos profile for avatar and username
         let avatarUrl: string | undefined;
@@ -378,7 +407,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
           providerType: type,
           providerName: name,
           supportsBalance,
-          supportsKeysend: supportsKeysendCapability,
+          supportsKeysend: keysendActuallySupported,
           avatarUrl,
           username,
         });
@@ -441,6 +470,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       setWalletInfo(null);
       setBalance(null);
       setWalletProviderType('unknown');
+      setKeysendSupported(null);
     }
   }, [isConnected]);
 
@@ -755,7 +785,8 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   };
 
   // Check if connected wallet supports keysend (direct node-to-node payments)
-  const supportsKeysend = !!(provider?.keysend);
+  // Use probed result if available, otherwise fall back to method check
+  const supportsKeysend = keysendSupported !== null ? keysendSupported : !!(provider?.keysend);
 
   return (
     <BitcoinConnectContext.Provider
