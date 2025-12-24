@@ -109,6 +109,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const isRetryingRef = useRef(false);
   const skipAutoSkipRef = useRef(false); // Prevent auto-skip when failure is handled programmatically
   const playbackSessionRef = useRef(0); // Session ID to cancel stale playback attempts
+  const autoSkipTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track pending auto-skip to cancel on manual skip
   const isAutoTransitioningRef = useRef(false); // Track when transitioning from ended track (for iOS)
   const playNextTrackRef = useRef<() => Promise<void>>();
   const playPreviousTrackRef = useRef<() => Promise<void>>();
@@ -1176,6 +1177,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     return false;
   };
 
+  // Helper function to cancel pending auto-skip timeout
+  const cancelPendingAutoSkip = () => {
+    if (autoSkipTimeoutRef.current) {
+      console.log('⏭️ Cancelling pending auto-skip timeout');
+      clearTimeout(autoSkipTimeoutRef.current);
+      autoSkipTimeoutRef.current = null;
+    }
+  };
+
   // Helper function to attempt media playback with fallback URLs
   const attemptAudioPlayback = async (originalUrl: string, context = 'playback', sessionId?: number): Promise<boolean> => {
     console.log('🎵 Attempting audio playback:', { originalUrl, context });
@@ -1624,7 +1634,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       if (playNextTrackRef.current) {
         const currentSession = playbackSessionRef.current;
         console.log(`⏭️ Auto-skipping to next track after error (session ${currentSession})`);
-        setTimeout(() => {
+        // Cancel any existing pending auto-skip before scheduling a new one
+        cancelPendingAutoSkip();
+        autoSkipTimeoutRef.current = setTimeout(() => {
+          autoSkipTimeoutRef.current = null;
           // Only auto-skip if no new session started (i.e., user hasn't manually skipped)
           if (playbackSessionRef.current === currentSession && playNextTrackRef.current) {
             playNextTrackRef.current();
@@ -1806,6 +1819,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Increment session ID to cancel any stale playback attempts
     const sessionId = ++playbackSessionRef.current;
+    // Cancel any pending auto-skip from previous track failures
+    cancelPendingAutoSkip();
     console.log(`🎵 Starting playback session ${sessionId}`);
 
     // Since playAlbum is called from user clicks, we can safely set hasUserInteracted
@@ -1911,6 +1926,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Increment session ID to cancel any stale playback attempts
     const sessionId = ++playbackSessionRef.current;
+    // Cancel any pending auto-skip from previous track failures
+    cancelPendingAutoSkip();
     console.log(`🎵 Starting shuffle playback session ${sessionId}`);
 
     // IMPORTANT: Update state BEFORE attempting playback
@@ -2059,6 +2076,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Increment session ID to cancel any stale playback attempts
     const sessionId = ++playbackSessionRef.current;
+    // Cancel any pending auto-skip from previous track failures
+    cancelPendingAutoSkip();
     console.log(`🎵 Starting shuffleAll playback session ${sessionId}`);
 
     // IMPORTANT: Update state BEFORE attempting playback
@@ -2175,6 +2194,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     // Increment session ID to cancel any stale playback attempts
     const sessionId = ++playbackSessionRef.current;
+    // Cancel any pending auto-skip from previous track failures
+    cancelPendingAutoSkip();
     console.log(`🎵 Starting shuffleAlbums playback session ${sessionId}`);
 
     // IMPORTANT: Update state BEFORE attempting playback
@@ -2372,8 +2393,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         // If playback failed (CORS, unavailable, etc.), auto-skip to next track
         if (!success) {
           console.log('⏭️ Track failed to play, auto-skipping to next...');
-          // Small delay to prevent rapid-fire skipping
-          setTimeout(() => {
+          // Cancel any existing pending auto-skip before scheduling a new one
+          cancelPendingAutoSkip();
+          autoSkipTimeoutRef.current = setTimeout(() => {
+            autoSkipTimeoutRef.current = null;
             if (playNextTrackRef.current) {
               playNextTrackRef.current();
             }
@@ -2396,7 +2419,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           // If playback failed, try next track
           if (!success) {
             console.log('⏭️ First track failed to play, trying next...');
-            setTimeout(() => {
+            // Cancel any existing pending auto-skip before scheduling a new one
+            cancelPendingAutoSkip();
+            autoSkipTimeoutRef.current = setTimeout(() => {
+              autoSkipTimeoutRef.current = null;
               if (playNextTrackRef.current) {
                 playNextTrackRef.current();
               }
