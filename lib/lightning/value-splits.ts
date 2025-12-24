@@ -76,7 +76,8 @@ export class ValueSplitsService {
     message?: string,
     helipadMetadata?: any,
     onProgress?: (recipientKey: string, status: 'sending' | 'success' | 'failed', error?: string, amount?: number) => void,
-    walletType?: WalletProviderType
+    walletType?: WalletProviderType,
+    supportsKeysend?: boolean
   ): Promise<MultiRecipientResult> {
     const splitAmounts = this.calculateSplitAmounts(recipients, totalAmount);
     const successfulPayments: ValueSplitPayment[] = [];
@@ -114,7 +115,8 @@ export class ValueSplitsService {
             // If we have keysend fallback info from Lightning Address lookup, try keysend first
             // Keysend is preferred because it includes Helipad metadata for podcast apps
             // This enables better integration with podcast players that support Helipad protocol
-            if (recipient.keysendFallback) {
+            // Skip keysend if wallet doesn't support it (e.g., Cashu wallets)
+            if (recipient.keysendFallback && supportsKeysend !== false) {
               console.log(`⚡ Trying keysend first for ${recipient.address} (has keysend fallback)`);
 
               // Merge keysend custom records with Helipad metadata

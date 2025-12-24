@@ -800,9 +800,10 @@ export function BoostButton({
             console.log(`🔍 Resolving Lightning Address details for ${recipient.address}...`);
             const details = await LNURLService.resolveLightningAddressDetails(recipient.address);
 
-            // Add keysend fallback info if available
+            // Add keysend fallback info if available AND wallet supports keysend
             // Keysend enables Helipad metadata support, which is preferred for podcast apps
-            if (details.keysend?.status === 'OK' && details.keysend.pubkey) {
+            // Skip for wallets that don't support keysend (e.g., Cashu) to avoid unnecessary attempts
+            if (supportsKeysend && details.keysend?.status === 'OK' && details.keysend.pubkey) {
               recipient.keysendFallback = {
                 pubkey: details.keysend.pubkey,
                 customKey: details.keysend.customData?.[0]?.customKey,

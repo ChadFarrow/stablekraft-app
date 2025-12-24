@@ -31,7 +31,7 @@ interface AutoBoostResult {
 }
 
 export function useAutoBoost() {
-  const { isConnected, sendPayment, sendKeysend } = useBitcoinConnect();
+  const { isConnected, sendPayment, sendKeysend, supportsKeysend } = useBitcoinConnect();
   const { settings } = useUserSettings();
   const isProcessingRef = useRef(false);
 
@@ -125,7 +125,10 @@ export function useAutoBoost() {
           sendPayment,
           sendKeysend,
           undefined, // No message for auto-boost
-          helipadMetadata
+          helipadMetadata,
+          undefined, // No progress callback for auto-boost
+          undefined, // walletType
+          supportsKeysend
         );
 
         if (multiResult.success || multiResult.isPartialSuccess) {
@@ -181,7 +184,7 @@ export function useAutoBoost() {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [isConnected, sendPayment, sendKeysend, settings]);
+  }, [isConnected, sendPayment, sendKeysend, supportsKeysend, settings]);
 
   return {
     triggerAutoBoost,

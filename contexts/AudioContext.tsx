@@ -132,7 +132,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const lastPublishedNip38TrackRef = useRef<string | null>(null);
 
   // Auto-boost support
-  const { isConnected: isWalletConnected, sendPayment, sendKeysend } = useBitcoinConnect();
+  const { isConnected: isWalletConnected, sendPayment, sendKeysend, supportsKeysend } = useBitcoinConnect();
   const autoBoostProcessingRef = useRef(false);
 
   // Helper function to publish NIP-38 status (debounced)
@@ -280,7 +280,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           sendPayment,
           sendKeysend,
           undefined, // No message for auto-boost
-          helipadMetadata
+          helipadMetadata,
+          undefined, // No progress callback for auto-boost
+          undefined, // walletType
+          supportsKeysend
         );
 
         if (multiResult.success || multiResult.isPartialSuccess) {
@@ -330,7 +333,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     } finally {
       autoBoostProcessingRef.current = false;
     }
-  }, [isWalletConnected, sendPayment, sendKeysend, settings.defaultBoostName]);
+  }, [isWalletConnected, sendPayment, sendKeysend, supportsKeysend, settings.defaultBoostName]);
 
   // Store auto-boost function in ref for use in event handlers
   const triggerAutoBoostRef = useRef(triggerAutoBoost);
