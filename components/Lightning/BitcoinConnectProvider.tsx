@@ -713,17 +713,20 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
       console.log('✅ Keysend succeeded:', { preimage: result.preimage?.slice(0, 20) + '...' });
       return { preimage: result.preimage };
     } catch (error) {
-      // Log full error for debugging
-      console.error('❌ Keysend error details:', error);
       const errorMessage = error instanceof Error ? error.message : 'Keysend failed';
 
       // Parse common Lightning errors and provide helpful feedback
       if (errorMessage.includes('FAILURE_REASON_NO_ROUTE') || errorMessage.includes('no route')) {
-        // Retry once for routing failures (routes can be temporarily unavailable)
+        // Retry for routing failures (routes can be temporarily unavailable)
         if (retryCount < 2) {
+          // Only log on first attempt, not retries
+          if (retryCount === 0) {
+            console.log('⚠️ Keysend: no route found, retrying...');
+          }
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
         }
+        // Final failure after retries
         return {
           error: 'Cannot find payment route to recipient - they may be offline or unreachable via Lightning Network'
         };
@@ -731,6 +734,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         return { error: 'Insufficient balance in your Lightning wallet' };
       } else if (errorMessage.includes('FAILURE_REASON_TIMEOUT') || errorMessage.includes('timeout')) {
         if (retryCount < 1) {
+          console.log('⚠️ Keysend: timeout, retrying...');
           await new Promise(resolve => setTimeout(resolve, 1000));
           return sendKeysend(pubkey, amount, message, helipadMetadata, retryCount + 1);
         }
