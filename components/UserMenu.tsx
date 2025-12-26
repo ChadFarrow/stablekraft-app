@@ -133,18 +133,16 @@ export default function UserMenu({ className = '' }: UserMenuProps) {
         {/* Dropdown Menu Portal */}
         {showDropdown && typeof window !== 'undefined' && createPortal(
           <>
-            {/* Backdrop */}
+            {/* Backdrop - invisible click catcher to close menu */}
             <div
-              className="fixed inset-0"
-              style={{ zIndex: 2147483646 }}
+              className="fixed inset-0 z-[60]"
               onClick={() => setShowDropdown(false)}
             />
 
             {/* Dropdown Menu */}
             <div
-              className="w-72 sm:w-72 max-w-[calc(100vw-2rem)] bg-gray-900 border-2 border-gray-700 rounded-lg shadow-lg"
+              className="w-72 sm:w-72 max-w-[calc(100vw-2rem)] bg-gray-900 border-2 border-gray-700 rounded-lg shadow-lg z-[61]"
               style={{
-                zIndex: 2147483647,
                 position: 'fixed',
                 top: '80px',
                 right: '1rem',
