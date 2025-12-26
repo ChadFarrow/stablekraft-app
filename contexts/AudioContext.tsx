@@ -121,6 +121,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const staleTimeCounterRef = useRef<number>(0);
   const stallCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const recoveryAttemptRef = useRef<number>(0);
+  const userInitiatedPauseRef = useRef<boolean>(false); // Track if pause was user-initiated
 
   // Web Audio API for volume normalization (compressor)
   const webAudioContextRef = useRef<AudioContext | null>(null);
@@ -1453,6 +1454,32 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         return;
       }
 
+      // Check if this is an unexpected pause (not user-initiated)
+      // Could be caused by network stall, buffer underflow, etc.
+      if (!userInitiatedPauseRef.current && currentElement.currentTime > 0 && !currentElement.ended) {
+        console.log('⚠️ Unexpected pause detected at', currentElement.currentTime.toFixed(1), 's - attempting recovery');
+
+        // Try to resume after a short delay
+        setTimeout(() => {
+          // Double-check conditions still apply
+          if (!userInitiatedPauseRef.current && currentElement.paused && !currentElement.ended) {
+            console.log('🔧 Attempting auto-resume after unexpected pause');
+            currentElement.play().catch(err => {
+              console.warn('⚠️ Auto-resume failed:', err);
+              // If auto-resume fails, let it stay paused and update state
+              setIsPlaying(false);
+              if ('mediaSession' in navigator && navigator.mediaSession) {
+                navigator.mediaSession.playbackState = 'paused';
+              }
+            });
+            return; // Don't update state yet - wait to see if play() succeeds
+          }
+        }, 500);
+
+        // Don't update isPlaying yet - give auto-resume a chance
+        return;
+      }
+
       setIsPlaying(false);
       // Update media session playback state immediately for iOS
       if ('mediaSession' in navigator && navigator.mediaSession) {
@@ -1956,6 +1983,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // Reset stall detection counters for new track
     staleTimeCounterRef.current = 0;
     recoveryAttemptRef.current = 0;
+    userInitiatedPauseRef.current = false; // New track = not user-paused
     console.log(`🎵 Starting playback session ${sessionId}`);
 
     // Since playAlbum is called from user clicks, we can safely set hasUserInteracted
@@ -2373,6 +2401,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Pause function - uses DOM ID as fallback for iOS background reliability
   const pause = () => {
+    // Mark this as user-initiated pause so we don't try to auto-recover
+    userInitiatedPauseRef.current = true;
+
     // Try ref first, then fallback to DOM query for iOS background compatibility
     let currentElement: HTMLAudioElement | HTMLVideoElement | null = isVideoMode
       ? videoRef.current
@@ -2400,6 +2431,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Resume function - uses DOM ID as fallback for iOS background reliability
   const resume = () => {
+    // Clear user-initiated pause flag since we're resuming
+    userInitiatedPauseRef.current = false;
+
     // Ensure Web Audio context is running (critical for volume normalization)
     ensureWebAudioRunning();
 
