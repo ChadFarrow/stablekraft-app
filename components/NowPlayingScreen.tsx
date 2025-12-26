@@ -316,7 +316,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
             <img
               src={albumArt}
               alt={currentPlayingAlbum.title}
-              className="w-full h-full object-cover rounded-2xl shadow-2xl"
+              className="w-full h-full object-cover rounded-2xl shadow-2xl pointer-events-none"
               style={{
                 boxShadow: `0 25px 50px ${dominantColor}30`
               }}
@@ -370,7 +370,7 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
             {/* Reflection effect */}
             <div
-              className="absolute -bottom-4 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-black/20 rounded-b-2xl"
+              className="absolute -bottom-4 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-black/20 rounded-b-2xl pointer-events-none"
               style={{
                 background: `linear-gradient(to bottom, transparent 0%, ${dominantColor}10 100%)`
               }}
