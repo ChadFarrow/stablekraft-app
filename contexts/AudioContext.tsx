@@ -116,6 +116,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const pauseRef = useRef<() => void>();
   const resumeRef = useRef<() => void>();
 
+  // Silent stall detection refs - detect when audio stops advancing while supposedly playing
+  const lastKnownTimeRef = useRef<number>(0);
+  const staleTimeCounterRef = useRef<number>(0);
+  const stallCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recoveryAttemptRef = useRef<number>(0);
+
   // Web Audio API for volume normalization (compressor)
   const webAudioContextRef = useRef<AudioContext | null>(null);
   const compressorRef = useRef<DynamicsCompressorNode | null>(null);
@@ -1718,6 +1724,129 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     };
   }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode, publishNip38StatusDebounced]); // Add necessary dependencies for preloading logic
 
+  // Silent stall detection and recovery
+  // Detects when audio element says "playing" but currentTime stops advancing
+  useEffect(() => {
+    // Only run when we think we're playing
+    if (!isPlaying) {
+      // Clear any existing interval when not playing
+      if (stallCheckIntervalRef.current) {
+        clearInterval(stallCheckIntervalRef.current);
+        stallCheckIntervalRef.current = null;
+      }
+      // Reset counters
+      staleTimeCounterRef.current = 0;
+      recoveryAttemptRef.current = 0;
+      return;
+    }
+
+    const checkForStall = () => {
+      const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+      if (!currentElement) return;
+
+      // Only check if we think we're playing AND element is not paused AND not ended
+      if (!isPlaying || currentElement.paused || currentElement.ended) {
+        // Reset stale counter since we're legitimately not playing
+        staleTimeCounterRef.current = 0;
+        return;
+      }
+
+      const currentElementTime = currentElement.currentTime;
+      const lastTime = lastKnownTimeRef.current;
+
+      // Check if time has advanced (threshold of 0.1s to account for precision)
+      if (Math.abs(currentElementTime - lastTime) < 0.1) {
+        // Time hasn't advanced - increment stale counter
+        staleTimeCounterRef.current++;
+        console.log(`⚠️ Stall check: time stale for ${staleTimeCounterRef.current * 2}s (${currentElementTime.toFixed(1)}s)`);
+
+        // Trigger recovery after 3 consecutive stale checks (6 seconds)
+        if (staleTimeCounterRef.current >= 3) {
+          attemptStallRecovery(currentElement, currentElementTime);
+        }
+      } else {
+        // Time is advancing - reset counters
+        if (staleTimeCounterRef.current > 0) {
+          console.log('✅ Playback resumed naturally');
+        }
+        staleTimeCounterRef.current = 0;
+        recoveryAttemptRef.current = 0;
+      }
+
+      // Update last known time
+      lastKnownTimeRef.current = currentElementTime;
+    };
+
+    const attemptStallRecovery = async (element: HTMLMediaElement, stallTime: number) => {
+      const attempt = ++recoveryAttemptRef.current;
+      const currentSession = playbackSessionRef.current;
+
+      console.log(`🔧 Stall recovery attempt ${attempt} at ${stallTime.toFixed(1)}s`);
+
+      // Prevent infinite loops - max 4 recovery attempts
+      if (attempt > 4) {
+        console.log('⏭️ Max recovery attempts reached, auto-skipping to next track');
+        recoveryAttemptRef.current = 0;
+        staleTimeCounterRef.current = 0;
+        if (playNextTrackRef.current && playbackSessionRef.current === currentSession) {
+          playNextTrackRef.current();
+        }
+        return;
+      }
+
+      try {
+        if (attempt === 1) {
+          // Attempt 1: Simple resume
+          console.log('🔧 Recovery: Attempting simple resume');
+          await element.play();
+        } else if (attempt === 2) {
+          // Attempt 2: Seek nudge - move forward slightly to unstick decoder
+          console.log('🔧 Recovery: Attempting seek nudge');
+          element.currentTime = stallTime + 0.1;
+          await element.play();
+        } else if (attempt === 3) {
+          // Attempt 3: Reload at position
+          console.log('🔧 Recovery: Attempting source reload');
+          const savedTime = element.currentTime;
+          element.load();
+          element.currentTime = savedTime;
+          await element.play();
+        } else if (attempt === 4) {
+          // Attempt 4: Skip to next track
+          console.log('⏭️ Recovery: Skipping to next track');
+          recoveryAttemptRef.current = 0;
+          staleTimeCounterRef.current = 0;
+          if (playNextTrackRef.current && playbackSessionRef.current === currentSession) {
+            playNextTrackRef.current();
+          }
+        }
+
+        // Reset stale counter after recovery attempt (give it a chance)
+        staleTimeCounterRef.current = 0;
+      } catch (error) {
+        console.warn(`⚠️ Recovery attempt ${attempt} failed:`, error);
+        // Let next check cycle try next recovery method
+      }
+    };
+
+    // Start the stall check interval (every 2 seconds)
+    stallCheckIntervalRef.current = setInterval(checkForStall, 2000);
+
+    // Initialize last known time
+    const currentElement = isVideoMode ? videoRef.current : audioRef.current;
+    if (currentElement) {
+      lastKnownTimeRef.current = currentElement.currentTime;
+    }
+
+    // Cleanup
+    return () => {
+      if (stallCheckIntervalRef.current) {
+        clearInterval(stallCheckIntervalRef.current);
+        stallCheckIntervalRef.current = null;
+      }
+    };
+  }, [isPlaying, isVideoMode]);
+
   // Helper function to proxy external image URLs for media session
   const getProxiedMediaImageUrl = (imageUrl: string): string => {
     if (!imageUrl) return '/stablekraft-rocket.png';
@@ -1824,6 +1953,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     const sessionId = ++playbackSessionRef.current;
     // Cancel any pending auto-skip from previous track failures
     cancelPendingAutoSkip();
+    // Reset stall detection counters for new track
+    staleTimeCounterRef.current = 0;
+    recoveryAttemptRef.current = 0;
     console.log(`🎵 Starting playback session ${sessionId}`);
 
     // Since playAlbum is called from user clicks, we can safely set hasUserInteracted
