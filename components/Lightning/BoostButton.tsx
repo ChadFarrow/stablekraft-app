@@ -760,6 +760,10 @@ export function BoostButton({
           } else {
             setCustomAmount('');
           }
+          // Notify parent component that modal is closed
+          if (onClose) {
+            onClose();
+          }
         }, 2000);
       }
     } catch (err) {
