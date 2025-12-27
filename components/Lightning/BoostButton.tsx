@@ -195,7 +195,7 @@ export function BoostButton({
   if (!isClient) {
     return (
       <button className={`flex items-center ${iconOnly ? 'justify-center p-2' : 'gap-2 px-4 py-2'} rounded-lg bg-gray-600 text-gray-400 cursor-not-allowed ${className}`}>
-        <Zap size={iconOnly ? 20 : 16} />
+        <Zap size={iconOnly ? 20 : 16} className="pointer-events-none" />
         {!iconOnly && <span>Boost</span>}
       </button>
     );
@@ -1105,7 +1105,7 @@ export function BoostButton({
           className={`flex items-center ${iconOnly ? 'justify-center p-2' : 'gap-2 px-4 py-2'} bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg font-semibold transition-colors ${className}`}
           title="Send a boost"
         >
-          <Zap className={iconOnly ? "w-5 h-5" : "w-5 h-5"} />
+          <Zap className={`${iconOnly ? "w-5 h-5" : "w-5 h-5"} pointer-events-none`} />
           {!iconOnly && <span>Boost</span>}
         </button>
       )}
