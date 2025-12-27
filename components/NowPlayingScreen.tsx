@@ -324,18 +324,23 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
             {/* Boost Button - Top-left corner overlay - always show */}
             <button
-              className="absolute top-4 left-4 z-20 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowBoostModal(true);
-              }}
+              className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
               style={{
+                zIndex: 9999, // Very high to ensure it's above any overlay
                 backgroundColor: '#FBBF24', // Yellow color
                 color: '#000000',
                 backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              }}
+              onPointerDown={(e) => {
+                console.log('⚡ Boost button pointer down');
+              }}
+              onClick={(e) => {
+                console.log('⚡ Boost button clicked, setting showBoostModal to true');
+                e.preventDefault();
+                e.stopPropagation();
+                setShowBoostModal(true);
               }}
               title="Send a boost"
             >
