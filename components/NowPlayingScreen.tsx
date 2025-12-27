@@ -49,30 +49,9 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
   const progressRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const boostButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get current track info
   const currentTrack = currentPlayingAlbum?.tracks?.[currentTrackIndex];
-
-  // Use native event listener for boost button to bypass any React synthetic event issues
-  useEffect(() => {
-    const button = boostButtonRef.current;
-    if (!button) return;
-
-    const handleClick = (e: MouseEvent) => {
-      console.log('⚡ Native click handler fired!');
-      e.preventDefault();
-      e.stopPropagation();
-      setShowBoostModal(true);
-    };
-
-    button.addEventListener('click', handleClick, { capture: true });
-    console.log('⚡ Boost button native listener attached');
-
-    return () => {
-      button.removeEventListener('click', handleClick, { capture: true });
-    };
-  }, []);
 
   // Debug: Log V4V data availability
   useEffect(() => {
@@ -345,19 +324,18 @@ export default function NowPlayingScreen({ isOpen, onClose }: NowPlayingScreenPr
 
             {/* Boost Button - Top-left corner overlay - always show */}
             <button
-              ref={boostButtonRef}
-              className="absolute top-4 left-4 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
+              className="absolute top-4 left-4 z-20 p-3 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg pointer-events-auto touch-manipulation"
               style={{
-                zIndex: 9999, // Very high to ensure it's above any overlay
-                backgroundColor: '#FBBF24', // Yellow color
+                backgroundColor: '#FBBF24',
                 color: '#000000',
                 backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
               }}
+              onClick={() => setShowBoostModal(true)}
               title="Send a boost"
             >
-              <Zap className="w-6 h-6" fill="#000000" />
+              <Zap className="w-6 h-6 pointer-events-none" fill="#000000" />
             </button>
 
             {/* Favorite Button - Top-right corner overlay */}
