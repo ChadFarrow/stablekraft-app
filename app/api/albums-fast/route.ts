@@ -113,43 +113,48 @@ export async function GET(request: Request) {
     }
     
     const now = Date.now();
-    const shouldRefreshCache = !cachedData || (now - cacheTimestamp) > CACHE_DURATION;
-    
+    // Skip cache when genre filter is applied - need to query all matching feeds
+    const shouldRefreshCache = !cachedData || (now - cacheTimestamp) > CACHE_DURATION || genre;
+
     let feeds: FeedWithTracks[];
     let publisherStats: Array<{ name: string; albumCount: number }>;
     let totalFeedCount = 0; // Will be set below for use in totalCount calculation
     let shouldPaginate = false; // Will be set below
-    
+
     if (shouldRefreshCache) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Fetching albums from database...');
+        console.log('🔄 Fetching albums from database...', genre ? `(genre: ${genre})` : '');
       }
-      
+
+      // Build the where clause - add genre filter at database level if specified
+      const whereClause: any = { status: 'active' };
+      if (genre) {
+        whereClause.podcastCategories = { has: genre };
+      }
+
       // Load all feeds to maintain global sort order
       // Even for 'all' filter, we need all feeds to ensure correct sorting
       // (Albums → EPs → Singles, then alphabetically within each format)
       // Exclude sidebar-only items from main site display
       totalFeedCount = await prisma.feed.count({
-        where: {
-          status: 'active'
-          // Note: 'sidebar-only' status feeds are excluded from main site
-        }
+        where: whereClause
       });
-      
+
       // Always load all feeds to maintain global sort order
       // Pagination happens after sorting, not at the database level
       shouldPaginate = false; // Disable DB-level pagination to maintain sort order
       const feedsToLoad = totalFeedCount; // Load all feeds
-      
+
       // Get active feeds with their tracks directly from database
       // Exclude sidebar-only items from main site display
       // Add timeout protection and limit to prevent hanging
-      const maxFeedsToLoad = Math.min(feedsToLoad, 500); // Limit to 500 feeds max to prevent timeout
-      
+      // When genre filter is applied, load all matching feeds (usually much fewer than 500)
+      const maxFeedsToLoad = genre ? feedsToLoad : Math.min(feedsToLoad, 500);
+
       try {
         // Fetch feeds with minimal track data (optimized select)
         feeds = await prisma.feed.findMany({
-          where: { status: 'active' },
+          where: whereClause,
           take: maxFeedsToLoad,
           select: {
             id: true,
@@ -238,9 +243,9 @@ export async function GET(request: Request) {
         publisherStats = [];
       }
       
-      // Cache the results only for 'all' filter with no pagination (first page)
+      // Cache the results only for 'all' filter with no pagination (first page) and no genre filter
       // This provides fast cache hits for common initial load
-      const shouldCache = filter === 'all' && offset === 0 && limit >= 50;
+      const shouldCache = filter === 'all' && offset === 0 && limit >= 50 && !genre;
       if (shouldCache) {
         cachedData = { feeds, publisherStats };
         cacheTimestamp = now;
