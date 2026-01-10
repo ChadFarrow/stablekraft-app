@@ -93,6 +93,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
     const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all
+    const genre = searchParams.get('genre') || null; // Genre filter (e.g., "Rock", "Pop")
 
     // Redirect publisher filter requests to the publishers API
     if (filter === 'publishers') {
@@ -164,6 +165,7 @@ export async function GET(request: Request) {
             updatedAt: true,
             v4vRecipient: true,
             v4vValue: true,
+            podcastCategories: true,
             Track: {
               where: {
                 audioUrl: { not: '' }
@@ -304,7 +306,9 @@ export async function GET(request: Request) {
       v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
       v4vValue: feed.v4vValue || feed.Track?.[0]?.v4vValue || null,
       // Actual track count from database (tracks array may be limited)
-      trackCount: feed._count.Track
+      trackCount: feed._count.Track,
+      // Genre categories from podcast:category tags
+      podcastCategories: (feed as any).podcastCategories || []
     }));
     
     // Filter out Bowl After Bowl main podcast content but keep music covers
@@ -347,22 +351,35 @@ export async function GET(request: Request) {
       return true;
     });
 
-    // Apply filtering
-    let filteredAlbums = unresolvedFilteredAlbums;
+    // Apply genre filtering first (can combine with type filters)
+    let genreFilteredAlbums = unresolvedFilteredAlbums;
+    if (genre) {
+      genreFilteredAlbums = unresolvedFilteredAlbums.filter(album =>
+        album.podcastCategories?.some((cat: string) =>
+          cat.toLowerCase() === genre.toLowerCase()
+        )
+      );
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🎵 Genre filter "${genre}": ${genreFilteredAlbums.length} albums`);
+      }
+    }
+
+    // Apply type filtering
+    let filteredAlbums = genreFilteredAlbums;
     if (filter !== 'all') {
       switch (filter) {
         case 'albums':
-          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
+          filteredAlbums = genreFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length >= 8
           );
           break;
         case 'eps':
-          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
+          filteredAlbums = genreFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length >= 2 && album.tracks.length < 8
           );
           break;
         case 'singles':
-          filteredAlbums = unresolvedFilteredAlbums.filter(album =>
+          filteredAlbums = genreFilteredAlbums.filter(album =>
             album.tracks && album.tracks.length === 1
           );
           break;
@@ -426,6 +443,7 @@ export async function GET(request: Request) {
         offset,
         limit,
         filter,
+        genre: genre || null,
         cached: !shouldRefreshCache,
         cacheAge: now - cacheTimestamp,
         source: 'database'

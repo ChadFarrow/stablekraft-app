@@ -192,7 +192,13 @@ function HomePageContent() {
   const [viewType, setViewType] = useState<ViewType>('grid');
   const [sortType, setSortType] = useState<SortType>('name');
   const [isFilterLoading, setIsFilterLoading] = useState(false);
-  
+
+  // Genre filter state
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [availableGenres, setAvailableGenres] = useState<Array<{ name: string; count: number }>>([]);
+  const [isGenreDropdownOpen, setIsGenreDropdownOpen] = useState(false);
+  const genreDropdownRef = useRef<HTMLDivElement>(null);
+
   // Cache for filter data to avoid re-fetching
   const [filterCache, setFilterCache] = useState<Map<FilterType, any>>(new Map());
 
@@ -321,6 +327,50 @@ function HomePageContent() {
     return () => clearTimeout(timer);
   }, [publisherStats.length]);
 
+  // Load available genres for genre filter dropdown
+  useEffect(() => {
+    const loadGenres = async () => {
+      // Only load if not already loaded
+      if (availableGenres.length > 0) return;
+
+      try {
+        const response = await fetch('/api/genres');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.genres && data.genres.length > 0) {
+            setAvailableGenres(data.genres);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`🎵 Loaded ${data.genres.length} genres for filter`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading genres:', error);
+      }
+    };
+
+    // Load after a short delay to allow main content to load first
+    const timer = setTimeout(loadGenres, 600);
+    return () => clearTimeout(timer);
+  }, [availableGenres.length]);
+
+  // Click outside handler to close genre dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (genreDropdownRef.current && !genreDropdownRef.current.contains(event.target as Node)) {
+        setIsGenreDropdownOpen(false);
+      }
+    };
+
+    if (isGenreDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isGenreDropdownOpen]);
+
 
   // Show background image after critical content loads (no artificial delay)
   useEffect(() => {
@@ -356,7 +406,7 @@ function HomePageContent() {
       // OPTIMIZED: Load albums in single API call (includes totalCount in response)
       // Removed redundant count query - totalCount is now included in albums response
       const startIndex = (currentPage - 1) * ALBUMS_PER_PAGE;
-      const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+      const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter, selectedGenre);
       
       // Update total albums count from API response (for pagination)
       setTotalAlbums(totalCount);
@@ -405,7 +455,7 @@ function HomePageContent() {
       try {
         // Load next page from API (server-side sorted globally: Albums → EPs → Singles)
         const startIndex = (nextPage - 1) * ALBUMS_PER_PAGE;
-        const { albums: newAlbums, totalCount: newTotalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter);
+        const { albums: newAlbums, totalCount: newTotalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, startIndex, activeFilter, selectedGenre);
         
         // Update totalAlbums if we got a new total count (should be the same, but ensure consistency)
         if (newTotalCount > 0) {
@@ -441,7 +491,7 @@ function HomePageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, hasMoreAlbums, currentPage, activeFilter, totalAlbums, displayedAlbums.length]);
+  }, [isLoading, hasMoreAlbums, currentPage, activeFilter, totalAlbums, displayedAlbums.length, selectedGenre]);
   
   // Keep loadPage for backward compatibility (used by pagination buttons)
   const loadPage = async (page: number) => {
@@ -608,7 +658,7 @@ function HomePageContent() {
         };
       } else if (newFilter === 'playlist') {
         // Special handling for playlist filter - multiple playlists
-        const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter);
+        const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter, selectedGenre);
         
         resultData = {
           albums: pageAlbums,
@@ -617,9 +667,10 @@ function HomePageContent() {
         };
       } else {
         // Parallel fetch for count and data
+        const genreParam = selectedGenre ? `&genre=${encodeURIComponent(selectedGenre)}` : '';
         const [totalCountResponse, albumsResult] = await Promise.all([
-          fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}`),
-          loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter)
+          fetch(`/api/albums-fast?limit=1&offset=0&filter=${newFilter}${genreParam}`),
+          loadAlbumsData('all', ALBUMS_PER_PAGE, 0, newFilter, selectedGenre)
         ]);
         
         const totalCountData = await totalCountResponse.json();
@@ -667,11 +718,47 @@ function HomePageContent() {
     handleFilterChangeRef.current = handleFilterChange;
   }, [handleFilterChange]);
 
+  // Handle genre filter change
+  const handleGenreChange = async (genre: string | null) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎵 handleGenreChange called with genre: "${genre}"`);
+    }
+
+    setSelectedGenre(genre);
+    setIsGenreDropdownOpen(false);
+    setCurrentPage(1);
+    setIsFilterLoading(true);
+    setIsLoading(true);
+
+    // Clear filter cache when genre changes
+    setFilterCache(new Map());
+
+    try {
+      const { albums: pageAlbums, totalCount } = await loadAlbumsData('all', ALBUMS_PER_PAGE, 0, activeFilter, genre);
+
+      setTotalAlbums(totalCount);
+      setCriticalAlbums(pageAlbums.slice(0, 12));
+      setEnhancedAlbums(pageAlbums);
+      setDisplayedAlbums(pageAlbums);
+      setHasMoreAlbums(pageAlbums.length >= ALBUMS_PER_PAGE && pageAlbums.length < totalCount);
+      setIsCriticalLoaded(true);
+      setIsEnhancedLoaded(true);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('❌ handleGenreChange error:', error);
+      setError(`Failed to load ${genre || 'all'} genre data: ${error}`);
+    } finally {
+      setIsFilterLoading(false);
+      setIsLoading(false);
+    }
+  };
+
   // Calculate pagination info
   const totalPages = Math.ceil(totalAlbums / ALBUMS_PER_PAGE);
   const loadedAlbumsCount = displayedAlbums.length;
 
-  const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all'): Promise<{ albums: RSSAlbum[]; totalCount: number }> => {
+  const loadAlbumsData = async (loadTier: 'core' | 'extended' | 'lowPriority' | 'all' = 'all', limit: number = 50, offset: number = 0, filter: string = 'all', genre: string | null = null): Promise<{ albums: RSSAlbum[]; totalCount: number }> => {
     try {
       // Handle publishers filter separately - don't call albums API for publishers
       if (filter === 'publishers') {
@@ -824,8 +911,8 @@ function HomePageContent() {
         }
       }
       
-      // Simplified caching - only cache the main 'all' request with no filtering
-      if (typeof window !== 'undefined' && loadTier === 'all' && offset === 0 && filter === 'all') {
+      // Simplified caching - only cache the main 'all' request with no filtering (including no genre filter)
+      if (typeof window !== 'undefined' && loadTier === 'all' && offset === 0 && filter === 'all' && !genre) {
         const cached = localStorage.getItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`);
         const timestamp = localStorage.getItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`);
         
@@ -851,6 +938,11 @@ function HomePageContent() {
         filter: filter
         // Remove cache busting for better performance
       });
+
+      // Add genre filter if specified
+      if (genre) {
+        params.set('genre', genre);
+      }
       
       if (process.env.NODE_ENV === 'development') {
         console.log(`🌐 Fetching: /api/albums-fast?${params}`);
@@ -884,6 +976,7 @@ function HomePageContent() {
       
       // Convert to RSSAlbum format for compatibility
       let rssAlbums: RSSAlbum[] = allAlbums.map((album: any): RSSAlbum => ({
+        id: album.id,
         title: album.title,
         artist: album.artist,
         description: album.description,
@@ -923,8 +1016,8 @@ function HomePageContent() {
         rssAlbums = rssAlbums.slice(0, limit);
       }
       
-      // Cache only the main 'all' request for performance - but only if we have publisher stats
-      if (typeof window !== 'undefined' && loadTier === 'all' && offset === 0 && filter === 'all' && publisherStatsFromAPI.length > 0) {
+      // Cache only the main 'all' request for performance - but only if we have publisher stats and no genre filter
+      if (typeof window !== 'undefined' && loadTier === 'all' && offset === 0 && filter === 'all' && !genre && publisherStatsFromAPI.length > 0) {
         try {
           localStorage.setItem(`cachedAlbums_${ALBUMS_PER_PAGE}_${API_VERSION}`, JSON.stringify(rssAlbums));
           localStorage.setItem(`albumsCacheTimestamp_${ALBUMS_PER_PAGE}_${API_VERSION}`, Date.now().toString());
@@ -1335,6 +1428,58 @@ function HomePageContent() {
                   </button>
                 ))}
               </div>
+
+              {/* Genre Filter Dropdown */}
+              {availableGenres.length > 0 && (
+                <div className="relative" ref={genreDropdownRef}>
+                  <button
+                    onClick={() => setIsGenreDropdownOpen(!isGenreDropdownOpen)}
+                    disabled={isFilterLoading}
+                    className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-all border ${
+                      selectedGenre
+                        ? 'bg-purple-600 text-white border-purple-500'
+                        : 'bg-gray-800 text-gray-300 border-gray-600 hover:text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    <span className="hidden sm:inline">Genre:</span>
+                    <span className="truncate max-w-[80px] sm:max-w-[120px]">
+                      {selectedGenre || 'All'}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform ${isGenreDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isGenreDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-56 max-h-80 overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50">
+                      {/* Clear option */}
+                      <button
+                        onClick={() => handleGenreChange(null)}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors ${
+                          !selectedGenre ? 'text-stablekraft-teal font-medium' : 'text-gray-300'
+                        }`}
+                      >
+                        All Genres
+                      </button>
+                      <div className="border-t border-gray-700" />
+                      {/* Genre list */}
+                      {availableGenres.slice(0, 20).map((genre) => (
+                        <button
+                          key={genre.name}
+                          onClick={() => handleGenreChange(genre.name)}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors flex justify-between items-center ${
+                            selectedGenre === genre.name ? 'text-purple-400 font-medium bg-purple-900/30' : 'text-gray-300'
+                          }`}
+                        >
+                          <span className="truncate">{genre.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">({genre.count})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Right side - Action buttons */}
               <div className="flex items-center gap-2 flex-shrink-0">
