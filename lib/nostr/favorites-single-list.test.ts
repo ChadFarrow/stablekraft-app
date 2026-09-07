@@ -1093,3 +1093,111 @@ test('the group projection still excludes what we merely carried', () => {
   assert.deepEqual(read.groups.map((g) => g.feedGuid), [MUSIC_A]);
   assert.equal(read.nodes.filter((n) => n.t === 'loose').length, 2);
 });
+
+// ---------------------------------------------------------------------------
+// Everything past the identifier on an `i` tag
+// ---------------------------------------------------------------------------
+//
+// `['i', id, hint, marker]`. Position 2 is NIP-73's URL hint and position 3 is
+// the spec's feed-favorite marker (PC20-Nostr, "Saying whether a feed is
+// favorited"); this app reads neither yet. Both belong to whoever wrote them,
+// and rule 4 says a tag we cannot read is carried WHOLE — which we already
+// honour for a tag we cannot place, and used not to for the tail of one we
+// can. The cost was not theoretical: re-rendering `['i', feed]` from our own
+// model erases another writer's marker on the first publish after the read,
+// silently, with our own screen correct throughout.
+
+const HINT = 'https://example.com/feed.xml';
+
+test('a feed entry keeps everything past its identifier', () => {
+  const wire = [
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), HINT, 'fav'],
+    ['i', itemId('t-1')],
+    ['i', showId(MUSIC_C), '', 'placement'],
+    ['i', itemId('t-2')],
+    ['k', 'podcast:guid'],
+    ['k', 'podcast:item:guid'],
+  ];
+
+  // Carried: neither feed is held here, so this is the pure carry path.
+  const carried = mergedTags(parseSingleList(wire), []);
+  assert.deepEqual(carried, wire, 'the tail of a carried feed entry was rebuilt');
+
+  // Held: the group we hold is emitted from LOCAL state, so the tail has to be
+  // threaded across the merge explicitly. This is the half that a change to
+  // `parseSingleList` alone silently misses.
+  const held = mergedTags(parseSingleList(wire), [
+    album(MUSIC_A, 'music'),
+    track('t-1', MUSIC_A, 'music'),
+  ]);
+  assert.deepEqual(
+    held.find((t) => t[1] === showId(MUSIC_A)),
+    ['i', showId(MUSIC_A), HINT, 'fav'],
+    'the tail of a HELD feed entry was rebuilt from local state'
+  );
+});
+
+test('a marked list is a fixed point for a writer that cannot read the marks', () => {
+  // Rule 5 compares against the read. Before the tail was carried, every load
+  // of a marked list produced a different byte string, so this app republished
+  // — and the republish is what erased the marks. Two apps doing that to each
+  // other is the rewrite loop the spec's vector 3 exists for, with data loss
+  // on top.
+  const wire = [
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), '', 'fav'],
+    ['i', itemId('t-1')],
+    ['k', 'podcast:guid'],
+    ['k', 'podcast:item:guid'],
+  ];
+  const local = [album(MUSIC_A, 'music'), track('t-1', MUSIC_A, 'music')];
+
+  const once = mergedTags(parseSingleList(wire), local);
+  assert.deepEqual(once, wire, 'a marked list is not a fixed point');
+  assert.deepEqual(mergedTags(parseSingleList(once), local), once);
+});
+
+test('we never author a tail of our own', () => {
+  // Carrying is mandatory; writing is a separate feature this app has not
+  // shipped. A tail invented here would state an answer the user never gave —
+  // `fav` manufactures a feed favorite, `placement` deletes one no other app
+  // will restate.
+  const built = buildSingleListTags([album(MUSIC_A, 'music'), track('t-1', MUSIC_A, 'music')]);
+  for (const tag of built) {
+    if (tag[0] !== 'i') continue;
+    assert.equal(tag.length, 2, `we authored a tail: ${JSON.stringify(tag)}`);
+  }
+});
+
+test('two groups for one feed: the first tail wins, and a gap is filled', () => {
+  // The same rule the medium hint already follows. The duplicate's items fold
+  // into the first group, so its tag is the one that survives — but if the
+  // first carried no tail and the second did, dropping the second's would lose
+  // a mark nothing else on the list names.
+  const firstHasIt = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), HINT, 'fav'],
+    ['i', itemId('t-1')],
+    ['i', showId(MUSIC_A), '', 'placement'],
+    ['i', itemId('t-2')],
+  ]);
+  const foldedFirst = mergeSingleList(firstHasIt, []);
+  assert.deepEqual(foldedFirst.groups[0].extra, [HINT, 'fav']);
+
+  const secondHasIt = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('t-1')],
+    ['i', showId(MUSIC_A), '', 'fav'],
+    ['i', itemId('t-2')],
+  ]);
+  const foldedSecond = mergeSingleList(secondHasIt, []);
+  assert.deepEqual(
+    foldedSecond.groups[0].extra,
+    ['', 'fav'],
+    'a tail on the duplicate was dropped with the duplicate'
+  );
+});

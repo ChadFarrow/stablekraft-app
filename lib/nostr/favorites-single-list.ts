@@ -79,6 +79,20 @@ export interface SingleListGroup {
    *  only to place an item. Not expressible on the wire — see the header — so
    *  it is meaningful on the way OUT and always false on the way back IN. */
   favorited: boolean;
+  /**
+   * Everything past the identifier on the `i` tag we READ, verbatim.
+   *
+   * `['i', id, ...extra]`. Position 2 is NIP-73's URL hint and position 3 is
+   * the spec's feed-favorite marker; both belong to whoever wrote them, and
+   * neither is ours to author or to drop. Undefined for a group this device
+   * originated — there is nothing to carry on an entry nobody else has seen.
+   *
+   * A group we HOLD is emitted from local state (see `mergeSingleList`), so
+   * this has to be threaded across there explicitly. Without it, re-rendering
+   * `['i', feed]` from the model erases another writer's marker on the first
+   * publish after the read — silently, with our own screen correct throughout.
+   */
+  extra?: string[];
 }
 
 /**
@@ -330,7 +344,9 @@ export function tagsFromNodes(
     }
     const group = node.group;
     const feed = showId(group.feedGuid);
-    if (identifierKind(feed)) tags.push(['i', feed]);
+    // The identifier from our model, everything past it from the tag we read.
+    // We know the guid; we do not know what a newer writer put beside it.
+    if (identifierKind(feed)) tags.push(['i', feed, ...(group.extra ?? [])]);
     for (const guid of group.itemGuids) {
       const id = itemId(guid);
       if (!identifierKind(id)) continue;
@@ -484,6 +500,9 @@ export function mergeSingleList(
         if (!already.itemGuids.includes(guid)) already.itemGuids.push(guid);
       }
       if (!already.medium && group.medium) already.medium = group.medium;
+      // Same rule as the medium hint: fill a gap, never overwrite. Two groups
+      // for one feed may carry different tails, and the first one read wins.
+      if (!already.extra?.length && group.extra?.length) already.extra = group.extra;
       continue;
     }
 
@@ -532,6 +551,10 @@ export function mergeSingleList(
       // Prefer what we resolved; fall back to the hint that was already there
       // rather than blanking it. A hint we didn't write is not ours to delete.
       medium: mine.medium ?? group.medium,
+      // The rest of the tag comes from the WIRE, always. `mine` was built from
+      // local rows and has no tail to offer, so taking it from there would
+      // blank whatever another writer put past the identifier.
+      extra: group.extra,
       itemGuids: [...kept, ...mine.itemGuids.filter((guid) => !kept.includes(guid))],
     };
     emitted.set(group.feedGuid, merged);
@@ -781,7 +804,13 @@ export function parseSingleList(tags: string[][]): ParsedSingleList {
     const id = tag[1];
     const feedGuid = parseShowGuid(id);
     if (feedGuid) {
-      current = { feedGuid, medium, itemGuids: [], favorited: false };
+      // Everything past the identifier is carried, not read. We have no meaning
+      // for position 2 (NIP-73's URL hint) or position 3 (the spec's
+      // feed-favorite marker) yet, and "we can't read this" is not the same
+      // claim as "this is junk" — the whole point of `LooseNode` one branch
+      // down, applied to the tail of a tag we CAN place.
+      const extra = tag.length > 2 ? tag.slice(2) : undefined;
+      current = { feedGuid, medium, itemGuids: [], favorited: false, extra };
       nodes.push({ t: 'group', group: current });
       continue;
     }
