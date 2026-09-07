@@ -1044,3 +1044,69 @@ test('...but not INTO it, and not on a list that says private', () => {
     'the list says private, so the mode is private whatever this device stored'
   );
 });
+
+// ---------------------------------------------------------------------------
+// The tail of an `i` tag survives the fold, which is the one rebuild with no
+// spread behind it
+// ---------------------------------------------------------------------------
+
+test('folding two halves keeps the tail of an `i` tag on both the feed and its items', () => {
+  // `mergeMovedNodes` is the third place an `i` tag is rebuilt, and the only
+  // one where a group survives WITHOUT a spread: the duplicate branch copies
+  // `itemGuids` and fills the `medium` gap by hand. So anything past the
+  // identifier on the moving half's copy was dropped outright here — not
+  // deferred to the copy already in place, which is what the medium rule reads
+  // like. A whole-list privacy move is the only thing that runs it, so nothing
+  // is visibly wrong first, and no single-half fixture in this file reaches it.
+  //
+  // The spec names the mutation: "keep the first copy's marker when folding two
+  // halves", caught by its vector 25.
+  const HINT = 'https://example.com/feed.xml';
+  const publicRead = parseSingleList([
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    // The copy already in place carries NO tail, so the fold must take the
+    // moving half's — the gap-filling direction, which dropping it looks
+    // identical to.
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('t-1')],
+  ]);
+  const privateRead = parseSingleList([
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), HINT, 'fav'],
+    ['i', itemId('t-1'), HINT],
+    ['i', itemId('t-2'), HINT],
+  ]);
+
+  const plan = publishPlan({
+    mode: 'public',
+    publicRead,
+    privateRead,
+    local: groupForSingleList([album(MUSIC_A, 'music'), track('t-1', MUSIC_A, 'music')]),
+    baseline: {
+      public: { feeds: [MUSIC_A], items: ['t-1'] },
+      // Nothing claimed in the moving half: those entries are another writer's,
+      // so they MOVE rather than reading as our removals. That is the state the
+      // whole-list rule exists for, and the only one that reaches the fold with
+      // a group in both halves.
+      private: { feeds: [], items: [] },
+    },
+    userChose: true,
+  });
+
+  const emitted = (WHOLE_LIST_PRIVACY_MOVE ? plan.tags : plan.tags).filter((t) => t[0] === 'i');
+  const feed = emitted.find((t) => t[1] === showId(MUSIC_A));
+  assert.ok(feed, 'the folded feed vanished');
+  assert.deepEqual(
+    feed.slice(2),
+    [HINT, 'fav'],
+    "the moving half's tail was dropped in the fold rather than filling the gap"
+  );
+  const t2 = emitted.find((t) => t[1] === itemId('t-2'));
+  assert.ok(t2, 'an item that existed only in the moving half was lost');
+  assert.deepEqual(t2.slice(2), [HINT], 'an item tail was dropped in the fold');
+
+  // One copy of each identifier, still — the fold's original job.
+  assert.equal(emitted.filter((t) => t[1] === showId(MUSIC_A)).length, 1);
+});

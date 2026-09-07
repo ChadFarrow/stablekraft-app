@@ -1201,3 +1201,45 @@ test('two groups for one feed: the first tail wins, and a gap is filled', () => 
     'a tail on the duplicate was dropped with the duplicate'
   );
 });
+
+test('an ITEM entry keeps its tail too, and the LooseNode branch is what hid it', () => {
+  // An item `i` is an `i` tag like any other, so NIP-73's hint can land on one.
+  // `tagsFromNodes` re-emitted it out of `itemGuids` alone, which erased the
+  // tail on exactly the same terms as on a feed tag — and the loose branch hid
+  // it: the IDENTICAL tag survives whole when no group is open above it, so
+  // whether a hint lived through a republish depended on where on the list it
+  // sat. Nothing about that is visible from the emitting side.
+  const ORPHAN_HINT = 'https://example.com/orphan.xml';
+  const wire = [
+    ['alt', LIST_ALT],
+    // No group open: this one always survived, which is the control.
+    ['i', itemId('t-orphan'), ORPHAN_HINT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('t-1'), HINT],
+    ['i', itemId('t-2')],
+    // Derived in EMISSION order, and the orphan item is emitted first.
+    ['k', 'podcast:item:guid'],
+    ['k', 'podcast:guid'],
+  ];
+
+  const carried = mergedTags(parseSingleList(wire), []);
+  assert.deepEqual(carried, wire, 'an item tail was rebuilt away under a group');
+
+  // And through the merge that rebuilds a group we HOLD.
+  const held = mergedTags(parseSingleList(wire), [
+    album(MUSIC_A, 'music'),
+    track('t-1', MUSIC_A, 'music'),
+    track('t-2', MUSIC_A, 'music'),
+  ]);
+  assert.deepEqual(
+    held.find((t) => t[1] === itemId('t-1')),
+    ['i', itemId('t-1'), HINT],
+    'the tail of an item under a group we HOLD was rebuilt from local state'
+  );
+  assert.deepEqual(
+    held.find((t) => t[1] === itemId('t-orphan')),
+    ['i', itemId('t-orphan'), ORPHAN_HINT],
+    'the orphan control regressed'
+  );
+});

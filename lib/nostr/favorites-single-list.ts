@@ -93,6 +93,21 @@ export interface SingleListGroup {
    * publish after the read — silently, with our own screen correct throughout.
    */
   extra?: string[];
+  /**
+   * The same carry, for the ITEM entries under this group, keyed by item guid.
+   *
+   * An item entry is an `i` tag like any other, so NIP-73's URL hint can land
+   * on one, and re-emitting `['i', itemId(guid)]` out of `itemGuids` erased it
+   * on exactly the same terms as on a feed tag. The LooseNode branch hid it:
+   * the identical tag survives whole when no group is open above it, so
+   * whether a hint lived through a republish depended on where on the list the
+   * tag happened to sit, which is invisible from the emitting side.
+   *
+   * `itemGuids` stays a plain `string[]` — every dedupe, splice and baseline
+   * test in this file reads it as an id — so the tail rides beside it, the way
+   * `extra` rides beside `feedGuid`.
+   */
+  itemExtra?: Record<string, string[]>;
 }
 
 /**
@@ -350,7 +365,7 @@ export function tagsFromNodes(
     for (const guid of group.itemGuids) {
       const id = itemId(guid);
       if (!identifierKind(id)) continue;
-      tags.push(['i', id]);
+      tags.push(['i', id, ...(group.itemExtra?.[guid] ?? [])]);
     }
   };
 
@@ -503,6 +518,15 @@ export function mergeSingleList(
       // Same rule as the medium hint: fill a gap, never overwrite. Two groups
       // for one feed may carry different tails, and the first one read wins.
       if (!already.extra?.length && group.extra?.length) already.extra = group.extra;
+      // Item tails ride along with the items the fold just took, on the same
+      // terms — and only for items that actually survived, so a tail is not
+      // resurrected with an item we dropped.
+      for (const guid of group.itemGuids) {
+        const tail = group.itemExtra?.[guid];
+        if (!tail?.length || !already.itemGuids.includes(guid)) continue;
+        if (already.itemExtra?.[guid] !== undefined) continue;
+        already.itemExtra = { ...already.itemExtra, [guid]: tail };
+      }
       continue;
     }
 
@@ -555,6 +579,10 @@ export function mergeSingleList(
       // local rows and has no tail to offer, so taking it from there would
       // blank whatever another writer put past the identifier.
       extra: group.extra,
+      // Same for the items. This object is built field by field on top of a
+      // spread of `mine`, so a field left unnamed takes `mine`'s value —
+      // undefined — rather than the wire's.
+      itemExtra: group.itemExtra,
       itemGuids: [...kept, ...mine.itemGuids.filter((guid) => !kept.includes(guid))],
     };
     emitted.set(group.feedGuid, merged);
@@ -818,6 +846,12 @@ export function parseSingleList(tags: string[][]): ParsedSingleList {
     const itemGuid = parseItemGuid(id);
     if (itemGuid && current) {
       if (!current.itemGuids.includes(itemGuid)) current.itemGuids.push(itemGuid);
+      // The tail of the FIRST tag naming this item wins, for the reason the
+      // item itself is deduped rather than appended twice: wire order is the
+      // data, and the first mention holds the position.
+      if (tag.length > 2 && current.itemExtra?.[itemGuid] === undefined) {
+        current.itemExtra = { ...current.itemExtra, [itemGuid]: tag.slice(2) };
+      }
       continue;
     }
 

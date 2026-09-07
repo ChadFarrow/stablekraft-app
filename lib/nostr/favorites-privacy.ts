@@ -390,6 +390,25 @@ function mergeMovedNodes(here: ListNode[], moving: ListNode[]): ListNode[] {
     if (!existing.group.medium && node.group.medium) {
       existing.group.medium = node.group.medium;
     }
+    // AND THE TAIL of the `i` tag, on exactly the same terms. This is the one
+    // branch where a group survives the fold WITHOUT a spread, so anything past
+    // the identifier on the moving half's copy was dropped outright here —
+    // not deferred to the copy already in place, which is what the medium rule
+    // above reads like. A whole-list privacy move is the only thing that runs
+    // this, so nothing is visibly wrong first. The spec names the mutation:
+    // "keep the first copy's marker when folding two halves", its vector 25.
+    //
+    // We can read neither tail, so we cannot prefer one: fill a gap, never
+    // overwrite.
+    if (!existing.group.extra?.length && node.group.extra?.length) {
+      existing.group.extra = node.group.extra;
+    }
+    for (const guid of node.group.itemGuids) {
+      const tail = node.group.itemExtra?.[guid];
+      if (!tail?.length) continue;
+      if (existing.group.itemExtra?.[guid] !== undefined) continue;
+      existing.group.itemExtra = { ...existing.group.itemExtra, [guid]: tail };
+    }
   }
   return out;
 }
