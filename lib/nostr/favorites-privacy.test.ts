@@ -28,6 +28,7 @@ import {
 import {
   EMPTY_PARSED,
   groupForSingleList,
+  itemClaim,
   parseSingleList,
   LIST_ALT,
   VISIBILITY_TAG,
@@ -53,8 +54,12 @@ const halfWith = (...guids: string[]) =>
     ...guids.map((g) => ['i', showId(g)]),
   ]);
 
+// The identifier an entry DECLARES: position 2 when there is one, position 1
+// otherwise. An item entry names its FEED at position 1 now, so reading
+// position 1 does not merely stop finding the item — it makes every NEGATIVE
+// assertion below pass for the wrong reason.
 const feedsOf = (tags: string[][]) =>
-  tags.filter((t) => t[0] === 'i').map((t) => t[1]);
+  tags.filter((t) => t[0] === 'i').map((t) => t[2] ?? t[1]);
 
 /** A half holding one feed group with the given tracks under it. */
 const halfWithTracks = (feedGuid: string, ...itemGuids: string[]) =>
@@ -670,7 +675,12 @@ test('a carried TRACK is left behind while its claimed sibling moves', () => {
     true,
     'and it stays where its writer put it'
   );
-  assert.deepEqual(plan.baseline.public.items, [OURS], 'we claim only what we published');
+  // The claim is the PAIR now — an item guid is unique only inside its feed.
+  assert.deepEqual(
+    plan.baseline.public.items,
+    [itemClaim(OURS, MUSIC_A)],
+    'we claim only what we published'
+  );
 });
 
 test('an adopted foreign private entry is NOT republished as a public tag', () => {
@@ -969,13 +979,24 @@ test('an item under a duplicated group survives the fold', () => {
   });
   if (!WHOLE_LIST_PRIVACY_MOVE) return;
 
-  const ids = plan.privateTags!.filter((t) => t[0] === 'i').map((t) => t[1]);
+  // Counted on FEED ENTRIES — two elements. An item entry now carries the same
+  // string at position 1, so counting position 1 counts the tracks too and this
+  // assertion would fail on a correct fold.
+  const ids = plan
+    .privateTags!.filter((t) => t[0] === 'i' && t.length === 2)
+    .map((t) => t[1]);
   assert.equal(
     ids.filter((id) => id === showId(MUSIC_A)).length,
     1,
     'the duplicated group was emitted twice'
   );
-  assert.equal(ids.includes(itemId(FOREIGN)), true, 'the item was dropped with its duplicate group');
+  // The item is a three-element entry now, so it is not in `ids` (feed entries
+  // only). Ask for it by its own identifier at position 2.
+  assert.equal(
+    plan.privateTags!.some((t) => t[0] === 'i' && t[2] === itemId(FOREIGN)),
+    true,
+    'the item was dropped with its duplicate group'
+  );
 });
 
 // ---------------------------------------------------------------------------

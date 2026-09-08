@@ -30,9 +30,12 @@ import {
   SINGLE_LIST_KIND,
   decodePrivateFavorites,
   encodePrivateFavorites,
+  isItemClaim,
+  itemClaim as realItemClaim,
   parseSingleList,
   plaintextBytes,
-  readAsWeWouldWriteIt,
+  frameForCompare,
+  statedVisibility,
   PRIVATE_PLAINTEXT_MAX,
   type ParsedSingleList,
   type SingleListGroup,
@@ -100,16 +103,15 @@ interface Entry {
 }
 
 /**
- * A baseline claim on one item favorite.
+ * A baseline claim on one item favorite: the real one, from the shipping module.
  *
- * **STAGE-1 ANSWER, and knowingly short of the contract.** The spec asks for the
- * PAIR, because an item guid is unique only inside its feed. This app's
- * `PublishedRecord` keys items by bare guid, so that is what a claim can be
- * today, and two items sharing a guid under different feeds collide. Pairing it
- * is stage 2; vector 25 is the assertion that fails until then, and it fails
- * about the real shipping shape rather than about this shim.
+ * The contract only requires that one pair always produce the same string and
+ * two pairs never collide. This app encodes it as the feed identifier, a
+ * separator, then the item identifier — feed first, because a feed guid is a
+ * UUID and an item guid is routinely a permalink URL.
  */
-export const itemClaim = (id: string): string => id;
+export const itemClaim = (itemIdentifier: string, feedGuid: string): string =>
+  realItemClaim(parseItemGuid(itemIdentifier) ?? itemIdentifier, feedGuid);
 
 /** The contract's flat entry list, derived from this app's ordered node list. */
 export function parseTags(tags: string[][]) {
@@ -161,7 +163,7 @@ export function parseTags(tags: string[][]) {
           // The LEGACY form: its feed came from the entry above it.
           feed: node.group.feedGuid,
           legacy: true,
-          key: itemClaim(item),
+          key: itemClaim(item, node.group.feedGuid),
           index: indexOf(node.group.itemTags?.[guid] ?? ['i', item]),
         });
       }
@@ -176,7 +178,7 @@ export function parseTags(tags: string[][]) {
         medium: node.item.medium ?? null,
         // Off position 1 of its OWN tag.
         feed: node.item.feedGuid,
-        key: itemClaim(item),
+        key: itemClaim(item, node.item.feedGuid),
         index: indexOf(node.item.tag),
       });
       continue;
@@ -250,16 +252,29 @@ function localGroups(groups: ContractGroup[]): SingleListGroup[] {
 
 /** `{public, private}` identifier lists -> this app's per-half guid records. */
 function toBaseline(b: { public?: string[]; private?: string[] } | undefined): PrivacyBaseline {
+  // A PAIRED ITEM CLAIM OPENS WITH THE FEED'S IDENTIFIER, so `parseShowGuid`
+  // answers for it and every item claim would be filed under feeds — the merge
+  // would then never see the claim that licenses a removal. `isItemClaim` is
+  // asked first, and it comes from the shipping module rather than a separator
+  // written down a second time here.
+  // Items arrive as finished claims from `itemClaim` and are stored as they are;
+  // feeds arrive as NIP-73 identifiers and are stored bare. Classify BEFORE
+  // flattening — a paired claim holds the separator, a feed identifier does not.
   const half = (ids: string[] | undefined) => ({
-    feeds: (ids ?? []).map(parseShowGuid).filter((x): x is string => !!x),
-    items: (ids ?? []).map(parseItemGuid).filter((x): x is string => !!x),
+    feeds: (ids ?? [])
+      .filter((id) => !isItemClaim(id))
+      .map(parseShowGuid)
+      .filter((x): x is string => !!x),
+    items: (ids ?? []).filter(isItemClaim),
   });
   return { public: half(b?.public), private: half(b?.private) };
 }
 
+// `items` already holds finished claims (`itemClaim` output), so they go back
+// as they are — running `itemId` over one would prefix the pair a second time.
 const fromBaseline = (b: PrivacyBaseline) => ({
-  public: [...b.public.feeds.map(showId), ...b.public.items.map(itemId)],
-  private: [...b.private.feeds.map(showId), ...b.private.items.map(itemId)],
+  public: [...b.public.feeds.map(showId), ...b.public.items],
+  private: [...b.private.feeds.map(showId), ...b.private.items],
 });
 
 const hasEntries = (list: ParsedSingleList) =>
@@ -361,7 +376,11 @@ export function plan(input: {
   const privateSame =
     JSON.stringify(privateTags.filter((t) => t[0] === 'i')) ===
     JSON.stringify(privateTagsRead.filter((t) => t[0] === 'i'));
-  if (JSON.stringify(p.tags) === JSON.stringify(readAsWeWouldWriteIt(publicRead)) && privateSame) {
+  if (
+    JSON.stringify(frameForCompare(p.tags, statedVisibility(p.tags))) ===
+      JSON.stringify(frameForCompare(readTags, statedVisibility(readTags))) &&
+    privateSame
+  ) {
     return { publish: null, baselineIfLanded: fromBaseline(p.baseline) };
   }
 

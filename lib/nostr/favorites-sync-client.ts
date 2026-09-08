@@ -30,7 +30,9 @@ import {
   groupForSingleList,
   partitionSingleList,
   plaintextBytes,
-  readAsWeWouldWriteIt,
+  frameForCompare,
+  statedVisibility,
+  tagsFromNodes,
   suppressOwnRemovals,
   templateFromTags,
   PRIVATE_PLAINTEXT_MAX,
@@ -763,8 +765,10 @@ async function publishSingleList(
     // per kind at the end are both legal and mean the same list. Comparing the
     // read as it ARRIVED reports a change on every load of a list written in the
     // other layout, and if the other app compares raw too, neither stops.
-    // `readAsWeWouldWriteIt` renders the parsed read through the same emitter
-    // the plan used, so this is that comparison and not a second normaliser.
+    // `frameForCompare` regenerates `alt`, restates `visibility` and rebuilds the
+    // trailing `k` tags, and does NOT touch the order — rendering the parsed read
+    // through the emitter would band it too, so an interleaved list would compare
+    // equal to our banded output and the reordering would never go up.
     //
     // The private half is compared on the DECRYPTED arrays, never the
     // ciphertext: NIP-44 draws a fresh nonce per encryption, so equal entries
@@ -776,12 +780,17 @@ async function publishSingleList(
       isUsable(privateHalf) &&
       JSON.stringify((plan.privateTags ?? []).filter((t) => t[0] === 'i')) ===
         JSON.stringify(
-          readAsWeWouldWriteIt(privateHalf.list).filter((t: string[]) => t[0] === 'i')
+          tagsFromNodes(
+            privateHalf.list.nodes,
+            privateHalf.list.foreignTags,
+            privateHalf.list.foreignKinds
+          ).filter((t) => t[0] === 'i')
         );
     const relayHasThis =
       read.exists &&
       privateUnchanged &&
-      JSON.stringify(plan.tags) === JSON.stringify(readAsWeWouldWriteIt(read));
+      JSON.stringify(frameForCompare(plan.tags, statedVisibility(plan.tags))) ===
+        JSON.stringify(frameForCompare(read.tags, statedVisibility(read.tags)));
 
     if (typeof window !== 'undefined' && (localStorage.getItem(key) === digest || relayHasThis)) {
       rememberPublished(pubkey, plan.baseline);

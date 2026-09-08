@@ -208,10 +208,13 @@ line holds the full story.
   saved episode into a followed show — it does not lose the item, it silently promotes it. A position 2 we do not
   recognise makes the whole entry unreadable, never a feed favorite. An entry's kind is the kind of its LAST
   identifier, or `podcast:item:guid` stops reaching the `k` tags and `#k` discovery misses every item favorite.
-  **This app is at STAGE 1: it READS the new form and carries it whole, and still WRITES the legacy form.** Boost Me
-  Bitch already writes the new form, so this reader is what stops its item favorites arriving here as followed
-  shows. Reading the legacy form stays mandatory — every list published before the revision writes items that way,
-  and dropping the path makes them unresolvable rather than unlabelled → `favorites-cross-app`,
+  **This app now READS AND WRITES the new form (stages 1, 2 and 4).** A legacy item is rewritten once, with the
+  identifier MOVED to position 2 — never appended as a third element — using the feed it was read under, and the
+  rewrite is idempotent. An item whose feed nobody knows goes back exactly as it arrived: a placeholder guid is an
+  invented one. **A new item no longer needs a feed entry above it**, so a feed the user never favorited stops
+  reaching the list; a placement entry already on the wire is still carried, never retracted (stage 3). Reading the
+  legacy form stays mandatory — every list published before the revision writes items that way, and dropping the
+  path makes them unresolvable rather than unlabelled → `favorites-cross-app`,
   [`pc20-favorites-feed-guid-migration.md`](https://github.com/ChadFarrow/PC20-Nostr/blob/main/pc20-favorites-feed-guid-migration.md).
 - **Rule 5 compares the read PUT THROUGH THIS WRITER'S OWN FRAMING, never as it arrived, and that is a different
   question from the digest.** The digest asks "did WE publish exactly this before"; rule 5 asks "does the RELAY
@@ -222,6 +225,22 @@ line holds the full story.
   renders the parsed read through `tagsFromNodes` — the same emitter the plan used, rather than a second
   normaliser to keep in step — and carries the visibility the READ states, because ours would make a list that
   predates the tag differ from itself forever → `favorites-cross-app`.
+- **A published-record claim on an ITEM is the PAIR, and the record is keyed by BARE GUID throughout.** An item
+  guid is unique only inside its feed, so a record keyed on the guid alone cannot tell two items in two feeds
+  apart: take one back and the merge reads the other as ours-and-removed and drops it. `itemClaim(itemGuid,
+  feedGuid)` is `feed|item` — feed first, because a feed guid is a UUID and an item guid is routinely a permalink
+  URL. `claimedItem` accepts the bare legacy form too, and that IS the migration: a stored record keeps working and
+  is rewritten paired by the next publish. **`publishedRecordFrom` claims a feed only when `favorited !== false`** —
+  claiming a placement group asserts an entry that was never on the event, and two cycles later the merge deletes
+  another app's feed favorite for that guid. `suppressOwnRemovals` builds the pair from the track's own `feedGuid`
+  and falls back to `claimsAnyItem` when it has none: failing to match there fails OPEN, and the entry it lets
+  through is re-created as an inbound favorite minutes after the user deleted it → `favorites-cross-app`.
+- **Rule 5's framing must NOT re-band.** `frameForCompare` regenerates `alt`, restates `visibility` and rebuilds the
+  trailing `k` tags, and deliberately leaves the ORDER alone. Rendering the parsed read through `tagsFromNodes`
+  instead — which is what this started as — normalises the order too, so a list that arrived interleaved compares
+  equal to our banded output and the reordering is never published: the event stays unbanded forever while this
+  writer believes it agrees with it. `SingleList.tags` carries the read's raw array for exactly this comparison →
+  `favorites-cross-app`.
 - **`projectNodes` may not edit the node list it projects from.** `groups` aliases each node's own group object, so
   folding an item entry's guid into one by pushing would add it to the NODE LIST too — and the republish would then
   emit that item twice, once as a group member and once as its own entry. Copy the group into the projection

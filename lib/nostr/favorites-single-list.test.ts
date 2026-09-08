@@ -23,9 +23,12 @@ import {
   buildSingleListTags,
   groupForSingleList,
   mergeSingleList,
+  EMPTY_PARSED,
+  itemClaim,
   parseSingleList,
   partitionSingleList,
-  readAsWeWouldWriteIt,
+  frameForCompare,
+  statedVisibility,
   publishedRecordFrom,
   singleListDigest,
   suppressOwnRemovals,
@@ -56,7 +59,12 @@ const track = (guid: string, parent: string, medium?: string): FavoriteEntry => 
 });
 
 /** Tags as `"type:value"` strings — the readable form for sequence assertions. */
-const seq = (tags: string[][]) => tags.map((t) => `${t[0]}:${t[1]}`);
+// The entry's LAST identifier for an `i` tag, position 1 otherwise. An item
+// entry names its feed at position 1 now, so reading position 1 does not merely
+// stop finding the item — it makes every NEGATIVE assertion below pass for the
+// wrong reason, because the string it compares against is never there.
+const seq = (tags: string[][]) =>
+  tags.map((t) => (t[0] === 'i' ? `i:${t[2] ?? t[1]}` : `${t[0]}:${t[1]}`));
 
 test('the event is a plain replaceable kind with an alt tag and empty content', () => {
   const template = singleListTemplate([album(MUSIC_A, 'music')], 1_700_000_000);
@@ -307,9 +315,11 @@ test('a URL-shaped item guid does not corrupt its k tag', () => {
   // yields `podcast:item:guid:https`, a k value no relay filter matches — so
   // the kind comes from the table in `identifierKind`, never from scanning.
   const tags = buildSingleListTags([track('https://example.com/ep/42', MUSIC_A, 'music')]);
+  // The item names its feed at position 1 and itself at position 2, and the
+  // kind still comes off the LAST identifier via the table.
   assert.deepEqual(
-    tags.find((t) => t[1] === 'podcast:item:guid:https://example.com/ep/42'),
-    ['i', 'podcast:item:guid:https://example.com/ep/42']
+    tags.find((t) => t[2] === 'podcast:item:guid:https://example.com/ep/42'),
+    ['i', showId(MUSIC_A), 'podcast:item:guid:https://example.com/ep/42']
   );
   assert.deepEqual(
     tags.filter((t) => t[0] === 'k').map((t) => t[1]),
@@ -646,7 +656,7 @@ test('a local unfavorite under a feed we hold still disappears', () => {
   assert.deepEqual(
     tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds)
       .filter((t) => t[0] === 'i')
-      .map((t) => t[1]),
+      .map((t) => t[2] ?? t[1]),
     [showId(MUSIC_A), itemId('t1')]
   );
 });
@@ -709,9 +719,15 @@ test("a group's items keep their WIRE order, and a new one goes at the end — s
   };
   const tags = emit(read);
   assert.deepEqual(
-    tags.filter((t) => t[0] === 'i').map((t) => t[1]),
+    tags.filter((t) => t[0] === 'i').map((t) => t[2] ?? t[1]),
     [showId(MUSIC_A), itemId('t1'), itemId('t2'), itemId('t3'), showId(POD_B), itemId('e1')],
-    'wire order kept; the new item after its own group and before the next'
+    'wire order kept; the new item at the END of its band, inside its own run'
+  );
+  // Each item names its own feed now, so band order can put the feed entry
+  // first without moving anything: the association no longer lives in position.
+  assert.deepEqual(
+    tags.filter((t) => t[0] === 'i' && t.length === 3).map((t) => t[1]),
+    [showId(MUSIC_A), showId(MUSIC_A), showId(MUSIC_A), showId(POD_B)]
   );
   // And a second pass over our own output is a fixed point — the property the
   // old order broke for the OTHER app, which this test cannot see directly.
@@ -875,7 +891,18 @@ test('the published record holds OUR contribution only, never what we carried', 
   const record = publishedRecordFrom(
     groupForSingleList([album(MUSIC_A, 'music'), track('t1', MUSIC_A, 'music')])
   );
-  assert.deepEqual(record, { feeds: [MUSIC_A], items: ['t1'] });
+  // The item claim is the PAIR: an item guid is unique only inside its feed, so
+  // a record keyed on the guid alone cannot tell two items in two feeds apart.
+  assert.deepEqual(record, { feeds: [MUSIC_A], items: [itemClaim('t1', MUSIC_A)] });
+
+  // AND A FEED WE NEVER WROTE IS NEVER CLAIMED. A group held only to supply its
+  // items' feed guid emits no feed entry, so claiming it asserts an entry that
+  // was never on the event — and the next cycle reads another app's feed
+  // favorite for that guid as ours-and-removed and deletes it.
+  const placementOnly = publishedRecordFrom(
+    groupForSingleList([track('t1', MUSIC_A, 'music')])
+  );
+  assert.deepEqual(placementOnly, { feeds: [], items: [itemClaim('t1', MUSIC_A)] });
 });
 
 // --- the inbound half of the same question ---------------------------------
@@ -1004,25 +1031,30 @@ test('an unreadable i does NOT re-parent the items after it', () => {
 
   // It survives, inside its own medium block.
   //
-  // KNOWN LIMITATION, and pinned as it really behaves rather than as we would
-  // like: a group holds its items as a list, so a loose entry that sat BETWEEN
-  // two of them is re-emitted after both. Boost Me Bitch's model is the same
-  // shape and does the same thing (its own vector asserts only "still inside
-  // the music block" for exactly this reason), so the two agree and the layout
-  // is a fixed point after one rewrite rather than a rewrite war. Nothing is
-  // lost and nothing is re-parented under the reading both apps use. Making it
-  // exact means items becoming nodes in their own right.
+  // THE LIMITATION THIS USED TO PIN IS GONE. A loose entry between two items
+  // was re-emitted after both, because a group held its items as a list — and
+  // the note here said making it exact meant "items becoming nodes in their own
+  // right". They are, now. `920666` is a `podcast:guid:` entry syntactically,
+  // so band order files it with the feeds; the items follow in band 3 carrying
+  // their own feed guid, so moving it past them re-parents nothing. That is the
+  // whole point of the entry naming its feed: order stopped being data.
   const tags = mergedTags(read, []);
   assert.deepEqual(seq(tags), [
     `alt:${LIST_ALT}`,
     'medium:music',
     `i:podcast:guid:${MUSIC_A}`,
+    'i:podcast:guid:920666',
     'i:podcast:item:guid:t-before',
     'i:podcast:item:guid:t-after',
-    'i:podcast:guid:920666',
     'k:podcast:guid',
     'k:podcast:item:guid',
   ]);
+  // Both items still name MUSIC_A on their own tags, which is what makes the
+  // reordering above harmless rather than a silent re-parenting.
+  assert.deepEqual(
+    tags.filter((t) => t[0] === 'i' && t.length === 3).map((t) => t[1]),
+    [showId(MUSIC_A), showId(MUSIC_A)]
+  );
 
   // Whatever its index, it is still there and still under `music`.
   const at = tags.findIndex((t) => t[1] === 'podcast:guid:920666');
@@ -1044,8 +1076,14 @@ test('the same feed twice on the wire keeps BOTH groups’ items', () => {
   ]);
   const tags = mergedTags(read, []);
   assert.deepEqual(
-    tags.filter((t) => t[0] === 'i').map((t) => t[1]),
+    tags.filter((t) => t[0] === 'i').map((t) => t[2] ?? t[1]),
     [showId(MUSIC_A), itemId('t1'), itemId('t2')]
+  );
+  // Both items name the SAME feed, which is what makes folding the duplicate
+  // safe — under the old format their parent lived in the entry above them.
+  assert.deepEqual(
+    tags.filter((t) => t[0] === 'i' && t.length === 3).map((t) => t[1]),
+    [showId(MUSIC_A), showId(MUSIC_A)]
   );
 });
 
@@ -1074,9 +1112,31 @@ test('idempotence — merging our own output reproduces it byte for byte', () =>
   ];
   const local = [album(MUSIC_A, 'music'), track('t1', MUSIC_A, 'music'), album(POD_B, 'podcast')];
 
+  // The fixture is a LEGACY list, so the first pass is not expected to reproduce
+  // it: `t1` is rewritten to name its feed, and the music run comes out in band
+  // order — items with no feed, artists, feeds, then items grouped by feed.
   const once = mergedTags(parseSingleList(wire), local);
-  assert.deepEqual(once, wire, 'the read is already a fixed point');
+  assert.deepEqual(once, [
+    ['alt', LIST_ALT],
+    ['zzz', 'payload', 'second element'],
+    ['i', showId(NO_MEDIUM_D)],
+    ['medium', 'music'],
+    ['i', 'podcast:publisher:guid:0e8f6a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b'],
+    ['i', showId(MUSIC_A)],
+    ['i', 'podcast:guid:920666'],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['medium', 'podcast'],
+    ['i', showId(POD_B)],
+    ['k', 'podcast:guid'],
+    ['k', 'podcast:publisher:guid'],
+    ['k', 'podcast:item:guid'],
+    ['k', 'future:kind'],
+  ]);
 
+  // THE FIXED POINT, which is what vector 3 is actually about: read our own
+  // output back and nothing moves. A migration that is not idempotent
+  // republishes on every load, forever, and two apps rewrite the event at each
+  // other with every publish locally reasonable.
   const twice = mergedTags(parseSingleList(once), local);
   assert.deepEqual(twice, once);
 });
@@ -1226,38 +1286,80 @@ test('an item entry with no feed entry of its own still projects under its feed'
 // Rule 5: compare the read PUT THROUGH THIS WRITER'S FRAMING, not as it arrived.
 // ---------------------------------------------------------------------------
 
-test('both `k` layouts render to the same bytes, so neither provokes a republish', () => {
+test('both `k` layouts frame to the same bytes, so neither provokes a republish', () => {
   // A `k` beside every `i` and one `k` per distinct kind at the end are both
   // legal and mean the same list. Compare the read as it ARRIVED and a list
   // nobody touched reports a change on every load — and if the other app
   // compares raw too, neither of them ever stops.
-  const paired = parseSingleList([
+  const paired = [
     ['alt', 'someone else’s label'],
     ['medium', 'music'],
     ['i', showId(MUSIC_A)],
     ['k', 'podcast:guid'],
-    ['i', itemId(TRACK_1)],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
     ['k', 'podcast:item:guid'],
-  ]);
-  const trailing = parseSingleList([
+  ];
+  const trailing = [
     ['alt', LIST_ALT],
     ['medium', 'music'],
     ['i', showId(MUSIC_A)],
-    ['i', itemId(TRACK_1)],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
     ['k', 'podcast:guid'],
     ['k', 'podcast:item:guid'],
-  ]);
-  assert.deepEqual(readAsWeWouldWriteIt(paired), readAsWeWouldWriteIt(trailing));
-  // And the framing regenerates `alt` rather than carrying the one it read.
-  assert.deepEqual(readAsWeWouldWriteIt(paired)[0], ['alt', LIST_ALT]);
+  ];
+  assert.deepEqual(frameForCompare(paired), frameForCompare(trailing));
+  // The framing regenerates `alt` rather than carrying the one it read.
+  assert.deepEqual(frameForCompare(paired)[0], ['alt', LIST_ALT]);
+  // And it carries a `k` naming a kind this writer never emits.
+  assert.deepEqual(
+    frameForCompare([['i', showId(MUSIC_A)], ['k', 'podcast:season:guid']]).filter(
+      (t) => t[0] === 'k'
+    ),
+    [
+      ['k', 'podcast:guid'],
+      ['k', 'podcast:season:guid'],
+    ]
+  );
 });
 
-test('a merge that changed nothing renders identically to the read', () => {
+test('the framing does NOT re-band, or a reordering would never be published', () => {
+  // This is why the comparison is not simply the parsed read rendered through
+  // `tagsFromNodes`. Rendering normalises the ORDER too, so a list that arrived
+  // interleaved would compare equal to our banded output and the event would
+  // stay unbanded forever while this writer believed it agreed with it.
+  const interleaved = [
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
+    ['i', showId(MUSIC_A)],
+  ];
+  const framed = frameForCompare(interleaved);
+  assert.deepEqual(
+    framed.filter((t) => t[0] === 'i'),
+    [
+      ['i', showId(MUSIC_A), itemId(TRACK_1)],
+      ['i', showId(MUSIC_A)],
+    ],
+    'the framing reordered the run'
+  );
+  // The emitter DOES band it, so the two differ — which is the publish.
+  const read = parseSingleList(interleaved);
+  assert.notDeepEqual(
+    tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility).filter(
+      (t) => t[0] === 'i'
+    ),
+    framed.filter((t) => t[0] === 'i')
+  );
+});
+
+test('a merge that changed nothing frames identically to the read', () => {
+  // Written in the form and order this writer emits, so there is nothing to
+  // normalise away and nothing to publish.
   const tags = [
     ['alt', LIST_ALT],
     ['medium', 'music'],
     ['i', showId(MUSIC_A)],
-    ['i', itemId(TRACK_1)],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
     ['k', 'podcast:guid'],
     ['k', 'podcast:item:guid'],
   ];
@@ -1265,34 +1367,177 @@ test('a merge that changed nothing renders identically to the read', () => {
   const local = groupForSingleList([album(MUSIC_A, 'music'), track(TRACK_1, MUSIC_A, 'music')]);
   const merged = mergeSingleList(read, local, publishedRecordFrom(local));
   assert.deepEqual(
-    tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility),
-    readAsWeWouldWriteIt(read)
+    frameForCompare(
+      tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility),
+      merged.visibility
+    ),
+    frameForCompare(tags, statedVisibility(tags))
   );
 });
 
 test('a genuinely new favorite still differs from the read', () => {
   // Proof the comparison is not simply always-equal.
-  const read = parseSingleList([['medium', 'music'], ['i', showId(MUSIC_A)]]);
+  const tags = [['medium', 'music'], ['i', showId(MUSIC_A)]];
+  const read = parseSingleList(tags);
   const local = groupForSingleList([album(MUSIC_A, 'music'), album(MUSIC_C, 'music')]);
   const merged = mergeSingleList(read, local, publishedRecordFrom([]));
   assert.notDeepEqual(
-    tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility),
-    readAsWeWouldWriteIt(read)
+    frameForCompare(
+      tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility)
+    ),
+    frameForCompare(tags)
   );
 });
 
 test('the framing carries the visibility the READ states, not one we would write', () => {
   // Ours would make a list that predates the tag differ from itself forever, so
   // every load would republish it.
-  const none = parseSingleList([['medium', 'music'], ['i', showId(MUSIC_A)]]);
+  const none = [['medium', 'music'], ['i', showId(MUSIC_A)]];
   assert.equal(
-    readAsWeWouldWriteIt(none).some((t) => t[0] === 'visibility'),
+    frameForCompare(none, statedVisibility(none)).some((t) => t[0] === 'visibility'),
     false
   );
-  const stated = parseSingleList([
+  const stated = [
     ['visibility', 'public'],
     ['medium', 'music'],
     ['i', showId(MUSIC_A)],
+  ];
+  assert.deepEqual(frameForCompare(stated, statedVisibility(stated))[1], ['visibility', 'public']);
+});
+
+// ---------------------------------------------------------------------------
+// Stage 2: WRITE the item's feed guid and claim the pair. Stage 4: band order.
+// ---------------------------------------------------------------------------
+
+test('a legacy item is rewritten under the feed it was READ under', () => {
+  // The one-time migration. The whole tag is replaced and the identifier MOVES
+  // to position 2 — not appended as a third element.
+  const legacy = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('t1')],
+    ['i', showId(MUSIC_C)],
+    ['i', itemId('t2')],
+  ];
+  const once = mergedTags(parseSingleList(legacy), []);
+  assert.deepEqual(once.filter((t) => t[0] === 'i'), [
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_C)],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['i', showId(MUSIC_C), itemId('t2')],
   ]);
-  assert.deepEqual(readAsWeWouldWriteIt(stated)[1], ['visibility', 'public']);
+  // THE TRAP BAND ORDER OPENS: with every feed entry moved above every item, an
+  // item that did not take its feed with it resolves to the LAST feed in band 2
+  // — MUSIC_C for both. Worse than the nothing it had.
+  assert.deepEqual(
+    once.filter((t) => t.length === 3).map((t) => t[1]),
+    [showId(MUSIC_A), showId(MUSIC_C)]
+  );
+  // Once. A migration that is not idempotent republishes forever.
+  assert.deepEqual(mergedTags(parseSingleList(once), []), once);
+});
+
+test('an item whose feed nobody knows is never given one', () => {
+  // No feed identifier to write at position 1, so it goes back exactly as it
+  // arrived. A placeholder guid is an invented one, and a wrong feed resolves
+  // to the wrong thing — worse than resolving to nothing.
+  const orphan = [['medium', 'music'], ['i', itemId('t-orphan')]];
+  const out = mergedTags(parseSingleList(orphan), []);
+  assert.deepEqual(out.filter((t) => t[0] === 'i'), [['i', itemId('t-orphan')]]);
+});
+
+test('one item from an unfavorited feed is ONE tag, and no feed entry', () => {
+  // The case the old format could not write: it had to open a feed entry to
+  // hold the item, so a feed the user never chose appeared on the list — 114 of
+  // 196 on the first real one.
+  const local = groupForSingleList([track('t1', MUSIC_A, 'music')]);
+  assert.equal(local[0].favorited, false, 'a group opened by a track is not a favorite');
+  const out = tagsFromNodes(mergeSingleList(EMPTY_PARSED, local, { feeds: [], items: [] }).nodes);
+  assert.deepEqual(out.filter((t) => t[0] === 'i'), [['i', showId(MUSIC_A), itemId('t1')]]);
+
+  // Favorite the album too and a SECOND tag appears, the item untouched. The
+  // two carry the same string at position 1 and differ only in length, which is
+  // what a reader keyed on position 1 gets wrong.
+  const both = groupForSingleList([album(MUSIC_A, 'music'), track('t1', MUSIC_A, 'music')]);
+  const outBoth = tagsFromNodes(
+    mergeSingleList(EMPTY_PARSED, both, { feeds: [], items: [] }).nodes
+  ).filter((t) => t[0] === 'i');
+  assert.deepEqual(outBoth, [['i', showId(MUSIC_A)], ['i', showId(MUSIC_A), itemId('t1')]]);
+  assert.equal(outBoth[0][1], outBoth[1][1]);
+});
+
+test('one item guid under two feeds is two favorites, claimed as two pairs', () => {
+  const shared = groupForSingleList([
+    track('t1', MUSIC_A, 'music'),
+    track('t1', MUSIC_C, 'music'),
+  ]);
+  const record = publishedRecordFrom(shared);
+  assert.deepEqual(record.items, [
+    itemClaim('t1', MUSIC_A),
+    itemClaim('t1', MUSIC_C),
+  ]);
+  // (naive) Keyed on the item guid alone the two collapse into one, and taking
+  // one back takes the other with it.
+  assert.equal(new Set(['t1', 't1']).size, 1);
+
+  const wire = tagsFromNodes(mergeSingleList(EMPTY_PARSED, shared, { feeds: [], items: [] }).nodes);
+  // Take back only the MUSIC_A copy. The other must survive.
+  const keepOne = [track('t1', MUSIC_C, 'music')];
+  const merged = mergeSingleList(
+    parseSingleList(wire),
+    groupForSingleList(keepOne),
+    record
+  );
+  const after = tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds);
+  assert.deepEqual(after.filter((t) => t[0] === 'i'), [['i', showId(MUSIC_C), itemId('t1')]]);
+});
+
+test('each run comes out in band order, band 3 grouped by the feed it names', () => {
+  const ARTIST = 'podcast:publisher:guid:0e8f6a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b';
+  // Interleaved, with a genuine orphan FIRST — it is only an orphan because no
+  // feed entry precedes it.
+  const wire = [
+    ['medium', 'music'],
+    ['i', itemId('t-orphan')],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['i', showId(MUSIC_C), itemId('t3')],
+    ['i', ARTIST],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId('t2')],
+  ];
+  const out = mergedTags(parseSingleList(wire), []).filter((t) => t[0] === 'i');
+  assert.deepEqual(out, [
+    ['i', itemId('t-orphan')],
+    ['i', ARTIST],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['i', showId(MUSIC_A), itemId('t2')],
+    ['i', showId(MUSIC_C), itemId('t3')],
+  ]);
+  // BAND 0 IS NOT COSMETIC: the orphan takes its feed from the entry above it,
+  // so putting it after band 2 hands it whichever album ended up last.
+  assert.ok(out.findIndex((t) => t[1] === itemId('t-orphan')) < out.findIndex((t) => t.length === 2 && t[1] === showId(MUSIC_A)));
+  // (naive) Ungrouped, band 3 keeps wire order — a different event, so the two
+  // writers never converge on one.
+  assert.notDeepEqual(out.slice(3).map((t) => t[1]), [showId(MUSIC_A), showId(MUSIC_C), showId(MUSIC_A)]);
+  assert.deepEqual(mergedTags(parseSingleList(mergedTags(parseSingleList(wire), [])), []), mergedTags(parseSingleList(wire), []));
+});
+
+test('a run holding a tag we cannot classify is emitted in wire order', () => {
+  // A tag with no kind has no band, and inventing a place for a carried tag is
+  // how it ends up somewhere that changes what it means.
+  const wire = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['i', 'something:else:entirely'],
+    ['i', showId(MUSIC_A)],
+  ];
+  const out = mergedTags(parseSingleList(wire), []).filter((t) => t[0] === 'i');
+  assert.deepEqual(out, [
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['i', 'something:else:entirely'],
+    ['i', showId(MUSIC_A)],
+  ]);
+  // Proof it is a real choice: banding that run WOULD move the feed entry up.
+  assert.notDeepEqual(out[0], ['i', showId(MUSIC_A)]);
 });

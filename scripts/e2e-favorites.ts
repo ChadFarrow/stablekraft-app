@@ -425,6 +425,94 @@ async function main() {
     'the private half carries no mode claim of its own',
   );
 
+  // -------------------------------------------------------------------------
+  console.log('\n⑪ A legacy item is upgraded ONCE, beside one already upgraded');
+  // -------------------------------------------------------------------------
+  // The migration, end to end. A list holding BOTH forms: a two-element item
+  // that takes its feed from the entry above it, and a three-element one that
+  // names its own. The first publish rewrites the legacy tag and leaves the
+  // other byte-identical; the second changes nothing.
+  const LEGACY_TRACK = 'e2e-legacy-track';
+  const NAMED_TRACK = 'e2e-named-track';
+  // AFTER whatever the scenarios above left, or the relay refuses it as older
+  // than stored — a replaceable event keeps the newest `created_at`, and the
+  // scenarios above have already moved it forward.
+  const priorAt = (await fetchSingleList(pubkey, relays)).updatedAt;
+  const mixed = finalizeEvent(
+    {
+      kind: SINGLE_LIST_KIND,
+      created_at: priorAt + 1,
+      content: '',
+      tags: [
+        ['alt', LIST_ALT],
+        ['medium', 'music'],
+        ['i', `podcast:guid:${MUSIC_A}`],
+        ['i', `podcast:item:guid:${LEGACY_TRACK}`],
+        ['i', `podcast:guid:${MUSIC_A}`, `podcast:item:guid:${NAMED_TRACK}`, 'newer-writer'],
+        ['k', 'podcast:guid'],
+        ['k', 'podcast:item:guid'],
+      ],
+    },
+    sk
+  );
+  await publish(mixed);
+
+  const mixedRead = await fetchSingleList(pubkey, relays);
+  check(mixedRead.trustworthy && mixedRead.exists, 'the mixed list reads back');
+
+  const mixedLocal = groupForSingleList([
+    { id: `podcast:guid:${MUSIC_A}`, medium: 'music' },
+    { id: `podcast:item:guid:${LEGACY_TRACK}`, feedRef: MUSIC_A, medium: 'music' },
+    { id: `podcast:item:guid:${NAMED_TRACK}`, feedRef: MUSIC_A, medium: 'music' },
+  ]);
+  const upgraded = mergeSingleList(mixedRead, mixedLocal, publishedRecordFrom(mixedLocal));
+  const upgradedTags = tagsFromNodes(
+    upgraded.nodes,
+    upgraded.foreignTags,
+    upgraded.foreignKinds,
+    upgraded.visibility
+  );
+  const tagOf = (guid: string) =>
+    upgradedTags.find((t) => t[0] === 'i' && t[2] === `podcast:item:guid:${guid}`);
+  check(
+    JSON.stringify(tagOf(LEGACY_TRACK)) ===
+      JSON.stringify(['i', `podcast:guid:${MUSIC_A}`, `podcast:item:guid:${LEGACY_TRACK}`]),
+    'the legacy item was rewritten under the feed it was read under',
+  );
+  check(
+    JSON.stringify(tagOf(NAMED_TRACK)) ===
+      JSON.stringify([
+        'i',
+        `podcast:guid:${MUSIC_A}`,
+        `podcast:item:guid:${NAMED_TRACK}`,
+        'newer-writer',
+      ]),
+    'the entry already naming its feed came back byte-identical, extra element included',
+  );
+
+  await publish(finalizeEvent(
+    {
+      kind: SINGLE_LIST_KIND,
+      created_at: priorAt + 2,
+      content: mixedRead.content,
+      tags: upgradedTags,
+    },
+    sk
+  ));
+  const settled = await fetchSingleList(pubkey, relays);
+  const settledMerge = mergeSingleList(settled, mixedLocal, publishedRecordFrom(mixedLocal));
+  check(
+    JSON.stringify(
+      tagsFromNodes(
+        settledMerge.nodes,
+        settledMerge.foreignTags,
+        settledMerge.foreignKinds,
+        settledMerge.visibility
+      )
+    ) === JSON.stringify(upgradedTags),
+    'a second cycle changes nothing — the upgrade happened once',
+  );
+
   console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) FAILED.`);
   process.exit(failures === 0 ? 0 : 1);
 }
