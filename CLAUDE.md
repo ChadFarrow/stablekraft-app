@@ -201,6 +201,22 @@ line holds the full story.
   undo, on an event that keeps no history. Nothing was wrong with any rule; the halves shipped in the
   wrong sequence. **Before switching on anything that writes a new form, go and read the other app's
   shipped `main` and confirm it handles it** — not its open PR → `favorites-cross-app`.
+- **An item entry may name its own feed, and the ELEMENT COUNT is the only thing that says which is which.**
+  `['i','podcast:guid:<feed>']` is a feed favorite; `['i','podcast:guid:<feed>','podcast:item:guid:<item>']` is one
+  item of that feed; `['i','podcast:item:guid:<item>']` is the LEGACY form and still takes its feed from the entry
+  above it. Position 1 is byte-for-byte the same string on the first two, so a reader that branches on it turns one
+  saved episode into a followed show — it does not lose the item, it silently promotes it. A position 2 we do not
+  recognise makes the whole entry unreadable, never a feed favorite. An entry's kind is the kind of its LAST
+  identifier, or `podcast:item:guid` stops reaching the `k` tags and `#k` discovery misses every item favorite.
+  **This app is at STAGE 1: it READS the new form and carries it whole, and still WRITES the legacy form.** Boost Me
+  Bitch already writes the new form, so this reader is what stops its item favorites arriving here as followed
+  shows. Reading the legacy form stays mandatory — every list published before the revision writes items that way,
+  and dropping the path makes them unresolvable rather than unlabelled → `favorites-cross-app`,
+  [`pc20-favorites-feed-guid-migration.md`](https://github.com/ChadFarrow/PC20-Nostr/blob/main/pc20-favorites-feed-guid-migration.md).
+- **`projectNodes` may not edit the node list it projects from.** `groups` aliases each node's own group object, so
+  folding an item entry's guid into one by pushing would add it to the NODE LIST too — and the republish would then
+  emit that item twice, once as a group member and once as its own entry. Copy the group into the projection
+  instead. The projection is what this app models; the node list is what it republishes → `favorites-cross-app`.
 - **Kind 10333 has TWO live writers, so every publish must read first and merge.** Publishing replaces the whole
   event, so a writer that sends what it holds without reading deletes everything the other app added — silently,
   on someone else's device, with no undo. Boost Me Bitch started publishing 2026-08-13, which retired the

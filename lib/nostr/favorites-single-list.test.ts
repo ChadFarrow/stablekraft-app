@@ -1093,3 +1093,130 @@ test('the group projection still excludes what we merely carried', () => {
   assert.deepEqual(read.groups.map((g) => g.feedGuid), [MUSIC_A]);
   assert.equal(read.nodes.filter((n) => n.t === 'loose').length, 2);
 });
+
+// ---------------------------------------------------------------------------
+// The three-element item entry (PC20-Nostr #34), stage 1: READ it and carry it.
+// This app still WRITES the legacy two-element form; see the module header.
+// ---------------------------------------------------------------------------
+
+const TRACK_1 = 'fb279ed1-10ec-4060-967d-9af45c19505f';
+const TRACK_2 = 'f4cc32b4-0e1e-45a1-a6fb-64e7f8d0e0a2';
+
+test('an item entry that names its own feed is read, and its feed comes off ITS OWN tag', () => {
+  const read = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_C), itemId(TRACK_1)],
+  ]);
+  // The item belongs to MUSIC_C, which is NOT the feed entry above it. Reading
+  // the feed from the entry above — the legacy rule — gives MUSIC_A, and the
+  // track then resolves to an album the user never saved it from.
+  assert.deepEqual(
+    read.nodes.map((n) => n.t),
+    ['group', 'item']
+  );
+  const item = read.nodes.find((n) => n.t === 'item');
+  assert.equal(item?.t === 'item' && item.item.feedGuid, MUSIC_C);
+  assert.equal(item?.t === 'item' && item.item.itemGuid, TRACK_1);
+});
+
+test('a three-element entry is told apart by LENGTH, never by position 1', () => {
+  // Both tags carry the same string at position 1. Only the element count says
+  // which is the feed favorite, so a reader that branches on position 1 turns
+  // one saved episode into a followed show.
+  const read = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
+  ]);
+  assert.deepEqual(read.nodes.map((n) => n.t), ['group', 'item']);
+  assert.equal(read.groups.length, 1);
+  assert.deepEqual(read.groups[0].itemGuids, [TRACK_1], 'the track must project under its album');
+});
+
+test('an item entry is republished WHOLE, including a position this app has no meaning for', () => {
+  const NEWER = 'written-by-a-writer-newer-than-this-one';
+  const tags = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), itemId(TRACK_1), NEWER],
+    ['i', showId(MUSIC_C), itemId(TRACK_2)],
+  ];
+  const read = parseSingleList(tags);
+  const out = tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility);
+  assert.deepEqual(
+    out.filter((t) => t[0] === 'i'),
+    [
+      ['i', showId(MUSIC_A), itemId(TRACK_1), NEWER],
+      ['i', showId(MUSIC_C), itemId(TRACK_2)],
+    ],
+    'rebuilding an entry as [i, id] strips the feed guid that makes it resolvable'
+  );
+  // Idempotent: reading our own output back changes nothing.
+  const again = parseSingleList(out);
+  assert.deepEqual(tagsFromNodes(again.nodes, again.foreignTags, again.foreignKinds, again.visibility), out);
+});
+
+test('a position 2 we cannot read is an unreadable ENTRY, not a feed favorite', () => {
+  // Only `podcast:item:guid:` is defined at position 2 today. Ignoring what we
+  // do not recognise would republish this as a favorite of the whole feed.
+  const read = parseSingleList([
+    ['medium', 'podcast'],
+    ['i', showId(POD_B), 'podcast:chapter:guid:12345'],
+  ]);
+  assert.deepEqual(read.nodes.map((n) => n.t), ['loose']);
+  assert.deepEqual(read.groups, [], 'it must not become a feed favorite');
+  const out = tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility);
+  assert.deepEqual(
+    out.filter((t) => t[0] === 'i'),
+    [['i', showId(POD_B), 'podcast:chapter:guid:12345']]
+  );
+});
+
+test('a three-element entry does not end an open legacy run', () => {
+  // The legacy item below still belongs to the feed opened above. Closing the
+  // run on an entry that is not a feed entry strands it with no feed at all.
+  const read = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_C), itemId(TRACK_1)],
+    ['i', itemId(TRACK_2)],
+  ]);
+  const a = read.groups.find((g) => g.feedGuid === MUSIC_A);
+  assert.deepEqual(a?.itemGuids, [TRACK_2], 'the legacy item lost the feed above it');
+});
+
+test('a carried item entry is emitted ONCE, in the form it arrived in', () => {
+  // This app holds the same track locally. Without the carried-item check the
+  // merge appends its own two-element copy beneath the group as well —
+  // duplicating the favorite and stripping half its address.
+  const tags = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId(TRACK_1)],
+  ];
+  const read = parseSingleList(tags);
+  const local = groupForSingleList([album(MUSIC_A, 'music'), track(TRACK_1, MUSIC_A, 'music')]);
+  const merged = mergeSingleList(read, local, publishedRecordFrom(local));
+  const out = tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility);
+  assert.deepEqual(
+    out.filter((t) => t[0] === 'i'),
+    [['i', showId(MUSIC_A)], ['i', showId(MUSIC_A), itemId(TRACK_1)]]
+  );
+});
+
+test('an item entry with no feed entry of its own still projects under its feed', () => {
+  // The case the old format could not express: a track saved from an album the
+  // user never favorited. `groups` drives the reconcile, so a track missing
+  // from it is a favorite that vanishes on this side.
+  const read = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_C), itemId(TRACK_1)],
+  ]);
+  assert.deepEqual(read.groups.map((g) => [g.feedGuid, g.itemGuids, g.favorited]), [
+    [MUSIC_C, [TRACK_1], false],
+  ]);
+  // And the projection must not have edited the node list: re-emitting carries
+  // exactly one tag.
+  const out = tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility);
+  assert.deepEqual(out.filter((t) => t[0] === 'i'), [['i', showId(MUSIC_C), itemId(TRACK_1)]]);
+});

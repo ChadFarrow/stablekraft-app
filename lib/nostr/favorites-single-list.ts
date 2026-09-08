@@ -27,6 +27,24 @@
  *   - **Unfavoriting a feed while a track of it stays favorited is invisible.**
  *     The placement group and the favorite are the same bytes, so the removal
  *     cannot be expressed until the last track goes too. Pinned by a test.
+ *
+ *     BOTH OF THOSE DESCRIBE WHAT THIS APP WRITES, and the format has moved on.
+ *     An item entry may now carry the guid of its feed on its own tag —
+ *     `['i','podcast:guid:<feed>','podcast:item:guid:<item>']` — so nothing
+ *     needs to be on the list for structural reasons. This app is at STAGE 1 of
+ *     that migration (PC20-Nostr `pc20-favorites-feed-guid-migration.md`): it
+ *     READS the three-element form and carries it whole, and still WRITES the
+ *     legacy two-element form under a feed group. Boost Me Bitch already writes
+ *     the new form, so this reader is what stops its item favorites arriving
+ *     here as followed shows.
+ *
+ *     THE ELEMENT COUNT IS THE ONLY THING separating a feed favorite from an
+ *     item favorite — their position 1 is byte-for-byte the same string — so an
+ *     entry is told apart by LENGTH, never by position 1. A position 2 we do
+ *     not recognise makes the whole entry unreadable rather than a feed
+ *     favorite. The LEGACY two-element item is still positional and reading it
+ *     stays mandatory: every list published before this revision writes items
+ *     that way.
  *   - **A track whose parent feed has no `<podcast:guid>` cannot be expressed**
  *     and is dropped on write. The two-list format could carry it parentless;
  *     this one cannot. No favorite is in that state today, and the fix is an
@@ -79,6 +97,44 @@ export interface SingleListGroup {
    *  only to place an item. Not expressible on the wire — see the header — so
    *  it is meaningful on the way OUT and always false on the way back IN. */
   favorited: boolean;
+  /**
+   * The feed's `i` tag AS READ, when this group came off the wire.
+   *
+   * Emitted back verbatim so anything a writer newer than us parked past
+   * position 1 survives. Absent on a group built from local state, which has
+   * nothing to carry.
+   */
+  feedTag?: string[];
+  /**
+   * Each LEGACY item's `i` tag as read, by item guid. Same rule, same reason.
+   *
+   * Keyed rather than positional: the merge splices item guids around, and a
+   * parallel array would silently pair a tag with a different item.
+   */
+  itemTags?: Record<string, string[]>;
+}
+
+/**
+ * An item entry that NAMES ITS OWN FEED — the three-element form.
+ *
+ * `['i', 'podcast:guid:<feedGuid>', 'podcast:item:guid:<itemGuid>']`. It is not
+ * a member of the group above it and depends on nothing before it; moving it
+ * changes nothing. This app does not originate one yet (that is stage 2 of the
+ * migration), so every one of these came off the wire and its `tag` goes back
+ * byte for byte.
+ *
+ * Distinct from {@link LooseNode} because we CAN read it: both guids are known,
+ * so it resolves, renders and matches a local row. `loose` means "no meaning
+ * for this", which is a different claim about a different tag.
+ */
+export interface ItemNode {
+  /** Bare feed guid, off position 1 of its OWN tag — never the entry above. */
+  feedGuid: string;
+  /** Bare item guid, off position 2. */
+  itemGuid: string;
+  medium?: string;
+  /** The WHOLE tag as read. Never rebuilt from the two guids. */
+  tag: string[];
 }
 
 /**
@@ -111,6 +167,7 @@ export interface LooseNode {
  */
 export type ListNode =
   | { t: 'group'; group: SingleListGroup }
+  | { t: 'item'; item: ItemNode }
   | { t: 'loose'; loose: LooseNode };
 
 /** Which half the WHOLE list lives in. Never a per-entry property. */
@@ -172,7 +229,9 @@ export interface SingleList extends ParsedSingleList {
 
 /** The medium a node sits under — the running value at its position. */
 function mediumOfNode(node: ListNode): string | undefined {
-  return node.t === 'group' ? node.group.medium : node.loose.medium;
+  if (node.t === 'group') return node.group.medium;
+  if (node.t === 'item') return node.item.medium;
+  return node.loose.medium;
 }
 
 /** `groups` / `orphanItemGuids` as projections of the node list, so the two can
@@ -183,9 +242,48 @@ function projectNodes(nodes: ListNode[]): {
 } {
   const groups: SingleListGroup[] = [];
   const orphanItemGuids: string[] = [];
+  /** feedGuid -> where that feed sits in `groups`. */
+  const at = new Map<string, number>();
   for (const node of nodes) {
     if (node.t === 'group') {
       groups.push(node.group);
+      // First group for a feed wins the position; a duplicate on the wire is
+      // well-formed and folds into the one already here.
+      if (!at.has(node.group.feedGuid)) at.set(node.group.feedGuid, groups.length - 1);
+      continue;
+    }
+    // AN ITEM THAT NAMES ITS OWN FEED STILL PROJECTS UNDER THAT FEED, or every
+    // consumer of `groups` — the sync endpoint, the row resolvers — stops
+    // seeing tracks the moment the other app writes the three-element form.
+    if (node.t === 'item') {
+      const where = at.get(node.item.feedGuid);
+      if (where !== undefined) {
+        const g = groups[where];
+        if (!g.itemGuids.includes(node.item.itemGuid)) {
+          // A COPY, NEVER A MUTATION. `groups` aliases the node's own object,
+          // so pushing into it would add this item to the NODE LIST as well —
+          // and the republish would then emit it twice, once as a group item
+          // and once as its own entry. The projection is what this app models;
+          // the node list is what it republishes, and neither may edit the
+          // other.
+          groups[where] = {
+            ...g,
+            medium: g.medium ?? node.item.medium,
+            itemGuids: [...g.itemGuids, node.item.itemGuid],
+          };
+        }
+        continue;
+      }
+      // No feed entry for it on the list. That is an ordinary state now — the
+      // user saved a track from a feed they never favorited — so this is a
+      // placement projection and `favorited` stays false.
+      at.set(node.item.feedGuid, groups.length);
+      groups.push({
+        feedGuid: node.item.feedGuid,
+        medium: node.item.medium,
+        itemGuids: [node.item.itemGuid],
+        favorited: false,
+      });
       continue;
     }
     // An item with no group above it is unplaceable, not unreadable: we know
@@ -322,19 +420,29 @@ export function tagsFromNodes(
   // take no part in grouping, so position among themselves is all they need.
   for (const tag of foreignTags) tags.push(tag.slice());
 
+  // THE TAG AS READ, NEVER ONE REBUILT FROM THE MODEL. Position 2 of an item
+  // entry carries the guid of its FEED — half the item's address, not a label —
+  // and position 3 is undefined, which is exactly where the next revision will
+  // put something. A writer that re-renders `['i', id]` type-checks, renders
+  // correctly, and strips every item on the list of the value that makes it
+  // resolvable. Only a node built from local state has nothing to carry.
   const emit = (node: ListNode) => {
     if (node.t === 'loose') {
-      // The tag WHOLE, never rebuilt from what we understood of it.
       tags.push(node.loose.tag.slice());
+      return;
+    }
+    if (node.t === 'item') {
+      tags.push(node.item.tag.slice());
       return;
     }
     const group = node.group;
     const feed = showId(group.feedGuid);
-    if (identifierKind(feed)) tags.push(['i', feed]);
+    if (identifierKind(feed)) tags.push(group.feedTag ? group.feedTag.slice() : ['i', feed]);
     for (const guid of group.itemGuids) {
       const id = itemId(guid);
       if (!identifierKind(id)) continue;
-      tags.push(['i', id]);
+      const read = group.itemTags?.[guid];
+      tags.push(read ? read.slice() : ['i', id]);
     }
   };
 
@@ -370,7 +478,13 @@ export function tagsFromNodes(
   const kinds: string[] = [];
   for (const tag of tags) {
     if (tag[0] !== 'i' || !tag[1]) continue;
-    const kind = identifierKind(tag[1]);
+    // THE KIND OF THE ENTRY'S LAST IDENTIFIER — position 2 when there is one,
+    // position 1 otherwise. A three-element `podcast:guid:` entry is an ITEM
+    // favorite and must declare `podcast:item:guid`, even though position 1
+    // reads `podcast:guid`. Derive it from position 1 alone and that kind never
+    // reaches the event at all, so `#k` discovery stops finding item favorites
+    // on every list this app republishes.
+    const kind = identifierKind(tag[2] ?? tag[1]);
     if (kind && !kinds.includes(kind)) kinds.push(kind);
   }
   for (const kind of kinds) tags.push(['k', kind]);
@@ -464,11 +578,43 @@ export function mergeSingleList(
   const nodes: ListNode[] = [];
   const emitted = new Map<string, SingleListGroup>();
 
+  /**
+   * Item guids the wire states in THREE-ELEMENT form and that survive this
+   * cycle, keyed by feed because an item guid is unique only inside its feed.
+   *
+   * Computed ahead of the walk because an item node may sit after the group
+   * that also holds it locally, and both passes below have to agree. Without
+   * it, an item carried here would ALSO be appended to its feed's group from
+   * local state — emitted twice, and the second copy in the two-element form
+   * that strips the guid making it resolvable.
+   */
+  const carriedItems = new Set<string>();
+  for (const node of read.nodes) {
+    if (node.t !== 'item') continue;
+    const { feedGuid, itemGuid } = node.item;
+    const held = localByGuid.get(feedGuid)?.itemGuids.includes(itemGuid) ?? false;
+    if (publishedItems.has(itemGuid) && !held) continue;
+    carriedItems.add(`${feedGuid}|${itemGuid}`);
+  }
+  const carried = (feedGuid: string, itemGuid: string): boolean =>
+    carriedItems.has(`${feedGuid}|${itemGuid}`);
+
   for (const node of read.nodes) {
     // Not ours to read, so not ours to touch. Kept where it was: moving it is
     // how two writers end up reordering the event against each other forever.
     if (node.t === 'loose') {
       nodes.push(node);
+      continue;
+    }
+
+    // An entry that names its own feed. This app does not originate one yet, so
+    // it is always another writer's — carried whole, in place, unless our own
+    // record says we published that item and no longer hold it.
+    if (node.t === 'item') {
+      const { feedGuid, itemGuid } = node.item;
+      const held = localByGuid.get(feedGuid)?.itemGuids.includes(itemGuid) ?? false;
+      if (publishedItems.has(itemGuid) && !held) continue;
+      nodes.push({ t: 'item', item: { ...node.item, tag: node.item.tag.slice() } });
       continue;
     }
 
@@ -529,10 +675,25 @@ export function mergeSingleList(
     );
     const merged: SingleListGroup = {
       ...mine,
+      // THE TAGS AS READ, THREADED ACROSS EXPLICITLY. This literal is built from
+      // `mine` — LOCAL state — which has no `feedTag` and no `itemTags`, so
+      // anything read off the wire is dropped here by construction unless it is
+      // named. Same sentence as the `medium` line below, applied to the rest of
+      // the tag: a hint we didn't write is not ours to delete, and neither is
+      // half an item's address.
+      feedTag: group.feedTag,
+      itemTags: group.itemTags,
       // Prefer what we resolved; fall back to the hint that was already there
       // rather than blanking it. A hint we didn't write is not ours to delete.
       medium: mine.medium ?? group.medium,
-      itemGuids: [...kept, ...mine.itemGuids.filter((guid) => !kept.includes(guid))],
+      itemGuids: [
+        ...kept,
+        // Already on the wire naming its own feed, so it is emitted there —
+        // once, and in the form it arrived in.
+        ...mine.itemGuids.filter(
+          (guid) => !kept.includes(guid) && !carried(group.feedGuid, guid)
+        ),
+      ],
     };
     emitted.set(group.feedGuid, merged);
     nodes.push({ t: 'group', group: merged });
@@ -555,7 +716,9 @@ export function mergeSingleList(
     // emit stays claimed, so a later unfavorite-and-refavorite here (which
     // drops and re-adds the row) publishes it again, while merely holding it
     // does not.
-    const fresh = group.itemGuids.filter((guid) => !publishedItems.has(guid));
+    const fresh = group.itemGuids.filter(
+      (guid) => !publishedItems.has(guid) && !carried(group.feedGuid, guid)
+    );
     const feedFresh = !publishedFeeds.has(group.feedGuid);
     if (!feedFresh && fresh.length === 0) continue;
     const appended: SingleListGroup =
@@ -779,16 +942,51 @@ export function parseSingleList(tags: string[][]): ParsedSingleList {
     }
 
     const id = tag[1];
+
+    // POSITION 2 PRESENT — an item entry that names its own feed, or something
+    // we cannot read. Tested BEFORE the feed branch, because position 1 is the
+    // same string on both and the ELEMENT COUNT is the only thing that tells a
+    // feed favorite from an item favorite. Branch on position 1 alone and one
+    // saved episode reads as a followed show.
+    if (tag[2] !== undefined) {
+      const feed = parseShowGuid(id);
+      const item = parseItemGuid(tag[2]);
+      if (feed && item) {
+        // Carried whole. It opens no group and ends no legacy run: it is not a
+        // feed entry, and a legacy item below it still belongs to whatever
+        // group is open above.
+        nodes.push({
+          t: 'item',
+          item: { feedGuid: feed, itemGuid: item, medium, tag: tag.slice() },
+        });
+        continue;
+      }
+      // A POSITION 2 WE CANNOT READ IS NOT A FEED FAVORITE. Only
+      // `podcast:item:guid:` is defined there today, so an entry carrying
+      // anything else belongs to a writer newer than this one — and reading it
+      // as a two-element feed entry would turn their entry into a followed
+      // show. Carry the whole tag and claim nothing about it.
+      nodes.push({ t: 'loose', loose: { tag: tag.slice(), medium } });
+      continue;
+    }
+
     const feedGuid = parseShowGuid(id);
     if (feedGuid) {
-      current = { feedGuid, medium, itemGuids: [], favorited: false };
+      current = { feedGuid, medium, itemGuids: [], favorited: false, feedTag: tag.slice() };
       nodes.push({ t: 'group', group: current });
       continue;
     }
 
+    // THE LEGACY FORM, and reading it is mandatory rather than a courtesy:
+    // every list published before this revision writes items this way, and
+    // dropping the path does not lose a label — it makes every item favorite
+    // already on the relays unresolvable by anybody.
     const itemGuid = parseItemGuid(id);
     if (itemGuid && current) {
-      if (!current.itemGuids.includes(itemGuid)) current.itemGuids.push(itemGuid);
+      if (!current.itemGuids.includes(itemGuid)) {
+        current.itemGuids.push(itemGuid);
+        (current.itemTags ??= {})[itemGuid] = tag.slice();
+      }
       continue;
     }
 

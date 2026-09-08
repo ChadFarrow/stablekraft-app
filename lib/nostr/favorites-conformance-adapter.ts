@@ -45,6 +45,7 @@ import {
 } from './favorites-privacy';
 import {
   ITEM_KIND,
+  PUBLISHER_KIND,
   SHOW_KIND,
   identifierKind,
   itemId,
@@ -88,24 +89,44 @@ interface Entry {
   id: string;
   kind: string;
   medium: string | null;
-  parent: string | null;
+  /** The BARE feed guid this entry names, off position 1 of its OWN tag. */
+  feed: string | null;
+  /** True when the feed came from the entry above rather than from the tag. */
+  legacy?: boolean;
+  favorited?: boolean;
+  key?: string;
   index: number;
 }
+
+/**
+ * A baseline claim on one item favorite.
+ *
+ * **STAGE-1 ANSWER, and knowingly short of the contract.** The spec asks for the
+ * PAIR, because an item guid is unique only inside its feed. This app's
+ * `PublishedRecord` keys items by bare guid, so that is what a claim can be
+ * today, and two items sharing a guid under different feeds collide. Pairing it
+ * is stage 2; vector 25 is the assertion that fails until then, and it fails
+ * about the real shipping shape rather than about this shim.
+ */
+export const itemClaim = (id: string): string => id;
 
 /** The contract's flat entry list, derived from this app's ordered node list. */
 export function parseTags(tags: string[][]) {
   const input = tags ?? [];
   const list = parseSingleList(input);
   const entries: Entry[] = [];
-  const groups: Array<{ id: string; medium: string | null; items: string[] }> = [];
+  const favorited = new Map<string, boolean>();
   const foreign: Array<{ index: number; tag: string[] }> = [];
 
-  // Tag positions, so a reader can check that order survived. First unused
-  // match, because a duplicate group names the same identifier twice.
+  // Tag positions, so a reader can check that order survived. Matched on the
+  // WHOLE tag and first-unused, because a duplicate group names the same
+  // identifier twice AND a feed entry shares position 1 with every item entry
+  // under it — keying on position 1 alone pairs them with each other.
   const used = new Set<number>();
-  const indexOf = (id: string): number => {
+  const indexOf = (tag: string[]): number => {
+    const want = JSON.stringify(tag);
     for (let i = 0; i < input.length; i++) {
-      if (!used.has(i) && input[i][0] === 'i' && input[i][1] === id) {
+      if (!used.has(i) && input[i][0] === 'i' && JSON.stringify(input[i]) === want) {
         used.add(i);
         return i;
       }
@@ -117,19 +138,70 @@ export function parseTags(tags: string[][]) {
     if (node.t === 'group') {
       const id = showId(node.group.feedGuid);
       const medium = node.group.medium ?? null;
-      const items = node.group.itemGuids.map(itemId);
-      entries.push({ id, kind: SHOW_KIND, medium, parent: null, index: indexOf(id) });
-      for (const item of items) {
-        entries.push({ id: item, kind: ITEM_KIND, medium, parent: id, index: indexOf(item) });
+      // A FEED ENTRY IS A FEED FAVORITE. Nothing is on the list for structural
+      // reasons any more — but this app still WRITES a placement group, so the
+      // claim is about what the wire says rather than about what it holds.
+      entries.push({
+        id,
+        kind: SHOW_KIND,
+        medium,
+        feed: null,
+        favorited: true,
+        key: id,
+        index: indexOf(node.group.feedTag ?? ['i', id]),
+      });
+      favorited.set(id, true);
+      for (const guid of node.group.itemGuids) {
+        const item = itemId(guid);
+        entries.push({
+          id: item,
+          kind: ITEM_KIND,
+          medium,
+          // The LEGACY form: its feed came from the entry above it.
+          feed: node.group.feedGuid,
+          legacy: true,
+          key: itemClaim(item),
+          index: indexOf(node.group.itemTags?.[guid] ?? ['i', item]),
+        });
       }
-      groups.push({ id, medium, items });
       continue;
     }
+
+    if (node.t === 'item') {
+      const item = itemId(node.item.itemGuid);
+      entries.push({
+        id: item,
+        kind: ITEM_KIND,
+        medium: node.item.medium ?? null,
+        // Off position 1 of its OWN tag.
+        feed: node.item.feedGuid,
+        key: itemClaim(item),
+        index: indexOf(node.item.tag),
+      });
+      continue;
+    }
+
     const tag = node.loose.tag;
-    const kind = kindOf(tag[1]);
-    const index = indexOf(tag[1]);
-    if (kind === null) foreign.push({ index, tag });
-    else entries.push({ id: tag[1], kind, medium: node.loose.medium ?? null, parent: null, index });
+    // The kind of the entry's LAST identifier, not of position 1.
+    const kind = kindOf(tag[2] ?? tag[1]);
+    const index = indexOf(tag);
+    if (kind === null) {
+      foreign.push({ index, tag });
+      continue;
+    }
+    // A publisher entry, or an item that named no feed. Neither belongs to a
+    // feed and neither is given one.
+    entries.push({
+      id: tag[1],
+      kind,
+      medium: node.loose.medium ?? null,
+      feed: null,
+      legacy: kind === ITEM_KIND ? true : undefined,
+      favorited: kind === PUBLISHER_KIND ? true : undefined,
+      key: tag[1],
+      index,
+    });
+    if (kind === PUBLISHER_KIND) favorited.set(tag[1], true);
   }
   entries.sort((a, b) => a.index - b.index);
 
@@ -141,7 +213,7 @@ export function parseTags(tags: string[][]) {
 
   return {
     entries,
-    groups,
+    favorited,
     kinds: input.filter((t) => t[0] === 'k').map((t) => t[1]),
     foreign,
   };
@@ -153,6 +225,7 @@ interface ContractGroup {
   id: string;
   medium: string | null;
   items: string[];
+  favorited?: boolean;
 }
 
 /** Contract groups -> this app's `SingleListGroup[]`. */
@@ -165,7 +238,10 @@ function localGroups(groups: ContractGroup[]): SingleListGroup[] {
       feedGuid,
       medium: g.medium ?? undefined,
       itemGuids: (g.items ?? []).map((id) => parseItemGuid(id)).filter((x): x is string => !!x),
-      favorited: true,
+      // Absent reads as true, which is what every vector written before the
+      // field meant. `false` says the group is held only to supply its items'
+      // feed guid, so the FEED itself is not an entry.
+      favorited: g.favorited !== false,
     });
   }
   return out;
