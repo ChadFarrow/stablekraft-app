@@ -864,6 +864,32 @@ export function decodePrivateFavorites(plaintext: string): string[][] | null {
  * skips the prompt and the relay write when a favorite toggle didn't actually
  * change this event.
  */
+/**
+ * The read, put through THIS writer's own framing — the rule 5 comparison.
+ *
+ * Rule 5 is "publish only when the bytes change", and reading it literally —
+ * compare your merged array against the array as it ARRIVED — is a churn loop,
+ * because **two conforming events differ byte for byte.** A reader MUST accept a
+ * `k` beside every `i`; a writer MUST emit one `k` per distinct kind at the end.
+ * Both layouts are legal and mean the same list. The position of `alt`, the
+ * position of `visibility` and the order of the `k` tags are free the same way.
+ * Compare raw and a list nobody touched reports a change — and if the other app
+ * compares raw too, neither of them ever stops.
+ *
+ * Rendering the parsed read through {@link tagsFromNodes} IS that reframing, and
+ * it reuses the emitter rather than adding a second normaliser to keep in step
+ * with it. `parseSingleList` already discards `alt` and reads `k` without acting
+ * on it, so both layouts arrive here as the same node list and leave as the same
+ * bytes. `medium` stays positional and an entry we cannot parse is carried
+ * whole, so a genuine difference still shows up as one.
+ *
+ * It carries the visibility the READ states, not the one a publish would state:
+ * ours would make a list that predates the tag differ from itself forever.
+ */
+export function readAsWeWouldWriteIt(read: ParsedSingleList): string[][] {
+  return tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility);
+}
+
 export function singleListDigest(items: FavoriteEntry[]): string {
   return JSON.stringify(buildSingleListTags(items));
 }

@@ -25,6 +25,7 @@ import {
   mergeSingleList,
   parseSingleList,
   partitionSingleList,
+  readAsWeWouldWriteIt,
   publishedRecordFrom,
   singleListDigest,
   suppressOwnRemovals,
@@ -1219,4 +1220,79 @@ test('an item entry with no feed entry of its own still projects under its feed'
   // exactly one tag.
   const out = tagsFromNodes(read.nodes, read.foreignTags, read.foreignKinds, read.visibility);
   assert.deepEqual(out.filter((t) => t[0] === 'i'), [['i', showId(MUSIC_C), itemId(TRACK_1)]]);
+});
+
+// ---------------------------------------------------------------------------
+// Rule 5: compare the read PUT THROUGH THIS WRITER'S FRAMING, not as it arrived.
+// ---------------------------------------------------------------------------
+
+test('both `k` layouts render to the same bytes, so neither provokes a republish', () => {
+  // A `k` beside every `i` and one `k` per distinct kind at the end are both
+  // legal and mean the same list. Compare the read as it ARRIVED and a list
+  // nobody touched reports a change on every load — and if the other app
+  // compares raw too, neither of them ever stops.
+  const paired = parseSingleList([
+    ['alt', 'someone else’s label'],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['k', 'podcast:guid'],
+    ['i', itemId(TRACK_1)],
+    ['k', 'podcast:item:guid'],
+  ]);
+  const trailing = parseSingleList([
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId(TRACK_1)],
+    ['k', 'podcast:guid'],
+    ['k', 'podcast:item:guid'],
+  ]);
+  assert.deepEqual(readAsWeWouldWriteIt(paired), readAsWeWouldWriteIt(trailing));
+  // And the framing regenerates `alt` rather than carrying the one it read.
+  assert.deepEqual(readAsWeWouldWriteIt(paired)[0], ['alt', LIST_ALT]);
+});
+
+test('a merge that changed nothing renders identically to the read', () => {
+  const tags = [
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId(TRACK_1)],
+    ['k', 'podcast:guid'],
+    ['k', 'podcast:item:guid'],
+  ];
+  const read = parseSingleList(tags);
+  const local = groupForSingleList([album(MUSIC_A, 'music'), track(TRACK_1, MUSIC_A, 'music')]);
+  const merged = mergeSingleList(read, local, publishedRecordFrom(local));
+  assert.deepEqual(
+    tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility),
+    readAsWeWouldWriteIt(read)
+  );
+});
+
+test('a genuinely new favorite still differs from the read', () => {
+  // Proof the comparison is not simply always-equal.
+  const read = parseSingleList([['medium', 'music'], ['i', showId(MUSIC_A)]]);
+  const local = groupForSingleList([album(MUSIC_A, 'music'), album(MUSIC_C, 'music')]);
+  const merged = mergeSingleList(read, local, publishedRecordFrom([]));
+  assert.notDeepEqual(
+    tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds, merged.visibility),
+    readAsWeWouldWriteIt(read)
+  );
+});
+
+test('the framing carries the visibility the READ states, not one we would write', () => {
+  // Ours would make a list that predates the tag differ from itself forever, so
+  // every load would republish it.
+  const none = parseSingleList([['medium', 'music'], ['i', showId(MUSIC_A)]]);
+  assert.equal(
+    readAsWeWouldWriteIt(none).some((t) => t[0] === 'visibility'),
+    false
+  );
+  const stated = parseSingleList([
+    ['visibility', 'public'],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+  ]);
+  assert.deepEqual(readAsWeWouldWriteIt(stated)[1], ['visibility', 'public']);
 });

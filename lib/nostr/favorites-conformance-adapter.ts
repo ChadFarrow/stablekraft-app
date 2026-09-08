@@ -32,6 +32,7 @@ import {
   encodePrivateFavorites,
   parseSingleList,
   plaintextBytes,
+  readAsWeWouldWriteIt,
   PRIVATE_PLAINTEXT_MAX,
   type ParsedSingleList,
   type SingleListGroup,
@@ -349,13 +350,18 @@ export function plan(input: {
     canReadPrivate: privateUsable,
   });
 
-  // The digest gate, made against the read: unchanged tags and an unchanged
-  // decrypted private half publish nothing, and the record is still written.
+  // RULE 5, against the read PUT THROUGH THIS WRITER'S OWN FRAMING. Two
+  // conforming events differ byte for byte — a `k` beside every `i` and one `k`
+  // per kind at the end are both legal and mean the same list — so comparing the
+  // read as it arrived republishes a list nothing had changed, on every load,
+  // forever if the other app does the same. `readAsWeWouldWriteIt` renders the
+  // parsed read through the same emitter the plan used, which is what
+  // `publishSingleList` compares against.
   const privateTags = p.privateTags ?? [];
   const privateSame =
     JSON.stringify(privateTags.filter((t) => t[0] === 'i')) ===
     JSON.stringify(privateTagsRead.filter((t) => t[0] === 'i'));
-  if (JSON.stringify(p.tags) === JSON.stringify(readTags) && privateSame) {
+  if (JSON.stringify(p.tags) === JSON.stringify(readAsWeWouldWriteIt(publicRead)) && privateSame) {
     return { publish: null, baselineIfLanded: fromBaseline(p.baseline) };
   }
 

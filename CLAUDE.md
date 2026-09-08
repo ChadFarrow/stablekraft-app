@@ -213,6 +213,15 @@ line holds the full story.
   shows. Reading the legacy form stays mandatory — every list published before the revision writes items that way,
   and dropping the path makes them unresolvable rather than unlabelled → `favorites-cross-app`,
   [`pc20-favorites-feed-guid-migration.md`](https://github.com/ChadFarrow/PC20-Nostr/blob/main/pc20-favorites-feed-guid-migration.md).
+- **Rule 5 compares the read PUT THROUGH THIS WRITER'S OWN FRAMING, never as it arrived, and that is a different
+  question from the digest.** The digest asks "did WE publish exactly this before"; rule 5 asks "does the RELAY
+  already hold it" — and only the second notices another app editing the event, while a device that has never
+  published has no digest at all and republishes a list nothing had changed on its first load. Two conforming
+  events differ byte for byte: a `k` beside every `i` and one `k` per distinct kind at the end are both legal and
+  mean the same list, and the positions of `alt` and `visibility` are free the same way. `readAsWeWouldWriteIt`
+  renders the parsed read through `tagsFromNodes` — the same emitter the plan used, rather than a second
+  normaliser to keep in step — and carries the visibility the READ states, because ours would make a list that
+  predates the tag differ from itself forever → `favorites-cross-app`.
 - **`projectNodes` may not edit the node list it projects from.** `groups` aliases each node's own group object, so
   folding an item entry's guid into one by pushing would add it to the NODE LIST too — and the republish would then
   emit that item twice, once as a group member and once as its own entry. Copy the group into the projection
