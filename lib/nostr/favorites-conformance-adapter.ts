@@ -30,8 +30,12 @@ import {
   SINGLE_LIST_KIND,
   decodePrivateFavorites,
   encodePrivateFavorites,
+  isItemClaim,
+  itemClaim as realItemClaim,
   parseSingleList,
   plaintextBytes,
+  frameForCompare,
+  statedVisibility,
   PRIVATE_PLAINTEXT_MAX,
   type ParsedSingleList,
   type SingleListGroup,
@@ -45,6 +49,7 @@ import {
 } from './favorites-privacy';
 import {
   ITEM_KIND,
+  PUBLISHER_KIND,
   SHOW_KIND,
   identifierKind,
   itemId,
@@ -88,24 +93,43 @@ interface Entry {
   id: string;
   kind: string;
   medium: string | null;
-  parent: string | null;
+  /** The BARE feed guid this entry names, off position 1 of its OWN tag. */
+  feed: string | null;
+  /** True when the feed came from the entry above rather than from the tag. */
+  legacy?: boolean;
+  favorited?: boolean;
+  key?: string;
   index: number;
 }
+
+/**
+ * A baseline claim on one item favorite: the real one, from the shipping module.
+ *
+ * The contract only requires that one pair always produce the same string and
+ * two pairs never collide. This app encodes it as the feed identifier, a
+ * separator, then the item identifier — feed first, because a feed guid is a
+ * UUID and an item guid is routinely a permalink URL.
+ */
+export const itemClaim = (itemIdentifier: string, feedGuid: string): string =>
+  realItemClaim(parseItemGuid(itemIdentifier) ?? itemIdentifier, feedGuid);
 
 /** The contract's flat entry list, derived from this app's ordered node list. */
 export function parseTags(tags: string[][]) {
   const input = tags ?? [];
   const list = parseSingleList(input);
   const entries: Entry[] = [];
-  const groups: Array<{ id: string; medium: string | null; items: string[] }> = [];
+  const favorited = new Map<string, boolean>();
   const foreign: Array<{ index: number; tag: string[] }> = [];
 
-  // Tag positions, so a reader can check that order survived. First unused
-  // match, because a duplicate group names the same identifier twice.
+  // Tag positions, so a reader can check that order survived. Matched on the
+  // WHOLE tag and first-unused, because a duplicate group names the same
+  // identifier twice AND a feed entry shares position 1 with every item entry
+  // under it — keying on position 1 alone pairs them with each other.
   const used = new Set<number>();
-  const indexOf = (id: string): number => {
+  const indexOf = (tag: string[]): number => {
+    const want = JSON.stringify(tag);
     for (let i = 0; i < input.length; i++) {
-      if (!used.has(i) && input[i][0] === 'i' && input[i][1] === id) {
+      if (!used.has(i) && input[i][0] === 'i' && JSON.stringify(input[i]) === want) {
         used.add(i);
         return i;
       }
@@ -117,19 +141,70 @@ export function parseTags(tags: string[][]) {
     if (node.t === 'group') {
       const id = showId(node.group.feedGuid);
       const medium = node.group.medium ?? null;
-      const items = node.group.itemGuids.map(itemId);
-      entries.push({ id, kind: SHOW_KIND, medium, parent: null, index: indexOf(id) });
-      for (const item of items) {
-        entries.push({ id: item, kind: ITEM_KIND, medium, parent: id, index: indexOf(item) });
+      // A FEED ENTRY IS A FEED FAVORITE. Nothing is on the list for structural
+      // reasons any more — but this app still WRITES a placement group, so the
+      // claim is about what the wire says rather than about what it holds.
+      entries.push({
+        id,
+        kind: SHOW_KIND,
+        medium,
+        feed: null,
+        favorited: true,
+        key: id,
+        index: indexOf(node.group.feedTag ?? ['i', id]),
+      });
+      favorited.set(id, true);
+      for (const guid of node.group.itemGuids) {
+        const item = itemId(guid);
+        entries.push({
+          id: item,
+          kind: ITEM_KIND,
+          medium,
+          // The LEGACY form: its feed came from the entry above it.
+          feed: node.group.feedGuid,
+          legacy: true,
+          key: itemClaim(item, node.group.feedGuid),
+          index: indexOf(node.group.itemTags?.[guid] ?? ['i', item]),
+        });
       }
-      groups.push({ id, medium, items });
       continue;
     }
+
+    if (node.t === 'item') {
+      const item = itemId(node.item.itemGuid);
+      entries.push({
+        id: item,
+        kind: ITEM_KIND,
+        medium: node.item.medium ?? null,
+        // Off position 1 of its OWN tag.
+        feed: node.item.feedGuid,
+        key: itemClaim(item, node.item.feedGuid),
+        index: indexOf(node.item.tag),
+      });
+      continue;
+    }
+
     const tag = node.loose.tag;
-    const kind = kindOf(tag[1]);
-    const index = indexOf(tag[1]);
-    if (kind === null) foreign.push({ index, tag });
-    else entries.push({ id: tag[1], kind, medium: node.loose.medium ?? null, parent: null, index });
+    // The kind of the entry's LAST identifier, not of position 1.
+    const kind = kindOf(tag[2] ?? tag[1]);
+    const index = indexOf(tag);
+    if (kind === null) {
+      foreign.push({ index, tag });
+      continue;
+    }
+    // A publisher entry, or an item that named no feed. Neither belongs to a
+    // feed and neither is given one.
+    entries.push({
+      id: tag[1],
+      kind,
+      medium: node.loose.medium ?? null,
+      feed: null,
+      legacy: kind === ITEM_KIND ? true : undefined,
+      favorited: kind === PUBLISHER_KIND ? true : undefined,
+      key: tag[1],
+      index,
+    });
+    if (kind === PUBLISHER_KIND) favorited.set(tag[1], true);
   }
   entries.sort((a, b) => a.index - b.index);
 
@@ -141,7 +216,7 @@ export function parseTags(tags: string[][]) {
 
   return {
     entries,
-    groups,
+    favorited,
     kinds: input.filter((t) => t[0] === 'k').map((t) => t[1]),
     foreign,
   };
@@ -153,6 +228,7 @@ interface ContractGroup {
   id: string;
   medium: string | null;
   items: string[];
+  favorited?: boolean;
 }
 
 /** Contract groups -> this app's `SingleListGroup[]`. */
@@ -165,7 +241,10 @@ function localGroups(groups: ContractGroup[]): SingleListGroup[] {
       feedGuid,
       medium: g.medium ?? undefined,
       itemGuids: (g.items ?? []).map((id) => parseItemGuid(id)).filter((x): x is string => !!x),
-      favorited: true,
+      // Absent reads as true, which is what every vector written before the
+      // field meant. `false` says the group is held only to supply its items'
+      // feed guid, so the FEED itself is not an entry.
+      favorited: g.favorited !== false,
     });
   }
   return out;
@@ -173,16 +252,29 @@ function localGroups(groups: ContractGroup[]): SingleListGroup[] {
 
 /** `{public, private}` identifier lists -> this app's per-half guid records. */
 function toBaseline(b: { public?: string[]; private?: string[] } | undefined): PrivacyBaseline {
+  // A PAIRED ITEM CLAIM OPENS WITH THE FEED'S IDENTIFIER, so `parseShowGuid`
+  // answers for it and every item claim would be filed under feeds — the merge
+  // would then never see the claim that licenses a removal. `isItemClaim` is
+  // asked first, and it comes from the shipping module rather than a separator
+  // written down a second time here.
+  // Items arrive as finished claims from `itemClaim` and are stored as they are;
+  // feeds arrive as NIP-73 identifiers and are stored bare. Classify BEFORE
+  // flattening — a paired claim holds the separator, a feed identifier does not.
   const half = (ids: string[] | undefined) => ({
-    feeds: (ids ?? []).map(parseShowGuid).filter((x): x is string => !!x),
-    items: (ids ?? []).map(parseItemGuid).filter((x): x is string => !!x),
+    feeds: (ids ?? [])
+      .filter((id) => !isItemClaim(id))
+      .map(parseShowGuid)
+      .filter((x): x is string => !!x),
+    items: (ids ?? []).filter(isItemClaim),
   });
   return { public: half(b?.public), private: half(b?.private) };
 }
 
+// `items` already holds finished claims (`itemClaim` output), so they go back
+// as they are — running `itemId` over one would prefix the pair a second time.
 const fromBaseline = (b: PrivacyBaseline) => ({
-  public: [...b.public.feeds.map(showId), ...b.public.items.map(itemId)],
-  private: [...b.private.feeds.map(showId), ...b.private.items.map(itemId)],
+  public: [...b.public.feeds.map(showId), ...b.public.items],
+  private: [...b.private.feeds.map(showId), ...b.private.items],
 });
 
 const hasEntries = (list: ParsedSingleList) =>
@@ -273,13 +365,22 @@ export function plan(input: {
     canReadPrivate: privateUsable,
   });
 
-  // The digest gate, made against the read: unchanged tags and an unchanged
-  // decrypted private half publish nothing, and the record is still written.
+  // RULE 5, against the read PUT THROUGH THIS WRITER'S OWN FRAMING. Two
+  // conforming events differ byte for byte — a `k` beside every `i` and one `k`
+  // per kind at the end are both legal and mean the same list — so comparing the
+  // read as it arrived republishes a list nothing had changed, on every load,
+  // forever if the other app does the same. `readAsWeWouldWriteIt` renders the
+  // parsed read through the same emitter the plan used, which is what
+  // `publishSingleList` compares against.
   const privateTags = p.privateTags ?? [];
   const privateSame =
     JSON.stringify(privateTags.filter((t) => t[0] === 'i')) ===
     JSON.stringify(privateTagsRead.filter((t) => t[0] === 'i'));
-  if (JSON.stringify(p.tags) === JSON.stringify(readTags) && privateSame) {
+  if (
+    JSON.stringify(frameForCompare(p.tags, statedVisibility(p.tags))) ===
+      JSON.stringify(frameForCompare(readTags, statedVisibility(readTags))) &&
+    privateSame
+  ) {
     return { publish: null, baselineIfLanded: fromBaseline(p.baseline) };
   }
 

@@ -361,8 +361,12 @@ function mergeMovedNodes(here: ListNode[], moving: ListNode[]): ListNode[] {
   );
   const groupAt = new Map<string, number>();
   const looseIds = new Set<string>();
+  // Keyed on the PAIR. An item guid is unique only inside its feed, so folding
+  // on the item guid alone collapses two different favorites into one.
+  const itemKeys = new Set<string>();
   out.forEach((n, i) => {
     if (n.t === 'group') groupAt.set(n.group.feedGuid, i);
+    else if (n.t === 'item') itemKeys.add(`${n.item.feedGuid}|${n.item.itemGuid}`);
     else if (n.loose.tag[1]) looseIds.add(n.loose.tag[1]);
   });
 
@@ -372,6 +376,13 @@ function mergeMovedNodes(here: ListNode[], moving: ListNode[]): ListNode[] {
       if (id && looseIds.has(id)) continue;
       if (id) looseIds.add(id);
       out.push(node);
+      continue;
+    }
+    if (node.t === 'item') {
+      const key = `${node.item.feedGuid}|${node.item.itemGuid}`;
+      if (itemKeys.has(key)) continue;
+      itemKeys.add(key);
+      out.push({ t: 'item', item: { ...node.item, tag: node.item.tag.slice() } });
       continue;
     }
     const at = groupAt.get(node.group.feedGuid);

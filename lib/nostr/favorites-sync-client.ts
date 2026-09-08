@@ -30,6 +30,9 @@ import {
   groupForSingleList,
   partitionSingleList,
   plaintextBytes,
+  frameForCompare,
+  statedVisibility,
+  tagsFromNodes,
   suppressOwnRemovals,
   templateFromTags,
   PRIVATE_PLAINTEXT_MAX,
@@ -750,7 +753,46 @@ async function publishSingleList(
     // for the resurrection loop could not engage at all. When the digest
     // matches, the relays hold exactly what we would have published, so
     // recording our contribution is simply true.
-    if (typeof window !== 'undefined' && localStorage.getItem(key) === digest) {
+    // RULE 5, AND IT IS A SEPARATE QUESTION FROM THE DIGEST. The digest asks
+    // "did WE publish exactly this before"; rule 5 asks "does the RELAY already
+    // hold it". The spec is explicit that the second is the one that matters —
+    // only a comparison against the read notices that another app edited the
+    // event since — and a device that has never published has no digest at all,
+    // so on a first load it republishes a list nothing had changed.
+    //
+    // Both sides go through this writer's own framing first, because two
+    // conforming events differ byte for byte: a `k` beside every `i` and one `k`
+    // per kind at the end are both legal and mean the same list. Comparing the
+    // read as it ARRIVED reports a change on every load of a list written in the
+    // other layout, and if the other app compares raw too, neither stops.
+    // `frameForCompare` regenerates `alt`, restates `visibility` and rebuilds the
+    // trailing `k` tags, and does NOT touch the order — rendering the parsed read
+    // through the emitter would band it too, so an interleaved list would compare
+    // equal to our banded output and the reordering would never go up.
+    //
+    // The private half is compared on the DECRYPTED arrays, never the
+    // ciphertext: NIP-44 draws a fresh nonce per encryption, so equal entries
+    // never produce equal bytes.
+    // Only a half we could actually read may be called unchanged. An opaque or
+    // unsupported one is carried, and saying "nothing changed" about bytes we
+    // never opened would be a claim we cannot make.
+    const privateUnchanged =
+      isUsable(privateHalf) &&
+      JSON.stringify((plan.privateTags ?? []).filter((t) => t[0] === 'i')) ===
+        JSON.stringify(
+          tagsFromNodes(
+            privateHalf.list.nodes,
+            privateHalf.list.foreignTags,
+            privateHalf.list.foreignKinds
+          ).filter((t) => t[0] === 'i')
+        );
+    const relayHasThis =
+      read.exists &&
+      privateUnchanged &&
+      JSON.stringify(frameForCompare(plan.tags, statedVisibility(plan.tags))) ===
+        JSON.stringify(frameForCompare(read.tags, statedVisibility(read.tags)));
+
+    if (typeof window !== 'undefined' && (localStorage.getItem(key) === digest || relayHasThis)) {
       rememberPublished(pubkey, plan.baseline);
       // AND THE COUNTS, for the same reason and it is not a detail. A settled
       // account takes this branch on every load, so writing them only after a
