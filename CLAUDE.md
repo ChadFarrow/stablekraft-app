@@ -208,11 +208,12 @@ line holds the full story.
   saved episode into a followed show — it does not lose the item, it silently promotes it. A position 2 we do not
   recognise makes the whole entry unreadable, never a feed favorite. An entry's kind is the kind of its LAST
   identifier, or `podcast:item:guid` stops reaching the `k` tags and `#k` discovery misses every item favorite.
-  **This app now READS AND WRITES the new form (stages 1, 2 and 4).** A legacy item is rewritten once, with the
-  identifier MOVED to position 2 — never appended as a third element — using the feed it was read under, and the
+  **This app READS AND WRITES the new form, and all four stages are shipped.** A legacy item is rewritten once, with
+  the identifier MOVED to position 2 — never appended as a third element — using the feed it was read under, and the
   rewrite is idempotent. An item whose feed nobody knows goes back exactly as it arrived: a placeholder guid is an
-  invented one. **A new item no longer needs a feed entry above it**, so a feed the user never favorited stops
-  reaching the list; a placement entry already on the wire is still carried, never retracted (stage 3). Reading the
+  invented one. **A feed entry is written only for a feed the user chose** (stage 3): an item names its own feed, so
+  a group held only to supply that guid emits its items and no feed tag, and giving up a feed favorite while a track
+  of it stays favorited is now an ordinary removal rather than the inexpressible case it used to be. Reading the
   legacy form stays mandatory — every list published before the revision writes items that way, and dropping the
   path makes them unresolvable rather than unlabelled → `favorites-cross-app`,
   [`pc20-favorites-feed-guid-migration.md`](https://github.com/ChadFarrow/PC20-Nostr/blob/main/pc20-favorites-feed-guid-migration.md).
@@ -221,9 +222,8 @@ line holds the full story.
   already hold it" — and only the second notices another app editing the event, while a device that has never
   published has no digest at all and republishes a list nothing had changed on its first load. Two conforming
   events differ byte for byte: a `k` beside every `i` and one `k` per distinct kind at the end are both legal and
-  mean the same list, and the positions of `alt` and `visibility` are free the same way. `readAsWeWouldWriteIt`
-  renders the parsed read through `tagsFromNodes` — the same emitter the plan used, rather than a second
-  normaliser to keep in step — and carries the visibility the READ states, because ours would make a list that
+  mean the same list, and the positions of `alt` and `visibility` are free the same way. `frameForCompare` renders
+  both sides the same way and carries the visibility the READ states, because ours would make a list that
   predates the tag differ from itself forever → `favorites-cross-app`.
 - **A published-record claim on an ITEM is the PAIR, and the record is keyed by BARE GUID throughout.** An item
   guid is unique only inside its feed, so a record keyed on the guid alone cannot tell two items in two feeds
@@ -231,8 +231,10 @@ line holds the full story.
   feedGuid)` is `feed|item` — feed first, because a feed guid is a UUID and an item guid is routinely a permalink
   URL. `claimedItem` accepts the bare legacy form too, and that IS the migration: a stored record keeps working and
   is rewritten paired by the next publish. **`publishedRecordFrom` claims a feed only when `favorited !== false`** —
-  claiming a placement group asserts an entry that was never on the event, and two cycles later the merge deletes
-  another app's feed favorite for that guid. `suppressOwnRemovals` builds the pair from the track's own `feedGuid`
+  a group held only to supply its items' feed guid writes no entry, so claiming one asserts something that was never
+  on the event, and two cycles later the merge deletes another app's feed favorite for that guid. **The record is
+  also what licenses a retraction**: a feed entry we claim and no longer hold is our removal and goes, while one we
+  never claimed is another app's and stays, whatever this device holds. `suppressOwnRemovals` builds the pair from the track's own `feedGuid`
   and falls back to `claimsAnyItem` when it has none: failing to match there fails OPEN, and the entry it lets
   through is re-created as an inbound favorite minutes after the user deleted it → `favorites-cross-app`.
 - **Rule 5's framing must NOT re-band.** `frameForCompare` regenerates `alt`, restates `visibility` and rebuilds the
