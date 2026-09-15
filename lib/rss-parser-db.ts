@@ -99,6 +99,18 @@ export interface ParsedFeed {
   podcastGuid?: string;
   medium?: string;
   items: ParsedItem[];
+  /**
+   * Channel-level `<podcast:person>` / `<podcast:txt>` entries — the band or
+   * host of the whole feed, and the Nostr keys they publish.
+   *
+   * Absent from this shape until now, which made `Feed.persons` a field only
+   * the IMPORT path could write (`importFeedToDatabase`). Every refresh route
+   * parses through here, so a key added to a feed already in the catalog could
+   * not land however often the feed was reparsed — the boost note kept tagging
+   * nobody and the feed looked like it named nobody. Item-level persons never
+   * had that problem; they ride on `ParsedItem` and refresh with every parse.
+   */
+  persons?: ParsedPerson[];
   podcastImages?: PodcastImage[];
   v4vRecipient?: string;
   v4vValue?: any;
@@ -1167,6 +1179,11 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
     // Extract channel-level <podcast:image> variants (Podcasting 2.0 multi-variant artwork)
     const channelPodcastImages = parseChannelPodcastImagesFromXML(xmlText);
 
+    // Extract channel-level <podcast:person> and the npubs carried by
+    // <podcast:txt>. Parsed here, beside the images, so that every refresh
+    // route gets them — not only the import path.
+    const channelPersons = parseChannelPersonsFromXML(xmlText);
+
     // Now parse with the RSS parser
     // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
     // The XML typo fix above helps, but parseURL will fetch again
@@ -1547,6 +1564,7 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       podcastGuid: podcastGuid || undefined,
       medium: podcastMedium || undefined,
       items,
+      persons: channelPersons.length > 0 ? channelPersons : undefined,
       podcastImages: channelPodcastImages.length > 0 ? channelPodcastImages : undefined,
       v4vRecipient: feedV4vRecipient,
       v4vValue: feedV4vValue,

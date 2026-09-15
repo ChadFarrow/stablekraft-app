@@ -5,6 +5,7 @@ import { resolvePodcastIndexUrl } from '@/lib/podcast-index-api';
 import { normalizeUrl } from '@/lib/url-utils';
 import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 // Public endpoint (podping consumer) that triggers expensive RSS reparses —
 // cap per-IP request rate. In-memory, so the cap is per Railway instance;
@@ -121,6 +122,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
             v4vRecipient: parsedAlbum.v4vRecipient,
             v4vValue: parsedAlbum.v4vValue ?? undefined,
             publisherId: publisherFeedId,
+            ...channelPersonsFields(parsedAlbum),
             lastFetched: new Date(),
             status: 'active',
             updatedAt: new Date()
@@ -316,6 +318,7 @@ export async function POST(request: NextRequest) {
             language: parsedFeed.language,
             category: parsedFeed.category,
             explicit: parsedFeed.explicit,
+            ...channelPersonsFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             updatedAt: new Date()
@@ -486,6 +489,7 @@ export async function POST(request: NextRequest) {
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
           type: customType || feed.type, // Allow updating type too
+          ...channelPersonsFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null,
