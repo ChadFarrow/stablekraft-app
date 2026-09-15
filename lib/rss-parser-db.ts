@@ -300,7 +300,7 @@ export function parseItemPersonsFromXML(xmlText: string, itemTitle: string): Par
     const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
     const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
     if (!itemContent) return [];
-    return parsePersonsFromBlock(itemContent);
+    return withTxtNpubPersons(parsePersonsFromBlock(itemContent), itemContent);
   } catch {
     return [];
   }
@@ -308,13 +308,89 @@ export function parseItemPersonsFromXML(xmlText: string, itemTitle: string): Par
 
 export function parseChannelPersonsFromXML(xmlText: string): ParsedPerson[] {
   try {
-    // Channel block = from opening <channel> up to first <item> (or </channel>)
-    const channelMatch = xmlText.match(/<channel[^>]*>([\s\S]*?)(?=<item\b|<\/channel>)/i);
-    if (!channelMatch) return [];
-    return parsePersonsFromBlock(channelMatch[1] || '');
+    // Channel-level tags may sit before OR after the items — see channelMetadataXml.
+    // This used to slice "everything up to the first <item>", which finds nothing at
+    // all on the MSP-generated music feeds, the very feeds that carry the npubs.
+    const channelBlock = channelMetadataXml(xmlText);
+    if (!channelBlock) return [];
+    return withTxtNpubPersons(parsePersonsFromBlock(channelBlock), channelBlock);
   } catch {
     return [];
   }
+}
+
+/**
+ * Nostr public keys carried by `<podcast:txt>` rather than by `<podcast:person>`.
+ *
+ * Both forms are in the wild for the same fact — "this is my Nostr identity" —
+ * and only the person form was read, so a feed that published
+ * `<podcast:txt purpose="nostr">npub1…</podcast:txt>` reached the boost note
+ * with nobody tagged.
+ *
+ * The PURPOSE is deliberately not matched, and neither is the SHAPE of the
+ * value. `purpose` is free text — feeds use `nostr`, `npub` and
+ * verification-flavoured spellings for the same thing — and the value is
+ * sometimes the bare key, sometimes the `nostr:` URI a client copies, sometimes
+ * a sentence with the key inside it. Guessing any of that wrong fails silently:
+ * the feed parses, and simply looks like it named nobody.
+ *
+ * The payload is what validates, and it validates itself. `npub1` plus 58-63
+ * bech32 characters is a checksummed key by construction, so the values that
+ * must NOT match cannot match by accident — an Apple verification token, the
+ * `source-feed` URL our own playlists emit, an `nsec` somebody pasted by
+ * mistake. Scanning the text for the key is therefore both wider and safer than
+ * requiring an exact spelling of either half.
+ *
+ * The boundaries are load-bearing. A bech32 run longer than 63 characters is
+ * not an npub with something after it, it is a different identifier: the
+ * trailing lookahead makes the match fail rather than take a 63-character
+ * prefix of it, which would be a plausible-looking key belonging to nobody.
+ */
+function parseNpubTxtFromBlock(xmlBlock: string): string[] {
+  const npubs: string[] = [];
+  // Open/close form only: a self-closing <podcast:txt/> carries no value.
+  const regex = /<podcast:txt\b[^>]*>([\s\S]*?)<\/podcast:txt>/gi;
+  // Not anchored: the key may be the whole value or sit inside a sentence.
+  const inner = /(?<![0-9a-z])(?:nostr:)?(npub1[02-9ac-hj-np-z]{58,63})(?![0-9a-z])/gi;
+  let match;
+  while ((match = regex.exec(xmlBlock)) !== null) {
+    const text = (match[1] || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+    inner.lastIndex = 0;
+    let keyMatch;
+    while ((keyMatch = inner.exec(text)) !== null) {
+      // bech32 is case-insensitive, and lowercase is the form every reader
+      // downstream expects — BoostButton filters on a literal `npub1` prefix.
+      const npub = keyMatch[1].toLowerCase();
+      if (!NPUB_REGEX.test(npub)) continue;
+      if (!npubs.includes(npub)) npubs.push(npub);
+    }
+  }
+  return npubs;
+}
+
+/**
+ * Fold txt-carried npubs into the person list of the same block.
+ *
+ * `persons` is the single store, so every reader downstream — the boost note's
+ * p-tags above all — picks these up with no further change. An npub already
+ * named by a `<podcast:person>` is skipped: the person entry carries a name and
+ * a role, and a second entry for the same key would p-tag the same pubkey twice.
+ *
+ * The name is left EMPTY. A txt tag states a key and nothing else, and the feed
+ * title is the album's name, not the person's — putting it here would invent a
+ * credit that the feed never made. Only `npub` is a fact, so only `npub` is set.
+ */
+function withTxtNpubPersons(persons: ParsedPerson[], xmlBlock: string): ParsedPerson[] {
+  const txtNpubs = parseNpubTxtFromBlock(xmlBlock);
+  if (txtNpubs.length === 0) return persons;
+  const known = new Set(persons.map(p => p.npub?.toLowerCase()).filter(Boolean));
+  const merged = [...persons];
+  for (const npub of txtNpubs) {
+    if (known.has(npub.toLowerCase())) continue;
+    known.add(npub.toLowerCase());
+    merged.push({ name: '', npub });
+  }
+  return merged;
 }
 
 // Extract <podcast:image> entries from any XML block (item or channel scope).
