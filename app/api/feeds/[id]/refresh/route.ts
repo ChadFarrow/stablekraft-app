@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 // POST /api/feeds/[id]/refresh - Refresh a specific feed (Railway fix)
 export async function POST(
@@ -41,6 +42,7 @@ export async function POST(
           explicit: parsedFeed.explicit,
           v4vRecipient: parsedFeed.v4vRecipient || undefined,
           v4vValue: parsedFeed.v4vValue ? JSON.parse(JSON.stringify(parsedFeed.v4vValue)) : undefined,
+          ...channelPersonsFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null

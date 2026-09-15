@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, ParsedItem, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 /**
  * POST /api/admin/reparse-feeds
@@ -255,6 +256,7 @@ async function reparseSingleFeed(feed: {
         ...(parsedFeed.podcastGuid && { guid: parsedFeed.podcastGuid }),
         ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
         ...(parsedFeed.podcastImages && { podcastImages: parsedFeed.podcastImages as any }),
+        ...channelPersonsFields(parsedFeed),
         lastFetched: new Date(),
         status: 'active',
         lastError: null,

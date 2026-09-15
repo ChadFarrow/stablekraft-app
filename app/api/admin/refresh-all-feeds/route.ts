@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 // POST /api/admin/refresh-all-feeds - Refresh all RSS feeds in the database
 export async function POST(request: NextRequest) {
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
               // Channel-level like the guid above, and backfilled the same way: a feed
               // that never declared a medium keeps NULL rather than being defaulted.
               ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
+              ...channelPersonsFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               lastError: null

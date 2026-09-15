@@ -4,6 +4,7 @@ import { parseRSSFeedWithSegments, calculateTrackOrder } from '@/lib/rss-parser-
 import { generateAlbumSlug, normalizeUrl } from '@/lib/url-utils';
 import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl, isPlaylistSourceFeedUrl } from '@/lib/feed-exclusions';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 interface RemoteItem {
   feedGuid?: string;
@@ -236,6 +237,7 @@ export async function POST(
             v4vRecipient: parsedFeed.v4vRecipient || null,
             v4vValue: parsedFeed.v4vValue || null,
             publisherId: id,
+            ...channelPersonsFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),

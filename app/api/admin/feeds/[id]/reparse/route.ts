@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, applyParsedItemFields, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 
 /**
  * POST /api/admin/feeds/[id]/reparse
@@ -68,6 +69,7 @@ export async function POST(
           ...(parsedFeed.podcastGuid && { guid: parsedFeed.podcastGuid }),
           ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
           ...(parsedFeed.podcastImages && { podcastImages: parsedFeed.podcastImages as any }),
+          ...channelPersonsFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null,
