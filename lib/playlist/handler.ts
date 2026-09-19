@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { playlistCache } from '@/lib/playlist-cache';
 import {
   processPlaylistFeedDiscovery,
@@ -36,7 +37,7 @@ export function createPlaylistHandler(config: PlaylistConfig) {
       if (!forceRefresh) {
         const dbResult = await getPlaylistFromDatabase(config);
         if (dbResult.found && dbResult.response) {
-          return NextResponse.json(dbResult.response);
+          return compressedJson(request, dbResult.response);
         }
       }
 
@@ -46,7 +47,7 @@ export function createPlaylistHandler(config: PlaylistConfig) {
         const cachedData = playlistCache.getCachedData(cacheKey);
         if (cachedData) {
           console.log(`⚡ [${config.shortName}] Using cached playlist data`);
-          return NextResponse.json(cachedData);
+          return compressedJson(request, cachedData);
         }
       }
 
@@ -177,7 +178,7 @@ export function createPlaylistHandler(config: PlaylistConfig) {
       // Cache the response
       playlistCache.setCachedData(cacheKey, responseData);
 
-      return NextResponse.json(responseData);
+      return compressedJson(request, responseData);
 
     } catch (error) {
       console.error(`❌ [${config.shortName}] Error fetching playlist:`, error);
