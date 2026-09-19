@@ -26,7 +26,7 @@ Main-grid play button plays tracks straight from this endpoint — fields missin
 - **The rule does not stop at albums-fast.** `/api/albums/[slug]` (the album page) builds its own album shape, and `app/page.tsx`'s `rssAlbums` mapper copies the albums-fast album field by field — neither goes through `lib/catalog/album-shape.ts`. Both dropped `persons` until #261, so the album page's and the home grid's boosts tagged no artist even though albums-fast carried the key. The slug route now selects and maps track `persons` and puts `Feed.persons` on **both** `foundAlbum` objects; the home mapper keeps album-level `persons` (`API_VERSION` → `v19`). `lib/feeds/channel-persons.test.ts` scans all of it. Why it matters for boosts → `lightning-boost`, *Who a boost note names*.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the response shape changes — main page caches under `localStorage['cachedAlbums_${N}_${API_VERSION}']` and without a bump, stale field-missing data sticks indefinitely.
 - **Read-path cache stack** (each layer needs its own bust when debugging "feed minted but not visible"):
-  1. **Railway in-memory**, 15 min, in `albums-fast/route.ts`. State in `lib/caches/albums-fast-cache.ts`; auto-invalidates on `POST`/`PUT`/`DELETE /api/feeds` via `invalidateAlbumsFastCache()` (same hook busts the 5-min `searchCache` in `lib/caches/search-cache.ts`). Manual bust: `?refresh=true`.
+  1. **Railway in-memory**, 15 min, in `albums-fast/route.ts`. State in `lib/caches/albums-fast-cache.ts`; auto-invalidates on `POST`/`PUT`/`DELETE /api/feeds` via `invalidateAlbumsFastCache()` (same hook busts the 5-min `searchCache` in `lib/caches/search-cache.ts`). Manual bust: `?refresh=true`, admin-only (bearer secret) — anyone could otherwise force a full catalog rescan in a loop.
   2. **Fastly CDN** (Railway edge, `x-railway-cdn-edge: fastly/…`). Respects `Cache-Control: public, s-maxage=60, stale-while-revalidate=120` — staleness caps at ~2 min. **Do not raise `s-maxage` back to 900** without a Fastly purge hook (issue #110 traced hours-long invisibility to the old 15+30 min window).
   3. **Client localStorage** `cachedAlbums_${N}_${API_VERSION}` in `app/page.tsx`. Server invalidation can't reach this — persists until hard-reload or `API_VERSION` bump. Expect a 1-app-load lag after a new feed mints.
   4. **PWA service worker** (`next-pwa`, `next.config.js`). `/api/*` is **excluded** so API responses are never SW-cached; HTML shells are NetworkFirst with 1-hour TTL and 3s network timeout.
@@ -111,7 +111,7 @@ Files to modify (9 total):
 8. `app/favorites/page.tsx` - `playlistTitles`, `playlistImageFallbacks`, `playlistSlugOverrides`
 9. `.github/workflows/refresh-playlists.yml` - Add to `PLAYLISTS` array
 
-Populate: `curl https://stablekraft.app/api/playlist/[id]?refresh`
+Populate: `curl -H "Authorization: Bearer $ADMIN_SECRET" "https://stablekraft.app/api/playlist/[id]?refresh=true"` — exactly `true`; any other value (`?refresh`, `?refresh=1`) is an ordinary read, not a refresh (`isForceRefresh` in `lib/admin-route-policy.ts`).
 
 ---
 

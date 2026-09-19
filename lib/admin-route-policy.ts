@@ -86,9 +86,28 @@ function isGatedFeedSubpath(pathname: string): boolean {
 }
 
 /**
+ * Whether a request asks a cached route to rebuild itself: exactly `?refresh=true`.
+ *
+ * The gate and the handlers MUST ask this through the same function. They used to
+ * ask separately — the gate `get('refresh') === 'true'`, the playlist handler
+ * `has('refresh')` — so `?refresh=1`, `?refresh` or `?refresh=TRUE` passed the
+ * gate unchallenged and still rebuilt the playlist: a re-fetch of the XML, a
+ * Podcast Index lookup per item, and a delete-then-insert of every
+ * `SystemPlaylistTrack` row for that playlist, all from an anonymous GET.
+ * `admin-route-policy.test.ts` fails if a handler reads `refresh` any other way.
+ *
+ * Any other value is an ordinary read, not an unauthenticated refresh. Every
+ * legitimate caller (the nightly workflow, `/api/playlist-cache`) sends `true`.
+ */
+export function isForceRefresh(searchParams: URLSearchParams): boolean {
+  return searchParams.get('refresh') === 'true';
+}
+
+/**
  * True when this request must carry `Authorization: Bearer <ADMIN_SECRET>`.
  *
- * `searchParams` is read only for `/api/playlist/*?refresh=true`.
+ * `searchParams` is read only for `?refresh=true` on `/api/playlist/*` and
+ * `/api/albums-fast`.
  */
 export function requiresAdminAuth(
   pathname: string,
@@ -115,7 +134,14 @@ export function requiresAdminAuth(
   // Public playlist reads stay open; only the expensive ?refresh=true variant is
   // gated. The public app never sends it.
   if (pathname.startsWith('/api/playlist/')) {
-    return searchParams.get('refresh') === 'true';
+    return isForceRefresh(searchParams);
+  }
+
+  // Same for the catalog: ?refresh=true drops the in-memory cache, so the next
+  // request rescans every feed and its tracks from Postgres. Nothing in the app,
+  // the scripts or the workflows sends it; anyone could, in a loop.
+  if (pathname === '/api/albums-fast') {
+    return isForceRefresh(searchParams);
   }
 
   return false;
@@ -148,4 +174,5 @@ export const ADMIN_GATED_MATCHER: readonly string[] = [
   '/api/parse-feeds',
   '/api/playlist-cache',
   '/api/playlist/:path*',
+  '/api/albums-fast',
 ];

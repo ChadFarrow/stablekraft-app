@@ -57,7 +57,7 @@ Every 30 min from 11:00–13:59 UTC on Sundays (UpBeats) and Tuesdays (Two For T
 ---
 
 ## Playlist Resolution
-Playlists use `<podcast:remoteItem>` with `feedGuid` + `itemGuid`. On `?refresh`: discover feeds via PI API → parse → discover publishers → resolve tracks. Resolution rate ~80-90%.
+Playlists use `<podcast:remoteItem>` with `feedGuid` + `itemGuid`. On `?refresh=true` (admin-only): discover feeds via PI API → parse → discover publishers → resolve tracks. Resolution rate ~80-90%.
 
 **Feed deduplication pattern**: multi-check dedup (normalized URL, raw URL, feedGuid as ID, feedGuid as GUID column, feedGuid-in-URL substring, then secondary `podcastGuid` check). New feeds get slug-based IDs via `generateAlbumSlug`. When modifying feed import code, follow this pattern — weak dedup causes duplicate entries.
 
