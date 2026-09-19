@@ -171,6 +171,13 @@ line holds the full story.
   route learns who is calling; `grep -rn "x-nostr-user-id" app/api` must stay empty → `auth-and-security`.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the `/api/albums-fast` response shape changes, or clients keep
   serving field-missing data out of localStorage indefinitely → `catalog-display`.
+- **`compress: true` does NOT compress route handlers — return large JSON with `compressedJson()`.** Next copies a
+  route's headers with `res.appendHeader()`, which makes `Content-Type` an array, and the compression middleware
+  then calls it "not compressible". Pages, JS and CSS are gzipped; every `/api/*` JSON body went out raw — 645 KB
+  for `albums-fast` (62 KB gzipped) and 1–10 MB per full playlist, most of this app's billed egress. There is no
+  CDN in front of Railway, so `s-maxage` saves nothing. `lib/compressed-json.ts` gzips when the caller accepts it;
+  use it for any success body over a few KB. Check with `curl -D - -o /dev/null -H 'Accept-Encoding: gzip'`, never
+  a bare `curl`, which asks for no encoding and so always gets the raw body.
 - **The same field is often written or read from N places, and fixing one is the standard bug here.**
   `/api/albums-fast` has **two** Track selects; `podcastImages` has
   **three** write paths; the release date has **seven** read paths; `Feed.medium` has **ten** create/upsert paths

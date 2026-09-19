@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       const cachedData = playlistCache.getCachedData('top100-playlist');
       if (cachedData) {
         console.log('⚡ Using persistent cached Top 100 data');
-        return NextResponse.json(cachedData);
+        return compressedJson(request, cachedData);
       }
     }
 

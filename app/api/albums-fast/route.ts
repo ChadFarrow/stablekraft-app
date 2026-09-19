@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { albumFeedSelect, feedToAlbum } from '@/lib/catalog/album-shape';
 import { prisma } from '@/lib/prisma';
@@ -512,7 +513,7 @@ export async function GET(request: Request) {
     // Apply final pagination to filtered results
     const paginatedAlbums = filteredAlbums.slice(offset, offset + limit);
     
-    return NextResponse.json({
+    return compressedJson(request, {
       success: true,
       albums: paginatedAlbums,
       totalCount, // Total count of filtered results (for pagination)
