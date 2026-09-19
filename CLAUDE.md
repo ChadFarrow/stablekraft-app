@@ -183,6 +183,25 @@ line holds the full story.
   are polymorphic (`Feed.id` vs `Feed.guid`; `Track.id` vs `Track.guid` vs `audioUrl`), every rung carries real
   rows, and a rung present on one path and not another means a favorite that renders on the page and is missing
   from the published Nostr list → `favorites-cross-app`.
+  **There are two album shapes, not one.** `lib/catalog/album-shape.ts` serves `albums-fast` and `feeds/recent`;
+  `/api/albums/[slug]` — the album page — builds its own, and `app/page.tsx` then copies the albums-fast album field
+  by field. A field added to the shared shape reaches neither. `Feed.persons` was written on every parse (#259, #260)
+  and still reached no album-page boost until #261, because both copies dropped it → `catalog-display`.
+- **A boost note names people from ONE list, and each entry is both a `p` tag and an @mention.**
+  `boostNotifiedPubkeys` (`lib/nostr/boost-note.ts`) merges the feed's `<podcast:person>` / `<podcast:txt>` npubs —
+  persons first — with the split recipients' resolved pubkeys. Built separately, an artist is notified but invisible
+  in the body: that shipped, and Jumble showed only the booster, reached through the MSP 2.0 split. Only **five of
+  fourteen** `BoostButton` call sites pass a `persons` prop, so the button also names whatever its own boost-time
+  lookups return — `/api/music-tracks/[id]` (track and `Feed.persons`) and `/api/feeds/[id]`. Those two routes must
+  keep returning `persons`, or every playlist, favorites, track-card and now-playing boost names nobody again, in
+  silence. `channel-persons.test.ts` pins the write side, the read side and both lookups → `lightning-boost`.
+- **`remoteFeedGuid` beats `BoostButton`'s own lookup ON PURPOSE, so a wrong one is published as fact.** For a VTS
+  segment `NowPlayingScreen` passes the remote item's feed, which legitimately differs from the episode's; preferring
+  the lookup would break that. The price is that every caller must be right. The playlist database fast path returned
+  `Track.guid` — the ITEM guid — as `feedGuid` for 137 of 137 ITDV tracks, so every playlist boost published
+  `podcast:guid:<item guid>`, a feed that does not exist, on a note that cannot be edited (#264). Fix a wrong guid at
+  its source (`lib/playlist/db-track.ts` for playlists), never by reordering the button's fallbacks →
+  `lightning-boost`.
 - **`Feed.type` is this app's classification; `Feed.medium` is what the feed declared.** They are not
   interchangeable and the difference is load-bearing. `type` defaults to `"album"`, so it always has a value and
   that value is often a guess; `medium` is NULL until a feed actually says, and **nothing may default it**. Only
