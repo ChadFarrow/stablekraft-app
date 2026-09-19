@@ -164,6 +164,9 @@ const TRACK_SELECT_FIELDS = {
   chaptersUrl: true,
   chapters: true,
   valueTimeSplits: true,
+  // Track-level <podcast:person> entries. The album page spreads these into the
+  // per-track boost, where their npubs become the note's `p` tags.
+  persons: true,
 } as const;
 
 // Map a DB track to the API response format
@@ -190,6 +193,7 @@ function mapTrackToResponse(track: any, fallbackImage: string | null, index: num
     chaptersUrl: track.chaptersUrl || undefined,
     chapters: track.chapters || undefined,
     valueTimeSplits: track.valueTimeSplits || undefined,
+    persons: track.persons || undefined,
     publishedAt: track.publishedAt || null,
   };
 }
@@ -1266,6 +1270,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         subtitle: '',
         coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
         podcastImages: (feed as any).podcastImages || undefined,
+        // The feed's own <podcast:person> / <podcast:txt> npubs. The album boost
+        // turns these into `p` tags; without them the note tags no artist, and
+        // nothing says so. albums-fast carries this via lib/catalog/album-shape.ts.
+        persons: (feed as any).persons || undefined,
         // Real release date. lastFetched is when we last CRAWLED the feed and
         // createdAt is when it was added to StableKraft — both report the wrong
         // year for back-catalogue albums (issue #169). Matches albums-fast.
@@ -1436,6 +1444,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           subtitle: '',
           coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
           podcastImages: (feed as any).podcastImages || undefined,
+          // Boost `p` tags — see the note on the other branch above.
+          persons: (feed as any).persons || undefined,
           // Real release date — see the note on the other branch above.
           releaseDate: feed.oldestItemPubdate || feed.createdAt,
           explicit: feed.explicit ?? false,
