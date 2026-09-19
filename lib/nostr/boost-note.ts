@@ -80,6 +80,47 @@ export function podcastIdentifierTags(ids: BoostIdentifiers): string[][] {
 }
 
 /**
+ * Everyone a boost note names, as hex pubkeys: each one becomes BOTH a `p` tag
+ * and a `nostr:npub…` mention in the text. One list, so the two cannot drift.
+ *
+ * They did drift. The mentions were built from the split recipients only, and
+ * the feed's own `<podcast:person>` / `<podcast:txt>` npubs were appended to the
+ * `p` tags afterwards. So the artist was tagged but never shown: in Jumble a
+ * boost of "Kulture Collection" read "@ChadF" — the booster, reached through
+ * the MSP 2.0 split — and nothing naming Matt Finlay, whose key sat only in a
+ * tag no client renders in the body.
+ *
+ * Persons come FIRST: the note is about their music, and a split recipient is
+ * as often an app (MSP 2.0, Podcastindex) as a musician. A person who is also a
+ * split recipient appears once. Self-tagging stays allowed — an artist may be in
+ * their own splits and want the notification.
+ *
+ * `decodeNpub` is injected so this file stays dependency-free (see the header):
+ * bech32 lives in nostr-tools, which the caller already imports dynamically. It
+ * returns the hex key, or null for anything that is not a valid npub.
+ */
+export function boostNotifiedPubkeys(
+  splitPubkeys: readonly string[],
+  personNpubs: readonly (string | null | undefined)[],
+  decodeNpub: (npub: string) => string | null,
+): string[] {
+  const named: string[] = [];
+  const add = (hex: string | null | undefined) => {
+    if (hex && !named.includes(hex)) named.push(hex);
+  };
+
+  for (const raw of personNpubs) {
+    if (typeof raw !== 'string') continue;
+    const npub = raw.trim().toLowerCase();
+    if (!npub.startsWith('npub1')) continue;
+    add(decodeNpub(npub));
+  }
+  for (const hex of splitPubkeys) add(hex);
+
+  return named;
+}
+
+/**
  * NIP-89 attribution, the bare two-element form.
  *
  * No kind:31990 handler address in position 2: this app publishes no handler
