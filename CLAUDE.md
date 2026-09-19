@@ -54,11 +54,20 @@ railway domain                   # which hostnames actually serve this instance
 # Only the current deployment's buffer is kept, and Next logs no successful request — so
 # a quiet log is not evidence of no traffic. Ask what WOULD have been logged before
 # concluding anything from silence.
+
+# COST. The Usage page's Network Egress chart is a running total for the billing period, so
+# it only ever rises — it is not a rate. For per-day, per-hour or per-service numbers, POST to
+# https://backboard.railway.app/graphql/v2 with the token in ~/.railway/config.json:
+#   usage(projectId, measurements:[NETWORK_TX_GB, NETWORK_RX_GB, MEMORY_USAGE_GB],
+#         groupBy:[SERVICE_ID, ENVIRONMENT_ID], startDate, endDate)
+# The StableKraft card does NOT include the database — it is a separate project (see below).
 ```
 Per-subsystem test commands live in the skill that owns the subsystem — each skill opens with its own.
 
 ## Boundaries
-- Never commit secrets (`.env`, API keys). `SESSION_SECRET` and `ADMIN_SECRET` live in Railway env + `.env.local` only.
+- Never commit secrets (`.env`, API keys). `SESSION_SECRET` and `ADMIN_SECRET` live in Railway env only —
+  `.env.local` carries neither (checked 2026-09-19), which matters for any local server; see the standalone
+  recipe below.
 - **`console.log` does not exist in production.** `next.config.js` sets `compiler.removeConsole` with
   `exclude: ['error', 'warn']`, so every `console.log` is compiled out of a production build and survives in dev.
   A diagnostic added with `log` is therefore absent from the one environment worth diagnosing — this cost a
@@ -96,6 +105,12 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   `NODE_OPTIONS=--no-experimental-websocket` to stand in for `node:20-alpine`, which is the shape production
   actually has. Read the server log, not just the response body: the first version of that fix returned correct
   JSON while throwing uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
+  **That server is attached to the PRODUCTION database, and it has no admin gate.** The copied `.env.local` points
+  at production and carries no `ADMIN_SECRET`, and `checkAdminAuth` fails OPEN without one — so every admin-gated
+  route runs for real. On 2026-09-19 a test meant to prove `?refresh=true` returns 401 got 200 and rebuilt the
+  `iam` playlist's `SystemPlaylistTrack` rows on production. Always start it with a throwaway secret:
+  `ADMIN_SECRET=$(openssl rand -hex 24) PORT=3009 …`. With `NEXT_DIST_DIR=.next-build` the server is in
+  `.next-build/standalone/`.
 - No `src/` directory — all source lives in `app/`, `lib/`, `components/`, `contexts/`
 - No `deploy-*/` artifacts in the repo — add to `.gitignore` if generated
 - No JSON-file databases — all data is in PostgreSQL via Prisma
@@ -115,7 +130,19 @@ These span several subsystems, so they stay here rather than in any one skill. T
 line holds the full story.
 
 - **`git push origin main` IS the production deploy.** There is no preview environment. `NEXT_PUBLIC_*` bakes at
-  build time, so set it *before* the deploy that should use it.
+  build time, so set it *before* the deploy that should use it. There WAS one, unnoticed: a `test` environment
+  (a 2026-04-23 deploy of a feature branch, `test.stablekraft.app`, plus its own Postgres) ran for five months,
+  served ~0.1 GB, and was ~42% of the project's memory bill. Deleted 2026-09-19. An environment is billed 24/7
+  whether or not anyone uses it.
+- **The production database is a SEPARATE Railway project ("Postgres"), reached over the public TCP proxy, and
+  that is a decision, not an accident to fix.** Private networking does not cross projects, so every query result
+  is billed as egress on that project — ~65 GB (~$3.25) for Aug 19 → Sep 19 2026, more than the app's own egress,
+  and invisible on the StableKraft card. A move into this project was prepared and **declined on 2026-09-19**: the
+  saving did not justify touching a working production database. Do not re-propose it. To cut that traffic, change
+  what the app READS — it pulls 1–4 GB/day from a 129 MB database, most likely `albums-fast` rescanning the whole
+  catalog every 15 minutes. It is also why `railway run --service StableKraft` works from a laptop: the app's
+  `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
+  `railway run` command.
 - **Railway does not run migrations on deploy.** The Dockerfile has no `prisma migrate deploy`, so after merging a
   migration run `railway run --service StableKraft --environment production npm run db:migrate` **before** the code
   that reads the new column goes live — otherwise every query selecting it 500s (issue #122).
@@ -167,6 +194,11 @@ line holds the full story.
 - **`isSafePublicUrl()` returns `{ ok, ... }`, not a boolean.** `if (!isSafePublicUrl(u))` negates an object, is
   always `false`, and silently turns the SSRF guard into dead code — and `tsc --noEmit` stays clean. Always
   `const c = isSafePublicUrl(u); if (!c.ok)`. Verify empirically, never by reading it → `auth-and-security`.
+- **A gate and the handler it guards must read the same input through the SAME function.** The admin gate asked
+  `get('refresh') === 'true'` while the playlist handler asked `has('refresh')`, so `?refresh=1` skipped the gate
+  and still rebuilt the playlist from an anonymous GET (#268). Both now call `isForceRefresh()`, and a test fails
+  if a refresh-gated route reads `refresh` any other way. Adding a query-param gate means one shared predicate,
+  never a second expression of it → `auth-and-security`.
 - **User identity is the signed session cookie, never a request header.** `requireUser(request)` is the only way a
   route learns who is calling; `grep -rn "x-nostr-user-id" app/api` must stay empty → `auth-and-security`.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the `/api/albums-fast` response shape changes, or clients keep
