@@ -13,7 +13,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { clientTag, podcastIdentifierTags } from './boost-note';
+import { nip19 } from 'nostr-tools';
+
+import { boostNotifiedPubkeys, clientTag, podcastIdentifierTags } from './boost-note';
 import { identifierKind, itemId, publisherId, showId } from './pc20-identifiers';
 
 // The guids from the issue's own example note — a real 333-sat boost to
@@ -172,4 +174,60 @@ test('the id builders and the kinds table agree', () => {
   assert.equal(identifierKind(itemId('x')), 'podcast:item:guid');
   assert.equal(identifierKind(showId('x')), 'podcast:guid');
   assert.equal(identifierKind(publisherId('x')), 'podcast:publisher:guid');
+});
+
+// --- who the note names ------------------------------------------------------
+//
+// The keys from a real boost of "Kulture Collection" (2026-09-18). The feed
+// declares Matt Finlay's npub; the booster is also the MSP 2.0 split recipient.
+const ARTIST_NPUB = 'npub12znrejs4k94kp5efhyhk9rzr9jxpy6ymgrlf6py4awpkkhed7cmshs6yg6';
+const ARTIST_HEX = '50a63cca15b16b60d329b92f628c432c8c12689b40fe9d0495eb836b5f2df637';
+const BOOSTER_HEX = 'f7922a0adb3fa4dda5eecaa62f6f7ee6159f7f55e08036686c68e08382c34788';
+
+/** The decoder BoostButton passes in, minus its logging. */
+const decodeNpub = (npub: string): string | null => {
+  try {
+    const d = nip19.decode(npub);
+    return d.type === 'npub' && typeof d.data === 'string' ? d.data : null;
+  } catch {
+    return null;
+  }
+};
+
+test('the artist is named, and before the split recipients', () => {
+  // Before: mentions came from the splits only, so the text read "@ChadF" and
+  // Matt Finlay existed only in a p tag no client shows in the body.
+  assert.deepEqual(
+    boostNotifiedPubkeys([BOOSTER_HEX], [ARTIST_NPUB], decodeNpub),
+    [ARTIST_HEX, BOOSTER_HEX]
+  );
+});
+
+test('a person who is also a split recipient is named once', () => {
+  assert.deepEqual(boostNotifiedPubkeys([ARTIST_HEX], [ARTIST_NPUB], decodeNpub), [ARTIST_HEX]);
+  // And a band member listed under several roles is one person.
+  assert.deepEqual(
+    boostNotifiedPubkeys([], [ARTIST_NPUB, ARTIST_NPUB, ARTIST_NPUB], decodeNpub),
+    [ARTIST_HEX]
+  );
+  assert.deepEqual(boostNotifiedPubkeys([BOOSTER_HEX, BOOSTER_HEX], [], decodeNpub), [BOOSTER_HEX]);
+});
+
+test('anything that is not a decodable npub is skipped, never passed through', () => {
+  const seen: string[] = [];
+  const spy = (npub: string) => (seen.push(npub), decodeNpub(npub));
+  assert.deepEqual(
+    boostNotifiedPubkeys(
+      [],
+      [undefined, null, '', 'nsec1notthis', 'https://example.com', 'npub1broken', `  ${ARTIST_NPUB.toUpperCase()}  `],
+      spy
+    ),
+    [ARTIST_HEX]
+  );
+  // Only npub-prefixed values reach the decoder, normalised to lowercase.
+  assert.deepEqual(seen, ['npub1broken', ARTIST_NPUB]);
+});
+
+test('a note with nobody to name names nobody', () => {
+  assert.deepEqual(boostNotifiedPubkeys([], [], decodeNpub), []);
 });

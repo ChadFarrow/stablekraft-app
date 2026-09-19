@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { APP_NAME } from '@/lib/constants';
-import { clientTag, podcastIdentifierTags } from '@/lib/nostr/boost-note';
+import { boostNotifiedPubkeys, clientTag, podcastIdentifierTags } from '@/lib/nostr/boost-note';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
@@ -630,18 +630,29 @@ export function BoostButton({
             // For the 'r' tag, we'll use the URL with track parameter (no anchor needed)
             const urlWithAnchor = url;
             
+            // Everyone the note names: the feed's <podcast:person>/<podcast:txt>
+            // npubs, then the split recipients' pubkeys (resolved from their Lightning
+            // Addresses). Each becomes both an @mention in the text and a `p` tag —
+            // one list, so an artist can't be tagged yet invisible in the body.
+            const { nip19 } = await import('nostr-tools');
+            const notifiedPubkeys = boostNotifiedPubkeys(
+              musicianPubkeysForNostr.map(p => p.pubkey),
+              persons.map(p => p?.npub),
+              (npub) => {
+                try {
+                  const decoded = nip19.decode(npub);
+                  return decoded.type === 'npub' && typeof decoded.data === 'string' ? decoded.data : null;
+                } catch (err) {
+                  console.warn(`⚠️ Could not decode person npub ${npub.slice(0, 20)}...:`, err);
+                  return null;
+                }
+              }
+            );
+
             // Build content (Fountain-style format)
-            // Include @npub mentions for musicians if we have their Nostr pubkeys
-            let musicianMentions = '';
-            if (musicianPubkeysForNostr.length > 0) {
-              // Deduplicate pubkeys and convert to npub format
-              const { nip19 } = await import('nostr-tools');
-              const uniquePubkeys = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
-              const npubMentions = uniquePubkeys
-                .map(({ pubkey }) => `nostr:${nip19.npubEncode(pubkey)}`)
-                .join(' ');
-              musicianMentions = `\n\n${npubMentions}`;
-            }
+            const musicianMentions = notifiedPubkeys.length > 0
+              ? `\n\n${notifiedPubkeys.map(hex => `nostr:${nip19.npubEncode(hex)}`).join(' ')}`
+              : '';
 
             // Only include message if user provided one
             const content = message
@@ -680,46 +691,12 @@ export function BoostButton({
               publisherGuid: finalPublisherGuid,
             }));
 
-            // Add p-tags for musician notifications (resolved from Lightning Address NIP-05/Nostr info)
-            // These pubkeys were extracted during Lightning Address resolution via resolveLightningAddressDetails()
-            // This notifies musicians on Nostr when they're boosted, enabling social discovery
-            // Note: p-tags use hex pubkeys per NIP-01 (not npub bech32 format)
-            // Self-tagging is allowed - musicians may be in their own splits and want to see the notification
-            if (musicianPubkeysForNostr.length > 0) {
-              // Deduplicate pubkeys to avoid duplicate p-tags
-              const uniquePubkeysForTags = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
-              for (const { address, pubkey } of uniquePubkeysForTags) {
-                tags.push(['p', pubkey]);
-                console.log(`🔔 Added p-tag for musician notification: ${address} → ${pubkey.slice(0, 16)}...`);
-              }
-            }
-
-            // Add p-tags for <podcast:person> entries with an npub attribute.
-            // MSP emits these for bands/hosts so they get notified on boost.
-            // Deduped against existing p-tags (musician keysend/lnaddress pubkeys)
-            // to avoid double-tagging when the same person is both a V4V recipient
-            // and a person-tag entry.
-            if (persons.length > 0) {
-              const existingPubkeys = new Set(
-                tags.filter(t => t[0] === 'p' && t[1]).map(t => t[1])
-              );
-              const { nip19: nip19Persons } = await import('nostr-tools');
-              const personNpubs = Array.from(new Set(
-                persons.map(p => p?.npub).filter((n): n is string => typeof n === 'string' && n.startsWith('npub1'))
-              ));
-              for (const npub of personNpubs) {
-                try {
-                  const decoded = nip19Persons.decode(npub);
-                  if (decoded.type !== 'npub' || typeof decoded.data !== 'string') continue;
-                  const hex = decoded.data;
-                  if (existingPubkeys.has(hex)) continue;
-                  existingPubkeys.add(hex);
-                  tags.push(['p', hex]);
-                  console.log(`🔔 Added p-tag for podcast:person npub: ${npub.slice(0, 16)}... → ${hex.slice(0, 16)}...`);
-                } catch (err) {
-                  console.warn(`⚠️ Could not decode person npub ${npub.slice(0, 20)}...:`, err);
-                }
-              }
+            // p-tags for everyone the text mentions, so each is notified.
+            // Hex pubkeys per NIP-01, not npub bech32. Self-tagging is allowed —
+            // musicians may be in their own splits and want to see the notification.
+            for (const hex of notifiedPubkeys) {
+              tags.push(['p', hex]);
+              console.log(`🔔 Added p-tag: ${hex.slice(0, 16)}...`);
             }
 
             // NIP-89 attribution, last because it takes part in nothing above.
