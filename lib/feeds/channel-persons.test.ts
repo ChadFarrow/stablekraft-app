@@ -128,3 +128,68 @@ test('EVERY feed write fed by a parse also writes the channel persons', () => {
       'add `...channelPersonsFields(<parsed>)` to each:\n' + missing.join('\n')
   );
 });
+
+// --- the read side ----------------------------------------------------------
+//
+// Writing the column is half of it. The boost note gets its `p` tags from the
+// `persons` prop BoostButton is handed, and that comes from whatever album
+// object the page fetched. `/api/albums/[slug]` builds its own album shape
+// rather than using lib/catalog/album-shape.ts, and it returned no persons at
+// all — so on 2026-09-18 an album-page boost of a feed whose row held the
+// artist's npub tagged nobody but the booster. The home grid had the same gap
+// one step later, in the field-by-field mapper in app/page.tsx.
+
+const ALBUM_ROUTE = join(process.cwd(), 'app/api/albums/[slug]/route.ts');
+const albumRouteSource = readFileSync(ALBUM_ROUTE, 'utf8');
+
+function blockAfter(source: string, marker: string): string {
+  const at = source.indexOf(marker);
+  assert.notEqual(at, -1, `could not find \`${marker}\` — the scan has lost its anchor`);
+  const span = braceBlock(source, at + marker.length - 1);
+  assert.ok(span, `no balanced block after \`${marker}\``);
+  return source.slice(span[0], span[1] + 1);
+}
+
+test('the album page route selects and returns track-level persons', () => {
+  assert.match(
+    blockAfter(albumRouteSource, 'const TRACK_SELECT_FIELDS = {'),
+    /\bpersons: true\b/,
+    'TRACK_SELECT_FIELDS no longer selects persons'
+  );
+  assert.match(
+    blockAfter(albumRouteSource, 'function mapTrackToResponse('),
+    /\bpersons: track\.persons\b/,
+    'mapTrackToResponse no longer returns persons'
+  );
+});
+
+test('EVERY album the album page route builds from a feed carries its persons', () => {
+  const blocks: string[] = [];
+  let from = 0;
+  for (;;) {
+    const at = albumRouteSource.indexOf('foundAlbum = {', from);
+    if (at === -1) break;
+    const span = braceBlock(albumRouteSource, at);
+    if (!span) break;
+    blocks.push(albumRouteSource.slice(span[0], span[1] + 1));
+    from = span[1];
+  }
+  assert.ok(
+    blocks.length >= 2,
+    `expected at least 2 \`foundAlbum = {\` objects, found ${blocks.length} — the scan has stopped seeing them`
+  );
+  const missing = blocks
+    .map((block, i) => ({ i, block }))
+    .filter(({ block }) => !/\bpersons: \(feed as any\)\.persons\b/.test(block))
+    .map(({ i }) => `foundAlbum object #${i + 1}`);
+  assert.deepEqual(missing, [], 'these album objects drop Feed.persons, so their boosts tag no artist');
+});
+
+test('the home grid mapper keeps album-level persons for AlbumCard', () => {
+  const pageSource = readFileSync(join(process.cwd(), 'app/page.tsx'), 'utf8');
+  assert.match(
+    blockAfter(pageSource, 'allAlbums.map((album: any): RSSAlbum => ({'),
+    /\bpersons: album\.persons\b/,
+    'the app/page.tsx albums mapper drops persons — bump API_VERSION when restoring it'
+  );
+});

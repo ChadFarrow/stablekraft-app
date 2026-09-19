@@ -176,7 +176,10 @@ function HomePageContent() {
   // only consumer: app/radio/RadioClient.tsx hands the raw response to
   // setInitialAlbums and playback reads all four off those track objects. See
   // lib/catalog/album-shape.ts.
-  const API_VERSION = 'v18';
+  //
+  // v19: the mapper below now keeps album-level persons, so AlbumCard's boost
+  // can tag the artist. A cached album has none and would keep tagging nobody.
+  const API_VERSION = 'v19';
   
   // HGH filter removed - no longer needed
   
@@ -1106,7 +1109,10 @@ function HomePageContent() {
         feedGuid: album.feedGuid,
         // Include V4V payment data for boost buttons
         ...(album.v4vRecipient && { v4vRecipient: album.v4vRecipient }),
-        ...(album.v4vValue && { v4vValue: album.v4vValue })
+        ...(album.v4vValue && { v4vValue: album.v4vValue }),
+        // The feed's npubs. AlbumCard's boost turns these into the note's `p`
+        // tags; dropped here, every boost from the grid tagged no artist.
+        ...(album.persons && { persons: album.persons })
       } as RSSAlbum));
       
       // Apply limit if specified (for critical loading)
