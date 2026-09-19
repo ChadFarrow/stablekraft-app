@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isForceRefresh } from '@/lib/admin-route-policy';
 import { compressedJson } from '@/lib/compressed-json';
 import { playlistCache } from '@/lib/playlist-cache';
 import {
@@ -31,7 +32,7 @@ export function createPlaylistHandler(config: PlaylistConfig) {
       console.log(`🎵 Fetching ${config.shortName} playlist...`);
 
       // Check for force refresh parameter
-      const forceRefresh = new URL(request.url).searchParams.has('refresh');
+      const forceRefresh = isForceRefresh(new URL(request.url).searchParams);
 
       // FAST PATH: Try database first (instant, no XML fetch needed)
       if (!forceRefresh) {

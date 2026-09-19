@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isForceRefresh } from '@/lib/admin-route-policy';
 import { compressedJson } from '@/lib/compressed-json';
 import { resolveItemGuid } from '@/lib/feed-discovery';
 import { playlistCache } from '@/lib/playlist-cache';
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     console.log('🏆 Fetching Top 100 V4V Music playlist...', { userAgent: request.headers.get('user-agent')?.slice(0, 50) });
 
     // Check for force refresh parameter
-    const forceRefresh = new URL(request.url).searchParams.has('refresh');
+    const forceRefresh = isForceRefresh(new URL(request.url).searchParams);
 
     // Check persistent cache first
     if (!forceRefresh && playlistCache.isCacheValid('top100-playlist', CACHE_DURATION)) {

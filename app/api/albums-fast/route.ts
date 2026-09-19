@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isForceRefresh } from '@/lib/admin-route-policy';
 import { compressedJson } from '@/lib/compressed-json';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { albumFeedSelect, feedToAlbum } from '@/lib/catalog/album-shape';
@@ -132,7 +133,7 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const filter = searchParams.get('filter') || 'all'; // albums, eps, singles, all
     const sort = searchParams.get('sort') || 'default'; // Sort order: name-asc, added-desc, year-desc, etc.
-    const forceRefresh = searchParams.get('refresh') === 'true'; // Force cache refresh
+    const forceRefresh = isForceRefresh(searchParams); // Admin-gated in middleware
 
     // Clear cache if refresh requested
     if (forceRefresh) {

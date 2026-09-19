@@ -66,5 +66,6 @@ export const config = {
     '/api/parse-feeds',
     '/api/playlist-cache',
     '/api/playlist/:path*',
+    '/api/albums-fast',
   ],
 };

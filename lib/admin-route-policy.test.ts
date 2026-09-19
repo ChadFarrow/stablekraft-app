@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { requiresAdminAuth, ADMIN_GATED_MATCHER } from './admin-route-policy';
+import { readFileSync, readdirSync } from 'node:fs';
+import { requiresAdminAuth, isForceRefresh, ADMIN_GATED_MATCHER } from './admin-route-policy';
 
 const NO_PARAMS = new URLSearchParams();
 
@@ -114,6 +114,54 @@ test('public playlist reads stay open; ?refresh=true does not', () => {
   assert.equal(gated('/api/playlist/hgh', 'GET'), false);
   assert.equal(gated('/api/playlist/hgh', 'GET', 'refresh=true'), true);
   assert.equal(gated('/api/playlist/hgh', 'GET', 'refresh=false'), false);
+});
+
+/**
+ * The bypass this pins: the gate asked `get('refresh') === 'true'` while the
+ * playlist handler asked `has('refresh')`, so these values skipped the gate and
+ * still rebuilt the playlist. Whatever the answer, gate and handler must agree.
+ */
+test('every refresh value the gate lets through is one the handler treats as a plain read', () => {
+  for (const qs of ['refresh=true', 'refresh=1', 'refresh', 'refresh=', 'refresh=TRUE', 'refresh=yes',
+    'refresh=false', 'refresh=x&refresh=true', 'foo=bar']) {
+    const refreshes = isForceRefresh(new URLSearchParams(qs));
+    for (const path of ['/api/playlist/hgh', '/api/playlist/top100', '/api/albums-fast']) {
+      assert.equal(gated(path, 'GET', qs), refreshes, `${path}?${qs}: gate and handler disagree`);
+    }
+  }
+});
+
+test('albums-fast: ordinary reads stay open, ?refresh=true is gated', () => {
+  assert.equal(gated('/api/albums-fast', 'GET'), false);
+  assert.equal(gated('/api/albums-fast', 'GET', 'limit=50&offset=0&filter=all'), false);
+  assert.equal(gated('/api/albums-fast', 'GET', 'refresh=true'), true);
+  assert.equal(gated('/api/albums-fast', 'GET', 'limit=1000&refresh=true'), true);
+});
+
+/**
+ * The drift that made the bypass: a handler reading `refresh` with its own
+ * expression. Every route the gate covers by refresh must go through
+ * isForceRefresh, so the two can never answer differently again.
+ */
+test('refresh-gated routes read ?refresh only through isForceRefresh', () => {
+  const root = new URL('..', import.meta.url);
+  const files = [
+    ...readdirSync(new URL('app/api/playlist/', root), { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => `app/api/playlist/${f}`),
+    ...readdirSync(new URL('lib/playlist/', root)).filter((f) => f.endsWith('.ts')).map((f) => `lib/playlist/${f}`),
+    'app/api/albums-fast/route.ts',
+  ];
+  assert.ok(files.length > 20, `expected the playlist routes, found ${files.length} files`);
+  for (const file of files) {
+    const source = readFileSync(new URL(file, root), 'utf8');
+    assert.doesNotMatch(
+      source,
+      /searchParams\s*\.\s*(has|get|getAll)\(\s*['"`]refresh['"`]/,
+      `${file} reads ?refresh directly — use isForceRefresh, or the admin gate can disagree with it`
+    );
+  }
 });
 
 test('user-facing routes are NOT gated — gating them would break the app', () => {
