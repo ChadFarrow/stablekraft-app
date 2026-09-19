@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 
 import { nip19 } from 'nostr-tools';
 
-import { boostNotifiedPubkeys, clientTag, podcastIdentifierTags } from './boost-note';
+import { boostNotifiedPubkeys, clientTag, collectPersonNpubs, podcastIdentifierTags } from './boost-note';
 import { identifierKind, itemId, publisherId, showId } from './pc20-identifiers';
 
 // The guids from the issue's own example note — a real 333-sat boost to
@@ -230,4 +230,41 @@ test('anything that is not a decodable npub is skipped, never passed through', (
 
 test('a note with nobody to name names nobody', () => {
   assert.deepEqual(boostNotifiedPubkeys([], [], decodeNpub), []);
+});
+
+test('persons are gathered from every source, in order', () => {
+  // The prop, then the track, its feed, and the feed alone from the lookups.
+  assert.deepEqual(
+    collectPersonNpubs(
+      [{ name: 'Prop', npub: 'npub1a' }],
+      [{ name: 'Track', npub: 'npub1b' }],
+      [{ name: 'Feed', npub: 'npub1c' }, { name: 'No key' }],
+      [{ npub: 'npub1d' }]
+    ),
+    ['npub1a', 'npub1b', 'npub1c', 'npub1d']
+  );
+});
+
+test('a lookup of the wrong shape contributes nothing, and never throws', () => {
+  // These arrive as untyped JSON after the payment has gone out; a throw here
+  // would lose the note, not just the mention.
+  assert.deepEqual(
+    collectPersonNpubs(undefined, null, 'npub1x', { npub: 'npub1y' }, 42, [null, 7, 'npub1z', { npub: 5 }, {}]),
+    []
+  );
+  assert.deepEqual(collectPersonNpubs(), []);
+});
+
+test('the Kulture Collection boost from a surface with no persons prop', () => {
+  // A playlist, the favorites page or a track card passes no persons. The track
+  // lookup's Feed.persons is what names the artist.
+  const trackLookup = { persons: undefined, Feed: { persons: [{ name: 'Matt Finlay', npub: ARTIST_NPUB }] } };
+  assert.deepEqual(
+    boostNotifiedPubkeys(
+      [BOOSTER_HEX],
+      collectPersonNpubs([], trackLookup.persons, trackLookup.Feed.persons, null),
+      decodeNpub
+    ),
+    [ARTIST_HEX, BOOSTER_HEX]
+  );
 });

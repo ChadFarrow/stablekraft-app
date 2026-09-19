@@ -193,3 +193,29 @@ test('the home grid mapper keeps album-level persons for AlbumCard', () => {
     'the app/page.tsx albums mapper drops persons — bump API_VERSION when restoring it'
   );
 });
+
+// Only five of fourteen BoostButton call sites pass a persons prop. The rest —
+// playlists, favorites, the now-playing bar, track cards — rely on BoostButton's
+// own lookups at boost time, so those two routes must carry persons too.
+
+test('the track lookup BoostButton makes returns persons at track and feed level', () => {
+  const source = readFileSync(join(process.cwd(), 'app/api/music-tracks/[id]/route.ts'), 'utf8');
+  assert.match(blockAfter(source, 'Feed: {'), /\bpersons: true\b/, 'the Feed select no longer includes persons');
+  assert.match(source, /\n\s+persons: track\.persons\b/, 'the response no longer carries track persons');
+  assert.match(source, /\bpersons: track\.Feed\.persons\b/, 'the response Feed no longer carries feed persons');
+});
+
+test('the feed lookup BoostButton makes returns persons', () => {
+  const source = readFileSync(join(process.cwd(), 'app/api/feeds/[id]/route.ts'), 'utf8');
+  assert.match(source, /\bpersons: feed\.persons\b/, '/api/feeds/[id] no longer returns persons');
+});
+
+test('BoostButton names the persons from its lookups, not only from its prop', () => {
+  const source = readFileSync(join(process.cwd(), 'components/Lightning/BoostButton.tsx'), 'utf8');
+  assert.match(
+    source,
+    /collectPersonNpubs\(\s*persons,\s*trackData\?\.persons,\s*trackData\?\.Feed\?\.persons,\s*feedPersons\s*\)/,
+    'BoostButton no longer gathers persons from the track and feed lookups'
+  );
+  assert.match(source, /feedPersons = feedData\.persons/, 'BoostButton no longer keeps the feed lookup persons');
+});

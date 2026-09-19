@@ -35,7 +35,8 @@ export async function GET(
             originalUrl: true,
             image: true,
             v4vValue: true,
-            v4vRecipient: true
+            v4vRecipient: true,
+            persons: true
           }
         }
       }
@@ -68,6 +69,11 @@ export async function GET(
       guid: track.guid || null,
       v4vValue: track.v4vValue || track.Feed.v4vValue || null, // Include raw v4vValue for Lightning payments (fall back to feed-level)
       v4vRecipient: track.v4vRecipient || track.Feed.v4vRecipient || null,
+      // <podcast:person> / <podcast:txt> npubs, track-level here and feed-level
+      // on Feed below. BoostButton fetches this route for every track boost and
+      // turns both into the note's `p` tags and @mentions, so a caller that has
+      // no persons of its own still names the artist.
+      persons: track.persons || undefined,
       valueForValue: (() => {
         const v4v = (track.v4vValue || track.Feed.v4vValue) as any;
         if (!v4v) return null;
@@ -89,6 +95,7 @@ export async function GET(
         artist: track.Feed.artist,
         image: track.Feed.image,
         guid: track.Feed.guid,
+        persons: track.Feed.persons || undefined,
       }
     };
 
