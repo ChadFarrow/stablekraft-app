@@ -16,6 +16,7 @@ import {
   EMPTY_BASELINE,
   WHOLE_LIST_PRIVACY_MOVE,
   claimedByBaseline,
+  countNamedFavorites,
   parseBaseline,
   publishGate,
   publishPlan,
@@ -68,6 +69,15 @@ const halfWithTracks = (feedGuid: string, ...itemGuids: string[]) =>
     ['medium', 'music'],
     ['i', showId(feedGuid)],
     ...itemGuids.map((g) => ['i', itemId(g)]),
+  ]);
+
+/** A half holding items that NAME THEIR OWN FEED — the form every writer uses
+ *  since #256, and the one `halfWithTracks` does not produce. */
+const halfWithItems = (...pairs: [feedGuid: string, itemGuid: string][]) =>
+  parseSingleList([
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ...pairs.map(([feed, item]) => ['i', showId(feed), itemId(item)]),
   ]);
 
 // ---------------------------------------------------------------------------
@@ -712,6 +722,112 @@ test('an adopted foreign private entry is NOT republished as a public tag', () =
     plan.baseline.public.feeds,
     [],
     'and we do not claim an entry we did not publish'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The same guard, for an item that names its own feed
+// ---------------------------------------------------------------------------
+//
+// The test above is a FEED. An item in the three-element form is a node of its
+// own rather than a member of a group, and the guard counted only groups — so
+// from #256 on, it stopped every adopted feed and no adopted item. Every item
+// this app writes and every one Boost Me Bitch writes is in this form.
+
+const PRIVATE_TRACK = 'e1f2a3b4-0000-4000-8000-000000000011';
+const SHARED_TRACK = 'e1f2a3b4-0000-4000-8000-000000000012';
+
+test('an adopted foreign private ITEM is NOT republished as a public tag', () => {
+  const plan = publishPlan({
+    mode: 'public',
+    publicRead: EMPTY_PARSED,
+    privateRead: halfWithItems([FOREIGN, PRIVATE_TRACK]),
+    local: groupForSingleList([track(PRIVATE_TRACK, FOREIGN, 'music')]),
+    baseline: EMPTY_BASELINE,
+  });
+  assert.deepEqual(feedsOf(plan.tags), [], 'the encrypted item is not a plaintext tag');
+  assert.deepEqual(
+    feedsOf(plan.privateTags!),
+    [itemId(PRIVATE_TRACK)],
+    'it stays where its writer put it'
+  );
+  assert.deepEqual(plan.baseline.public.items, [], 'and we claim nothing we did not publish');
+  assert.equal(plan.carriedInOtherHalf, 1, 'and it is counted as carried, not missed');
+});
+
+test('an adopted private item is held back even under a different feed row here', () => {
+  // WHY THE GUARD MATCHES THE BARE GUID. The reconcile finds a track by its
+  // guid alone, so the row it adopts sits under whichever feed the DATABASE
+  // says — which need not be the feed the wire names. A guard keyed on the pair
+  // matches nothing then, and fails open.
+  const plan = publishPlan({
+    mode: 'public',
+    publicRead: EMPTY_PARSED,
+    privateRead: halfWithItems([FOREIGN, PRIVATE_TRACK]),
+    local: groupForSingleList([track(PRIVATE_TRACK, MUSIC_B, 'music')]),
+    baseline: EMPTY_BASELINE,
+  });
+  assert.deepEqual(feedsOf(plan.tags), []);
+});
+
+test('a mode switch still moves our own items that name their feed, across two cycles', () => {
+  // The control. Holding back everything in the other half would pass the two
+  // tests above and strand the user's own list on a switch: what this device
+  // CLAIMS there is removed by that half's merge first, so it is not carried
+  // and must still move.
+  const local = groupForSingleList([track(PRIVATE_TRACK, MUSIC_A, 'music')]);
+
+  const before = publishPlan({
+    mode: 'private',
+    publicRead: EMPTY_PARSED,
+    privateRead: EMPTY_PARSED,
+    local,
+    baseline: EMPTY_BASELINE,
+  });
+  assert.deepEqual(feedsOf(before.privateTags!), [itemId(PRIVATE_TRACK)]);
+  assert.deepEqual(before.baseline.private.items, [itemClaim(PRIVATE_TRACK, MUSIC_A)]);
+
+  const after = publishPlan({
+    mode: 'public',
+    publicRead: parseSingleList(before.tags),
+    privateRead: parseSingleList(before.privateTags!),
+    local,
+    baseline: before.baseline,
+  });
+  assert.deepEqual(feedsOf(after.tags), [itemId(PRIVATE_TRACK)], 'arrived in the public half');
+  assert.deepEqual(feedsOf(after.privateTags!), [], 'and left the private one');
+  assert.deepEqual(after.baseline.public.items, [itemClaim(PRIVATE_TRACK, MUSIC_A)]);
+  assert.deepEqual(after.baseline.private, { feeds: [], items: [] });
+
+  const settled = publishPlan({
+    mode: 'public',
+    publicRead: parseSingleList(after.tags),
+    privateRead: parseSingleList(after.privateTags!),
+    local,
+    baseline: after.baseline,
+  });
+  assert.deepEqual(settled.tags, after.tags, 'cycle 2 in the new mode is stable');
+  assert.deepEqual(settled.privateTags, after.privateTags);
+});
+
+test('items that name their feed are counted, and one in both halves is reported', () => {
+  // Present in the active half wins, so the shared item stays public — and is
+  // then in BOTH halves, which is the number the notice exists to show. Before
+  // the guard saw these items, both counts below read 0.
+  const plan = publishPlan({
+    mode: 'public',
+    publicRead: halfWithItems([MUSIC_A, SHARED_TRACK]),
+    privateRead: halfWithItems([MUSIC_A, SHARED_TRACK], [FOREIGN, PRIVATE_TRACK]),
+    local: groupForSingleList([track(SHARED_TRACK, MUSIC_A, 'music')]),
+    baseline: { ...EMPTY_BASELINE, public: { feeds: [], items: [itemClaim(SHARED_TRACK, MUSIC_A)] } },
+  });
+  assert.deepEqual(feedsOf(plan.tags), [itemId(SHARED_TRACK)], 'present in the active half wins');
+  assert.equal(plan.inBothHalves, 1, 'SHARED_TRACK is public and encrypted at once');
+  assert.equal(plan.carriedInOtherHalf, 1, 'PRIVATE_TRACK is encrypted only');
+  assert.equal(
+    countNamedFavorites(halfWithItems([MUSIC_A, SHARED_TRACK], [FOREIGN, PRIVATE_TRACK])),
+    2,
+    'the sentence on screen counts them too'
   );
 });
 
