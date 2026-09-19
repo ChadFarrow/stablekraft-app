@@ -26,7 +26,7 @@ breaks the whole job at once.
 
 | Step | Endpoint | Purpose |
 |---|---|---|
-| 1 | `GET /api/playlist-cache?refresh=all` | Refresh every playlist cache |
+| 1 | `GET /api/playlist-cache` | Auth probe: fails the job if `ADMIN_SECRET` doesn't match Railway's. Until 2026-09-19 this was `?refresh=all`, which refreshed nothing — see below |
 | 2 | `POST /api/admin/reparse-feeds?type=all&maxAgeHours=24&limit=5000` | Reparse all music feeds to pick up new tracks — runs **before** the playlist refresh, so new tracks exist by the time playlists resolve |
 | 2b | `POST /api/admin/feeds/{id}/reparse` | Per-feed reparse for the curated music podcasts (UpBeats, Two For Tunestr) — they're blacklisted from album view, so the bulk pass skips them |
 | 2c | `POST /api/admin/fix-stale-vts` | Repair value-time-split rows with empty remoteItem GUIDs left by pre-entity-fix parsing |
@@ -42,7 +42,16 @@ breaks the whole job at once.
 | 7 | `DELETE /api/admin/diagnostics?olderThanDays=30` | Prune old boost failures and client error reports |
 
 Steps 2 through 7 are all non-fatal — a failure logs a warning and the job continues. Only step 1
-exits non-zero.
+exits non-zero, which is why it exists: with a mismatched secret every later step would log a 401
+warning and the run would still go green.
+
+**Step 1 used to be `?refresh=all`, and it never did anything.** The route re-fetched
+`/api/playlist/<id>?refresh=true` (for iam, mmm, itdv, hgh) on its own origin. In production that
+fetch failed to connect — `"error": "fetch failed"` for all four, on every run checked (2026-09-17 to
+19) — and it sent no `Authorization` header, so it would have got 401 anyway. The route still
+answered 200 with `"success": true` at the top level, so the job printed ✅. It was also redundant:
+Step 3 and Step 6 refresh all twelve playlists, and Step 1 ran before Step 2's reparse. The refresh
+branch is gone; `?refresh` on `/api/playlist-cache` now answers 410 and names the right call.
 
 ## The playlist roster
 
@@ -69,14 +78,7 @@ curl -H "Authorization: Bearer $ADMIN_SECRET" \
 `?refresh=true` is gated by `middleware.ts` — public reads of `/api/playlist/*` stay open, but the
 expensive refresh variant requires the bearer token.
 
-All caches at once:
-
-```bash
-curl -H "Authorization: Bearer $ADMIN_SECRET" \
-  "https://stablekraft.app/api/playlist-cache?refresh=all"
-```
-
-Or re-run the whole job from the Actions tab via **Run workflow** (`workflow_dispatch`).
+All of them: loop over the `PLAYLISTS` array above with the same call, or re-run the whole job from the Actions tab via **Run workflow** (`workflow_dispatch`).
 
 ## The other scheduled jobs
 

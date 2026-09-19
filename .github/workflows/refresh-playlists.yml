@@ -16,23 +16,26 @@ jobs:
         echo "🔄 Refreshing all playlists..."
         BASE_URL="${BASE_URL:-https://stablekraft.app}"
         
-        # Step 1: Refresh playlist cache
-        echo "📋 Step 1: Refreshing playlist cache..."
-        REFRESH_RESPONSE=$(curl -s -w "\n%{http_code}" -H "$AUTH_HEADER" "${BASE_URL}/api/playlist-cache?refresh=all")
-        HTTP_CODE=$(echo "$REFRESH_RESPONSE" | tail -n1)
-        RESPONSE_BODY=$(echo "$REFRESH_RESPONSE" | sed '$d')
-        
+        # Step 1: Check the admin secret before anything else.
+        # This is the job's only fatal step, and that is its whole purpose: every later
+        # step is non-fatal, so with a mismatched ADMIN_SECRET they would each log a 401
+        # warning and the run would still go green. /api/playlist-cache is fully gated
+        # and a plain GET only returns cache stats, so it is a cheap auth probe.
+        #
+        # It used to be `?refresh=all`, which never refreshed anything: the route
+        # re-fetched /api/playlist/<id>?refresh=true on its own origin, the connection
+        # failed ("fetch failed" for all four playlists on every run checked), and it sent no
+        # secret, so it would have got 401 anyway. It was also redundant — Step 3 and
+        # Step 6 refresh all twelve playlists — and ran before Step 2's reparse.
+        echo "📋 Step 1: Checking admin auth..."
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH_HEADER" "${BASE_URL}/api/playlist-cache") || HTTP_CODE=000
+
         if [ "$HTTP_CODE" -eq 200 ]; then
-          echo "✅ Playlist cache refreshed successfully"
-          echo "$RESPONSE_BODY" | jq '.' || echo "$RESPONSE_BODY"
+          echo "✅ Admin auth OK"
         else
-          echo "❌ Failed to refresh playlist cache (HTTP $HTTP_CODE)"
-          echo "$RESPONSE_BODY"
+          echo "❌ Admin auth check failed (HTTP $HTTP_CODE) — is the ADMIN_SECRET secret the same as Railway's?"
           exit 1
         fi
-        
-        # Wait a bit for cache to settle
-        sleep 5
 
         # Playlist names used throughout
         PLAYLISTS=("hgh" "mmt" "sas" "mmm" "iam" "itdv" "b4ts" "upbeats" "flowgnar" "lt" "tft" "greatest-hits")
