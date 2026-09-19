@@ -7,6 +7,7 @@ import { validateDuration } from '@/lib/duration-validation';
 import type { RemoteItem, ResolvedTrack, EpisodeGroup, PlaylistConfig, GroupedItems } from './types';
 import type { V4VValue } from '@/lib/v4v-utils';
 import { generateEpisodeId } from './parser';
+import { playlistTrackFromRow } from './db-track';
 import { decodeHtmlEntities } from '@/lib/decode-entities';
 
 /** Check if a URL looks like an actual image (not just a bare domain) */
@@ -273,6 +274,8 @@ export async function getPlaylistFromDatabase(config: PlaylistConfig): Promise<{
                 Feed: {
                   select: {
                     id: true,
+                    // The track's real feed guid — see ./db-track.ts.
+                    guid: true,
                     title: true,
                     artist: true,
                     image: true
@@ -291,42 +294,9 @@ export async function getPlaylistFromDatabase(config: PlaylistConfig): Promise<{
 
     console.log(`⚡ [${config.shortName}] Using database playlist (${dbPlaylist.SystemPlaylistTrack.length} tracks)`);
 
-    // Transform to expected response format
-    // Use stored episodeTitle if available, fall back to converting episodeId
-    const episodeIdToTitle = (epId: string | null): string => {
-      if (!epId) return '';
-      return epId.replace('ep-', '').replace(/-/g, ' ');
-    };
-
-    const tracks = dbPlaylist.SystemPlaylistTrack.map((pt, index) => {
-      const title = pt.episodeTitle || episodeIdToTitle(pt.episodeId);
-      return {
-        id: pt.Track.id,
-        title: pt.Track.title,
-        artist: pt.Track.artist || pt.Track.Feed?.artist || 'Unknown Artist',
-        album: pt.Track.album || pt.Track.Feed?.title || 'Unknown Album',
-        audioUrl: pt.Track.audioUrl,
-        duration: pt.Track.duration || 0,
-        image: pt.Track.image || pt.Track.Feed?.image,
-        publishedAt: pt.Track.publishedAt?.toISOString(),
-        v4vRecipient: pt.Track.v4vRecipient,
-        v4vValue: pt.Track.v4vValue,
-        chaptersUrl: (pt.Track as any).chaptersUrl || undefined,
-        chapters: (pt.Track as any).chapters || undefined,
-        valueTimeSplits: (pt.Track as any).valueTimeSplits || undefined,
-        feedGuid: pt.Track.guid,
-        itemGuid: pt.Track.guid,
-        guid: pt.Track.guid,
-        index,
-        episodeId: pt.episodeId,
-        episodeTitle: title,
-        playlistContext: {
-          episodeTitle: title,
-          itemGuid: pt.Track.guid,
-          position: pt.position
-        }
-      };
-    });
+    // Transform to expected response format. The mapping lives in ./db-track.ts
+    // so it can be tested without a database.
+    const tracks = dbPlaylist.SystemPlaylistTrack.map(playlistTrackFromRow);
 
     // Build episode groups from database data using O(n) pre-indexing
     const tracksByEpisode = new Map<string, typeof tracks>();
