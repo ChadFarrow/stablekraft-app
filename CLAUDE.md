@@ -139,8 +139,11 @@ line holds the full story.
   is billed as egress on that project — ~65 GB (~$3.25) for Aug 19 → Sep 19 2026, more than the app's own egress,
   and invisible on the StableKraft card. A move into this project was prepared and **declined on 2026-09-19**: the
   saving did not justify touching a working production database. Do not re-propose it. To cut that traffic, change
-  what the app READS — it pulls 1–4 GB/day from a 129 MB database, most likely `albums-fast` rescanning the whole
-  catalog every 15 minutes. It is also why `railway run --service StableKraft` works from a laptop: the app's
+  what the app READS — it pulled 1–4 GB/day from a 129 MB database, mostly `albums-fast` re-reading the whole
+  catalog (~20 MB: Prisma's per-feed `take` is applied AFTER the read) every 15 minutes although the rows had
+  changed in ~3% of those windows. It now re-reads only when a Postgres-side md5 of the rows changes
+  (`lib/caches/fingerprinted-cache.ts`); count its `[albums-fast-cache] … rebuilt` warnings to see how often
+  that is. It is also why `railway run --service StableKraft` works from a laptop: the app's
   `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
   `railway run` command.
 - **Railway does not run migrations on deploy.** The Dockerfile has no `prisma migrate deploy`, so after merging a
