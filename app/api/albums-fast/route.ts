@@ -7,10 +7,12 @@ import { prisma } from '@/lib/prisma';
 import { getPlaylistUrls, getAllPlaylistIds } from '@/lib/playlist/configs';
 import { getBlacklistedFeedIds, BLACKLISTED_FEED_URLS, isBowlAfterBowlPodcastEntry, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
 import {
-  CACHE_DURATION,
   PLAYLIST_CACHE_DURATION,
-  getAlbumsFastCache,
+  albumsFastCatalog,
+  albumsFastPodcasts,
+  getAlbumsFastPlaylistCache,
   invalidateAlbumsFastCache,
+  type CachedData,
   type FeedWithTracks,
 } from '@/lib/caches/albums-fast-cache';
 
@@ -20,7 +22,7 @@ const ALBUM_TRACK_LIMIT = 20;
 /** Enough newest episodes to render a podcast card. The detail page fetches the rest. */
 const PODCAST_EPISODE_LIMIT = 20;
 
-const cache = getAlbumsFastCache();
+const cache = getAlbumsFastPlaylistCache();
 
 // publisher-stats.json is baked into the build (public/), so parse it once per
 // process instead of hitting the filesystem on every DB-cache miss.
@@ -123,6 +125,28 @@ async function getPlaylistAlbums() {
  */
 const limiter = createRouteLimiter(120);
 
+/**
+ * The full catalog read behind `albumsFastCatalog`: every active feed, sorted as
+ * the grid wants it, with up to ALBUM_TRACK_LIMIT tracks each. Filtering, sorting
+ * and pagination all happen in JavaScript on this one cached result, so the query
+ * never varies with the request.
+ */
+async function loadCatalog(): Promise<CachedData> {
+  const feeds = await prisma.feed.findMany({
+    where: { status: 'active', markedDead: false },
+    // Shared shape — this select was written out twice in this file and a
+    // third time in /api/feeds/recent. See lib/catalog/album-shape.ts.
+    select: albumFeedSelect(ALBUM_TRACK_LIMIT),
+    orderBy: [
+      { priority: 'asc' },
+      { createdAt: 'desc' }
+    ]
+  }) as FeedWithTracks[];
+  // Publisher stats come from the pre-built publisher data file: actual
+  // publisher feeds (podcast:publisher references), not individual albums.
+  return { feeds, publisherStats: loadPublisherStats() };
+}
+
 export async function GET(request: Request) {
   const limited = enforceRateLimit(limiter, request.headers, 'albums-fast');
   if (limited) return limited;
@@ -159,7 +183,6 @@ export async function GET(request: Request) {
     }
     
     const now = Date.now();
-    const shouldRefreshCache = !cache.data || (now - cache.timestamp) > CACHE_DURATION;
 
     // Started HERE, awaited far below. It is independent of the feed load, but
     // it used to be awaited after it — so on a cache miss the two round-trips
@@ -177,73 +200,13 @@ export async function GET(request: Request) {
     // takes it. Standard idiom for a deliberately-early-started promise.
     msoPublishersPromise.catch(() => {});
 
-    let feeds: FeedWithTracks[];
-    let publisherStats: Array<{ name: string; albumCount: number }>;
-    
-    if (shouldRefreshCache) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Fetching albums from database...');
-      }
-      
-      // Load all feeds to maintain global sort order
-      // Pagination happens after sorting, not at the database level
-      
-      try {
-        // Fetch feeds with minimal track data (optimized select)
-        feeds = await prisma.feed.findMany({
-          where: { status: 'active', markedDead: false },
-          // Shared shape — this select was written out twice in this file and a
-          // third time in /api/feeds/recent. See lib/catalog/album-shape.ts.
-          select: albumFeedSelect(ALBUM_TRACK_LIMIT),
-          orderBy: [
-            { priority: 'asc' },
-            { createdAt: 'desc' }
-          ]
-        }) as FeedWithTracks[];
-      } catch (queryError) {
-        console.error('❌ Database query error:', queryError);
-        // Return cached data if available, or empty result
-        if (cache.data && cache.data.feeds.length > 0) {
-          console.log('⚠️ Using cached data due to query error');
-          feeds = cache.data.feeds;
-          publisherStats = cache.data.publisherStats;
-        } else {
-          throw new Error(`Failed to load feeds: ${queryError instanceof Error ? queryError.message : 'Unknown error'}`);
-        }
-      }
-      
-      // Load publisher stats from the pre-built publisher data file
-      // This contains actual publisher feeds (podcast:publisher references) not individual albums
-      publisherStats = loadPublisherStats();
-      
-      // Cache unconditionally.
-      //
-      // This used to be gated on `filter === 'all' && offset === 0 && limit >= 50`,
-      // with a comment about not caching "filtered or paginated results". But
-      // the query above does not vary: it is the same
-      // `where: { status: 'active', markedDead: false }` with no skip and no
-      // take for every request — filtering, sorting and pagination all happen
-      // in JavaScript further down. So the rows being cached are identical
-      // whatever the query string said.
-      //
-      // The gate's real effect was that a cold process whose first request was
-      // `?filter=podcasts` or `?offset=50` ran the full scan and cached
-      // nothing, so the next request ran it again.
-      cache.data = { feeds, publisherStats };
-      cache.timestamp = now;
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ Loaded and cached ${feeds.length} albums from database`);
-      }
-    } else {
-      // Use cached data - no need for count query since cache has all feeds
-      // Use cached data - cache contains all feeds, so we can slice after sorting
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⚡ Using cached database results (${cache.data!.feeds.length} feeds)`);
-      }
-      feeds = cache.data!.feeds; // Cache contains all feeds, sorted correctly
-      publisherStats = cache.data!.publisherStats;
-    }
-    
+    // Served from memory; Postgres is asked only for a fingerprint every 15 minutes,
+    // and re-read in full only when that changes (or every 6 hours). See
+    // lib/caches/fingerprinted-cache.ts for why — this rebuild was most of the
+    // database's billed egress. Concurrent requests share one load.
+    const { feeds, publisherStats } = await albumsFastCatalog.get(loadCatalog);
+    const catalogBuiltAt = albumsFastCatalog.builtAt();
+
     // Transform feeds into album format for frontend.
     // API contract for sort/display: releaseDate = album release (oldest track date when available); dateAdded = when feed was added to site.
     // Run POST /api/admin/backfill-oldest-pubdate to backfill oldestItemPubdate so "Year" sort uses real release dates.
@@ -385,18 +348,25 @@ export async function GET(request: Request) {
           filteredAlbums = [];
           break;
         case 'podcasts': {
-          // Show all podcast-type feeds (type='podcast' in DB)
-          const podcastFeeds = await prisma.feed.findMany({
+          // Show all podcast-type feeds (type='podcast' in DB). Cached like the
+          // catalog: this ran a query on EVERY request, reading ~1,060 episodes
+          // to return ~217 (Prisma trims to `take` after the read — see below).
+          const podcastFeeds = await albumsFastPodcasts.get(() => prisma.feed.findMany({
             where: {
               status: 'active',
               type: 'podcast',
               markedDead: false,
             },
-            // Bounded, and ordered in the DATABASE. This select used to omit
-            // `take` entirely, so it loaded every episode of every podcast —
-            // with `chapters` and `valueTimeSplits` attached — and then sorted
-            // them newest-first in JavaScript. An 800-episode show returned 800
-            // heavy rows to render one card.
+            // Ordered in the database, bounded in the response. This select
+            // used to omit `take` entirely, so it returned every episode of
+            // every podcast — with `chapters` and `valueTimeSplits` attached —
+            // and then sorted them newest-first in JavaScript. An 800-episode
+            // show returned 800 heavy rows to render one card.
+            //
+            // `take` does NOT bound the database read, though: Prisma's query
+            // log shows the Track query with no LIMIT, and the engine trims to
+            // `take` per feed after reading every row (2026-09-19: 1,060 read,
+            // 217 returned). That is why this result is cached above.
             //
             // `order: 'newest'` is required, not cosmetic: taking N rows in the
             // default order would give the N OLDEST episodes, and the JS sort
@@ -405,7 +375,7 @@ export async function GET(request: Request) {
             // The card only needs enough episodes to render; the full list
             // comes from /api/albums/[id], which the podcast detail page uses.
             select: albumFeedSelect(PODCAST_EPISODE_LIMIT, { order: 'newest' }),
-          });
+          }) as Promise<FeedWithTracks[]>);
           filteredAlbums = podcastFeeds.map((feed) => ({
             // Same shared mapper. The sort is done by the database now, so
             // `newestFirst` is no longer needed here. Podcasts default to type
@@ -526,8 +496,8 @@ export async function GET(request: Request) {
         limit,
         filter,
         sort,
-        cached: !shouldRefreshCache,
-        cacheAge: now - cache.timestamp,
+        cached: catalogBuiltAt < now, // loaded before this request arrived
+        cacheAge: now - catalogBuiltAt,
         source: 'database',
         formatCounts: filter === 'all' ? formatCounts : undefined
       }

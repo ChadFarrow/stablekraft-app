@@ -135,6 +135,13 @@ export const ALBUM_FEED_SCALAR_SELECT = {
  * loaded EVERY episode of every podcast — `chapters` and `valueTimeSplits`
  * attached — and then re-sorted them in JavaScript. An omission reads like an
  * oversight; the word does not, and it is greppable.
+ *
+ * A number bounds what Prisma RETURNS, not what Postgres SENDS. On a `findMany`
+ * over many feeds, the Track query goes out with no LIMIT and the engine trims to
+ * `take` per feed afterwards (query log, 2026-09-19: the catalog read fetches all
+ * 13,797 tracks of the active feeds to keep 11,645). So `take` saves memory and
+ * response size; it does not save database egress. Cache the result instead —
+ * see lib/caches/fingerprinted-cache.ts.
  */
 export type TrackTake = number | 'unbounded';
 
