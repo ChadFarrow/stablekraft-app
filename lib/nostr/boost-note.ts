@@ -121,6 +121,31 @@ export function boostNotifiedPubkeys(
 }
 
 /**
+ * The `npub` of every person across several `persons` lists, in order.
+ *
+ * A boost gathers persons from up to four places: the caller's prop, and the
+ * track, its feed, and the feed alone as returned by `/api/music-tracks/[id]`
+ * and `/api/feeds/[id]`. Only five of fourteen call sites pass the prop, so
+ * the lookups are what name the artist from a playlist, the favorites page,
+ * the now-playing bar or a track card. The lookups are untyped JSON, so every
+ * list is `unknown` here: anything that is not an array of objects carrying a
+ * string `npub` contributes nothing, rather than throwing mid-boost after the
+ * payment has already gone out. Validation and dedup stay with
+ * `boostNotifiedPubkeys`, which decodes what this collects.
+ */
+export function collectPersonNpubs(...lists: unknown[]): string[] {
+  const npubs: string[] = [];
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const person of list) {
+      const npub = (person as { npub?: unknown } | null)?.npub;
+      if (typeof npub === 'string') npubs.push(npub);
+    }
+  }
+  return npubs;
+}
+
+/**
  * NIP-89 attribution, the bare two-element form.
  *
  * No kind:31990 handler address in position 2: this app publishes no handler

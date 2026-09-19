@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { APP_NAME } from '@/lib/constants';
-import { boostNotifiedPubkeys, clientTag, podcastIdentifierTags } from '@/lib/nostr/boost-note';
+import { boostNotifiedPubkeys, clientTag, collectPersonNpubs, podcastIdentifierTags } from '@/lib/nostr/boost-note';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
@@ -516,6 +516,8 @@ export function BoostButton({
             console.log(`🔗 Signing boost event with ${signerType || 'unified'} signer...`);
             
             let trackData: any = null;
+            // Feed-level persons from /api/feeds/[id], for a boost with no track.
+            let feedPersons: unknown = null;
             let finalTrackTitle = trackTitle || albumName || 'track';
             let finalArtistName = artistName || '';
             let finalFeedId = feedId || '';
@@ -562,15 +564,19 @@ export function BoostButton({
               }
             }
 
-            // Always try feed API as fallback to get missing data (image, album name, guid)
-            if ((!trackImage || !actualAlbumName) && finalFeedId) {
+            // Always try feed API as fallback to get missing data (image, album name, guid).
+            // Also when nothing has supplied the feed's persons yet: the track lookup
+            // carries them, but an album boost has no track, and most callers pass none.
+            const havePersons = !!trackData || persons.some(p => p?.npub);
+            if ((!trackImage || !actualAlbumName || !havePersons) && finalFeedId) {
               try {
                 const feedResponse = await fetch(`/api/feeds/${finalFeedId}`);
                 if (feedResponse.ok) {
                   const feedResult = await feedResponse.json();
                   if (feedResult.success && feedResult.data) {
                     const feedData = feedResult.data;
-                    
+                    feedPersons = feedData.persons;
+
                     // Set image if not available
                     if (!trackImage) {
                       trackImage = feedData.image || null;
@@ -630,14 +636,15 @@ export function BoostButton({
             // For the 'r' tag, we'll use the URL with track parameter (no anchor needed)
             const urlWithAnchor = url;
             
-            // Everyone the note names: the feed's <podcast:person>/<podcast:txt>
-            // npubs, then the split recipients' pubkeys (resolved from their Lightning
-            // Addresses). Each becomes both an @mention in the text and a `p` tag —
-            // one list, so an artist can't be tagged yet invisible in the body.
+            // Everyone the note names: the <podcast:person>/<podcast:txt> npubs —
+            // from the caller, the track, its feed, or the feed alone — then the split
+            // recipients' pubkeys (resolved from their Lightning Addresses). Each
+            // becomes both an @mention in the text and a `p` tag — one list, so an
+            // artist can't be tagged yet invisible in the body.
             const { nip19 } = await import('nostr-tools');
             const notifiedPubkeys = boostNotifiedPubkeys(
               musicianPubkeysForNostr.map(p => p.pubkey),
-              persons.map(p => p?.npub),
+              collectPersonNpubs(persons, trackData?.persons, trackData?.Feed?.persons, feedPersons),
               (npub) => {
                 try {
                   const decoded = nip19.decode(npub);
