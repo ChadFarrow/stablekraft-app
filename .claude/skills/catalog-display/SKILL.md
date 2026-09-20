@@ -142,5 +142,56 @@ The newer `<podcast:image>` tag ([spec](https://podcasting2.org/docs/podcast-nam
 
 ---
 
+## Artwork size — four render paths, and three things that do not do what they say
+
+Measured 2026-09-20 while building Data Saver. None of this is broken; all of it is expensive, and the
+misleading parts are the reason nobody had added it up.
+
+**How big it actually is.** Forty real catalog covers, through `AlbumCard`'s own resolution path:
+a typical Wavlake cover is **2.0 MB at 1400x1400**, drawn in a 160-300px box. Through the optimizer at
+`w=256&q=50` the same file is **5.5 KB** of AVIF. Across the 34 that Next can resize: 21,078 KB → 134 KB.
+
+**There are FOUR artwork paths**, and a change to one reaches none of the others:
+`components/AlbumCard.tsx` (its own `next/image`), `components/CDNImage.tsx` (+ `CDNImageLazy`),
+`components/ArtworkImage.tsx`, and **33 raw `<img>` tags** across 20 files (`AdminPanel` alone has 7).
+Anything about artwork size belongs in `artworkPlan()` (`lib/data-saver.ts`). The first three ask it; the raw
+`<img>` tags do **not**, so they are unaffected by Data Saver and still ship the full original — including
+hot ones like `NowPlayingBar` (a 64px box), `NowPlayingScreen`, and `PlaylistTemplateCompact`'s 32px/48px
+track rows, where a 200-track playlist requests 200 full-size files. Known gap, not an oversight.
+
+**`AlbumCard` cancels its own sizing.** It sets `width={300}`, `height={300}`, `loading="lazy"` and a correct
+`sizes`, then adds `unoptimized` — so Next never resizes and every one of those hints is dead. `271a6ba8`
+added the flag **deliberately**, to fix artwork that looked blurry. It is lifted only under Data Saver, which
+is the user electing to take the softer image. The same hardcoded flag is at `app/favorites/page.tsx` (a 40px
+avatar) and `app/publisher/[id]/PublisherDetailClient.tsx`.
+
+**Phones get no optimization at all.** `CDNImage` branches on `isMobile` and renders a plain `<img>` instead of
+`next/image` — the audience most likely to be on mobile data is the one that bypasses the optimizer.
+
+Three things that read as if they shrink an image and do not:
+
+- **`getAlbumArtworkUrl(url, size, …)` ignores `size` for real artwork** (`lib/cdn-utils.ts`). It picks a
+  placeholder when the URL is missing, and otherwise returns the URL unchanged. **35 call sites** ask for
+  `'thumbnail'` or `'medium'` — including 32px and 48px track rows in `PlaylistTemplateCompact` — and every one
+  gets the full original. Known, not fixed.
+- **`/api/proxy-image` never downsizes.** It streams the upstream bytes through. Its only `sharp` path is
+  `enhance=true&minWidth=1920&minHeight=1080`, which **upscales** and re-encodes at JPEG q95, so it routinely
+  returns *more* bytes than the original. That is the page backdrop — a second copy of the cover already on
+  screen, which CSS then blurs by 4px. Data Saver drops it by passing `null` to
+  `buildPageBackgroundStyle`, an already-supported state that cannot reopen #201.
+- **`/api/gif-placeholder` cannot help the covers that need it.** It answers **413** above the 12 MB cap in
+  `lib/safe-fetch.ts`, and both animated covers in the catalog are over it — `autumn.gif` is **21.0 MB** and
+  `the satellite skirmish mku.gif` is **18.7 MB**. Worse, `CDNImage` fetches the still frame **and then the
+  full animation anyway**, so outside Data Saver the placeholder has never saved a byte, only latency.
+  Pre-converted `.mp4`/`.webm` for both exist in `data/optimized-images/` (`the-satellite-skirmish-mku.mp4`
+  is 226 KB; `autumn.mp4` is 2.1 MB) and
+  `GIF_TO_VIDEO_MAP` in `CDNImage` uses them — but `AlbumCard` renders an `<img>` and cannot. So an animated
+  cover on the grid still ships whole, in either mode. Open.
+
+**`/api/optimized-images/[filename]` does not resize either.** It serves the pre-baked file with a content
+type; the `?w=&h=&q=&f=webp` parameters `CDNImage` builds for it are ignored.
+
+---
+
 ## Episode/Play Count Markers
 `<podcast:txt purpose="episode">` or `<podcast:txt purpose="playcount">` in XML. Parser decodes XML entities via `decodeXmlEntities()` in `lib/playlist/parser.ts`. Original titles stored in `SystemPlaylistTrack.episodeTitle` — do NOT reverse-engineer from episode IDs (lossy). Refresh: `curl https://stablekraft.app/api/playlist/[id]?refresh`
