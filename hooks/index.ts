@@ -6,6 +6,7 @@ export { useLocalStorage, useCachedStorage, usePreferences } from './useLocalSto
 export { useDebounce, useDebouncedCallback, useDebouncedSearch } from './useDebounce';
 export { useAutoSyncFavorites } from './useAutoSyncFavorites';
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
+export { useDataSaver } from './useDataSaver';
 
 // Type exports
 export type { AudioTrack, AudioPlayerState, AudioPlayerActions } from './useAudioPlayer';
@@ -38,4 +39,7 @@ export type { ImageLoaderState, ImageLoaderOptions } from './useImageLoader';
  *
  * Accessibility:
  * - useKeyboardShortcuts: Global keyboard shortcuts for playback controls
+ *
+ * Bandwidth:
+ * - useDataSaver: whether the user has asked for the low-bandwidth mode
  */

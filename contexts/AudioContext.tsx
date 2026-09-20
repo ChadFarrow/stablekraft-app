@@ -37,6 +37,7 @@ import {
   resolveResumePosition,
   isSessionFresh,
 } from '@/lib/playback-state';
+import { isDataSaverOn, fallbackArtworkSrc } from '@/lib/data-saver';
 
 // How often the "resume where you left off" position record may be rewritten.
 // The exact second is best-effort; the point of the feature is coming back to
@@ -258,6 +259,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [albums, setAlbums] = useState<RSSAlbum[]>([]);
+  /**
+   * `albums` as a ref, because `shuffleAllTracks` needs to read it AFTER an
+   * await. That function is recreated each render and captures `albums` at call
+   * time, so a load finishing while it waits is invisible to it — the old wait
+   * loop re-read a `const` and could only ever escape via `albumsLoadedRef`.
+   */
+  const albumsRef = useRef<RSSAlbum[]>([]);
+  /** Set by the mount effect so shuffle can START a load, not merely wait for one. */
+  const loadAlbumsRef = useRef<((retryCount?: number) => Promise<void>) | null>(null);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   // Video mode state
@@ -1607,6 +1617,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   const savePositionRef = useRef(savePosition);
   useEffect(() => { savePositionRef.current = savePosition; });
   useEffect(() => { currentPlayingAlbumRef.current = currentPlayingAlbum; });
+  useEffect(() => { albumsRef.current = albums; }, [albums]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || radioMode || !currentPlayingAlbum) return;
@@ -1679,6 +1690,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           const data = await response.json();
           if (data && Array.isArray(data.albums)) {
             setAlbums(data.albums);
+            albumsRef.current = data.albums; // readable before React re-renders
             albumsLoadedRef.current = true; // Only mark as loaded after success
             // Only log in development mode
             if (process.env.NODE_ENV === 'development') {
@@ -1723,6 +1735,21 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         // Don't throw - allow the app to continue without albums
       }
     };
+
+    loadAlbumsRef.current = loadAlbums;
+
+    /**
+     * Data Saver does not pull the whole catalogue on mount.
+     *
+     * This request is `/api/albums?limit=0` — every column of every track of up
+     * to 500 feeds, with no per-feed cap, no server cache and no gzip — and
+     * AudioProvider wraps the root layout, so it runs on EVERY page. The only
+     * thing that consumes it is the shuffle pool, which most sessions never
+     * touch. `shuffleAllTracks` now starts it on demand instead.
+     */
+    if (isDataSaverOn()) {
+      return;
+    }
 
     loadAlbums(0);
   }, []); // Run only once on mount
@@ -2444,6 +2471,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   // alive), so the following track is always ready before its boundary.
   useEffect(() => {
     if (!isAndroidRef.current) return;
+    /**
+     * Data Saver moves this to the 15s mark (see the timeupdate handler).
+     *
+     * Running it here means the ENTIRE next track is downloading for the whole
+     * duration of the one you are listening to — on a weak link the two
+     * compete, and the track playing is the one that stutters. It is delayed
+     * rather than dropped because it is what keeps a locked-screen Android
+     * handoff gapless; see the comment on prefetchBlobForTrack above.
+     */
+    if (isDataSaverOn()) return;
     const upcoming = getUpcomingTrack();
     if (upcoming) {
       prefetchBlobForTrack(upcoming);
@@ -2787,7 +2824,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
             // At 15s: Preload next track audio via hidden Audio element
             // This populates the browser's HTTP cache so load() in handleEnded is instant
-            if (!preloadAudioRef.current || preloadAudioRef.current.src !== secureNextUrl) {
+            //
+            // Data Saver takes the other branch. It skips this warm-up entirely
+            // — a hidden element with preload="auto" AND a fetch() of the same
+            // bytes, so the file is pulled twice over — and on Android runs the
+            // blob prefetch that normally starts at track start instead. The
+            // locked-screen handoff still gets its bytes; it gets them once, and
+            // 15 seconds before the boundary rather than three minutes.
+            if (isDataSaverOn()) {
+              if (isAndroidRef.current) {
+                prefetchBlobForTrack(nextTrack);
+              }
+            } else if (!preloadAudioRef.current || preloadAudioRef.current.src !== secureNextUrl) {
               console.log('🔄 Preloading next track audio into browser cache:', nextTrack.title);
               if (preloadAudioRef.current) {
                 preloadAudioRef.current.removeAttribute('src');
@@ -3257,7 +3305,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Helper function to proxy external image URLs for media session
   const getProxiedMediaImageUrl = (imageUrl: string): string => {
-    if (!imageUrl) return '/stablekraft-rocket.png';
+    // 1.60 MB for a lock-screen thumbnail the OS scales to a few hundred
+    // pixels. /album-placeholder-thumbnail.png is 12 KB and exists for this.
+    if (!imageUrl) return fallbackArtworkSrc(isDataSaverOn(), '/stablekraft-rocket.png');
 
     // If it's already a local/proxied URL, return as-is
     if (imageUrl.startsWith('/') || imageUrl.includes('/api/proxy-image')) {
@@ -3273,7 +3323,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     if ('mediaSession' in navigator && navigator.mediaSession && !isNativeAndroid()) {
       try {
         // Ensure we have valid artwork URL - prefer track image, then album cover
-        let originalArtworkUrl = track.image || album.coverArt || '/stablekraft-rocket.png';
+        let originalArtworkUrl = track.image || album.coverArt || fallbackArtworkSrc(isDataSaverOn(), '/stablekraft-rocket.png');
 
         // Proxy external URLs to avoid CORS issues
         let artworkUrl = getProxiedMediaImageUrl(originalArtworkUrl);
@@ -3352,7 +3402,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     // Native Android: push the same now-playing data to the lock-screen MediaSession.
     if (isNativeAndroid()) {
       try {
-        const originalArtworkUrl = track.image || album.coverArt || '/stablekraft-rocket.png';
+        const originalArtworkUrl = track.image || album.coverArt || fallbackArtworkSrc(isDataSaverOn(), '/stablekraft-rocket.png');
         let artworkUrl = getProxiedMediaImageUrl(originalArtworkUrl);
         if (artworkUrl.startsWith('/')) {
           const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://stablekraft.app';
@@ -3716,21 +3766,41 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
   // Shuffle all tracks function
   const shuffleAllTracks = async (): Promise<boolean> => {
-    // Wait for albums to load if they haven't yet (race condition fix)
-    if (albums.length === 0) {
-      // Check if albums are still loading (ref not set yet means loading in progress)
-      if (!albumsLoadedRef.current) {
+    /**
+     * Resolve the shuffle pool from the REF, never from `albums`.
+     *
+     * This function is recreated on each render and captures `albums` by value,
+     * so anything loaded while we await below is invisible to the closure. The
+     * wait loop this replaces re-read that same captured const and could only
+     * escape through `albumsLoadedRef`; the check after it then read the stale
+     * value again and refused a shuffle whose data had in fact just arrived.
+     * That is why RadioClient has to call this twice.
+     */
+    let pool = albumsRef.current;
+
+    if (pool.length === 0) {
+      /**
+       * START the load, do not merely wait for one. Under Data Saver the mount
+       * effect deliberately does not fetch the catalogue, so waiting alone is a
+       * five-second pause followed by a refusal — nobody is loading anything.
+       */
+      if (!albumsLoadedRef.current && loadAlbumsRef.current) {
+        console.log('⏳ Loading albums for shuffle...');
+        await loadAlbumsRef.current(0);
+        pool = albumsRef.current;
+      }
+
+      // Still empty: a load started elsewhere is in flight. Wait for it.
+      if (pool.length === 0) {
         console.log('⏳ Waiting for albums to load before shuffle...');
-        // Wait up to 5 seconds for albums to load
         for (let i = 0; i < 50; i++) {
           await new Promise(resolve => setTimeout(resolve, 100));
-          if (albums.length > 0 || albumsLoadedRef.current) {
-            break;
-          }
+          pool = albumsRef.current;
+          if (pool.length > 0) break;
         }
       }
-      // Check again after waiting
-      if (albums.length === 0) {
+
+      if (pool.length === 0) {
         console.warn('No albums available for shuffle after waiting');
         return false;
       }
@@ -3757,7 +3827,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     let skippedTracks = 0;
     let includedAlbums = 0;
 
-    albums.forEach(album => {
+    pool.forEach(album => {
       // Skip playlist albums from global shuffle (playlists have feedId ending with '-playlist')
       if (album.feedId?.endsWith('-playlist')) {
         skippedPlaylists++;

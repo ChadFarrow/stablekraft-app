@@ -6,6 +6,7 @@ import { useAudio, useAudioTime } from '@/contexts/AudioContext';
 import { SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { adjustColorBrightness, ensureGoodContrast } from '@/lib/color-utils';
 import { generateAlbumHref } from '@/lib/url-utils';
+import { isDataSaverOn, fallbackArtworkSrc } from '@/lib/data-saver';
 
 export default function RadioPlayer() {
   const {
@@ -48,7 +49,7 @@ export default function RadioPlayer() {
   const originalImageUrl = currentTrack?.image || currentPlayingAlbum?.coverArt || '';
   const albumArt = originalImageUrl
     ? getProxiedImageUrl(originalImageUrl)
-    : '/stablekraft-rocket.png';
+    : fallbackArtworkSrc(isDataSaverOn(), '/stablekraft-rocket.png');
 
   // Check if title overflows
   useEffect(() => {
