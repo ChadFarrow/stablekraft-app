@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import SettingsLayout from '@/components/Settings/SettingsLayout';
 import NostrSettings from '@/components/Settings/NostrSettings';
 import UserSettings from '@/components/Settings/UserSettings';
-import DataSaverSettings from '@/components/Settings/DataSaverSettings';
+import DataSettings from '@/components/Settings/DataSettings';
 import DangerSettings from '@/components/Settings/DangerSettings';
 import AppLayout from '@/components/AppLayout';
 
@@ -44,7 +44,7 @@ export default function SettingsPage() {
         {/* Settings Sections */}
         <NostrSettings />
         <UserSettings />
-        <DataSaverSettings />
+        <DataSettings />
         <DangerSettings />
 
         {/* Save Button */}
