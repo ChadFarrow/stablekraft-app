@@ -26,6 +26,8 @@ import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
 import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
+import { useDataSaver } from '@/hooks/useDataSaver';
+import { artworkPlan } from '@/lib/data-saver';
 
 // Hook to manage prefetch based on visibility and hover
 function usePrefetchControl() {
@@ -186,6 +188,27 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
     getAlbumArtworkUrl(albumCoverArt || albumImage || '', 'large'), // Use larger images for better quality
     [albumCoverArt, albumImage]
   );
+
+  /**
+   * `unoptimized` below is hardcoded TODAY, and on purpose: 271a6ba8 added it to
+   * fix artwork that looked blurry. The cost is that `width`, `height` and
+   * `sizes` on the same element do nothing — Next never resizes — so a
+   * 1400x1400 / 1.26 MB cover is downloaded into a 180px box. That is the
+   * single largest transfer on the home grid, and this card draws the grid,
+   * search, favorites, publisher and playlist pages.
+   *
+   * Data Saver is the user electing to take the softer image. With it off this
+   * resolves to exactly the values that were here before.
+   */
+  const dataSaver = useDataSaver();
+  const artwork = useMemo(
+    () => artworkPlan({
+      src: artworkUrl,
+      dataSaver,
+      baseline: { quality: 75, unoptimized: true }, // 75 is Next's own default.
+    }),
+    [artworkUrl, dataSaver]
+  );
   
   // Check if this is a playlist card, publisher card, and use appropriate URL
   const { isPlaylistCard, isPublisherCard, albumUrl } = useMemo(() => {
@@ -288,7 +311,8 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
           loading="lazy"
           sizes="(max-width: 768px) 160px, (max-width: 1200px) 180px, 300px"
           placeholder="empty"
-          unoptimized
+          quality={artwork.quality}
+          unoptimized={artwork.unoptimized}
         />
         
         {/* Loading placeholder */}

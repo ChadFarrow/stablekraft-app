@@ -4,6 +4,7 @@
  */
 
 import { getProxiedAudioUrl } from './audio-url-utils';
+import { isDataSaverOn } from './data-saver';
 
 const CACHE_NAME = 'stablekraft-audio-cache-v1';
 const MAX_CACHED_TRACKS = 3;
@@ -19,6 +20,22 @@ const cachedUrls = new Set<string>();
  */
 export async function prefetchAudio(url: string): Promise<boolean> {
   if (!url || cachedUrls.has(url) || fetchingUrls.has(url)) {
+    return false;
+  }
+
+  /**
+   * Data Saver downloads nothing you have not asked to hear.
+   *
+   * One guard covers both entry points: `prefetchUpcomingTracks` below goes
+   * through here for every one of its three tracks. On a weak link those
+   * competed with the track actually playing, which is the stall this mode
+   * exists to remove.
+   *
+   * This only ever skips a warm-up. Playback fetches its own bytes through the
+   * media element and is not affected — the cache this fills is an optimisation
+   * and every caller already treats a miss as normal.
+   */
+  if (isDataSaverOn()) {
     return false;
   }
 

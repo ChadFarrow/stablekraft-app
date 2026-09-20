@@ -19,6 +19,7 @@ import { generateAlbumHref } from '@/lib/url-utils';
 import AppLayout from '@/components/AppLayout';
 import HomeButton from '@/components/HomeButton';
 import { BACK_ROW_BUTTON_CLASSES } from '@/components/BackButton';
+import { useDataSaver } from '@/hooks/useDataSaver';
 
 interface PlaylistTemplateCompactProps {
   config: PlaylistConfig;
@@ -703,12 +704,28 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const dataSaver = useDataSaver();
+
   // Optimized background style calculation - memoized to prevent repeated logs
   // MUST be called before any early returns to follow React hooks rules
   const backgroundStyle = useMemo(() => {
     // For backgrounds, use enhanced proxy for better quality and upscaling
     // This ensures high-resolution backgrounds even from low-res sources
-    const highResBackgroundUrl = playlistArtwork && isClient
+    /**
+     * Data Saver drops the backdrop entirely.
+     *
+     * This URL is a SECOND copy of the cover already on screen as the hero, and
+     * it is the more expensive of the two: `enhance=true&minWidth=1920` makes
+     * /api/proxy-image UPSCALE with sharp and re-encode at JPEG q95, so it can
+     * return more bytes than the original — and CSS then blurs it by 4px and
+     * throws the detail away. See the header of lib/page-background-style.ts.
+     *
+     * Passing null is a fully supported state, not a degraded one: it is the
+     * branch used during SSR and before `isClient`, it paints the opaque base
+     * gradient, and lib/page-background-style.test.ts covers it. It cannot
+     * reopen #201.
+     */
+    const highResBackgroundUrl = playlistArtwork && isClient && !dataSaver
       ? (() => {
           // Use proxy with enhancement for external images, direct URL for internal
           if (playlistArtwork.includes('stablekraft.app') || playlistArtwork.startsWith('/')) {
@@ -722,7 +739,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
     // Shared with the album page, and opaque underneath the artwork so the global
     // rocket wallpaper cannot show through while it loads — see #201.
     return buildPageBackgroundStyle(highResBackgroundUrl);
-  }, [playlistArtwork, isClient]);
+  }, [playlistArtwork, isClient, dataSaver]);
 
   // Early returns AFTER all hooks
   if (loading) {

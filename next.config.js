@@ -223,7 +223,11 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    qualities: [75, 85, 90, 100], // Explicitly configure allowed quality values
+    // 50 is Data Saver's (lib/data-saver.ts). Next 15 REFUSES a quality that is
+    // not listed here, so the constant and this list have to move together.
+    // Adding a value changes no default: nothing asks for 50 unless the user
+    // turns Data Saver on.
+    qualities: [50, 75, 85, 90, 100],
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days for faster updates
     // Improved loading state configuration
     dangerouslyAllowSVG: true,

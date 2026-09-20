@@ -74,6 +74,7 @@ const LoadingSkeleton = ({ count = 6 }: { count?: number }) => (
 // Import types and sort option sets from ControlsBar
 import type { FilterType, ViewType, SortType } from '@/components/ControlsBar';
 import { SORT_OPTIONS_ALBUMS, SORT_OPTIONS_PUBLISHERS, SORT_OPTIONS_PLAYLIST } from '@/components/ControlsBar';
+import { useDataSaver } from '@/hooks/useDataSaver';
 // RSS feed configuration - CDN removed, using original URLs directly
 
 // Development logging utility - disabled for performance
@@ -157,6 +158,7 @@ function HomePageContent() {
   // Mobile: when the search input is expanded it takes over the whole header
   // row (the dropdown + action buttons hide) so it can't get squished/overflow.
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const dataSaver = useDataSaver();
   const ALBUMS_PER_PAGE = 50; // Load 50 albums per page for better user experience
 
   // Format-aware loading state (for "all" filter - load all albums before EPs)
@@ -1495,8 +1497,12 @@ function HomePageContent() {
       )}
       
       {/* Preload background image after critical content - Always render but handle loading client-side */}
+      {/* Data Saver skips it: 1.93 MB of decoration, and the z-0 gradient below
+          is already the designed fallback. Gating the loader rather than the
+          painted div is deliberate — `backgroundImageLoaded` then simply never
+          turns true, which is the same path a failed load already takes. */}
       <div className="hidden">
-        {isClient && isCriticalLoaded && (
+        {isClient && isCriticalLoaded && !dataSaver && (
           <Image
             src="/stablekraft-rocket-new.png"
             alt=""
