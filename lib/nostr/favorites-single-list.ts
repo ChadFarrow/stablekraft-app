@@ -8,50 +8,53 @@
  * sync. Podcasting 2.0 data, shared over Nostr.
  *
  * ---------------------------------------------------------------------------
- * The one thing to understand before editing: placement is POSITIONAL
+ * The one thing to understand before editing: an entry names its own feed
  *
- * A `podcast:item:guid` entry carries no parent of its own. It belongs to the
- * feed group most recently opened above it, and to the medium most recently
- * declared above that. Both facts live in tag ORDER rather than in the tag, so
- * reordering the output is not cosmetic — it re-parents entries and re-labels
- * media, and it does so while leaving the event perfectly well-formed.
+ * An `i` tag is `['i', feedId, itemId]`. Two elements is a feed favorite, three
+ * is one item OF that feed, and their position 1 is byte-for-byte the same
+ * string — so an entry is told apart by LENGTH, never by position 1. Branching
+ * on position 1 does not lose an item, it silently promotes one saved episode
+ * into a followed show and then republishes that. A position 2 we do not
+ * recognise makes the whole entry unreadable rather than a feed favorite.
  *
- * Three consequences, all properties of the format rather than choices here:
+ * `medium` is the one thing still positional: it is a running value, applying
+ * to every entry after it until the next `medium` tag. An entry before any
+ * `medium` tag has an UNKNOWN medium and nothing may default it.
  *
- *   - **A feed group is opened for every parent of a favorited track**, whether
- *     or not the feed is itself favorited, because there is no other way to say
- *     which feed a track came from. Measured on real data: 82 favorited feeds,
- *     159 distinct parents, 196 groups. Resolving the guids and deciding what
- *     to show is the consuming app's job — they are the standard Podcasting 2.0
- *     identifiers and any PC 2.0 app knows what they are.
- *   - **Unfavoriting a feed while a track of it stays favorited is invisible.**
- *     The placement group and the favorite are the same bytes, so the removal
- *     cannot be expressed until the last track goes too. Pinned by a test.
+ * Four consequences, all properties of the format rather than choices here:
  *
- *     BOTH OF THOSE DESCRIBE WHAT THIS APP WRITES, and the format has moved on.
- *     An item entry may now carry the guid of its feed on its own tag —
- *     `['i','podcast:guid:<feed>','podcast:item:guid:<item>']` — so nothing
- *     needs to be on the list for structural reasons. This app is at STAGE 1 of
- *     that migration (PC20-Nostr `pc20-favorites-feed-guid-migration.md`): it
- *     READS the three-element form and carries it whole, and still WRITES the
- *     legacy two-element form under a feed group. Boost Me Bitch already writes
- *     the new form, so this reader is what stops its item favorites arriving
- *     here as followed shows.
+ *   - **NOTHING IS ON THIS LIST FOR STRUCTURAL REASONS.** A feed entry appears
+ *     only when the user favorited the feed, so a reader never has to work out
+ *     whether an entry is a favorite or scaffolding: it is on the list, so it is
+ *     a favorite. That is what `favorited === false` says on a group here — the
+ *     group exists to supply its items' feed guid, and the emitter writes its
+ *     items and no feed tag.
  *
- *     THE ELEMENT COUNT IS THE ONLY THING separating a feed favorite from an
- *     item favorite — their position 1 is byte-for-byte the same string — so an
- *     entry is told apart by LENGTH, never by position 1. A position 2 we do
- *     not recognise makes the whole entry unreadable rather than a feed
- *     favorite. The LEGACY two-element item is still positional and reading it
- *     stays mandatory: every list published before this revision writes items
- *     that way.
+ *     THIS IS WHAT THE FORMAT'S FIRST REVISION COULD NOT DO, and the numbers say
+ *     why it mattered. An item carried no parent of its own, so naming the
+ *     parent meant emitting a feed entry whether or not the user had chosen it:
+ *     82 favorited feeds, 159 distinct parents, 196 groups — 114 of them feeds
+ *     nobody chose, on a shared list relays index under `#i`.
+ *   - **Unfavoriting a feed while a track of it stays favorited is an ordinary
+ *     removal.** It used to be inexpressible: the placement group and the
+ *     favorite were the same bytes, so the removal could not be stated until the
+ *     last track went too. The item names its own feed now, so the entry goes
+ *     and the track stays. A feed favorite our own record does NOT claim is
+ *     another app's, and not holding it here does not beat it.
+ *   - **The LEGACY two-element item is still positional, and reading it stays
+ *     mandatory.** `['i','podcast:item:guid:<item>']` takes its feed from the
+ *     entry above it. Every list published before this revision writes items that
+ *     way, and dropping the path does not lose a label — an item guid is unique
+ *     only inside its feed, so those favorites become unresolvable by every app.
+ *     A writer rewrites such a tag once, WHOLE: the identifier moves to position
+ *     2 and position 1 becomes the feed's. An item whose feed nobody knows goes
+ *     back exactly as it arrived; a placeholder guid is an invented one.
  *
- *     STAGES 1, 2 AND 4 ARE SHIPPED. This app reads AND writes the three-element
- *     form, rewrites a legacy item once (idempotently, the identifier MOVED to
- *     position 2), claims the (feed, item) pair, and emits each `medium` run in
- *     band order. **Stage 3 is not done**: a placement feed entry already on the
- *     wire is carried rather than retracted. It stops writing NEW ones, because
- *     an item names its own feed and needs no group above it.
+ *     ALL FOUR STAGES OF THE MIGRATION ARE SHIPPED (PC20-Nostr
+ *     `pc20-favorites-feed-guid-migration.md`): this app reads and writes the
+ *     three-element form, rewrites a legacy item idempotently, claims the
+ *     (feed, item) pair, writes a feed entry only for a feed the user chose, and
+ *     emits each `medium` run in band order.
  *
  *     TAG ORDER INSIDE A RUN IS PRESCRIBED, NOT PRESERVED — four bands: items
  *     naming no feed, artists, feeds, then items grouped by the feed they name.
@@ -111,9 +114,21 @@ export interface SingleListGroup {
    *  none. NEVER defaulted — see `buildSingleListTags` and `parseSingleList`. */
   medium?: string;
   itemGuids: string[];
-  /** Whether the feed itself is favorited, as opposed to the group existing
-   *  only to place an item. Not expressible on the wire — see the header — so
-   *  it is meaningful on the way OUT and always false on the way back IN. */
+  /**
+   * Does a `podcast:guid:` entry belong on the list for this feed?
+   *
+   * ONE MEANING WHEREVER A GROUP COMES FROM, and that is load-bearing. Local
+   * state: the user favorited the feed, as opposed to the group existing only
+   * to supply its items' feed guid. A read: a feed entry was on the list, and
+   * a feed entry IS a feed favorite — nothing is on this list for structural
+   * reasons. A group synthesized from an item that names its own feed says
+   * false, because nothing claimed the feed itself.
+   *
+   * `false` is what makes `tagsFromNodes` emit the items and no feed tag. It
+   * used to be hardcoded false on the way in, which made the flag meaningless
+   * on a read — and an emitter acting on it would then have deleted every feed
+   * entry this app carries for somebody else.
+   */
   favorited: boolean;
   /**
    * The feed's `i` tag AS READ, when this group came off the wire.
@@ -137,9 +152,9 @@ export interface SingleListGroup {
  *
  * `['i', 'podcast:guid:<feedGuid>', 'podcast:item:guid:<itemGuid>']`. It is not
  * a member of the group above it and depends on nothing before it; moving it
- * changes nothing. This app does not originate one yet (that is stage 2 of the
- * migration), so every one of these came off the wire and its `tag` goes back
- * byte for byte.
+ * changes nothing. This app originates one for every item it writes; one read
+ * off the wire goes back byte for byte, so anything a newer writer parked past
+ * position 2 survives.
  *
  * Distinct from {@link LooseNode} because we CAN read it: both guids are known,
  * so it resolves, renders and matches a local row. `loose` means "no meaning
@@ -551,7 +566,18 @@ export function tagsFromNodes(
     }
     const group = node.group;
     const feed = showId(group.feedGuid);
-    if (identifierKind(feed)) tags.push(group.feedTag ? group.feedTag.slice() : ['i', feed]);
+    // A GROUP THAT IS NOT A FAVORITE EMITS ITS ITEMS AND NOTHING ELSE. `favorited`
+    // is false in exactly two places, and both mean the user did not choose this
+    // feed: a local group opened only to parent a track, and a wire group our own
+    // record says we published and no longer hold. Writing the entry anyway puts a
+    // feed nobody chose on a shared list — 114 of 196 on the first real one — and a
+    // reader has no way to tell it from a feed that was chosen.
+    //
+    // The items are unharmed by it going. Each one names its own feed below, the
+    // legacy two-element ones included: they are rewritten on the way out.
+    if (group.favorited !== false && identifierKind(feed)) {
+      tags.push(group.feedTag ? group.feedTag.slice() : ['i', feed]);
+    }
     for (const guid of group.itemGuids) {
       const id = itemId(guid);
       if (!identifierKind(id)) continue;
@@ -748,10 +774,13 @@ export function publishedRecordFrom(local: SingleListGroup[]): PublishedRecord {
  * not try to be. It answers one question per entry: is this ours to manage?
  *
  *   - **A feed group we hold** is emitted from LOCAL state, in the position it
- *     was read. Its items are ours, so an unfavorite still propagates.
- *   - **A feed group we don't hold** is carried verbatim, with its items. This
- *     is the spec's "don't clobber entries the writing app doesn't understand",
- *     and without it every publish deletes whatever the other app holds alone.
+ *     was read. Its items are ours, so an unfavorite still propagates — and so
+ *     does an unfavorite of the FEED, which drops the entry and keeps the items.
+ *   - **A feed group we don't hold** is carried verbatim, with its items, unless
+ *     our own record says we put the entry there: that is our removal, and the
+ *     items go on without it. Carrying anything else is the spec's "don't
+ *     clobber entries the writing app doesn't understand", and without it every
+ *     publish deletes whatever the other app holds alone.
  *   - **Groups we hold that weren't on the list** are appended, so a new
  *     favorite lands at the end of its medium block rather than the top.
  *   - **Orphan items** — items that appeared before any feed group — are
@@ -824,9 +853,9 @@ export function mergeSingleList(
       continue;
     }
 
-    // An entry that names its own feed. This app does not originate one yet, so
-    // it is always another writer's — carried whole, in place, unless our own
-    // record says we published that item and no longer hold it.
+    // An entry that names its own feed. Ours or another writer's — the tag is
+    // the same either way — carried whole and in place, unless our own record
+    // says we published that item and no longer hold it.
     if (node.t === 'item') {
       const { feedGuid, itemGuid } = node.item;
       const held = localByGuid.get(feedGuid)?.itemGuids.includes(itemGuid) ?? false;
@@ -858,18 +887,22 @@ export function mergeSingleList(
       // itemless group as a feed favorite, and the favorite comes back on the
       // next hydration. That loop shipped once; see the module header.
       //
-      // But only once nothing is left to place under it: the group is the only
-      // thing naming its items' parent, so dropping one that still carries
-      // another app's tracks takes those tracks with it.
+      // The removal no longer waits for the last item. It used to: the group was
+      // the only thing naming its items' parent, so dropping one that still
+      // carried another app's tracks took those tracks with it. An item names its
+      // own feed now, and the emitter rewrites a legacy one on the way out, so the
+      // entry can go while every item under it survives.
       const survivors = group.itemGuids.filter(
         (guid) => !claimedItem(publishedItems, guid, group.feedGuid)
       );
-      if (publishedFeeds.has(group.feedGuid) && survivors.length === 0) continue;
-      // Never published by us, so it is another app's. Carry it verbatim.
+      const ours = publishedFeeds.has(group.feedGuid);
+      if (ours && survivors.length === 0) continue;
+      // Never published by us, so it is another app's. Carry it verbatim. Ours and
+      // no longer held is a removal: the items go on without their feed entry.
       const carried: SingleListGroup =
-        survivors.length === group.itemGuids.length
+        survivors.length === group.itemGuids.length && !ours
           ? group
-          : { ...group, itemGuids: survivors };
+          : { ...group, itemGuids: survivors, favorited: !ours };
       emitted.set(group.feedGuid, carried);
       nodes.push({ t: 'group', group: carried });
       continue;
@@ -910,6 +943,14 @@ export function mergeSingleList(
       // depending on it. Anything this device adds goes below as its own node,
       // at the end of its band.
       itemGuids: kept,
+      // A FEED FAVORITE WE DID NOT MAKE IS NOT OURS TO TAKE BACK. `mine` comes
+      // from local state, so `favorited === false` there says only that this user
+      // has not chosen the feed HERE — which does not beat an entry another app
+      // put on the list. Our own record is what separates the two: we drop the
+      // entry when we published it and no longer hold it, and carry it otherwise.
+      // Deleting another app's has the two of us rewriting the event at each
+      // other forever.
+      favorited: mine.favorited || !publishedFeeds.has(group.feedGuid),
     };
     for (const guid of mine.itemGuids) {
       if (kept.includes(guid)) continue;
@@ -1272,7 +1313,12 @@ export function parseSingleList(tags: string[][]): ParsedSingleList {
 
     const feedGuid = parseShowGuid(id);
     if (feedGuid) {
-      current = { feedGuid, medium, itemGuids: [], favorited: false, feedTag: tag.slice() };
+      // A FEED ENTRY ON THE LIST IS A FEED FAVORITE. Nothing is on this list for
+      // structural reasons any more, so `favorited` means one thing wherever a
+      // group comes from: the user chose this feed. It used to be hardcoded false
+      // here, which made the flag honest on local state and meaningless on a read —
+      // and the emitter cannot key on a flag that is false on every carried group.
+      current = { feedGuid, medium, itemGuids: [], favorited: true, feedTag: tag.slice() };
       nodes.push({ t: 'group', group: current });
       continue;
     }

@@ -513,6 +513,58 @@ async function main() {
     'a second cycle changes nothing — the upgrade happened once',
   );
 
+  // -------------------------------------------------------------------------
+  console.log('\n⑫ Unfavoriting a feed takes its entry and leaves the track');
+  // -------------------------------------------------------------------------
+  // Stage 3, end to end. The list from ⑪ holds the album entry and two tracks
+  // of it, all three ours and all three claimed. The user gives up the album
+  // and keeps the tracks: the feed entry leaves the event, both tracks stay,
+  // and each still carries the feed guid it cannot be looked up without.
+  const beforeDrop = await fetchSingleList(pubkey, relays);
+  const claimed = publishedRecordFrom(mixedLocal);
+  const tracksOnly = groupForSingleList([
+    { id: `podcast:item:guid:${LEGACY_TRACK}`, feedRef: MUSIC_A, medium: 'music' },
+    { id: `podcast:item:guid:${NAMED_TRACK}`, feedRef: MUSIC_A, medium: 'music' },
+  ]);
+  const dropped = mergeSingleList(beforeDrop, tracksOnly, claimed);
+  const droppedTags = tagsFromNodes(
+    dropped.nodes,
+    dropped.foreignTags,
+    dropped.foreignKinds,
+    dropped.visibility
+  );
+  check(
+    !droppedTags.some((t) => t[0] === 'i' && t.length === 2 && t[1] === `podcast:guid:${MUSIC_A}`),
+    'the album entry left the event',
+  );
+  check(
+    droppedTags.filter((t) => t[0] === 'i' && t[1] === `podcast:guid:${MUSIC_A}` && t[2]).length === 2,
+    'both tracks stayed, each naming the feed it came from',
+  );
+  // And the record stops claiming a feed this device has given up.
+  check(
+    publishedRecordFrom(tracksOnly).feeds.length === 0,
+    'the new record claims no feed',
+  );
+
+  await publish(finalizeEvent(
+    { kind: SINGLE_LIST_KIND, created_at: priorAt + 3, content: beforeDrop.content, tags: droppedTags },
+    sk
+  ));
+  const afterDrop = await fetchSingleList(pubkey, relays);
+  const settledDrop = mergeSingleList(afterDrop, tracksOnly, publishedRecordFrom(tracksOnly));
+  check(
+    JSON.stringify(
+      tagsFromNodes(
+        settledDrop.nodes,
+        settledDrop.foreignTags,
+        settledDrop.foreignKinds,
+        settledDrop.visibility
+      )
+    ) === JSON.stringify(droppedTags),
+    'a second cycle changes nothing — the retraction settled',
+  );
+
   console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) FAILED.`);
   process.exit(failures === 0 ? 0 : 1);
 }

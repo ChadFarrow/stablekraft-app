@@ -249,11 +249,12 @@ test('k tags are one per distinct KIND, trailing — not one per entry', () => {
   );
 });
 
-test('a parent feed group is opened even when the feed itself is not favorited', () => {
-  // THE PLACEMENT CASE. There is no other way to say which feed a track came
-  // from, so a favorited track drags its parent onto the list. 114 of 159
-  // parents were in this state in real data. What a reader does with the guid
-  // is the reader's business — this only has to say it.
+test('a parent feed group holds the guid but never reaches the list', () => {
+  // A track still needs its parent modelled locally — the guid has to come from
+  // somewhere — but the group is not a favorite and no feed entry is written for
+  // it. That used to be impossible: naming the parent meant emitting an entry
+  // for it, and 114 of 159 parents were in this state in real data, every one of
+  // them a feed the user never chose on a list relays index under `#i`.
   const groups = groupForSingleList([track('t9', MUSIC_C, 'music')]);
   assert.equal(groups.length, 1);
   assert.equal(groups[0].feedGuid, MUSIC_C);
@@ -261,11 +262,15 @@ test('a parent feed group is opened even when the feed itself is not favorited',
   assert.deepEqual(seq(buildSingleListTags([track('t9', MUSIC_C, 'music')])), [
     `alt:${LIST_ALT}`,
     'medium:music',
-    `i:podcast:guid:${MUSIC_C}`,
     'i:podcast:item:guid:t9',
-    'k:podcast:guid',
     'k:podcast:item:guid',
   ]);
+  // The guid is not lost by the entry going: it is on the track's own tag, which
+  // is the only thing that makes the track resolvable.
+  assert.deepEqual(
+    buildSingleListTags([track('t9', MUSIC_C, 'music')]).find((t) => t[0] === 'i'),
+    ['i', showId(MUSIC_C), itemId('t9')]
+  );
 });
 
 test('same-medium feeds stay contiguous and medium appears once per group', () => {
@@ -299,12 +304,12 @@ test('a feed that declared no medium is not published as music', () => {
   ]);
   assert.deepEqual(seq(tags), [
     `alt:${LIST_ALT}`,
-    `i:podcast:guid:${NO_MEDIUM_D}`,
+    // No feed entry for NO_MEDIUM_D: the user favorited the track, not the feed.
     'i:podcast:item:guid:t7',
     'medium:music',
     `i:podcast:guid:${MUSIC_A}`,
-    'k:podcast:guid',
     'k:podcast:item:guid',
+    'k:podcast:guid',
   ]);
   // Nothing before the first `medium` tag claims a medium at all.
   assert.equal(tags.findIndex((t) => t[0] === 'medium') > 0, true);
@@ -321,9 +326,11 @@ test('a URL-shaped item guid does not corrupt its k tag', () => {
     tags.find((t) => t[2] === 'podcast:item:guid:https://example.com/ep/42'),
     ['i', showId(MUSIC_A), 'podcast:item:guid:https://example.com/ep/42']
   );
+  // One `k`, and it is the item's. The feed is held only to supply the guid on
+  // that tag, so it is not an entry and its kind is not on the list.
   assert.deepEqual(
     tags.filter((t) => t[0] === 'k').map((t) => t[1]),
-    ['podcast:guid', 'podcast:item:guid']
+    ['podcast:item:guid']
   );
 });
 
@@ -388,24 +395,41 @@ test('idempotence — the same inputs twice produce byte-identical tags', () => 
   assert.notEqual(singleListDigest(items), singleListDigest(items.slice(0, -1)));
 });
 
-test('unfavoriting a feed whose track is still favorited is INVISIBLE on the wire', () => {
-  // Not a bug in this module — a property of the format, and the sharpest edge
-  // in it. A feed group opened for placement is byte-identical to one opened
-  // because the user favorited the feed, so removing the feed favorite while a
-  // track of it remains favorited produces the exact same event.
+test('unfavoriting a feed whose track is still favorited is VISIBLE on the wire', () => {
+  // This used to be the sharpest edge in the format, and it is gone. A feed
+  // group opened for placement was byte-identical to one opened because the
+  // user favorited the feed, so removing the feed favorite while a track of it
+  // remained favorited produced the exact same event — the removal could not be
+  // stated at all until the last track went too.
   //
-  // The consequence for a reader: it cannot be told that the album was
-  // unfavorited, and this app cannot say so. The two-list format could — the
-  // parent lived on the item's own tag, so the feed entry was free to vanish.
+  // The track names its own feed now, so the feed entry is free to vanish and
+  // takes nothing with it. An ordinary removal, and a reader sees it.
   const withAlbum = [album(MUSIC_A, 'music'), track('t1', MUSIC_A, 'music')];
   const withoutAlbum = [track('t1', MUSIC_A, 'music')];
-  assert.equal(singleListDigest(withAlbum), singleListDigest(withoutAlbum));
+  assert.notEqual(singleListDigest(withAlbum), singleListDigest(withoutAlbum));
 
-  // It IS visible once the last track goes too, which is the only way out.
+  // The album entry is the only thing that goes. The track keeps its feed guid,
+  // which is what makes it resolvable with no feed entry left on the list.
+  assert.deepEqual(seq(buildSingleListTags(withAlbum)), [
+    `alt:${LIST_ALT}`,
+    'medium:music',
+    `i:podcast:guid:${MUSIC_A}`,
+    'i:podcast:item:guid:t1',
+    'k:podcast:guid',
+    'k:podcast:item:guid',
+  ]);
+  assert.deepEqual(buildSingleListTags(withoutAlbum), [
+    ['alt', LIST_ALT],
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A), itemId('t1')],
+    ['k', 'podcast:item:guid'],
+  ]);
+
+  // Still visible once the last track goes too.
   assert.notEqual(singleListDigest(withoutAlbum), singleListDigest([]));
 
-  // And the local distinction survives even though the wire one doesn't, so a
-  // future reader has something to work with if the spec ever gains a marker.
+  // And the local distinction is what says which: `favorited` means one thing
+  // wherever a group comes from — the user chose this feed.
   assert.equal(groupForSingleList(withAlbum)[0].favorited, true);
   assert.equal(groupForSingleList(withoutAlbum)[0].favorited, false);
 });
@@ -1464,6 +1488,160 @@ test('one item from an unfavorited feed is ONE tag, and no feed entry', () => {
   ).filter((t) => t[0] === 'i');
   assert.deepEqual(outBoth, [['i', showId(MUSIC_A)], ['i', showId(MUSIC_A), itemId('t1')]]);
   assert.equal(outBoth[0][1], outBoth[1][1]);
+});
+
+test('unfavoriting a feed takes the entry and leaves the item', () => {
+  // Spec vector 26. The feed entry is ours, our record says so, and the user has
+  // given it up while keeping one track. Under the first revision this could not
+  // be said at all — the entry was the only tag naming the track's feed.
+  const wire = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId('t1')],
+  ];
+  const record = { feeds: [MUSIC_A], items: [itemClaim('t1', MUSIC_A)] };
+  const local = groupForSingleList([track('t1', MUSIC_A, 'music')]);
+  assert.equal(local[0].favorited, false, 'the track alone is not a feed favorite');
+
+  const merged = mergeSingleList(parseSingleList(wire), local, record);
+  const tags = tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds);
+  assert.deepEqual(
+    tags.filter((t) => t[0] === 'i'),
+    [['i', showId(MUSIC_A), itemId('t1')]],
+    'the feed entry survived, or the track went with it'
+  );
+  // And the record stops claiming a feed this device has given up.
+  assert.deepEqual(publishedRecordFrom(local).feeds, []);
+  assert.deepEqual(publishedRecordFrom(local).items, [itemClaim('t1', MUSIC_A)]);
+
+  // The other direction from the same fixture: drop the track, keep the feed.
+  const keptFeed = mergeSingleList(
+    parseSingleList(wire),
+    groupForSingleList([album(MUSIC_A, 'music')]),
+    record
+  );
+  assert.deepEqual(
+    tagsFromNodes(keptFeed.nodes).filter((t) => t[0] === 'i'),
+    [['i', showId(MUSIC_A)]]
+  );
+});
+
+test("a feed favorite our record does not claim is another app's, and stays", () => {
+  // The conflict half of vector 26. `favorited === false` on a local group says
+  // only that this user has not chosen the feed HERE. It does not beat an entry
+  // another app put on the list: delete it and that app restates it next cycle,
+  // and the two of us rewrite the event at each other forever.
+  const wire = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId('t1')],
+  ];
+  const theirs = { feeds: [], items: [itemClaim('t1', MUSIC_A)] };
+  const merged = mergeSingleList(
+    parseSingleList(wire),
+    groupForSingleList([track('t1', MUSIC_A, 'music')]),
+    theirs
+  );
+  assert.deepEqual(tagsFromNodes(merged.nodes).filter((t) => t[0] === 'i'), [
+    ['i', showId(MUSIC_A)],
+    ['i', showId(MUSIC_A), itemId('t1')],
+  ]);
+  // Carrying it is not claiming it.
+  assert.deepEqual(publishedRecordFrom(groupForSingleList([track('t1', MUSIC_A, 'music')])).feeds, []);
+});
+
+test('a retracted feed entry strands no legacy item, and the retraction settles', () => {
+  // The items under a retracted entry may be LEGACY two-element tags, which have
+  // no feed of their own — they took it from the entry that is about to go. The
+  // same publish rewrites them, so nothing is stranded. A second cycle then
+  // changes nothing: a retraction that republishes forever is worse than the
+  // entry it removes.
+  const wire = [
+    ['medium', 'music'],
+    ['i', itemId('t-orphan')],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('t1')],
+  ];
+  const record = { feeds: [MUSIC_A], items: [itemClaim('t1', MUSIC_A)] };
+  const first = mergeSingleList(
+    parseSingleList(wire),
+    groupForSingleList([track('t1', MUSIC_A, 'music')]),
+    record
+  );
+  const tags = tagsFromNodes(first.nodes, first.foreignTags, first.foreignKinds);
+  assert.deepEqual(tags.filter((t) => t[0] === 'i'), [
+    // Band 0 holds its place. An item that names no feed must stay ahead of every
+    // feed entry in its run, or the bands hand it whichever album lands last.
+    ['i', itemId('t-orphan')],
+    ['i', showId(MUSIC_A), itemId('t1')],
+  ]);
+  // Re-parsing our own output must still read the orphan as naming no feed.
+  const reread = parseSingleList(tags);
+  assert.deepEqual(reread.orphanItemGuids, ['t-orphan']);
+
+  const second = mergeSingleList(
+    reread,
+    groupForSingleList([track('t1', MUSIC_A, 'music')]),
+    publishedRecordFrom(groupForSingleList([track('t1', MUSIC_A, 'music')]))
+  );
+  assert.deepEqual(
+    tagsFromNodes(second.nodes, second.foreignTags, second.foreignKinds),
+    tags,
+    'the retraction is not a fixed point'
+  );
+  // Rule 5 agrees in both directions: the retraction IS a change worth
+  // publishing, and once it has landed there is nothing left to say.
+  assert.notDeepEqual(frameForCompare(wire), frameForCompare(tags));
+  assert.deepEqual(
+    frameForCompare(tags),
+    frameForCompare(tagsFromNodes(second.nodes, second.foreignTags, second.foreignKinds))
+  );
+});
+
+test('a retracted feed entry carries ANOTHER app\'s items out with their feed guid', () => {
+  // The path the live list takes. We published the feed entry to place a track,
+  // the user never chose the feed, and the items beneath it are another app's
+  // legacy two-element tags. The entry goes and every item is rewritten under
+  // the feed it was read below — the guid moves onto the tag that needs it.
+  const wire = [
+    ['medium', 'music'],
+    ['i', showId(MUSIC_A)],
+    ['i', itemId('theirs')],
+  ];
+  const merged = mergeSingleList(parseSingleList(wire), [], { feeds: [MUSIC_A], items: [] });
+  const tags = tagsFromNodes(merged.nodes, merged.foreignTags, merged.foreignKinds);
+  assert.deepEqual(tags.filter((t) => t[0] === 'i'), [['i', showId(MUSIC_A), itemId('theirs')]]);
+
+  // A second pass changes nothing.
+  const again = mergeSingleList(parseSingleList(tags), [], { feeds: [MUSIC_A], items: [] });
+  assert.deepEqual(tagsFromNodes(again.nodes, again.foreignTags, again.foreignKinds), tags);
+});
+
+test('a feed we published with nothing left under it goes entirely', () => {
+  // The itemless case still leaves the list rather than becoming an emitted
+  // group with no feed tag: an empty group would be zero tags either way, but it
+  // would put a phantom feed into `groups`, which is what drives the reconcile.
+  const wire = [['medium', 'music'], ['i', showId(MUSIC_A)]];
+  const merged = mergeSingleList(parseSingleList(wire), [], { feeds: [MUSIC_A], items: [] });
+  assert.deepEqual(tagsFromNodes(merged.nodes).filter((t) => t[0] === 'i'), []);
+  assert.deepEqual(merged.groups, []);
+});
+
+test('a feed entry on the list IS a feed favorite on the way in', () => {
+  // `favorited` means one thing wherever a group comes from. It used to be
+  // hardcoded false on a read, which made every carried feed entry look like a
+  // retraction the moment the emitter learned to act on the flag.
+  const read = parseSingleList([['medium', 'music'], ['i', showId(MUSIC_A)]]);
+  assert.equal(read.groups[0].favorited, true);
+
+  // A group synthesized to hold an item that names its own feed is a different
+  // claim, and stays false: nothing said the user favorited that feed.
+  const fromItem = parseSingleList([
+    ['medium', 'music'],
+    ['i', showId(MUSIC_C), itemId('t1')],
+  ]);
+  assert.equal(fromItem.groups[0].feedGuid, MUSIC_C);
+  assert.equal(fromItem.groups[0].favorited, false);
 });
 
 test('one item guid under two feeds is two favorites, claimed as two pairs', () => {

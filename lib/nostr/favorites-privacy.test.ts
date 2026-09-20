@@ -435,6 +435,36 @@ test('a stated mode outranks this app\'s standing preference', () => {
   );
 });
 
+test('a whole-list move does not fold away a feed favorite the other half holds', () => {
+  // Two answers about one feed, and the fold has to keep the yes. This device
+  // is retracting its own placement entry for MUSIC_A in the private half; the
+  // public half carries MUSIC_A as another app's feed favorite, which we never
+  // claimed. Taking the first answer deletes theirs on their behalf, and the
+  // move is the one cycle where both halves' nodes meet.
+  const plan = publishPlan({
+    mode: 'private',
+    publicRead: halfWith(MUSIC_A),
+    privateRead: parseSingleList([
+      ['alt', LIST_ALT],
+      ['medium', 'music'],
+      ['i', showId(MUSIC_A)],
+      ['i', itemId('t1')],
+    ]),
+    local: groupForSingleList([track('t1', MUSIC_A, 'music')]),
+    baseline: {
+      public: { feeds: [], items: [] },
+      private: { feeds: [MUSIC_A], items: [itemClaim('t1', MUSIC_A)] },
+    },
+    userChose: true,
+  });
+  assert.equal(
+    feedsOf(plan.privateTags!).includes(showId(MUSIC_A)),
+    true,
+    "the other half's feed favorite was folded away by our own retraction"
+  );
+  assert.equal(feedsOf(plan.privateTags!).includes(itemId('t1')), true, 'and the track came too');
+});
+
 test('a stated public mode converges a half-moved list, and no tag does not', () => {
   // A list whose tag and entries disagree is one somebody left half-converged.
   // Only a writer that could read both halves may have written that tag, so
