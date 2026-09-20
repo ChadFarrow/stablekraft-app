@@ -213,6 +213,27 @@ line holds the full story.
   CDN in front of Railway, so `s-maxage` saves nothing. `lib/compressed-json.ts` gzips when the caller accepts it;
   use it for any success body over a few KB. Check with `curl -D - -o /dev/null -H 'Accept-Encoding: gzip'`, never
   a bare `curl`, which asks for no encoding and so always gets the raw body.
+- **There is a Data Saver mode, and OFF must stay byte-for-byte what it is today.** A manual switch
+  (`sk_data_saver`, Settings → Data & Offline), never auto-enabled — `navigator.connection.saveData` is
+  deliberately not consulted, for the reason Offline mode ignores `navigator.onLine`. It spans artwork, the
+  catalog fetch, audio prefetch and the wallet chunk, so the decision lives in **one** pure function,
+  `artworkPlan()` in `lib/data-saver.ts` — a branch per component is the N-places bug this file keeps
+  describing. **Three** of the four artwork paths ask it today (`AlbumCard`, `CDNImage`, `ArtworkImage`); the
+  33 raw `<img>` tags do not, and simply save nothing. Wire a new one by calling `artworkPlan`, never by
+  reading the flag directly. With the flag off that function returns each caller's own baseline
+  field for field, and `lib/data-saver.test.ts` pins that for every surface: it is the contract, so it is the
+  test. Audio is **prefetch only** — the `preload` attribute, the ping-pong elements and every playback URL are
+  untouched, and the Android blob prefetch is *delayed* to the 15s mark rather than dropped, because it is what
+  keeps a locked-screen handoff gapless → `catalog-display`, `downloads`.
+- **`/_next/image` answers HTTP 400 for a host not in `remotePatterns` — it does not return a bigger image, it
+  returns none.** So lifting `unoptimized` on an unlisted host *deletes* the artwork rather than merely leaving
+  it large, and the 30-byte JSON error body is easy to mistake for a very small image. Measured 2026-09-20 against
+  `hogstory.net`, `music.jimmyv4v.com` and `justcast.sfo2.digitaloceanspaces.com`, all of which carry real
+  catalog covers. `ALLOWED_IMAGE_DOMAINS` (`lib/cdn-utils.ts`) is the in-app mirror of that list and is what
+  `isNextOptimizable()` consults — the two are **hand-mirrored**, because `next.config.js` is CommonJS and loads
+  before the app, so a host added to one alone is a missing cover on whichever feed uses it.
+  `lib/data-saver.test.ts` compares them and fails on a seeded drift. This is the same hand-mirroring hazard as
+  the three external-host lists above → `catalog-display`, `auth-and-security`.
 - **The same field is often written or read from N places, and fixing one is the standard bug here.**
   `/api/albums-fast` has **two** Track selects; `podcastImages` has
   **three** write paths; the release date has **seven** read paths; `Feed.medium` has **ten** create/upsert paths
