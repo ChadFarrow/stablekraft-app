@@ -31,12 +31,12 @@
  *     BOTH OF THOSE DESCRIBE WHAT THIS APP WRITES, and the format has moved on.
  *     An item entry may now carry the guid of its feed on its own tag —
  *     `['i','podcast:guid:<feed>','podcast:item:guid:<item>']` — so nothing
- *     needs to be on the list for structural reasons. This app is at STAGE 1 of
- *     that migration (PC20-Nostr `pc20-favorites-feed-guid-migration.md`): it
- *     READS the three-element form and carries it whole, and still WRITES the
- *     legacy two-element form under a feed group. Boost Me Bitch already writes
- *     the new form, so this reader is what stops its item favorites arriving
- *     here as followed shows.
+ *     needs to be on the list for structural reasons. That migration
+ *     (PC20-Nostr `pc20-favorites-feed-guid-migration.md`) began here at STAGE 1
+ *     — read the three-element form and carry it whole, while still writing the
+ *     legacy two-element form — and has since moved on (below). Boost Me Bitch
+ *     wrote the new form first, so the reader is what stops its item favorites
+ *     arriving here as followed shows.
  *
  *     THE ELEMENT COUNT IS THE ONLY THING separating a feed favorite from an
  *     item favorite — their position 1 is byte-for-byte the same string — so an

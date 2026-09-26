@@ -79,6 +79,7 @@ android-app/
 
 # Backups
 *.backup
+*.backup-*
 *.bak
 deploy-*
 

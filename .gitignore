@@ -195,6 +195,10 @@ data/backups/
 data/cache/
 *.json.backup
 *-backup*.json
+# Scripts write <file>.backup-<timestamp> copies before editing data files. Keep
+# them local: 13 had been committed, none of them read by anything.
+*.backup
+*.backup-*
 feeds-*.json
 *-final.json
 *-corrected.json
