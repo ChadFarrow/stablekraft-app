@@ -225,10 +225,6 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Favicon */}
-        <link rel="icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
-        <link rel="shortcut icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
-        
         {/* PWA Meta Tags */}
         <meta name="theme-color" content="#1f2937" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
