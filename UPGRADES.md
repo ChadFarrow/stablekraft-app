@@ -22,10 +22,11 @@ Re-check with `npm outdated` rather than trusting the numbers below — they dri
 | lucide-react | `^0.294.0` | 0.294.0 | 1.48.0 | Low |
 | node-fetch | `^2.7.0` | 2.7.0 | 3.3.2 | Low |
 
-**Node is pinned at 20** (`.nvmrc`, `node:20-alpine` in the Dockerfile), and Node 20 has been
-end-of-life since 2026-04-30. Several of these majors raise their Node floor, so check that before
-starting one — and note `lib/nostr/node-websocket.ts` exists specifically because Node 20 lacks a
-global `WebSocket`.
+**Node is pinned at 22** (`.nvmrc`, `node:22-alpine` in the Dockerfile, CI, `engines`), moved from
+Node 20 (end-of-life 2026-04-30) on 2026-09-26. **Node 22 is end-of-life 2027-04-30** — plan Node 24
+before then. Whatever the version, the server's relay sockets must stay on `ws`
+(`lib/nostr/node-websocket.ts`): Node's own `WebSocket` is undici's, which recurses with
+nostr-tools >= 2.25.2 on a failed connect.
 
 ### Advisories left open on purpose (`npm audit`, 2026-09-26: 0 critical, 13 high — from 2 and 43)
 

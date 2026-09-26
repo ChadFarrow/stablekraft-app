@@ -41,8 +41,8 @@ import { installNodeWebSocket } from './node-websocket';
  */
 export async function connectServerNostrClient(relays: string[], label: string): Promise<NostrClient> {
   // Must precede the connect. `nostr-tools/relay` hands each new Relay the
-  // WebSocket it captured at module load — undefined on Node 20 — unless
-  // `useWebSocketImplementation` has replaced it, which this does.
+  // WebSocket it captured at module load — undefined on Node 20, undici's on
+  // Node 22 — unless `useWebSocketImplementation` has replaced it, which this does.
   await installNodeWebSocket();
 
   const client = new NostrClient(relays);

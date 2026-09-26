@@ -377,11 +377,11 @@ export async function fetchCommunityFavorites(options: {
   // Must precede the pool: `SimplePool` reads the module-level WebSocket in its
   // constructor. This sweep and `connectServerNostrClient` (server-client.ts)
   // are the two places the SERVER opens relay sockets -- the shared kind:10333
-  // list is read in the browser -- and the server had no
-  // WebSocket of its own. `node:20-alpine` runs `node server.js` with no
-  // `--experimental-websocket`, and Node 20 exposes the global ONLY behind that
-  // flag, so this sweep was one environment change away from reaching nothing.
-  // See the connectivity check below for why that would have been invisible.
+  // list is read in the browser. Under the old `node:20-alpine` the server had
+  // no WebSocket at all (Node 20 exposes it only behind a flag); under
+  // `node:22-alpine` the global is undici's, which recurses with nostr-tools on
+  // a failed connect. Either way this sweep needs `ws`. See the connectivity
+  // check below for why a sweep that reached nobody would be invisible.
   await installNodeWebSocket();
 
   const { SimplePool } = await import('nostr-tools/pool');

@@ -19,12 +19,14 @@
  * pure tests (a few seconds — some cases must wait out a timeout by
  * construction), which is why it is a separate file.
  *
- * NODE VERSION: `nostr-tools` needs a `WebSocket` global, which Node only has by
- * default from v21 — and this repo targets Node 20 (`.nvmrc`, `node:20-alpine`).
- * `installNodeWebSocket()` supplies one; without it the cases below that need a
- * relay to ANSWER fail, while every degraded-read case still passes, because a
- * failed connection looks exactly like the degradation they assert. Reproduce
- * that on a newer Node with `NODE_OPTIONS=--no-experimental-websocket`.
+ * NODE VERSION: `nostr-tools` needs a `WebSocket`, and neither of the Nodes this
+ * repo has run gives it a usable one. Node 20 (the target until 2026-09) has no
+ * global without a flag: every case that needs a relay to ANSWER fails, while
+ * every degraded-read case still passes, because a failed connection looks
+ * exactly like the degradation they assert. Node 22 (`.nvmrc`, `node:22-alpine`)
+ * has undici's, which recurses on a failed connect. `installNodeWebSocket()`
+ * supplies `ws` for both. Reproduce the Node 20 case with
+ * `NODE_OPTIONS=--no-experimental-websocket`.
  *
  * ---------------------------------------------------------------------------
  * The stakes, restated: `trustworthy` is what stands between a relay wobble and

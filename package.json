@@ -51,7 +51,7 @@
     "@prisma/client": "6.19.3",
     "@types/canvas-confetti": "^1.9.0",
     "@types/fluent-ffmpeg": "^2.1.28",
-    "@types/node": "^20",
+    "@types/node": "^22.20.4",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/xml2js": "^0.4.14",
@@ -97,7 +97,7 @@
     "tsx": "^4.21.0"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22.0.0",
     "npm": ">=8.0.0"
   },
   "buildTime": "2025-07-30T00:17:52.716Z"

@@ -100,7 +100,8 @@ function publish(event: Event): Promise<void> {
 }
 
 async function main() {
-  // Node 20 has no WebSocket global and nostr-tools captures it at module load.
+  // Node 20 has no WebSocket global, Node 22's is undici's (which recurses on a
+  // failed connect), and nostr-tools captures it at module load.
   await installNodeWebSocket();
 
   const sk = generateSecretKey();

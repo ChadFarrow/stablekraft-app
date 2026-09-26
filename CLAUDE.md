@@ -105,10 +105,11 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   `ws` inlined by webpack throwing `b.mask is not a function` on every frame, and `ws` rethrowing a `close()`
   that landed on a still-connecting socket, both as `uncaughtException`. For anything touching a server route's
   runtime, run the real thing: `npm run build`, copy `.env.local` into `.next/standalone/`, then
-  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — add
-  `NODE_OPTIONS=--no-experimental-websocket` to stand in for `node:20-alpine`, which is the shape production
-  actually has. Read the server log, not just the response body: the first version of that fix returned correct
-  JSON while throwing uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
+  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — on a local Node 22 that is the shape
+  production has (`node:22-alpine`). Add `NODE_OPTIONS=--no-experimental-websocket` to also prove a relay path does
+  not lean on the `WebSocket` global, which is how the missing install in six routes was confirmed. Read the
+  server log, not just the response body: the first version of that fix returned correct JSON while throwing
+  uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
   **That server is attached to the PRODUCTION database, and it has no admin gate.** The copied `.env.local` points
   at production and carries no `ADMIN_SECRET`, and `checkAdminAuth` fails OPEN without one — so every admin-gated
   route runs for real. On 2026-09-19 a test meant to prove `?refresh=true` returns 401 got 200 and rebuilt the
@@ -159,23 +160,26 @@ line holds the full story.
   must come from `connectServerNostrClient()` (`lib/nostr/server-client.ts`). This file used to say the sweep was
   the only one; the other six routes built clients directly and never installed a WebSocket, so on Node 20 a boost
   note could reach a relay only if the sweep had already patched `nostr-tools` in that process — and a failure
-  logged nothing (found in code 2026-09-26). `server-client.test.ts` now fails if
-  anything under `app/api` opens a relay another way. `node:20-alpine` runs `node server.js` with no
-  `--experimental-websocket`, and **Node 20 exposes the `WebSocket` global only behind that flag** (v22 exposes it
-  unconditionally). Next does not polyfill it. So both paths run on `ws`, installed by `installNodeWebSocket()`
-  before any socket is opened — which is why `ws` is a **production** dependency and why `next.config.js` sets
-  `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native helpers do not survive the
-  bundle, and every frame then throws `TypeError: b.mask is not a function` as an `uncaughtException`. Marking it
-  external is also what traces it into `.next/standalone/node_modules` → `favorites`, `nostr-signer`.
+  logged nothing (found in code 2026-09-26). `server-client.test.ts` now fails if anything under `app/api` opens a
+  relay another way. Production now runs `node:22-alpine`, whose `WebSocket` global is **undici's**, and undici
+  recurses with nostr-tools on a failed connect (below); under Node 20 there was no global at all without
+  `--experimental-websocket`. Next polyfills neither case. So both paths run on `ws`, installed by
+  `installNodeWebSocket()` before any socket is opened — which is why `ws` is a **production** dependency and why
+  `next.config.js` sets `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native
+  helpers do not survive the bundle, and every frame then throws `TypeError: b.mask is not a function` as an
+  `uncaughtException`. Marking it external is also what traces it into `.next/standalone/node_modules` →
+  `favorites`, `nostr-signer`.
 - **A relay sweep that reached nobody looks EXACTLY like one that found nothing.** `querySync` swallows a connect
   failure inside nostr-tools and resolves to `[]`, so a per-filter `catch` never fires and **nothing is logged** —
   the route answered `success: true`, `status: 'empty'`, zero people, in silence. Connectivity is a separate
   question from emptiness and has to be asked separately: `pool.listConnectionStatus()`, and zero reached is an
   **error**, never an empty result. Same exit as an unreadable private half → `favorites`.
-- **Do not raise the base image to Node 22 on its own.** Node 22's undici re-fires `error` from inside `close()` on
-  a socket that already failed, and `nostr-tools` >= 2.25.2 calls `this.ws?.close?.()` from its own `onerror`, so
-  the two recurse until `RangeError: Maximum call stack size exceeded`. Browsers make that `close()` a no-op, so
-  only Node is affected. `ws` avoids it entirely — which is the other reason the server is on `ws` → `nostr-signer`.
+- **Production runs Node 22, and that is safe ONLY because every server relay socket is on `ws`.** Node 22's
+  undici re-fires `error` from inside `close()` on a socket that already failed, and `nostr-tools` >= 2.25.2 calls
+  `this.ws?.close?.()` from its own `onerror`, so the two recurse until `RangeError: Maximum call stack size
+  exceeded`. Browsers make that `close()` a no-op, so only Node is affected. `ws` avoids it entirely. The move from
+  Node 20 (end-of-life 2026-04-30) waited until the six routes above were on `ws` too; `server-client.test.ts`
+  fails if a route opens a relay on anything else. Node 22 itself is end-of-life 2027-04-30 → `nostr-signer`.
 - **Four guards decide who may use this backend, each behind its own switch, and three ship in LOG mode.**
   `NEXT_PUBLIC_FOREIGN_SHELL_GATE` (defaults to `block`), `PROXY_HOST_MODE`, `CORS_MODE` and
   `RATE_LIMIT_MODE` (all default to `log`). A log-mode guard must be **indistinguishable from before**, and

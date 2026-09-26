@@ -13,9 +13,9 @@
  *
  * WHY IT EXISTS
  * `globalThis.WebSocket` only landed as a default in **Node 21**. This repo
- * targets **Node 20** (`.nvmrc`, and the Dockerfile's `node:20-alpine`), where it
- * sits behind `--experimental-websocket`. `nostr-tools` reads the global once, at
- * module load:
+ * targeted **Node 20** until 2026-09, where it sits behind
+ * `--experimental-websocket`; it now targets Node 22 (below for why that is no
+ * reason to drop this). `nostr-tools` reads the global once, at module load:
  *
  *     var _WebSocket;
  *     try { _WebSocket = WebSocket; } catch {}      // lib/esm/pool.js
@@ -50,12 +50,14 @@
  * `nostr-tools` >= 2.25.2 calls `this.ws?.close?.()` from its own `onerror`
  * (the fix for its leaked-socket bug, nbd-wtf/nostr-tools#550). The two
  * together recurse until `RangeError: Maximum call stack size exceeded`, so on
- * Node 22 three relay tests failed while CI, pinned to Node 20 by `.nvmrc`,
- * stayed green. Browsers are not affected: `close()` on an already-failed
- * socket is a no-op there, so the upstream fix does what it says.
+ * Node 22 three relay tests failed while CI, then pinned to Node 20 by
+ * `.nvmrc`, stayed green. Browsers are not affected: `close()` on an
+ * already-failed socket is a no-op there, so the upstream fix does what it says.
  *
  * Installing `ws` unconditionally under Node makes a local run match CI and
- * production (`node:20-alpine`), and keeps the undici quirk out of the picture.
+ * production (`node:22-alpine`), and keeps the undici quirk out of the picture.
+ * Production could only move to Node 22 once every server socket came through
+ * here — see server-client.ts.
  * It does reach the production SERVER bundle, through the two callers above —
  * which is why `next.config.js` lists `ws` in `serverExternalPackages` — and
  * never the client bundle.
