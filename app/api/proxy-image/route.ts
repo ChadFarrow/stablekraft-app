@@ -5,7 +5,7 @@ import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedArrayBuffer, MAX_IMAGE_BYTES } from '@/lib/safe-fetch';
 
 // Dynamic import sharp with fallback for serverless environments
-let sharp: typeof import('sharp') | null = null;
+let sharp: typeof import('sharp').default | null = null;
 try {
   sharp = require('sharp');
 } catch (e) {
