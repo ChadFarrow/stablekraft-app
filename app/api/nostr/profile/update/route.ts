@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyEvent } from 'nostr-tools';
 import { Metadata } from 'nostr-tools/kinds';
-import { NostrClient } from '@/lib/nostr/client';
+import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { normalizePubkey } from '@/lib/nostr/normalize';
 import { requireUser } from '@/lib/auth/require-user';
@@ -106,10 +106,9 @@ export async function POST(request: NextRequest) {
           ? currentUser.relays
           : getDefaultRelays();
 
-      const client = new NostrClient(relayUrls);
+      const client = await connectServerNostrClient(relayUrls, 'profile/update');
 
       try {
-        await client.connect();
         const publishResults = await client.publish(signedEvent, {
           relays: relayUrls,
           waitForRelay: true,

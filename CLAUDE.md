@@ -149,11 +149,17 @@ line holds the full story.
 - **Railway does not run migrations on deploy.** The Dockerfile has no `prisma migrate deploy`, so after merging a
   migration run `railway run --service StableKraft --environment production npm run db:migrate` **before** the code
   that reads the new column goes live — otherwise every query selecting it 500s (issue #122).
-- **The server has exactly ONE relay read, and it must bring its own WebSocket.** Everything else Nostr happens in
-  the browser; `/api/nostr/global-favorites` is the exception. `node:20-alpine` runs `node server.js` with no
+- **Every server relay socket must bring its own WebSocket, and there are TWO paths that open one.** The Community
+  sweep (`/api/nostr/global-favorites`, `lib/nostr/community-favorites.ts`) and every `NostrClient` a route builds —
+  the boost note (the ONLY place one is published), `/auth/me`, NIP-05 login, share, follow, profile update — which
+  must come from `connectServerNostrClient()` (`lib/nostr/server-client.ts`). This file used to say the sweep was
+  the only one; the other six routes built clients directly and never installed a WebSocket, so on Node 20 a boost
+  note could reach a relay only if the sweep had already patched `nostr-tools` in that process — and a failure
+  logged nothing (found in code 2026-09-26). `server-client.test.ts` now fails if
+  anything under `app/api` opens a relay another way. `node:20-alpine` runs `node server.js` with no
   `--experimental-websocket`, and **Node 20 exposes the `WebSocket` global only behind that flag** (v22 exposes it
-  unconditionally). Next does not polyfill it. So the sweep runs on `ws`, installed by `installNodeWebSocket()`
-  before the pool is constructed — which is why `ws` is a **production** dependency and why `next.config.js` sets
+  unconditionally). Next does not polyfill it. So both paths run on `ws`, installed by `installNodeWebSocket()`
+  before any socket is opened — which is why `ws` is a **production** dependency and why `next.config.js` sets
   `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native helpers do not survive the
   bundle, and every frame then throws `TypeError: b.mask is not a function` as an `uncaughtException`. Marking it
   external is also what traces it into `.next/standalone/node_modules` → `favorites`, `nostr-signer`.

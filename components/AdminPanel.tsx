@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from '@/components/Toast';
 import { useNostr } from '@/contexts/NostrContext';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
@@ -1375,7 +1376,7 @@ export default function AdminPanel() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <a
+              <Link
                 href="/"
                 className="px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center gap-2"
               >
@@ -1383,7 +1384,7 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 Back
-              </a>
+              </Link>
               <h1 className="text-4xl font-bold">RSS Feed Management</h1>
             </div>
             <button
@@ -2607,7 +2608,7 @@ export default function AdminPanel() {
           <div className="space-y-3">
             {/* LNURL Test Feed */}
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-              <a
+              <Link
                 href="/album/lnurl-test-feed"
                 className="flex-1 inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
               >
@@ -2615,7 +2616,7 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 LNURL Test Feed
-              </a>
+              </Link>
               <button
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('lnurl-test-feed'));
@@ -2656,7 +2657,7 @@ export default function AdminPanel() {
 
             {/* Podtards Test Feed */}
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-              <a
+              <Link
                 href="/publisher/podtards-test"
                 className="flex-1 inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
               >
@@ -2664,7 +2665,7 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 Podtards Test Feed
-              </a>
+              </Link>
               <button
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('podtards-test'));

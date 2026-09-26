@@ -5,9 +5,11 @@
  * browsers have always had `WebSocket`, and pulling `ws` into the client bundle
  * would be pure dead weight. Its callers are the relay harnesses
  * (`relay-read.test.ts`, `relay-isolation.test.ts`, `favorites.relay-probe.ts`,
- * `scripts/e2e-favorites.ts`) and `community-favorites.ts`, which holds the only
- * relay read that runs on the SERVER. That last one is why `ws` is a production
- * dependency and not a devDependency.
+ * `scripts/e2e-favorites.ts`) and the two places the SERVER opens relay
+ * sockets: `community-favorites.ts` (the Community tab sweep) and
+ * `server-client.ts` (every `NostrClient` a route builds — the boost note,
+ * `/auth/me`, NIP-05 login and the rest). Those two are why `ws` is a
+ * production dependency and not a devDependency.
  *
  * WHY IT EXISTS
  * `globalThis.WebSocket` only landed as a default in **Node 21**. This repo
@@ -54,8 +56,9 @@
  *
  * Installing `ws` unconditionally under Node makes a local run match CI and
  * production (`node:20-alpine`), and keeps the undici quirk out of the picture.
- * `ws` is a devDependency and this module is test-and-probe-only, so nothing
- * here reaches a production bundle.
+ * It does reach the production SERVER bundle, through the two callers above —
+ * which is why `next.config.js` lists `ws` in `serverExternalPackages` — and
+ * never the client bundle.
  */
 
 // Static — reaches the CJS instance, whose `_WebSocket` was already captured
