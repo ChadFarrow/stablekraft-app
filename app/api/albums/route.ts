@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { corsHeaders } from '@/lib/cors';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug, normalizeArtistName } from '@/lib/url-utils';
+import { apiAlbumsFeeds } from '@/lib/caches/albums-fast-cache';
+import { compressedJson } from '@/lib/compressed-json';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -318,7 +320,7 @@ export async function GET(request: Request) {
     } else {
       // Normal query for non-publisher requests
       const feedLimit = 500;
-      feeds = await prisma.feed.findMany({
+      const loadFeeds = () => prisma.feed.findMany({
         where: feedWhere,
         include: {
           Track: {
@@ -338,6 +340,12 @@ export async function GET(request: Request) {
         ],
         take: feedLimit
       });
+      // The unfiltered read — what AudioProvider sends on every page load — comes from
+      // a cache that re-reads only when the catalog changed (apiAlbumsFeeds). Every
+      // other parameter below is applied in memory, so one entry serves them all.
+      // Nothing after this point mutates `feeds` or its tracks.
+      const unfiltered = tier === 'all' && !feedId && filter !== 'publisher';
+      feeds = unfiltered ? await apiAlbumsFeeds.get(loadFeeds) : await loadFeeds();
 
       // Extract tracks from the included data
       tracks = feeds.flatMap(feed => feed.Track);
@@ -607,7 +615,8 @@ export async function GET(request: Request) {
     
     console.log(`✅ Database Albums API: Returning ${paginatedAlbums.length}/${totalCount} albums with ${publisherStatsArray.length} publisher feeds`);
     
-    return NextResponse.json({
+    // Gzipped: `?limit=0` is ~3.6 MB of JSON, sent on every page load (#272).
+    return compressedJson(request, {
       albums: paginatedAlbums,
       totalCount,
       hasMore: limit === 0 ? false : offset + limit < totalCount,
