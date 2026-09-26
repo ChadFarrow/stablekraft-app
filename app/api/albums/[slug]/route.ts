@@ -6,6 +6,7 @@ import { getAllPlaylistIds, getPlaylistUrls, getPlaylistConfig, PLAYLIST_CONFIGS
 import { PODCAST_FEED_IDS, PODCAST_FEED_URLS } from '@/lib/podcast-feeds';
 import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
 import { compressedJson } from '@/lib/compressed-json';
+import { pickFlexibleSlugMatch } from '@/lib/catalog/flexible-slug-match';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -1332,50 +1333,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     if (!foundAlbum) {
       console.log(`🔍 Trying flexible matching for slug: "${slug}"`);
 
-      const searchSlug = slug.toLowerCase();
-      const decodedSlug = decodeURIComponent(searchSlug);
-      const titleFromSlug = decodedSlug.replace(/-/g, ' ');
-
-      // Get all active feeds with tracks for flexible matching
-      const feeds = await prisma.feed.findMany({
+      // Match on a few columns of every active feed, then load only the winner.
+      // This used to read every active feed WITH all its tracks — 33 MB per miss,
+      // and every slug that matches nothing lands here (see flexible-slug-match.ts).
+      const candidates = await prisma.feed.findMany({
         where: { status: 'active' },
-        include: trackInclude
-      });
-
-      const flexibleMatches = [];
-
-      for (const feed of feeds) {
-        if (feed.Track.length === 0) continue;
-        
-        const albumTitle = feed.title;
-        const albumTitleLower = albumTitle.toLowerCase();
-        
-        // Try various matching strategies
-        const matches = [
-          albumTitleLower === searchSlug,
-          albumTitleLower === decodedSlug,
-          albumTitleLower === titleFromSlug,
-          albumTitleLower.replace(/\s+/g, '-') === searchSlug,
-          albumTitleLower.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') === searchSlug,
-          searchSlug.length > 5 && albumTitleLower.includes(searchSlug),
-          titleFromSlug.length > 5 && albumTitleLower.includes(titleFromSlug),
-          feed.guid === slug,  // Podcast Index GUID match
-          feed.guid?.toLowerCase() === searchSlug  // Case-insensitive GUID match
-        ];
-        
-        if (matches.some(match => match)) {
-          console.log(`🔍 Found flexible match: "${albumTitle}" with ${feed.Track.length} tracks`);
-          flexibleMatches.push({ feed, trackCount: feed.Track.length });
+        select: {
+          id: true,
+          title: true,
+          guid: true,
+          _count: { select: { Track: { where: trackInclude.Track.where } } }
         }
-      }
-      
-      // If we have flexible matches, prefer the one with the most tracks
-      if (flexibleMatches.length > 0) {
-        const bestFlexibleMatch = flexibleMatches.reduce((best, current) => 
-          current.trackCount > best.trackCount ? current : best
-        );
-        
-        const feed = bestFlexibleMatch.feed;
+      });
+      const bestFlexibleMatch = pickFlexibleSlugMatch(
+        candidates.map(c => ({ id: c.id, title: c.title, guid: c.guid, trackCount: c._count.Track })),
+        slug
+      );
+      const feed = bestFlexibleMatch
+        ? await prisma.feed.findUnique({ where: { id: bestFlexibleMatch.id }, include: trackInclude })
+        : null;
+
+      if (feed) {
         console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.Track.length} tracks`);
 
         // Redirect playlist feeds to their playlist page
