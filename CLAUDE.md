@@ -73,9 +73,10 @@ railway domain                   # which hostnames actually serve this instance
 Per-subsystem test commands live in the skill that owns the subsystem — each skill opens with its own.
 
 ## Boundaries
-- Never commit secrets (`.env`, API keys). `SESSION_SECRET` and `ADMIN_SECRET` live in Railway env only —
-  `.env.local` carries neither (checked 2026-09-19), which matters for any local server; see the standalone
-  recipe below.
+- Never commit secrets (`.env`, API keys). The production `SESSION_SECRET` and `ADMIN_SECRET` live in Railway
+  env. `.env.local` carries a `SESSION_SECRET` (it did on 2026-09-19 too — "carries neither" was wrong) and, since
+  2026-09-26, a LOCAL throwaway `ADMIN_SECRET` that is not production's; admin calls to production use
+  `~/.stablekraft-admin.env`. This matters for any local server; see the standalone recipe below.
 - **`console.log` does not exist in production.** `next.config.js` sets `compiler.removeConsole` with
   `exclude: ['error', 'warn']`, so every `console.log` is compiled out of a production build and survives in dev.
   A diagnostic added with `log` is therefore absent from the one environment worth diagnosing — this cost a
@@ -118,10 +119,12 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   not lean on the `WebSocket` global, which is how the missing install in six routes was confirmed. Read the
   server log, not just the response body: the first version of that fix returned correct JSON while throwing
   uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
-  **That server is attached to the PRODUCTION database, and it has no admin gate.** The copied `.env.local` points
-  at production and carries no `ADMIN_SECRET`, and `checkAdminAuth` fails OPEN without one — so every admin-gated
-  route runs for real. On 2026-09-19 a test meant to prove `?refresh=true` returns 401 got 200 and rebuilt the
-  `iam` playlist's `SystemPlaylistTrack` rows on production. Always start it with a throwaway secret:
+  **That server is attached to the PRODUCTION database.** The copied `.env.local` points at production, and
+  `checkAdminAuth` fails OPEN when `ADMIN_SECRET` is unset — so every admin-gated route runs for real. On 2026-09-19,
+  when `.env.local` had no `ADMIN_SECRET`, a test meant to prove `?refresh=true` returns 401 got 200 and rebuilt the
+  `iam` playlist's `SystemPlaylistTrack` rows on production. `.env.local` now carries a local throwaway secret, so
+  the gate is on — but still start the server with one of its own: a value on the command line beats the copied
+  file (`@next/env` never overwrites a variable already set), and it covers a copy that lacks one:
   `ADMIN_SECRET=$(openssl rand -hex 24) PORT=3009 …`. With `NEXT_DIST_DIR=.next-build` the server is in
   `.next-build/standalone/`.
 - No `src/` directory — all source lives in `app/`, `lib/`, `components/`, `contexts/`
