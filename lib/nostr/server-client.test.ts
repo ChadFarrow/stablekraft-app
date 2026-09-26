@@ -214,7 +214,7 @@ test('app/api opens relays only through connectServerNostrClient', () => {
     assert.doesNotMatch(
       source,
       /\bnew\s+(NostrClient|RelayManager|SimplePool)\s*\(|\bcreateNostrClient\s*\(|\bRelay\.connect\s*\(/,
-      `${file} opens a relay directly — use connectServerNostrClient, or on Node 20 it reaches nothing`
+      `${file} opens a relay directly — use connectServerNostrClient, or it runs on undici's WebSocket (or none)`
     );
   }
 });

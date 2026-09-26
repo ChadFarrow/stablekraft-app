@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY prisma ./prisma
 RUN npm ci
 
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
@@ -27,7 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # Stage 3: Runner (minimal production image)
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # Install runtime dependencies

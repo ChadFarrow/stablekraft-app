@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
       # --ignore-scripts skips this repo's postinstall, which runs check-env
       # and dev-setup and is meant for a developer's machine, not CI.

@@ -84,9 +84,9 @@ Other site users' favorites, read off Nostr and grouped **by person**. Rebuilt 2
 - **Unfavorites are honoured** via kind-5 (`collectDeletions`/`applyDeletions`) — only from the same pubkey, and coordinate (`a`-tag) deletions only kill versions at or before the deletion's `created_at` so a later re-favorite survives. Dedupe replaceable events by `(pubkey, kind, d)` *before* applying deletions.
 - **This is one of two server paths that open relay sockets** (the other is `connectServerNostrClient()` in
   `lib/nostr/server-client.ts`, used by every `app/api/nostr/*` route that builds a `NostrClient`), and each has to
-  bring its own WebSocket. `node:20-alpine`
-  runs `node server.js` with no `--experimental-websocket`, and Node 20 exposes the `WebSocket` global only behind
-  that flag (v22 exposes it unconditionally); Next does not polyfill it. So `fetchCommunityFavorites` and
+  bring its own WebSocket. Production runs `node:22-alpine`, whose `WebSocket` global is undici's and recurses
+  with nostr-tools on a failed connect; under the Node 20 image it replaced there was no global at all. Next
+  polyfills neither. So `fetchCommunityFavorites` and
   `fetchCommunityProfiles` each `await installNodeWebSocket()` **before** constructing their pool — `SimplePool`
   reads the module-level WebSocket in its constructor, so calling it after is too late. That is why `ws` is a
   production dependency and why `next.config.js` sets `serverExternalPackages: ['ws']`; webpack otherwise inlines

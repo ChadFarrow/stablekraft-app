@@ -65,8 +65,10 @@ Favoriting saves to DB immediately, queues Nostr publish (500ms debounce). **Alw
   own. Under Node, `installNodeWebSocket()` installs `ws` — always, even on Node >= 21 where a global already
   exists — because undici re-fires `error` from inside `close()` on a socket that already failed, and
   `nostr-tools` >= 2.25.2 calls `this.ws?.close?.()` from its own `onerror` (its fix for leaked sockets,
-  nbd-wtf/nostr-tools#550). The two recurse until `RangeError: Maximum call stack size exceeded`. **So do not
-  raise the base image or `.nvmrc` to Node 22 assuming the global is a free upgrade.**
+  nbd-wtf/nostr-tools#550). The two recurse until `RangeError: Maximum call stack size exceeded`. **Production
+  runs Node 22, so the global IS undici's there — every server relay socket must come through
+  `installNodeWebSocket()`**: `community-favorites.ts` calls it, and every route's `NostrClient` comes from
+  `connectServerNostrClient()` (`lib/nostr/server-client.ts`), which a guard test enforces for `app/api`.
 - **`ws` needs a no-op `'error'` listener, and there are FOUR module copies to patch.** `ws` reports a `close()`
   landing on a still-CONNECTING socket by *emitting* an error, and an `'error'` with no listener is rethrown as an
   `uncaughtException` — which is exactly what nostr-tools' connect timeout triggers, so the helper wraps `ws` in a
