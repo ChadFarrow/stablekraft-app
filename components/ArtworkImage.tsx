@@ -1,9 +1,8 @@
 'use client';
 
 import Image, { type ImageProps } from 'next/image';
-import { isAnimatedArtworkUrl } from '@/lib/cdn-utils';
 import { useDataSaver } from '@/hooks/useDataSaver';
-import { artworkPlan } from '@/lib/data-saver';
+import { artworkImagePlan } from '@/lib/artwork-image-url';
 
 /**
  * Drop-in replacement for next/image at every site that renders artwork coming
@@ -22,21 +21,17 @@ import { artworkPlan } from '@/lib/data-saver';
  * It buys the Data Saver reading below.
  */
 export default function ArtworkImage({ src, unoptimized, quality, ...props }: ImageProps) {
-  const animated = typeof src === 'string' && isAnimatedArtworkUrl(src);
   const dataSaver = useDataSaver();
 
   /*
-   * With Data Saver off this is the identity: `unoptimized ?? animated` and the
-   * caller's own quality, which is what this component did before. 75 is the
-   * next/image default, so naming it explicitly changes nothing.
+   * With Data Saver off this is the identity. Shared with `artworkImageUrl`,
+   * which a CSS backdrop uses to request exactly the URL this component does.
    */
-  const plan = artworkPlan({
+  const plan = artworkImagePlan({
     src: typeof src === 'string' ? src : '',
+    quality: typeof quality === 'number' ? quality : undefined,
+    unoptimized,
     dataSaver,
-    baseline: {
-      quality: typeof quality === 'number' ? quality : 75,
-      unoptimized: unoptimized ?? animated,
-    },
   });
 
   /*

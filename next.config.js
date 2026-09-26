@@ -228,7 +228,11 @@ const nextConfig = {
     // Adding a value changes no default: nothing asks for 50 unless the user
     // turns Data Saver on.
     qualities: [50, 75, 85, 90, 100],
-    minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days for faster updates
+    // 1 day. This is how long the server keeps an optimized image AND the browser
+    // `max-age` it is sent with. At 7 days, an artist who replaced a cover file in
+    // place (Hip-Hop Taoist, 2026-09-26) kept showing the old art in every
+    // <ArtworkImage> for up to a week after the file had changed.
+    minimumCacheTTL: 60 * 60 * 24,
     // Improved loading state configuration
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
