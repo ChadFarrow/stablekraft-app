@@ -82,7 +82,9 @@ Other site users' favorites, read off Nostr and grouped **by person**. Rebuilt 2
 - **d-tag resolution is a 3-rung ladder** (`lib/nostr/favorite-item-lookup.ts`, shaped after `lib/feed-lookup.ts`): `Track.id` → `Feed.id` → `Track.guid`, bounded at 3 Prisma queries. Measured 7 / 44 / 69 with 4 unresolved — **the guid rung is 57% of all hits**; without it only 27% of the community's favorites resolved and the rest were dropped silently. Order matters: `Track.id` is sometimes a CUID and sometimes `${feedId}-${guid}`.
 - **Return the CANONICAL id, never the raw `d` tag.** `originalItemId` feeds straight into `FavoriteButton` as `trackId`/`feedId`; since most d-tags are guids, echoing the tag back writes guid-shaped ids into the favorites API. The raw tag is exposed separately as `dTag` for debugging.
 - **Unfavorites are honoured** via kind-5 (`collectDeletions`/`applyDeletions`) — only from the same pubkey, and coordinate (`a`-tag) deletions only kill versions at or before the deletion's `created_at` so a later re-favorite survives. Dedupe replaceable events by `(pubkey, kind, d)` *before* applying deletions.
-- **This is the ONLY relay read that runs on the server**, and it has to bring its own WebSocket. `node:20-alpine`
+- **This is one of two server paths that open relay sockets** (the other is `connectServerNostrClient()` in
+  `lib/nostr/server-client.ts`, used by every `app/api/nostr/*` route that builds a `NostrClient`), and each has to
+  bring its own WebSocket. `node:20-alpine`
   runs `node server.js` with no `--experimental-websocket`, and Node 20 exposes the `WebSocket` global only behind
   that flag (v22 exposes it unconditionally); Next does not polyfill it. So `fetchCommunityFavorites` and
   `fetchCommunityProfiles` each `await installNodeWebSocket()` **before** constructing their pool — `SimplePool`

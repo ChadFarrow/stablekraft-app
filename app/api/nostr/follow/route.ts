@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyEvent } from 'nostr-tools';
 import { Contacts } from 'nostr-tools/kinds';
-import { NostrClient } from '@/lib/nostr/client';
+import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { normalizePubkey } from '@/lib/nostr/normalize';
 import { requireUser } from '@/lib/auth/require-user';
@@ -140,8 +140,7 @@ export async function POST(request: NextRequest) {
           currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
         const sanitizedRelays = relays.filter((r) => r.startsWith('wss://'));
 
-        const client = new NostrClient(sanitizedRelays);
-        await client.connect();
+        const client = await connectServerNostrClient(sanitizedRelays, 'follow');
         const results = await client.publish(signedEvent, {
           relays: sanitizedRelays,
           waitForRelay: true,
@@ -189,8 +188,7 @@ export async function POST(request: NextRequest) {
           currentUser.relays.length > 0 ? currentUser.relays : getDefaultRelays();
         const sanitizedRelays = relays.filter((r) => r.startsWith('wss://'));
 
-        const client = new NostrClient(sanitizedRelays);
-        await client.connect();
+        const client = await connectServerNostrClient(sanitizedRelays, 'unfollow');
         const results = await client.publish(signedEvent, {
           relays: sanitizedRelays,
           waitForRelay: true,

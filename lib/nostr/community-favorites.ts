@@ -375,8 +375,9 @@ export async function fetchCommunityFavorites(options: {
   }
 
   // Must precede the pool: `SimplePool` reads the module-level WebSocket in its
-  // constructor. These are the only relay reads that run on the SERVER -- the
-  // shared kind:10333 list is read in the browser -- and the server had no
+  // constructor. This sweep and `connectServerNostrClient` (server-client.ts)
+  // are the two places the SERVER opens relay sockets -- the shared kind:10333
+  // list is read in the browser -- and the server had no
   // WebSocket of its own. `node:20-alpine` runs `node server.js` with no
   // `--experimental-websocket`, and Node 20 exposes the global ONLY behind that
   // flag, so this sweep was one environment change away from reaching nothing.

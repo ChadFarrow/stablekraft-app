@@ -1,6 +1,6 @@
 # Pending Major Upgrades
 
-Last reviewed: 2026-08-16
+Last reviewed: 2026-09-26
 
 ## Summary
 
@@ -11,21 +11,33 @@ Re-check with `npm outdated` rather than trusting the numbers below — they dri
 
 | Package | Range | Resolves to | Latest | Priority |
 |---------|-------|-------------|--------|----------|
-| Prisma / @prisma/client | `6.16.2` / `^6.16.2` | 6.16.2 / 6.19.3 | 7.9.1 | Medium |
-| React / React DOM | `^18` | 18.3.1 | 19.2.8 | Low |
-| Next.js | `^15.5.9` | 15.5.23 | 16.3.1 | Low |
+| Prisma / @prisma/client | `6.19.3` / `6.19.3` (both pinned) | 6.19.3 | 7.10.0 | Medium |
+| React / React DOM | `^18` | 18.3.1 | 19.3.0 | Low |
+| Next.js | `^15.5.26` | 15.5.26 | 16.3.6 | Low — blocked by next-pwa (below) |
+| next-pwa | `^5.6.0` | 5.6.0 | 5.6.0 (unmaintained) | Medium — webpack-only, blocks Next 16 |
 | TailwindCSS | `^3.4.19` | 3.4.19 | 4.3.3 | Low |
-| ESLint | `^8` | 8.57.1 | 9.x | Low |
-| eslint-config-next | `^14.0.4` | 14.x | 16.x | Low — lags Next by two majors |
+| ESLint | `^8` | 8.57.1 | 10.x | Low — `next lint` is removed in Next 16 |
+| eslint-config-next | `15.5.26` | 15.5.26 | 16.x | Low — tracks Next |
 | TypeScript | `^5` | 5.9.3 | 7.0.2 | Low |
-| lucide-react | `^0.294.0` | 0.294.0 | 1.31.0 | Low |
+| lucide-react | `^0.294.0` | 0.294.0 | 1.48.0 | Low |
 | node-fetch | `^2.7.0` | 2.7.0 | 3.3.2 | Low |
-| sharp | — | 0.34.5 | 0.35.3 | Low |
-| task-master-ai | `^0.22.0` | 0.22.0 | 0.37.1 | Low (dev) |
 
-**Node is pinned at 20** (`.nvmrc`, `node:20-alpine` in the Dockerfile). Several of these majors
-raise their Node floor, so check that before starting one — and note `lib/nostr/node-websocket.ts`
-exists specifically because Node 20 lacks a global `WebSocket`.
+**Node is pinned at 20** (`.nvmrc`, `node:20-alpine` in the Dockerfile), and Node 20 has been
+end-of-life since 2026-04-30. Several of these majors raise their Node floor, so check that before
+starting one — and note `lib/nostr/node-websocket.ts` exists specifically because Node 20 lacks a
+global `WebSocket`.
+
+### Advisories left open on purpose (`npm audit`, 2026-09-26: 0 critical, 13 high — from 2 and 43)
+
+Everything with a non-major fix was taken. What remains needs a major, and none of it runs on
+the production server:
+
+- **next-pwa → workbox-build → rollup-plugin-terser → serialize-javascript.** Build-time only.
+  `npm audit`'s "fix" is next-pwa 2.0.2, a downgrade. Goes away with the next-pwa replacement.
+- **prisma → @prisma/config → effect, deepmerge-ts.** The CLI, not the client. The "fix" is
+  another downgrade; Prisma 7 is the real one.
+- **lighthouse → puppeteer-core → @puppeteer/browsers, extract-zip.** Dev-only, local perf runs.
+- **next's own nested `postcss@8.4.31`.** Build-time CSS only; clears with Next 16.
 
 ---
 
