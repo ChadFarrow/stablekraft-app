@@ -72,6 +72,17 @@ export const albumsFastCatalog = createFingerprintedCache<CachedData>(cacheOptio
 /** The `filter=podcasts` view: podcast feeds with their newest episodes. Was uncached. */
 export const albumsFastPodcasts = createFingerprintedCache<FeedWithTracks[]>(cacheOptions('podcasts'));
 
+/**
+ * `/api/albums`'s unfiltered read: up to 500 feeds with every playable track, all
+ * columns. Was uncached — 4.84 MB from the database per call (measured 2026-09-26),
+ * and AudioProvider sends it on every page load (`?limit=0`, the shuffle pool) while
+ * the album page sent it once more. 720 calls, ~3.5 GB, 2026-09-19 → 09-26 (#272).
+ * Every row it reads is one `catalogFingerprint()` hashes, so the same probe applies.
+ */
+export const apiAlbumsFeeds = createFingerprintedCache<Array<Feed & { Track: Track[] }>>(
+  cacheOptions('api-albums')
+);
+
 interface PlaylistCacheState {
   playlistData: any[] | null;
   playlistTimestamp: number;
@@ -89,6 +100,7 @@ export function getAlbumsFastPlaylistCache(): PlaylistCacheState {
 export function invalidateAlbumsFastCache(): void {
   albumsFastCatalog.invalidate();
   albumsFastPodcasts.invalidate();
+  apiAlbumsFeeds.invalidate();
   playlistState.playlistData = null;
   playlistState.playlistTimestamp = 0;
 }
