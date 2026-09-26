@@ -517,10 +517,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               if (foundAlbum.podroll && foundAlbum.podroll.length > 0) {
                 loadPodrollAlbums(foundAlbum.podroll);
               }
-              // Load Publisher feed albums if publisher exists
-              if (foundAlbum.publisher && foundAlbum.publisher.feedUrl && typeof foundAlbum.publisher.feedUrl === 'string') {
-                loadPublisherAlbums(foundAlbum.publisher.feedUrl);
-              }
             } else {
               setError('Album not found');
             }
@@ -553,13 +549,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
       if (initialAlbum.podroll && initialAlbum.podroll.length > 0) {
         loadPodrollAlbums(initialAlbum.podroll);
       }
-      // Load Publisher feed albums if publisher exists
-      if (initialAlbum.publisher && initialAlbum.publisher.feedUrl && typeof initialAlbum.publisher.feedUrl === 'string') {
-        loadPublisherAlbums(initialAlbum.publisher.feedUrl);
-      }
     }
   }, [albumTitle, initialAlbum, loadingStarted]);
 
+  // A `loadPublisherAlbums` used to run here on every album page: it fetched the whole
+  // of /api/albums and added its matches only when podrollAlbums was non-empty — which
+  // it never is, since `podroll` arrives as `{ enabled: true }` or null, never an array.
+  // So each view paid a ~5 MB database read for nothing (#272).
   const loadPodrollAlbums = async (podrollItems: { url: string; title?: string; description?: string }[]) => {
     try {
       // Load pre-parsed album data and filter for podroll items
@@ -583,63 +579,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
       setPodrollAlbums(podrollAlbumsData);
     } catch (err) {
       console.error('Error loading PodRoll albums:', err);
-    }
-  };
-
-  const loadPublisherAlbums = async (publisherFeedUrl: string) => {
-    try {
-      // Validate input
-      if (!publisherFeedUrl || typeof publisherFeedUrl !== 'string') {
-        console.warn('⚠️ Invalid publisher feed URL:', publisherFeedUrl);
-        return;
-      }
-      
-      console.log(`🏢 Loading albums from publisher feed: ${publisherFeedUrl}`);
-      
-      // Load pre-parsed album data and filter for publisher albums
-      const response = await fetch('/api/albums');
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch albums: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const allAlbums = data.albums || [];
-      
-      // Filter albums that belong to the publisher
-      const publisherAlbumsData = allAlbums.filter((album: any) => {
-        return album.publisher && 
-               album.publisher.feedUrl && 
-               typeof album.publisher.feedUrl === 'string' &&
-               album.publisher.feedUrl === publisherFeedUrl;
-      });
-      
-      // Only add publisher albums to recommendations if there are already podroll albums
-      // (This prevents "You Might Also Like" from appearing for albums without podrolls)
-      setPodrollAlbums(prevAlbums => {
-        // Only show publisher albums if there are existing podroll recommendations
-        if (prevAlbums.length === 0) {
-          console.log(`🎶 No podroll albums found, not showing publisher recommendations for this album`);
-          return prevAlbums;
-        }
-        
-        // Combine and deduplicate based on title+artist
-        const combined = [...prevAlbums];
-        const existingKeys = new Set(prevAlbums.map(album => `${album.title.toLowerCase()}|${album.artist.toLowerCase()}`));
-        
-        publisherAlbumsData.forEach((album: any) => {
-          const key = `${album.title.toLowerCase()}|${album.artist.toLowerCase()}`;
-          if (!existingKeys.has(key)) {
-            combined.push(album);
-            existingKeys.add(key);
-          }
-        });
-        
-        console.log(`🎶 Added ${publisherAlbumsData.length} albums from publisher to existing podroll, total recommendations: ${combined.length}`);
-        return combined;
-      });
-    } catch (err) {
-      console.error('Error loading Publisher albums:', err);
     }
   };
 
