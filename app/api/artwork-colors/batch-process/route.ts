@@ -90,15 +90,15 @@ export async function POST(request: NextRequest) {
             console.log(`✅ [${i + 1}/${batch.length}] Processed: ${imageUrl.substring(0, 60)}...`);
           } else {
             results.failed++;
-            console.log(`⚠️ [${i + 1}/${batch.length}] Failed: ${imageUrl.substring(0, 60)}...`);
+            console.warn(`⚠️ [${i + 1}/${batch.length}] Failed: ${imageUrl.substring(0, 60)}...`);
           }
         } else {
           results.failed++;
-          console.log(`❌ [${i + 1}/${batch.length}] HTTP error: ${imageUrl.substring(0, 60)}...`);
+          console.warn(`❌ [${i + 1}/${batch.length}] HTTP error: ${imageUrl.substring(0, 60)}...`);
         }
       } catch (error) {
         results.failed++;
-        console.log(`❌ [${i + 1}/${batch.length}] Error: ${imageUrl.substring(0, 60)}...`);
+        console.warn(`❌ [${i + 1}/${batch.length}] Error: ${imageUrl.substring(0, 60)}...`);
       }
 
       // Add delay between requests (except after the last one)
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🎨 Batch complete: ${results.processed} processed, ${results.failed} failed`);
+    console.warn(`🎨 Batch complete: ${results.processed} processed, ${results.failed} failed`);
 
     return NextResponse.json({
       success: true,

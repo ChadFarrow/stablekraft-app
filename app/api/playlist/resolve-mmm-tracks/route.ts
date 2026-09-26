@@ -147,7 +147,7 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`✅ Resolution complete: ${resolvedCount} resolved, ${failedCount} failed`);
+    console.warn(`✅ Resolution complete: ${resolvedCount} resolved, ${failedCount} failed`);
 
     return NextResponse.json({
       success: true,

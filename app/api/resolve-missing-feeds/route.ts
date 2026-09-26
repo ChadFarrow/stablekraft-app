@@ -33,7 +33,7 @@ async function lookupFeedByGuid(guid: string) {
     const response = await fetch(url, { headers });
     
     if (!response.ok) {
-      console.log(`❌ API error for ${guid}: ${response.status}`);
+      console.warn(`❌ API error for ${guid}: ${response.status}`);
       return null;
     }
     
