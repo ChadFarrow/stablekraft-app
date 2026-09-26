@@ -59,6 +59,9 @@ railway domain                   # which hostnames actually serve this instance
 # backwards from anchorDate; startDate/endDate are NOT its arguments and silently return one
 # row. filter takes "@path:/api/albums" or "@httpStatus:404". An old deployment's console:
 # `railway logs <deploymentId> -n 5000` (5000 is the cap). This is how #272 found its readers.
+# Per-QUERY: `pg_stat_statements` is enabled on the production database (created 2026-09-26, stats
+# kept since the server's start) — `select calls, rows, query from pg_stat_statements order by rows
+# desc`. No migration creates it, so a database rebuilt from migrations will not have it.
 
 # COST. The Usage page's Network Egress chart is a running total for the billing period, so
 # it only ever rises — it is not a rate. For per-day, per-hour or per-service numbers, POST to
