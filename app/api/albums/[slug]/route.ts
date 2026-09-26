@@ -5,6 +5,7 @@ import { generateAlbumSlug, getPublisherInfo } from '@/lib/url-utils';
 import { getAllPlaylistIds, getPlaylistUrls, getPlaylistConfig, PLAYLIST_CONFIGS } from '@/lib/playlist/configs';
 import { PODCAST_FEED_IDS, PODCAST_FEED_URLS } from '@/lib/podcast-feeds';
 import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
+import { compressedJson } from '@/lib/compressed-json';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -296,7 +297,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -411,7 +412,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -526,7 +527,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -641,7 +642,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -720,7 +721,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created Top 100 album with ${top100Album.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: top100Album,
         lastUpdated: new Date().toISOString()
       }, {
@@ -1504,7 +1505,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     
     console.log(`✅ Database Album API: Returning album "${foundAlbum.title}" by ${foundAlbum.artist}`);
     
-    return NextResponse.json({
+    return compressedJson(request, {
       album: foundAlbum,
       lastUpdated: new Date().toISOString()
     }, {

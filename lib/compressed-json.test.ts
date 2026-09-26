@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gunzipSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
 import { acceptsGzip, compressedJson, MIN_GZIP_BYTES } from './compressed-json';
 
 const big = { albums: Array.from({ length: 200 }, (_, i) => ({ id: `album-${i}`, title: 'A title' })) };
@@ -76,4 +77,22 @@ test('keeps the status and every header the caller passed', async () => {
   assert.equal(res.headers.get('cache-control'), 'public, s-maxage=60, stale-while-revalidate=120');
   assert.equal(res.headers.get('access-control-allow-origin'), 'https://stablekraft.app');
   assert.equal(res.headers.get('vary'), 'Origin, Accept-Encoding');
+});
+
+/**
+ * The album DETAIL route is the second most visited, and it answered every album
+ * as raw JSON while the catalog routes around it were gzipped. Every success
+ * return must go through compressedJson; a new branch added with
+ * NextResponse.json would silently go back to raw. Redirects, 404s and 500s are
+ * small, and stay as they are.
+ */
+test('/api/albums/[slug] gzips every album it returns', () => {
+  const source = readFileSync(new URL('../app/api/albums/[slug]/route.ts', import.meta.url), 'utf8');
+  const successReturns = source.match(/return compressedJson\(request, \{\s*album: /g) ?? [];
+  assert.ok(successReturns.length >= 6, `expected the album returns to use compressedJson, found ${successReturns.length}`);
+  assert.doesNotMatch(
+    source,
+    /NextResponse\.json\(\{\s*album: (?!null)/,
+    'an album is returned with NextResponse.json — use compressedJson, or it ships uncompressed'
+  );
 });
