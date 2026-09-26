@@ -74,6 +74,10 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   deploy-and-retest cycle on 2026-08-20, when stage timings added to chase a slow signing prompt printed nothing
   on stablekraft.app. Use `console.warn` for anything you intend to read in production.
 - **A grep that returns nothing is not evidence that nothing exists.** Under zsh, an unquoted `--include=*.tsx` errors with `no matches found` and prints nothing — indistinguishable from a clean result. This produced three wrong conclusions during the security audit, including "this route has no callers" about a live endpoint that was nearly deleted. Quote the globs, and check the exit status before believing an empty result.
+- **`next lint` keeps a cache, and it does not notice a plugin upgrade.** The cache key is ESLint's own version and
+  the resolved config, so after changing `eslint-config-next` or any plugin, run `npx next lint --no-cache`. On
+  2026-09-26 the bump to eslint-config-next 15 linted clean locally from the cache, and CI (which has no cache)
+  failed on four new `no-html-link-for-pages` errors.
 - **A local relay is not isolation on its own, and the difference is a real publish.** The commands
   are under Commands; the trap is here. Use **`npm run dev:isolated`**, never a hand-set
   `NEXT_PUBLIC_NOSTR_RELAYS` — the publish path unions the user's NIP-65 relays with the defaults, so
