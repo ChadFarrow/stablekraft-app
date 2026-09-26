@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`✅ Parse complete: ${parseResults.length} successful, ${failedParses.length} failed`);
+    console.warn(`✅ Parse complete: ${parseResults.length} successful, ${failedParses.length} failed`);
 
     // Discover publishers for newly parsed album feeds
     const parsedFeedIds = parseResults.map(r => r.feedId).filter(Boolean);

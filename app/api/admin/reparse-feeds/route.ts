@@ -165,13 +165,13 @@ export async function POST(request: NextRequest) {
 
     // Log error summary
     if (Object.keys(errorCounts).length > 0) {
-      console.log(`⚠️ Error breakdown:`);
+      console.warn(`⚠️ Error breakdown:`);
       for (const [type, count] of Object.entries(errorCounts).sort((a, b) => b[1] - a[1])) {
-        console.log(`   ${type}: ${count}`);
+        console.warn(`   ${type}: ${count}`);
       }
     }
 
-    console.log(`✅ Bulk reparse completed in ${duration}s: ${stats.feedsProcessed} feeds processed, ${stats.newTracksAdded} new tracks added, ${stats.feedsFailed} failed`);
+    console.warn(`✅ Bulk reparse completed in ${duration}s: ${stats.feedsProcessed} feeds processed, ${stats.newTracksAdded} new tracks added, ${stats.feedsFailed} failed`);
 
     return NextResponse.json({
       success: true,

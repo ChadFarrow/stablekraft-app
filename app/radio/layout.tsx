@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow', // Don't index radio subdomain
   manifest: '/manifest.json',
   icons: {
-    icon: '/stablekraft-rocket.png',
+    icon: '/favicon-32x32.png',
     apple: '/app-icon-new.png',
   },
 };
@@ -45,7 +45,6 @@ export default function RadioLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="StableKraft Radio" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="icon" type="image/png" href="/stablekraft-rocket.png" />
       </head>
       <body className={inter.className}>
         <RadioNostrProvider>

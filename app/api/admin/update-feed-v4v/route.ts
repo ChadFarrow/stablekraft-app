@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
         updatedTracks++;
       } catch (trackError) {
-        console.log(`⚠️ Error updating track ${track.id}: ${trackError}`);
+        console.warn(`⚠️ Error updating track ${track.id}: ${trackError}`);
         errors++;
       }
     }

@@ -56,7 +56,7 @@ async function resolveSingleTrack(track: HGHTrack): Promise<HGHTrack | null> {
     });
 
     if (!response.ok) {
-      console.log(`⚠️ Failed to fetch episode for ${track.feedGuid}/${track.itemGuid}`);
+      console.warn(`⚠️ Failed to fetch episode for ${track.feedGuid}/${track.itemGuid}`);
       return null;
     }
 
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ Resolution complete: ${resolvedTracks.length} resolved, ${failedTracks.length} failed`);
+    console.warn(`✅ Resolution complete: ${resolvedTracks.length} resolved, ${failedTracks.length} failed`);
 
     return NextResponse.json({
       success: true,

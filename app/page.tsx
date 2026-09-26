@@ -410,9 +410,15 @@ function HomePageContent() {
   // and cached/restored via localStorage alongside album data
 
 
-  // Show background image after critical content loads (no artificial delay)
+  // Show background image after critical content loads (no artificial delay).
+  //
+  // Not in Data Saver. This effect, not the hidden <Image> below, is what turns
+  // `backgroundImageLoaded` on in practice — that <Image> is lazy inside a
+  // display:none div, so it never loads and its onLoad never fires. Gating only
+  // the <Image> therefore saved nothing: the rocket was painted, and downloaded,
+  // with Data Saver on. Measured on production 2026-09-26.
   useEffect(() => {
-    if (isCriticalLoaded && !backgroundImageLoaded) {
+    if (isCriticalLoaded && !backgroundImageLoaded && !dataSaver) {
       // Show background immediately when critical content is ready
       const bgElement = document.getElementById('background-image');
       if (bgElement) {
@@ -420,7 +426,7 @@ function HomePageContent() {
         setBackgroundImageLoaded(true);
       }
     }
-  }, [isCriticalLoaded, backgroundImageLoaded]);
+  }, [isCriticalLoaded, backgroundImageLoaded, dataSaver]);
 
 
 
@@ -1485,7 +1491,7 @@ function HomePageContent() {
         <div 
           className="fixed inset-0 z-10 transition-opacity duration-300"
           style={{
-            backgroundImage: 'url(/stablekraft-rocket-new.png)',
+            backgroundImage: 'url(/stablekraft-rocket-new.webp)',
             backgroundSize: 'auto 100vh',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat'
@@ -1497,17 +1503,19 @@ function HomePageContent() {
       )}
       
       {/* Preload background image after critical content - Always render but handle loading client-side */}
-      {/* Data Saver skips it: 1.93 MB of decoration, and the z-0 gradient below
-          is already the designed fallback. Gating the loader rather than the
-          painted div is deliberate — `backgroundImageLoaded` then simply never
-          turns true, which is the same path a failed load already takes. */}
+      {/* Data Saver skips it: decoration, and the z-0 gradient below is already
+          the designed fallback. The gate that matters is on the effect that sets
+          `backgroundImageLoaded` (above); this one keeps the loader consistent.
+          With both, `backgroundImageLoaded` never turns true, which is the same
+          path a failed load already takes. */}
       <div className="hidden">
         {isClient && isCriticalLoaded && !dataSaver && (
           <Image
-            src="/stablekraft-rocket-new.png"
+            src="/stablekraft-rocket-new.webp"
             alt=""
-            width={1920}
-            height={1080}
+            width={1024}
+            height={1024}
+            unoptimized
             onLoad={() => setBackgroundImageLoaded(true)}
             onError={() => setBackgroundImageLoaded(true)}
           />
