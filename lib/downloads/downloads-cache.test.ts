@@ -224,3 +224,37 @@ test('an abort mid-walk does NOT fall through to the next candidate', async () =
   assert.equal(calls.length, 1, 'must stop at the aborted candidate');
   assert.equal(error?.name, 'AbortError');
 });
+
+test('an offline cover survives an image version change', async () => {
+  // The refresh adds `?skv=<version>` to image URLs when an artist replaces the
+  // file (lib/feeds/image-version.ts). Now Playing looks a downloaded cover up by
+  // the track's CURRENT URL, so the key must ignore that version.
+  const base = 'https://media.example/album/cover.jpg';
+  const stored = new Map<string, Response>();
+  const g = globalThis as any;
+  const realFetch = g.fetch;
+  const realCaches = g.caches;
+  g.fetch = async () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/jpeg' } });
+  g.caches = {
+    async open() {
+      return {
+        async put(k: string, v: Response) { stored.set(k, v); },
+        async match(k: string) { return stored.get(k)?.clone(); },
+        async delete(k: string) { return stored.delete(k); },
+      };
+    },
+  };
+  try {
+    const { downloadImage, getImageObjectUrl, deleteImage, coverCacheKey } = await import('./downloads-cache');
+    assert.equal(coverCacheKey(`${base}?skv=abcdefgh`), base);
+    await downloadImage(`${base}?skv=abcdefgh`);
+    assert.deepEqual([...stored.keys()], [base]);
+    assert.ok(await getImageObjectUrl(`${base}?skv=ponmlkji`), 'found under a newer version');
+    assert.ok(await getImageObjectUrl(base), 'found under the plain URL stored before versioning');
+    await deleteImage(`${base}?skv=ponmlkji`);
+    assert.equal(stored.size, 0);
+  } finally {
+    g.fetch = realFetch;
+    g.caches = realCaches;
+  }
+});

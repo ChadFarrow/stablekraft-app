@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 // POST /api/admin/refresh-all-feeds - Refresh all RSS feeds in the database
 export async function POST(request: NextRequest) {
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
         id: true,
         originalUrl: true,
         title: true,
+        image: true,
         _count: {
           select: { Track: true }
         }
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
               title: parsedFeed.title,
               description: parsedFeed.description,
               artist: parsedFeed.artist,
-              image: parsedFeed.image,
+              image: preserveImageVersion(parsedFeed.image, feed.image),
               language: parsedFeed.language,
               category: parsedFeed.category,
               podcastCategories: parsedFeed.podcastCategories || [],
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
               audioUrl: item.audioUrl,
               duration: item.duration,
               explicit: item.explicit,
-              image: item.image,
+              image: preserveImageVersion(item.image, feed.image),
               publishedAt: item.publishedAt,
               itunesAuthor: item.itunesAuthor,
               itunesSummary: item.itunesSummary,

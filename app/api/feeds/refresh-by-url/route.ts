@@ -6,11 +6,35 @@ import { normalizeUrl } from '@/lib/url-utils';
 import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { checkAdminAuth } from '@/lib/admin-auth';
+import { resolveImageUrls } from '@/lib/feeds/image-version';
+import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
+import type { Feed } from '@prisma/client';
 
 // Public endpoint (podping consumer) that triggers expensive RSS reparses —
 // cap per-IP request rate. In-memory, so the cap is per Railway instance;
 // 30/min comfortably exceeds the consumer's organic podping rate.
 const refreshLimiter = new RateLimiter(30, 60_000);
+
+// At most one refresh per feed per window; a request inside it arms ONE trailing
+// refresh instead of being dropped. Anyone can send a podping, and all of them
+// arrive from the podping service's one IP, so without this a burst for one feed
+// spends the budget above for every feed. See lib/feeds/refresh-coalescer.ts.
+const FEED_REFRESH_WINDOW_MS = 5 * 60_000;
+const feedRefreshes = new RefreshCoalescer({ windowMs: FEED_REFRESH_WINDOW_MS });
+
+/** A real admin (secret set AND matched) skips the window. checkAdminAuth alone fails open. */
+function isAuthenticatedAdmin(request: NextRequest): boolean {
+  return !!process.env.ADMIN_SECRET && checkAdminAuth(request) === null;
+}
+
+interface RefreshContext {
+  feed: Feed | null;
+  resolvedUrl: string;
+  normalizedResolvedUrl: string;
+  customFeedId?: string;
+  customType?: string;
+}
 
 interface RemoteItemResult {
   added: number;
@@ -253,234 +277,101 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse the RSS feed first (needed whether feed exists or not)
-    let parsedFeed;
+    const ctx: RefreshContext = { feed, resolvedUrl, normalizedResolvedUrl, customFeedId, customType };
+    if (!feed) return await refreshFeed(ctx);
+
+    const feedId = feed.id;
+    const outcome = await feedRefreshes.runOrDefer(
+      feedId,
+      () => refreshFeed(ctx),
+      () => refreshFeedLater(feedId, ctx),
+      { bypass: isAuthenticatedAdmin(request) }
+    );
+    if (outcome.ran) return outcome.value;
+    // 202, not 429: the podping service logs any non-5xx status as done and does
+    // not retry, so a 429 here would lose the update. The trailing run reads it.
+    return NextResponse.json(
+      {
+        success: true,
+        queued: true,
+        feedId,
+        runAt: new Date(outcome.runAt).toISOString(),
+        message: 'Feed was refreshed recently; one more refresh is scheduled for the end of its window',
+      },
+      { status: 202 }
+    );
+  } catch (error) {
+    console.error('Error refreshing feed:', error);
+    return NextResponse.json(
+      { error: 'Failed to refresh feed' },
+      { status: 500 }
+    );
+  }
+}
+
+/** The refresh itself, for an existing feed or (with customFeedId) a new one. */
+async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
+  const { resolvedUrl, normalizedResolvedUrl, customFeedId, customType } = ctx;
+  let feed = ctx.feed;
+
+  // Parse the RSS feed first (needed whether feed exists or not)
+  let parsedFeed;
+  try {
+    parsedFeed = await parseRSSFeedWithSegments(resolvedUrl);
+  } catch (parseError) {
+    const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
+    return NextResponse.json({
+      error: 'Failed to parse RSS feed',
+      message: errorMessage
+    }, { status: 400 });
+  }
+
+  // If feed doesn't exist, create it (customFeedId required — see guard above)
+  if (!feed) {
     try {
-      parsedFeed = await parseRSSFeedWithSegments(resolvedUrl);
-    } catch (parseError) {
-      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
-      return NextResponse.json({
-        error: 'Failed to parse RSS feed',
-        message: errorMessage
-      }, { status: 400 });
-    }
+      // Use custom feedId if provided, otherwise generate a random one
+      const feedId = customFeedId || `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // If feed doesn't exist, create it (customFeedId required — see guard above)
-    if (!feed) {
-      try {
-        // Use custom feedId if provided, otherwise generate a random one
-        const feedId = customFeedId || `feed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        // Determine feed type from <podcast:medium> tag if not explicitly provided
-        let feedType = customType;
-        if (!feedType) {
-          try {
-            // Fetch raw XML to get podcast:medium
-            const xmlResponse = await fetch(resolvedUrl);
-            if (xmlResponse.ok) {
-              const xmlText = await xmlResponse.text();
-              const mediumMatch = xmlText.match(/<podcast:medium>([^<]+)<\/podcast:medium>/);
-              if (mediumMatch) {
-                const medium = mediumMatch[1].toLowerCase().trim();
-                // Map podcast:medium values to feed types
-                if (medium === 'publisher') {
-                  feedType = 'publisher';
-                } else if (medium === 'music' || medium === 'album') {
-                  feedType = 'music';
-                } else if (medium === 'podcast') {
-                  feedType = 'podcast';
-                }
-                console.log(`📋 Detected <podcast:medium>${medium}</podcast:medium> → type: ${feedType}`);
+      // Determine feed type from <podcast:medium> tag if not explicitly provided
+      let feedType = customType;
+      if (!feedType) {
+        try {
+          // Fetch raw XML to get podcast:medium
+          const xmlResponse = await fetch(resolvedUrl);
+          if (xmlResponse.ok) {
+            const xmlText = await xmlResponse.text();
+            const mediumMatch = xmlText.match(/<podcast:medium>([^<]+)<\/podcast:medium>/);
+            if (mediumMatch) {
+              const medium = mediumMatch[1].toLowerCase().trim();
+              // Map podcast:medium values to feed types
+              if (medium === 'publisher') {
+                feedType = 'publisher';
+              } else if (medium === 'music' || medium === 'album') {
+                feedType = 'music';
+              } else if (medium === 'podcast') {
+                feedType = 'podcast';
               }
-            }
-          } catch (e) {
-            console.warn('Could not fetch XML for medium detection:', e);
-          }
-          // Default to album if still not determined
-          feedType = feedType || 'album';
-        }
-
-        const newFeed = await prisma.feed.create({
-          data: {
-            id: feedId,
-            originalUrl: normalizedResolvedUrl,
-            cdnUrl: normalizedResolvedUrl,
-            type: feedType,
-            // `feedType` may have come from `customType` or from the default above;
-            // `medium` records only what the feed itself declared, and stays null
-            // when it declared nothing. See the shared favorites list.
-            medium: parsedFeed.medium?.toLowerCase() ?? null,
-            priority: 'normal',
-            title: parsedFeed.title,
-            description: parsedFeed.description,
-            artist: parsedFeed.artist,
-            image: parsedFeed.image,
-            language: parsedFeed.language,
-            category: parsedFeed.category,
-            explicit: parsedFeed.explicit,
-            ...channelPersonsFields(parsedFeed),
-            lastFetched: new Date(),
-            status: 'active',
-            updatedAt: new Date()
-          }
-        });
-        
-        feed = newFeed; // Assign to feed variable
-        
-        // For new feeds, add all tracks from parsed feed
-        // Use episode numbers for trackOrder if available, otherwise use RSS position
-        if (parsedFeed.items.length > 0) {
-          const tracksData = parsedFeed.items.map((item, index) => ({
-              id: `${newFeed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
-              feedId: newFeed.id,
-              guid: item.guid,
-              title: item.title,
-              subtitle: item.subtitle,
-              description: item.description,
-              artist: item.artist,
-              audioUrl: item.audioUrl,
-              mediaType: detectTrackMediaType(item),
-              mimeType: item.mimeType,
-              alternateEnclosures: item.alternateEnclosures ? JSON.parse(JSON.stringify(item.alternateEnclosures)) : undefined,
-              duration: item.duration,
-              explicit: item.explicit,
-              image: item.image,
-              publishedAt: item.publishedAt,
-              itunesAuthor: item.itunesAuthor,
-              itunesSummary: item.itunesSummary,
-              itunesImage: item.itunesImage,
-              itunesDuration: item.itunesDuration,
-              itunesKeywords: item.itunesKeywords || [],
-              itunesCategories: item.itunesCategories || [],
-              v4vRecipient: item.v4vRecipient,
-              v4vValue: item.v4vValue,
-              chaptersUrl: item.chaptersUrl,
-              chapters: item.chapters,
-              valueTimeSplits: item.valueTimeSplits,
-              startTime: item.startTime,
-              endTime: item.endTime,
-              trackOrder: item.episode ? calculateTrackOrder(item.episode, item.season) : index + 1,
-              updatedAt: new Date()
-            }));
-
-          await prisma.track.createMany({
-            data: tracksData,
-            skipDuplicates: true
-          });
-        }
-
-        // Return early for newly created feeds
-        let newFeedWithCount = await prisma.feed.findUnique({
-          where: { id: newFeed.id },
-          include: {
-            _count: {
-              select: { Track: true }
+              console.log(`📋 Detected <podcast:medium>${medium}</podcast:medium> → type: ${feedType}`);
             }
           }
-        });
-
-        // If new feed has 0 tracks, check for remoteItems (publisher feed)
-        let remoteItemsResult: RemoteItemResult | null = null;
-        if (newFeedWithCount && newFeedWithCount._count.Track === 0) {
-          console.log(`📡 New feed has 0 tracks, checking for remoteItems...`);
-          remoteItemsResult = await processRemoteItems(resolvedUrl, newFeed.id);
-
-          if (remoteItemsResult.albums.length > 0) {
-            console.log(`✅ Processed ${remoteItemsResult.albums.length} albums from remoteItems`);
-            // Update feed type to publisher (or keep test if specified)
-            await prisma.feed.update({
-              where: { id: newFeed.id },
-              data: { type: feedType === 'test' ? 'test' : 'publisher' }
-            });
-
-            newFeedWithCount = await prisma.feed.findUnique({
-              where: { id: newFeed.id },
-              include: {
-                _count: {
-                  select: { Track: true }
-                }
-              }
-            });
-          }
+        } catch (e) {
+          console.warn('Could not fetch XML for medium detection:', e);
         }
-
-        return NextResponse.json({
-          message: 'Feed created and populated successfully',
-          feed: newFeedWithCount,
-          newTracks: parsedFeed.items.length,
-          totalTracks: newFeedWithCount?._count.Track || 0,
-          ...(remoteItemsResult && remoteItemsResult.albums.length > 0 ? {
-            remoteItems: {
-              added: remoteItemsResult.added,
-              skipped: remoteItemsResult.skipped,
-              albums: remoteItemsResult.albums,
-              errors: remoteItemsResult.errors
-            }
-          } : {})
-        });
-      } catch (createError) {
-        return NextResponse.json({
-          error: 'Failed to create feed',
-          message: createError instanceof Error ? createError.message : 'Unknown error'
-        }, { status: 500 });
-      }
-    }
-
-    // At this point feed must exist (we returned early above if it didn't)
-    if (!feed) {
-      return NextResponse.json({ error: 'Feed not found' }, { status: 404 });
-    }
-
-    try {
-      // If customFeedId provided and different from current, we need to update the ID
-      // This requires updating all track references too
-      if (customFeedId && customFeedId !== feed.id) {
-        console.log(`🔄 Updating feed ID from ${feed.id} to ${customFeedId}`);
-
-        // Re-key the row IN PLACE, in one statement — not delete-then-create.
-        //
-        // Prisma's client cannot change a primary key, so this used to repoint
-        // the tracks, delete the row, and rebuild it field by field. Two things
-        // were wrong with that, and the second hid the first:
-        //
-        //   1. The rebuild was a hand-written copy that dropped SEVEN columns —
-        //      markedDead, oldestItemPubdate, lastNewTrackAt, podcastImages,
-        //      persons, musicShowOnly and createdAt. A hidden or blacklisted
-        //      feed un-hid itself, the album lost its release date and its place
-        //      in the "New" filter, and createdAt reset to now(), which reorders
-        //      the home grid via Feed_status_priority_createdAt_idx.
-        //   2. The sequence could not complete at all for a feed that has
-        //      tracks. Track_feedId_fkey is a plain immediate constraint (init
-        //      migration line 128), so repointing tracks at an id that does not
-        //      exist yet raises 23503 and the route 500s. Creating the new row
-        //      first does not help either: Feed.originalUrl and Feed.guid are
-        //      both @unique, so the copy collides with the row it is copying.
-        //      Only a track-less feed ever got through.
-        //
-        // Postgres has no such limit on UPDATE, and Track_feedId_fkey is
-        // ON UPDATE CASCADE, so the tracks follow the key in the same statement.
-        // Nothing is copied, so no column can be dropped — the class of bug in
-        // (1) is now unreachable rather than merely fixed.
-        const rekeyedRows = await prisma.$executeRaw`
-          UPDATE "Feed" SET "id" = ${customFeedId} WHERE "id" = ${feed.id}
-        `;
-        if (rekeyedRows !== 1) {
-          throw new Error(
-            `Re-key of feed ${feed.id} to ${customFeedId} updated ${rekeyedRows} rows, expected 1`
-          );
-        }
-
-        const rekeyedFeed = await prisma.feed.findUnique({ where: { id: customFeedId } });
-        if (!rekeyedFeed) {
-          throw new Error(`Feed ${customFeedId} missing after re-key`);
-        }
-        feed = rekeyedFeed;
+        // Default to album if still not determined
+        feedType = feedType || 'album';
       }
 
-      // Update feed metadata
-      await prisma.feed.update({
-        where: { id: feed.id },
+      const newFeed = await prisma.feed.create({
         data: {
+          id: feedId,
+          originalUrl: normalizedResolvedUrl,
+          cdnUrl: normalizedResolvedUrl,
+          type: feedType,
+          // `feedType` may have come from `customType` or from the default above;
+          // `medium` records only what the feed itself declared, and stays null
+          // when it declared nothing. See the shared favorites list.
+          medium: parsedFeed.medium?.toLowerCase() ?? null,
+          priority: 'normal',
           title: parsedFeed.title,
           description: parsedFeed.description,
           artist: parsedFeed.artist,
@@ -488,174 +379,21 @@ export async function POST(request: NextRequest) {
           language: parsedFeed.language,
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
-          type: customType || feed.type, // Allow updating type too
           ...channelPersonsFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
-          lastError: null,
           updatedAt: new Date()
         }
       });
       
-      // Get existing tracks to update their order
-      const existingTracks = await prisma.track.findMany({
-        where: { feedId: feed.id },
-        select: { id: true, guid: true, title: true, audioUrl: true }
-      });
+      feed = newFeed; // Assign to feed variable
       
-      const existingGuids = new Set(existingTracks.map(t => t.guid).filter(Boolean));
-      const existingTracksByGuid = new Map(existingTracks.map(t => [t.guid, t]));
-      
-      // Create a map of all parsed items by GUID for order lookup
-      // Preserve RSS feed order (newest-first, matching podcastindex.org)
-      const parsedItemsByGuid = new Map(
-        parsedFeed.items.map((item, index) => [item.guid, { item, order: index + 1 }])
-      );
-      
-      // Update ALL track metadata for existing tracks based on current RSS feed
-      // Match tracks by GUID first, then by title+audioUrl for tracks without GUIDs
-      const updatePromises: Promise<any>[] = [];
-      let v4vUpdatedCount = 0;
-
-      for (const track of existingTracks) {
-        let order: number | null = null;
-        let matchedItem: typeof parsedFeed.items[0] | null = null;
-
-        // First try to match by GUID
-        if (track.guid) {
-          const parsedData = parsedItemsByGuid.get(track.guid);
-          if (parsedData) {
-            matchedItem = parsedData.item;
-            // Use season/episode if available, otherwise use RSS position
-            order = matchedItem.episode
-              ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
-              : parsedData.order;
-          }
-        }
-
-        // If no GUID match, try to match by title and audioUrl
-        if (order === null && track.title && track.audioUrl) {
-          const matchingIndex = parsedFeed.items.findIndex(item =>
-            (item.title === track.title && item.audioUrl === track.audioUrl) ||
-            item.audioUrl === track.audioUrl
-          );
-          if (matchingIndex >= 0) {
-            matchedItem = parsedFeed.items[matchingIndex];
-            // Use season/episode if available, otherwise use RSS position
-            order = matchedItem.episode
-              ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
-              : (matchingIndex + 1);
-          }
-        }
-
-        if (order !== null && matchedItem) {
-          // Build update data with all track metadata fields
-          const updateData: any = {
-            trackOrder: order,
-            // Metadata fields
-            title: matchedItem.title,
-            subtitle: matchedItem.subtitle,
-            description: matchedItem.description,
-            artist: matchedItem.artist,
-            audioUrl: matchedItem.audioUrl,
-            duration: matchedItem.duration,
-            explicit: matchedItem.explicit,
-            image: matchedItem.image,
-            publishedAt: matchedItem.publishedAt,
-            // iTunes fields
-            itunesAuthor: matchedItem.itunesAuthor,
-            itunesSummary: matchedItem.itunesSummary,
-            itunesImage: matchedItem.itunesImage,
-            itunesDuration: matchedItem.itunesDuration,
-            itunesKeywords: matchedItem.itunesKeywords || [],
-            itunesCategories: matchedItem.itunesCategories || [],
-            // V4V fields
-            v4vRecipient: matchedItem.v4vRecipient,
-            v4vValue: matchedItem.v4vValue,
-            // Time fields
-            startTime: matchedItem.startTime,
-            endTime: matchedItem.endTime,
-            // Update timestamp
-            updatedAt: new Date()
-          };
-
-          // Apply chapters and VTS fields
-          applyParsedItemFields(updateData, matchedItem);
-
-          if (matchedItem.v4vRecipient) {
-            v4vUpdatedCount++;
-          }
-
-          updatePromises.push(
-            prisma.track.update({
-              where: { id: track.id },
-              data: updateData
-            })
-          );
-        }
-      }
-      
-      if (updatePromises.length > 0) {
-        await Promise.all(updatePromises);
-        console.log(`✅ Updated metadata for ${updatePromises.length} existing tracks (${v4vUpdatedCount} with v4v data)`);
-      } else {
-        console.log(`⚠️ No tracks matched for update`);
-      }
-
-      // Also update feed-level v4v data if present in parsed feed
-      if (parsedFeed.v4vRecipient || parsedFeed.v4vValue) {
-        await prisma.feed.update({
-          where: { id: feed.id },
-          data: {
-            v4vRecipient: parsedFeed.v4vRecipient,
-            v4vValue: parsedFeed.v4vValue
-          }
-        });
-        console.log(`✅ Updated feed-level v4v data: ${parsedFeed.v4vRecipient}`);
-      }
-      
-      // Filter out tracks that already exist (check GUID, then audioUrl+title for items without GUIDs)
-      const existingAudioUrls = new Set(existingTracks.map(t => t.audioUrl).filter(Boolean));
-      const existingTitles = new Set(existingTracks.map(t => t.title).filter(Boolean));
-      const newItems = parsedFeed.items.filter(item => {
-        // If item has a GUID that matches an existing track, skip it
-        if (item.guid && existingGuids.has(item.guid)) return false;
-        // For items without GUIDs, check if audioUrl AND title both match existing tracks
-        if (!item.guid && item.audioUrl && existingAudioUrls.has(item.audioUrl) && item.title && existingTitles.has(item.title)) return false;
-        return true;
-      });
-      
-      // Add new tracks with proper trackOrder
-      if (newItems.length > 0) {
-        // Ensure feed exists (TypeScript guard)
-        if (!feed) {
-          return NextResponse.json({ error: 'Feed not found' }, { status: 404 });
-        }
-        
-        // Capture feed.id to satisfy TypeScript's control flow analysis
-        const feedId = feed.id;
-        
-        // Find the starting order for new tracks
-        const maxOrder = Math.max(
-          ...Array.from(parsedItemsByGuid.values()).map(p => p.order),
-          0
-        );
-        
-        const tracksData = newItems.map((item, index) => {
-          // Find the item's position in the full parsed feed
-          const fullIndex = parsedFeed.items.findIndex(i =>
-            i.guid === item.guid ||
-            (i.title === item.title && i.audioUrl === item.audioUrl)
-          );
-          const parsedItem = fullIndex >= 0 ? parsedFeed.items[fullIndex] : null;
-          // Use season/episode if available, otherwise use RSS position
-          const order = parsedItem?.episode
-            ? calculateTrackOrder(parsedItem.episode, parsedItem.season)
-            : (fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1);
-
-          return {
-            id: `${feedId}-${item.guid || `track-${index}-${Date.now()}`}`,
-            feedId: feedId,
+      // For new feeds, add all tracks from parsed feed
+      // Use episode numbers for trackOrder if available, otherwise use RSS position
+      if (parsedFeed.items.length > 0) {
+        const tracksData = parsedFeed.items.map((item, index) => ({
+            id: `${newFeed.id}-${item.guid || `track-${index}-${Date.now()}`}`,
+            feedId: newFeed.id,
             guid: item.guid,
             title: item.title,
             subtitle: item.subtitle,
@@ -682,33 +420,19 @@ export async function POST(request: NextRequest) {
             valueTimeSplits: item.valueTimeSplits,
             startTime: item.startTime,
             endTime: item.endTime,
-            trackOrder: order,
+            trackOrder: item.episode ? calculateTrackOrder(item.episode, item.season) : index + 1,
             updatedAt: new Date()
-          };
-        });
+          }));
 
         await prisma.track.createMany({
           data: tracksData,
           skipDuplicates: true
         });
-
-        // Mark the feed as updated with new tracks so it surfaces in "new".
-        // Skip on first-time imports (no prior tracks) — Feed.createdAt already covers that case.
-        if (existingTracks.length > 0) {
-          try {
-            await prisma.feed.update({
-              where: { id: feed.id },
-              data: { lastNewTrackAt: new Date() }
-            });
-          } catch (e) {
-            console.warn(`[lastNewTrackAt] write failed for ${feed.id} — migration may be pending:`, e instanceof Error ? e.message : e);
-          }
-        }
       }
 
-      // Get updated feed with counts
-      let updatedFeed = await prisma.feed.findUnique({
-        where: { id: feed.id },
+      // Return early for newly created feeds
+      let newFeedWithCount = await prisma.feed.findUnique({
+        where: { id: newFeed.id },
         include: {
           _count: {
             select: { Track: true }
@@ -716,23 +440,22 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // If this is a publisher feed (has no tracks but might have remoteItems), process them
+      // If new feed has 0 tracks, check for remoteItems (publisher feed)
       let remoteItemsResult: RemoteItemResult | null = null;
-      if (updatedFeed && updatedFeed._count.Track === 0 && !feed.musicShowOnly) {
-        console.log(`📡 Feed has 0 tracks, checking for remoteItems...`);
-        remoteItemsResult = await processRemoteItems(resolvedUrl, feed.id);
+      if (newFeedWithCount && newFeedWithCount._count.Track === 0) {
+        console.log(`📡 New feed has 0 tracks, checking for remoteItems...`);
+        remoteItemsResult = await processRemoteItems(resolvedUrl, newFeed.id);
 
         if (remoteItemsResult.albums.length > 0) {
           console.log(`✅ Processed ${remoteItemsResult.albums.length} albums from remoteItems`);
-          // Update feed type to 'test' if it was a test feed, otherwise 'publisher'
+          // Update feed type to publisher (or keep test if specified)
           await prisma.feed.update({
-            where: { id: feed.id },
-            data: { type: customType || 'publisher' }
+            where: { id: newFeed.id },
+            data: { type: feedType === 'test' ? 'test' : 'publisher' }
           });
 
-          // Refresh feed data
-          updatedFeed = await prisma.feed.findUnique({
-            where: { id: feed.id },
+          newFeedWithCount = await prisma.feed.findUnique({
+            where: { id: newFeed.id },
             include: {
               _count: {
                 select: { Track: true }
@@ -743,9 +466,10 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        message: 'Feed refreshed successfully',
-        feed: updatedFeed,
-        newTracks: newItems.length,
+        message: 'Feed created and populated successfully',
+        feed: newFeedWithCount,
+        newTracks: parsedFeed.items.length,
+        totalTracks: newFeedWithCount?._count.Track || 0,
         ...(remoteItemsResult && remoteItemsResult.albums.length > 0 ? {
           remoteItems: {
             added: remoteItemsResult.added,
@@ -753,36 +477,392 @@ export async function POST(request: NextRequest) {
             albums: remoteItemsResult.albums,
             errors: remoteItemsResult.errors
           }
-        } : {}),
-        totalTracks: updatedFeed?._count.Track || 0,
-        updatedTracks: updatePromises.length,
-        v4vUpdated: v4vUpdatedCount
+        } : {})
       });
-      
-    } catch (parseError) {
-      // Update feed with error status
-      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-      
+    } catch (createError) {
+      return NextResponse.json({
+        error: 'Failed to create feed',
+        message: createError instanceof Error ? createError.message : 'Unknown error'
+      }, { status: 500 });
+    }
+  }
+
+  // At this point feed must exist (we returned early above if it didn't)
+  if (!feed) {
+    return NextResponse.json({ error: 'Feed not found' }, { status: 404 });
+  }
+
+  try {
+    // If customFeedId provided and different from current, we need to update the ID
+    // This requires updating all track references too
+    if (customFeedId && customFeedId !== feed.id) {
+      console.log(`🔄 Updating feed ID from ${feed.id} to ${customFeedId}`);
+
+      // Re-key the row IN PLACE, in one statement — not delete-then-create.
+      //
+      // Prisma's client cannot change a primary key, so this used to repoint
+      // the tracks, delete the row, and rebuild it field by field. Two things
+      // were wrong with that, and the second hid the first:
+      //
+      //   1. The rebuild was a hand-written copy that dropped SEVEN columns —
+      //      markedDead, oldestItemPubdate, lastNewTrackAt, podcastImages,
+      //      persons, musicShowOnly and createdAt. A hidden or blacklisted
+      //      feed un-hid itself, the album lost its release date and its place
+      //      in the "New" filter, and createdAt reset to now(), which reorders
+      //      the home grid via Feed_status_priority_createdAt_idx.
+      //   2. The sequence could not complete at all for a feed that has
+      //      tracks. Track_feedId_fkey is a plain immediate constraint (init
+      //      migration line 128), so repointing tracks at an id that does not
+      //      exist yet raises 23503 and the route 500s. Creating the new row
+      //      first does not help either: Feed.originalUrl and Feed.guid are
+      //      both @unique, so the copy collides with the row it is copying.
+      //      Only a track-less feed ever got through.
+      //
+      // Postgres has no such limit on UPDATE, and Track_feedId_fkey is
+      // ON UPDATE CASCADE, so the tracks follow the key in the same statement.
+      // Nothing is copied, so no column can be dropped — the class of bug in
+      // (1) is now unreachable rather than merely fixed.
+      const rekeyedRows = await prisma.$executeRaw`
+        UPDATE "Feed" SET "id" = ${customFeedId} WHERE "id" = ${feed.id}
+      `;
+      if (rekeyedRows !== 1) {
+        throw new Error(
+          `Re-key of feed ${feed.id} to ${customFeedId} updated ${rekeyedRows} rows, expected 1`
+        );
+      }
+
+      const rekeyedFeed = await prisma.feed.findUnique({ where: { id: customFeedId } });
+      if (!rekeyedFeed) {
+        throw new Error(`Feed ${customFeedId} missing after re-key`);
+      }
+      feed = rekeyedFeed;
+    }
+
+    // Get existing tracks to update their order (and their stored image URLs)
+    const existingTracks = await prisma.track.findMany({
+      where: { feedId: feed.id },
+      select: { id: true, guid: true, title: true, audioUrl: true, image: true }
+    });
+
+    // An artist can replace an image at the SAME URL and podping from anywhere.
+    // Ask the image host, and carry its answer in the URL, so every cache
+    // (proxy, /_next/image, browsers, offline) refetches the new art. The podping
+    // is never an input — see lib/feeds/image-version.ts.
+    const versionImage = await resolveImageUrls(
+      [parsedFeed.image, ...parsedFeed.items.map((item) => item.image)],
+      [feed.image, ...existingTracks.map((t) => t.image)]
+    );
+    const feedImage = versionImage(parsedFeed.image);
+    if (feedImage && feedImage !== feed.image) {
+      console.warn(`[image-version] ${feed.id}: ${feed.image ?? '(none)'} -> ${feedImage}`);
+    }
+
+    // Update feed metadata
+    await prisma.feed.update({
+      where: { id: feed.id },
+      data: {
+        title: parsedFeed.title,
+        description: parsedFeed.description,
+        artist: parsedFeed.artist,
+        image: feedImage,
+        language: parsedFeed.language,
+        category: parsedFeed.category,
+        explicit: parsedFeed.explicit,
+        type: customType || feed.type, // Allow updating type too
+        ...channelPersonsFields(parsedFeed),
+        lastFetched: new Date(),
+        status: 'active',
+        lastError: null,
+        updatedAt: new Date()
+      }
+    });
+    
+    
+    const existingGuids = new Set(existingTracks.map(t => t.guid).filter(Boolean));
+    const existingTracksByGuid = new Map(existingTracks.map(t => [t.guid, t]));
+    
+    // Create a map of all parsed items by GUID for order lookup
+    // Preserve RSS feed order (newest-first, matching podcastindex.org)
+    const parsedItemsByGuid = new Map(
+      parsedFeed.items.map((item, index) => [item.guid, { item, order: index + 1 }])
+    );
+    
+    // Update ALL track metadata for existing tracks based on current RSS feed
+    // Match tracks by GUID first, then by title+audioUrl for tracks without GUIDs
+    const updatePromises: Promise<any>[] = [];
+    let v4vUpdatedCount = 0;
+
+    for (const track of existingTracks) {
+      let order: number | null = null;
+      let matchedItem: typeof parsedFeed.items[0] | null = null;
+
+      // First try to match by GUID
+      if (track.guid) {
+        const parsedData = parsedItemsByGuid.get(track.guid);
+        if (parsedData) {
+          matchedItem = parsedData.item;
+          // Use season/episode if available, otherwise use RSS position
+          order = matchedItem.episode
+            ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
+            : parsedData.order;
+        }
+      }
+
+      // If no GUID match, try to match by title and audioUrl
+      if (order === null && track.title && track.audioUrl) {
+        const matchingIndex = parsedFeed.items.findIndex(item =>
+          (item.title === track.title && item.audioUrl === track.audioUrl) ||
+          item.audioUrl === track.audioUrl
+        );
+        if (matchingIndex >= 0) {
+          matchedItem = parsedFeed.items[matchingIndex];
+          // Use season/episode if available, otherwise use RSS position
+          order = matchedItem.episode
+            ? calculateTrackOrder(matchedItem.episode, matchedItem.season)
+            : (matchingIndex + 1);
+        }
+      }
+
+      if (order !== null && matchedItem) {
+        // Build update data with all track metadata fields
+        const updateData: any = {
+          trackOrder: order,
+          // Metadata fields
+          title: matchedItem.title,
+          subtitle: matchedItem.subtitle,
+          description: matchedItem.description,
+          artist: matchedItem.artist,
+          audioUrl: matchedItem.audioUrl,
+          duration: matchedItem.duration,
+          explicit: matchedItem.explicit,
+          image: versionImage(matchedItem.image),
+          publishedAt: matchedItem.publishedAt,
+          // iTunes fields
+          itunesAuthor: matchedItem.itunesAuthor,
+          itunesSummary: matchedItem.itunesSummary,
+          itunesImage: matchedItem.itunesImage,
+          itunesDuration: matchedItem.itunesDuration,
+          itunesKeywords: matchedItem.itunesKeywords || [],
+          itunesCategories: matchedItem.itunesCategories || [],
+          // V4V fields
+          v4vRecipient: matchedItem.v4vRecipient,
+          v4vValue: matchedItem.v4vValue,
+          // Time fields
+          startTime: matchedItem.startTime,
+          endTime: matchedItem.endTime,
+          // Update timestamp
+          updatedAt: new Date()
+        };
+
+        // Apply chapters and VTS fields
+        applyParsedItemFields(updateData, matchedItem);
+
+        if (matchedItem.v4vRecipient) {
+          v4vUpdatedCount++;
+        }
+
+        updatePromises.push(
+          prisma.track.update({
+            where: { id: track.id },
+            data: updateData
+          })
+        );
+      }
+    }
+    
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      console.log(`✅ Updated metadata for ${updatePromises.length} existing tracks (${v4vUpdatedCount} with v4v data)`);
+    } else {
+      console.log(`⚠️ No tracks matched for update`);
+    }
+
+    // Also update feed-level v4v data if present in parsed feed
+    if (parsedFeed.v4vRecipient || parsedFeed.v4vValue) {
       await prisma.feed.update({
         where: { id: feed.id },
         data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
+          v4vRecipient: parsedFeed.v4vRecipient,
+          v4vValue: parsedFeed.v4vValue
         }
       });
-      
-      return NextResponse.json({
-        error: 'Failed to refresh feed',
-        message: errorMessage
-      }, { status: 500 });
+      console.log(`✅ Updated feed-level v4v data: ${parsedFeed.v4vRecipient}`);
     }
-  } catch (error) {
-    console.error('Error refreshing feed:', error);
-    return NextResponse.json(
-      { error: 'Failed to refresh feed' },
-      { status: 500 }
-    );
+    
+    // Filter out tracks that already exist (check GUID, then audioUrl+title for items without GUIDs)
+    const existingAudioUrls = new Set(existingTracks.map(t => t.audioUrl).filter(Boolean));
+    const existingTitles = new Set(existingTracks.map(t => t.title).filter(Boolean));
+    const newItems = parsedFeed.items.filter(item => {
+      // If item has a GUID that matches an existing track, skip it
+      if (item.guid && existingGuids.has(item.guid)) return false;
+      // For items without GUIDs, check if audioUrl AND title both match existing tracks
+      if (!item.guid && item.audioUrl && existingAudioUrls.has(item.audioUrl) && item.title && existingTitles.has(item.title)) return false;
+      return true;
+    });
+    
+    // Add new tracks with proper trackOrder
+    if (newItems.length > 0) {
+      // Ensure feed exists (TypeScript guard)
+      if (!feed) {
+        return NextResponse.json({ error: 'Feed not found' }, { status: 404 });
+      }
+      
+      // Capture feed.id to satisfy TypeScript's control flow analysis
+      const feedId = feed.id;
+      
+      // Find the starting order for new tracks
+      const maxOrder = Math.max(
+        ...Array.from(parsedItemsByGuid.values()).map(p => p.order),
+        0
+      );
+      
+      const tracksData = newItems.map((item, index) => {
+        // Find the item's position in the full parsed feed
+        const fullIndex = parsedFeed.items.findIndex(i =>
+          i.guid === item.guid ||
+          (i.title === item.title && i.audioUrl === item.audioUrl)
+        );
+        const parsedItem = fullIndex >= 0 ? parsedFeed.items[fullIndex] : null;
+        // Use season/episode if available, otherwise use RSS position
+        const order = parsedItem?.episode
+          ? calculateTrackOrder(parsedItem.episode, parsedItem.season)
+          : (fullIndex >= 0 ? fullIndex + 1 : maxOrder + index + 1);
+
+        return {
+          id: `${feedId}-${item.guid || `track-${index}-${Date.now()}`}`,
+          feedId: feedId,
+          guid: item.guid,
+          title: item.title,
+          subtitle: item.subtitle,
+          description: item.description,
+          artist: item.artist,
+          audioUrl: item.audioUrl,
+          mediaType: detectTrackMediaType(item),
+          mimeType: item.mimeType,
+          alternateEnclosures: item.alternateEnclosures ? JSON.parse(JSON.stringify(item.alternateEnclosures)) : undefined,
+          duration: item.duration,
+          explicit: item.explicit,
+          image: versionImage(item.image),
+          publishedAt: item.publishedAt,
+          itunesAuthor: item.itunesAuthor,
+          itunesSummary: item.itunesSummary,
+          itunesImage: item.itunesImage,
+          itunesDuration: item.itunesDuration,
+          itunesKeywords: item.itunesKeywords || [],
+          itunesCategories: item.itunesCategories || [],
+          v4vRecipient: item.v4vRecipient,
+          v4vValue: item.v4vValue,
+          chaptersUrl: item.chaptersUrl,
+          chapters: item.chapters,
+          valueTimeSplits: item.valueTimeSplits,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          trackOrder: order,
+          updatedAt: new Date()
+        };
+      });
+
+      await prisma.track.createMany({
+        data: tracksData,
+        skipDuplicates: true
+      });
+
+      // Mark the feed as updated with new tracks so it surfaces in "new".
+      // Skip on first-time imports (no prior tracks) — Feed.createdAt already covers that case.
+      if (existingTracks.length > 0) {
+        try {
+          await prisma.feed.update({
+            where: { id: feed.id },
+            data: { lastNewTrackAt: new Date() }
+          });
+        } catch (e) {
+          console.warn(`[lastNewTrackAt] write failed for ${feed.id} — migration may be pending:`, e instanceof Error ? e.message : e);
+        }
+      }
+    }
+
+    // Get updated feed with counts
+    let updatedFeed = await prisma.feed.findUnique({
+      where: { id: feed.id },
+      include: {
+        _count: {
+          select: { Track: true }
+        }
+      }
+    });
+
+    // If this is a publisher feed (has no tracks but might have remoteItems), process them
+    let remoteItemsResult: RemoteItemResult | null = null;
+    if (updatedFeed && updatedFeed._count.Track === 0 && !feed.musicShowOnly) {
+      console.log(`📡 Feed has 0 tracks, checking for remoteItems...`);
+      remoteItemsResult = await processRemoteItems(resolvedUrl, feed.id);
+
+      if (remoteItemsResult.albums.length > 0) {
+        console.log(`✅ Processed ${remoteItemsResult.albums.length} albums from remoteItems`);
+        // Update feed type to 'test' if it was a test feed, otherwise 'publisher'
+        await prisma.feed.update({
+          where: { id: feed.id },
+          data: { type: customType || 'publisher' }
+        });
+
+        // Refresh feed data
+        updatedFeed = await prisma.feed.findUnique({
+          where: { id: feed.id },
+          include: {
+            _count: {
+              select: { Track: true }
+            }
+          }
+        });
+      }
+    }
+
+    return NextResponse.json({
+      message: 'Feed refreshed successfully',
+      feed: updatedFeed,
+      newTracks: newItems.length,
+      ...(remoteItemsResult && remoteItemsResult.albums.length > 0 ? {
+        remoteItems: {
+          added: remoteItemsResult.added,
+          skipped: remoteItemsResult.skipped,
+          albums: remoteItemsResult.albums,
+          errors: remoteItemsResult.errors
+        }
+      } : {}),
+      totalTracks: updatedFeed?._count.Track || 0,
+      updatedTracks: updatePromises.length,
+      v4vUpdated: v4vUpdatedCount
+    });
+    
+  } catch (parseError) {
+    // Update feed with error status
+    const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+    
+    await prisma.feed.update({
+      where: { id: feed.id },
+      data: {
+        status: 'error',
+        lastError: errorMessage,
+        lastFetched: new Date()
+      }
+    });
+    
+    return NextResponse.json({
+      error: 'Failed to refresh feed',
+      message: errorMessage
+    }, { status: 500 });
   }
 }
 
+/** The trailing run armed by the per-feed window: re-read the row, then refresh. */
+async function refreshFeedLater(feedId: string, ctx: RefreshContext): Promise<void> {
+  const feed =
+    (await prisma.feed.findUnique({ where: { id: feedId } })) ??
+    (ctx.customFeedId ? await prisma.feed.findUnique({ where: { id: ctx.customFeedId } }) : null);
+  if (!feed) {
+    console.warn(`[refresh-by-url] trailing refresh: feed ${feedId} no longer exists`);
+    return;
+  }
+  const response = await refreshFeed({ ...ctx, feed });
+  console.warn(`[refresh-by-url] trailing refresh ${feed.id}: ${response.status}`);
+}

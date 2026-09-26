@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { ValueTagParser } from '@/lib/lightning/value-parser';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 import { calculateTrackOrder } from '@/lib/rss-parser-db';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -169,6 +170,10 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
       feedV4vRecipient = parsedV4V.channelValue.recipients[0]?.address || null;
     }
 
+    // Keep our image version (lib/feeds/image-version.ts): this path takes the
+    // Podcast Index image and does not ask the image host.
+    const storedImage = (await prisma.feed.findUnique({ where: { id: feedId }, select: { image: true } }))?.image;
+
     // Just update the existing feed - don't try to create/upsert
     const feed = await prisma.feed.update({
       where: { id: feedId },
@@ -176,7 +181,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
         title: feedData.title || undefined,
         description: feedData.description || undefined,
         artist: feedData.author || undefined,
-        image: feedData.image || undefined,
+        image: preserveImageVersion(feedData.image || undefined, storedImage),
         status: 'active',
         lastFetched: new Date(),
         updatedAt: new Date(),
@@ -257,7 +262,7 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
               description: episode.description || null,
               audioUrl: episode.audioUrl || '',
               duration: parseDuration(episode.duration),
-              image: episode.image || feed.image || null,
+              image: preserveImageVersion(episode.image || feed.image || null, feed.image),
               publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
               feedId: feed.id,
               trackOrder: trackOrderValue,

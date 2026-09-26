@@ -204,6 +204,11 @@ line holds the full story.
   never a second expression of it → `auth-and-security`.
 - **User identity is the signed session cookie, never a request header.** `requireUser(request)` is the only way a
   route learns who is calling; `grep -rn "x-nostr-user-id" app/api` must stay empty → `auth-and-security`.
+- **`Feed.image` / `Track.image` may carry OUR version, `?skv=<8 letters>`, which the feed never wrote.** An artist
+  can replace a cover at the same URL and podping from anywhere, so the podping refresh asks the image host and puts
+  its answer in the URL — the only thing every cache (proxy, `/_next/image`, browsers, offline) keys on. Compare a
+  stored image with a feed's only after `stripImageVersion`, and a new path that overwrites an existing image must
+  call `preserveImageVersion` or it strips the version every run → `feed-ingestion`.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the `/api/albums-fast` response shape changes, or clients keep
   serving field-missing data out of localStorage indefinitely → `catalog-display`.
 - **`compress: true` does NOT compress route handlers — return large JSON with `compressedJson()`.** Next copies a

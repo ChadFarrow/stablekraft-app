@@ -4,6 +4,7 @@ import { parseRSSFeedWithSegments, detectTrackMediaType } from '@/lib/rss-parser
 import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 // POST /api/feeds/[id]/refresh - Refresh a specific feed (Railway fix)
 export async function POST(
@@ -36,7 +37,7 @@ export async function POST(
           title: parsedFeed.title,
           description: parsedFeed.description,
           artist: parsedFeed.artist,
-          image: parsedFeed.image,
+          image: preserveImageVersion(parsedFeed.image, feed.image),
           language: parsedFeed.language,
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
@@ -128,7 +129,7 @@ export async function POST(
           alternateEnclosures: item.alternateEnclosures ? JSON.parse(JSON.stringify(item.alternateEnclosures)) : undefined,
           duration: item.duration,
           explicit: item.explicit,
-          image: item.image,
+          image: preserveImageVersion(item.image, feed.image),
           publishedAt: item.publishedAt,
           itunesAuthor: item.itunesAuthor,
           itunesSummary: item.itunesSummary,

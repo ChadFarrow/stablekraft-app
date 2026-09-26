@@ -5,6 +5,16 @@ import { toast } from '@/components/Toast';
 import { useNostr } from '@/contexts/NostrContext';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
 import { adminFetch } from '@/lib/admin-fetch';
+
+/**
+ * refresh-by-url answers 202 when the feed was refreshed in the last few minutes:
+ * one more refresh is scheduled for the end of that window (per-feed window,
+ * lib/feeds/refresh-coalescer.ts). An admin with a stored secret skips the window.
+ */
+function queuedRefreshMessage(data: { runAt?: string }): string {
+  const at = data.runAt ? new Date(data.runAt).toLocaleTimeString() : 'shortly';
+  return `Refreshed recently. One more refresh is scheduled for ${at}.`;
+}
 import DiagnosticsPanel from '@/components/admin/DiagnosticsPanel';
 
 export default function AdminPanel() {
@@ -651,7 +661,7 @@ export default function AdminPanel() {
 
     try {
       // Use the refresh-by-url endpoint which will find the feed by URL and reparse it
-      const response = await fetch('/api/feeds/refresh-by-url', {
+      const response = await adminFetch('/api/feeds/refresh-by-url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -663,7 +673,9 @@ export default function AdminPanel() {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.status === 202) {
+        toast.info(queuedRefreshMessage(data));
+      } else if (response.ok) {
         // Check if this is the HGH playlist and clear its cache
         if (feedUrl.includes('HGH-music-playlist.xml') || feedUrl.includes('chadf-musicl-playlists')) {
           try {
@@ -915,7 +927,7 @@ export default function AdminPanel() {
         // Feed already exists - automatically reparse it
         toast.info('Feed exists, reparsing...');
 
-        const reparseResponse = await fetch('/api/feeds/refresh-by-url', {
+        const reparseResponse = await adminFetch('/api/feeds/refresh-by-url', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -927,7 +939,9 @@ export default function AdminPanel() {
 
         const reparseData = await reparseResponse.json();
 
-        if (reparseResponse.ok) {
+        if (reparseResponse.status === 202) {
+          toast.info(queuedRefreshMessage(reparseData));
+        } else if (reparseResponse.ok) {
           const messages = [];
           if (reparseData.newTracks > 0) messages.push(`Added ${reparseData.newTracks} new tracks`);
           if (reparseData.updatedTracks > 0) messages.push(`Updated ${reparseData.updatedTracks} existing tracks`);
@@ -2606,7 +2620,7 @@ export default function AdminPanel() {
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('lnurl-test-feed'));
                   try {
-                    const response = await fetch('/api/feeds/refresh-by-url', {
+                    const response = await adminFetch('/api/feeds/refresh-by-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2616,7 +2630,9 @@ export default function AdminPanel() {
                       })
                     });
                     const data = await response.json();
-                    if (response.ok) {
+                    if (response.status === 202) {
+                      toast.info(queuedRefreshMessage(data));
+                    } else if (response.ok) {
                       toast.success(`LNURL Test Feed parsed! ${data.totalTracks || 0} tracks`);
                     } else {
                       toast.error(data.error || 'Failed to parse feed');
@@ -2653,7 +2669,7 @@ export default function AdminPanel() {
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('podtards-test'));
                   try {
-                    const response = await fetch('/api/feeds/refresh-by-url', {
+                    const response = await adminFetch('/api/feeds/refresh-by-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2662,7 +2678,9 @@ export default function AdminPanel() {
                       })
                     });
                     const data = await response.json();
-                    if (response.ok) {
+                    if (response.status === 202) {
+                      toast.info(queuedRefreshMessage(data));
+                    } else if (response.ok) {
                       toast.success(`Podtards Test Feed parsed! ${data.totalTracks || 0} tracks`);
                     } else {
                       toast.error(data.error || 'Failed to parse feed');

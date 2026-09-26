@@ -12,6 +12,7 @@ import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { calculateTrackOrder, parsePodcastGuidFromXML, parsePodcastMediumFromXML, fetchChapters, parseChannelPersonsFromXML, parseChannelPodcastImagesFromXML, pickSquareArtwork } from '@/lib/rss-parser-db';
 import { decodeHtmlEntities } from '@/lib/decode-entities';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -271,6 +272,11 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
     // Fall back to a square podcast:image only when no other image source exists.
     const feedImage = feedData.image || pickSquareArtwork(channelPodcastImagesData) || null;
 
+    // The stored image may carry our version (lib/feeds/image-version.ts). This
+    // path takes the Podcast Index image and does not ask the image host, so it
+    // keeps that version instead of stripping it on every nightly run.
+    const storedImage = (await prisma.feed.findUnique({ where: { id: feedId }, select: { image: true } }))?.image;
+
     // Use upsert to atomically create or update feed (prevents race conditions)
     const feed = await prisma.feed.upsert({
       where: { id: feedId },
@@ -301,7 +307,7 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
         title: feedData.title || undefined,
         description: feedData.description || undefined,
         artist: feedData.author || undefined,
-        image: feedData.image || undefined,
+        image: preserveImageVersion(feedData.image || undefined, storedImage),
         language: feedData.language || undefined,
         category: feedData.categories ? Object.keys(feedData.categories)[0] : undefined,
         explicit: feedData.explicit === 1 ? true : undefined,
@@ -412,7 +418,7 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
               description: episode.description || null,
               audioUrl: episode.audioUrl || '',
               duration: parseDuration(episode.duration),
-              image: episode.image || feed.image || null,
+              image: preserveImageVersion(episode.image || feed.image || null, feed.image),
               publishedAt: episode.pubDate ? new Date(episode.pubDate) : new Date(),
               feedId: feed.id,
               trackOrder: trackOrderValue,

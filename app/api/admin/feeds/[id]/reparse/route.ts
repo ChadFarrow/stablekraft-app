@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, applyParsedItemFields, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { resolveImageUrls } from '@/lib/feeds/image-version';
 
 /**
  * POST /api/admin/feeds/[id]/reparse
@@ -18,7 +19,7 @@ export async function POST(
     // Find the feed
     const feed = await prisma.feed.findUnique({
       where: { id },
-      select: { id: true, originalUrl: true, title: true }
+      select: { id: true, originalUrl: true, title: true, image: true }
     });
 
     if (!feed) {
@@ -54,6 +55,23 @@ export async function POST(
     }
 
     try {
+      // Get existing tracks to update their order (and their stored image URLs)
+      const existingTracks = await prisma.track.findMany({
+        where: { feedId: feed.id },
+        select: { id: true, guid: true, title: true, audioUrl: true, image: true }
+      });
+
+      // An image can change at the SAME URL: ask the host and carry the answer
+      // in the URL, as the podping refresh does. See lib/feeds/image-version.ts.
+      const versionImage = await resolveImageUrls(
+        [parsedFeed.image, ...parsedFeed.items.map((item) => item.image)],
+        [feed.image, ...existingTracks.map((t) => t.image)]
+      );
+      const feedImage = versionImage(parsedFeed.image);
+      if (feedImage && feedImage !== feed.image) {
+        console.warn(`[image-version] ${feed.id}: ${feed.image ?? '(none)'} -> ${feedImage}`);
+      }
+
       // Update feed metadata
       await prisma.feed.update({
         where: { id: feed.id },
@@ -61,7 +79,7 @@ export async function POST(
           title: parsedFeed.title,
           description: parsedFeed.description,
           artist: parsedFeed.artist,
-          image: parsedFeed.image,
+          image: feedImage,
           language: parsedFeed.language,
           category: parsedFeed.category,
           podcastCategories: parsedFeed.podcastCategories || [],
@@ -75,12 +93,6 @@ export async function POST(
           lastError: null,
           updatedAt: new Date()
         }
-      });
-
-      // Get existing tracks to update their order
-      const existingTracks = await prisma.track.findMany({
-        where: { feedId: feed.id },
-        select: { id: true, guid: true, title: true, audioUrl: true }
       });
 
       const existingGuids = new Set(existingTracks.map(t => t.guid).filter(Boolean));
@@ -131,7 +143,9 @@ export async function POST(
           // Build update data with trackOrder, v4v data, and podcast categories
           const updateData: any = {
             trackOrder: order,
-            podcastCategories: parsedFeed.podcastCategories || []
+            podcastCategories: parsedFeed.podcastCategories || [],
+            // Without this the cover takes a new version and the track rows keep the old art.
+            ...(matchedItem?.image && { image: versionImage(matchedItem.image) })
           };
 
           // Update v4v data, chapters, and VTS from the parsed feed item
@@ -209,7 +223,7 @@ export async function POST(
             alternateEnclosures: item.alternateEnclosures ? JSON.parse(JSON.stringify(item.alternateEnclosures)) : undefined,
             duration: item.duration,
             explicit: item.explicit,
-            image: item.image,
+            image: versionImage(item.image),
             publishedAt: item.publishedAt,
             itunesAuthor: item.itunesAuthor,
             itunesSummary: item.itunesSummary,

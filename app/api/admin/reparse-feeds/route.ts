@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, ParsedItem, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 /**
  * POST /api/admin/reparse-feeds
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
         title: true,
         originalUrl: true,
         type: true,
-        lastFetched: true
+        lastFetched: true,
+        image: true
       },
       take: limit,
       orderBy: { lastFetched: 'asc' }  // Oldest first
@@ -200,6 +202,7 @@ async function reparseSingleFeed(feed: {
   title: string | null;
   originalUrl: string;
   type: string | null;
+  image: string | null;
 }): Promise<{
   success: boolean;
   feedId: string;
@@ -248,7 +251,9 @@ async function reparseSingleFeed(feed: {
         title: parsedFeed.title,
         description: parsedFeed.description,
         artist: parsedFeed.artist,
-        image: parsedFeed.image,
+        // Keep our version (lib/feeds/image-version.ts): this nightly path does not ask
+        // the image host, and writing the plain URL would strip it every night.
+        image: preserveImageVersion(parsedFeed.image, feed.image),
         language: parsedFeed.language,
         category: parsedFeed.category,
         podcastCategories: parsedFeed.podcastCategories || [],
@@ -393,7 +398,7 @@ async function reparseSingleFeed(feed: {
           alternateEnclosures: item.alternateEnclosures ? JSON.parse(JSON.stringify(item.alternateEnclosures)) : undefined,
           duration: item.duration,
           explicit: item.explicit,
-          image: item.image,
+          image: preserveImageVersion(item.image, feed.image),
           publishedAt: item.publishedAt,
           itunesAuthor: item.itunesAuthor,
           itunesSummary: item.itunesSummary,
