@@ -54,6 +54,11 @@ railway domain                   # which hostnames actually serve this instance
 # Only the current deployment's buffer is kept, and Next logs no successful request — so
 # a quiet log is not evidence of no traffic. Ask what WOULD have been logged before
 # concluding anything from silence.
+# Per-ROUTE traffic does exist: Railway keeps HTTP logs (path, status, ms, bytes, UA) even for
+# REMOVED deployments. GraphQL httpLogs(deploymentId, anchorDate, beforeLimit, filter) pages
+# backwards from anchorDate; startDate/endDate are NOT its arguments and silently return one
+# row. filter takes "@path:/api/albums" or "@httpStatus:404". An old deployment's console:
+# `railway logs <deploymentId> -n 5000` (5000 is the cap). This is how #272 found its readers.
 
 # COST. The Usage page's Network Egress chart is a running total for the billing period, so
 # it only ever rises — it is not a rate. For per-day, per-hour or per-service numbers, POST to
@@ -148,8 +153,13 @@ line holds the full story.
   catalog (~20 MB: Prisma's per-feed `take` is applied AFTER the read) every 15 minutes although the rows had
   changed in ~3% of those windows. It now re-reads only when a Postgres-side md5 of the rows changes
   (`lib/caches/fingerprinted-cache.ts`); count its `[albums-fast-cache] … rebuilt` warnings to see how often
-  that is. It is also why `railway run --service StableKraft` works from a laptop: the app's
-  `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
+  that is. **That was not most of it.** The week after (Sep 19 → 26) rebuilds fell to ~3 a day, yet the database
+  still sent ~2.3 GB/day, and the HTTP logs put 99% of it on two uncached readers: a `/api/albums/[slug]` that
+  matched nothing read every active feed with all its tracks (33 MB per miss; 368 misses, mostly crawlers on bad
+  `/album/` URLs that the page's own metadata and Open Graph fetches then asked again), and `/api/albums`
+  (4.8 MB per call, sent on every page load by `AudioProvider`) — issue #272. Attribute egress per route before
+  fixing a reader; see *Reading PRODUCTION* under Commands. The public proxy is also why
+  `railway run --service StableKraft` works from a laptop: the app's `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
   `railway run` command.
 - **Railway does not run migrations on deploy.** The Dockerfile has no `prisma migrate deploy`, so after merging a
   migration run `railway run --service StableKraft --environment production npm run db:migrate` **before** the code
