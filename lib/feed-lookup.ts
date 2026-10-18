@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   buildFeedUrlLooseVariants,
@@ -95,4 +96,44 @@ export async function findFeedIdByUrl(
   }
 
   return null;
+}
+
+export interface RemoteItemFeedMatch {
+  id: string;
+  title: string;
+  publisherId: string | null;
+}
+
+/**
+ * Find the Feed row a `<podcast:remoteItem>` names, by its `feedUrl` through the ladder
+ * above and by its `feedGuid` attribute. Every loop that mints a row from a remoteItem
+ * asks this first — there are two, `feeds/[id]/process-remote-items` and the publisher
+ * step of `feeds/refresh-by-url` — so they cannot drift apart again.
+ *
+ * Both halves are needed. A remoteItem's `feedUrl` is whatever host the publisher feed
+ * lists today, which need not be the host the row was stored under: on 2026-10-18 the
+ * Strange Love publisher feed named new.musicsideproject.com for two albums stored on
+ * msp.podtards.com, and refresh-by-url's exact `originalUrl` compare minted an empty
+ * second copy of each (#247's shape, in the one loop #251 missed). The `feedGuid` is the
+ * identity that survives a move. `originalUrl contains` catches a row stored without a
+ * guid whose URL still carries it (MSP's `/api/hosted/<guid>.xml`).
+ */
+export async function findFeedForRemoteItem(
+  feedUrl: string | null | undefined,
+  feedGuid?: string | null
+): Promise<RemoteItemFeedMatch | null> {
+  const urlMatch = feedUrl ? await findFeedIdByUrl(feedUrl) : null;
+  const conditions: Prisma.FeedWhereInput[] = [];
+  if (urlMatch) conditions.push({ id: urlMatch.id });
+  if (feedGuid) {
+    conditions.push({ id: feedGuid });
+    conditions.push({ guid: feedGuid });
+    conditions.push({ originalUrl: { contains: feedGuid } });
+  }
+  if (conditions.length === 0) return null;
+
+  return prisma.feed.findFirst({
+    where: { OR: conditions },
+    select: { id: true, title: true, publisherId: true },
+  });
 }

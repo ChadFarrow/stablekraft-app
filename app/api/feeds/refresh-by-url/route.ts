@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
 import { resolvePodcastIndexUrl } from '@/lib/podcast-index-api';
 import { normalizeUrl } from '@/lib/url-utils';
-import { findFeedIdByUrl } from '@/lib/feed-lookup';
+import { findFeedForRemoteItem, findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { checkAdminAuth } from '@/lib/admin-auth';
@@ -74,33 +74,59 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
 
     console.log(`📡 Found ${matches.length} remoteItems in publisher feed`);
 
+    // An album this publisher lists that we already hold: link it if it has no
+    // publisher yet, and report it rather than minting a second row.
+    const reportExisting = async (existing: { id: string; title: string; publisherId: string | null }) => {
+      console.log(`⚡ Album already exists: ${existing.title}`);
+      if (!existing.publisherId) {
+        await prisma.feed.update({
+          where: { id: existing.id },
+          data: { publisherId: publisherFeedId }
+        });
+        console.log(`🔗 Linked to publisher: ${publisherFeedId}`);
+      }
+      results.albums.push({
+        id: existing.id,
+        title: existing.title,
+        tracks: await prisma.track.count({ where: { feedId: existing.id } })
+      });
+      results.skipped++;
+    };
+
     for (const match of matches) {
       const feedUrlMatch = match.match(/feedUrl="([^"]+)"/);
       if (!feedUrlMatch) continue;
 
       const albumFeedUrl = feedUrlMatch[1];
+      const feedGuid = match.match(/feedGuid="([^"]+)"/)?.[1];
 
       try {
-        // Check if album feed already exists
-        const existingAlbum = await prisma.feed.findFirst({
-          where: { originalUrl: albumFeedUrl },
-          include: { _count: { select: { Track: true } } }
-        });
-
+        // Check if album feed already exists — by URL through the shared ladder and
+        // by the remoteItem's feedGuid. This used to be an exact `originalUrl`
+        // compare, so when a publisher feed moved two albums to another host it
+        // missed both and minted an empty copy of each: `createMany` below skips
+        // every track, because their guids already belong to the real rows (#247).
+        const existingAlbum = await findFeedForRemoteItem(albumFeedUrl, feedGuid);
         if (existingAlbum) {
-          console.log(`⚡ Album already exists: ${existingAlbum.title}`);
-          results.albums.push({
-            id: existingAlbum.id,
-            title: existingAlbum.title,
-            tracks: existingAlbum._count.Track
-          });
-          results.skipped++;
+          await reportExisting(existingAlbum);
           continue;
         }
 
         // Parse and create the album feed
         console.log(`🎵 Parsing album: ${albumFeedUrl}`);
         const parsedAlbum = await parseRSSFeedWithSegments(albumFeedUrl);
+
+        // The feed itself may declare a guid the remoteItem did not carry.
+        if (parsedAlbum.podcastGuid) {
+          const byParsedGuid = await prisma.feed.findFirst({
+            where: { guid: parsedAlbum.podcastGuid },
+            select: { id: true, title: true, publisherId: true }
+          });
+          if (byParsedGuid) {
+            await reportExisting(byParsedGuid);
+            continue;
+          }
+        }
 
         // Detect feed type from <podcast:medium>
         let albumType = 'album';
@@ -127,6 +153,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
         await prisma.feed.create({
           data: {
             id: albumId,
+            guid: parsedAlbum.podcastGuid || null,
             originalUrl: albumFeedUrl,
             cdnUrl: albumFeedUrl,
             type: albumType,
