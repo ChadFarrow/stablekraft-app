@@ -185,3 +185,40 @@ test('the shared remoteItem lookup keeps both halves', () => {
     'findFeedForRemoteItem must match the remoteItem feedGuid against Feed.guid'
   );
 });
+
+/** `POST /api/feeds`, from its parse of the feed to the upsert that writes the row. */
+function postMintSection(): string {
+  const source = read('app/api/feeds/route.ts');
+  const post = source.slice(source.indexOf('export async function POST'));
+  const start = post.indexOf('parseRSSFeedWithSegments(resolvedUrl)');
+  const end = post.indexOf('prisma.feed.upsert(');
+  assert.ok(start !== -1 && end > start, 'POST /api/feeds changed shape — re-anchor this test');
+  return post.slice(start, end);
+}
+
+test('POST /api/feeds frees a taken slug before its upsert', () => {
+  // A self-titled publisher has its self-titled album's slug: "Strange Love" by
+  // "Strange Love" is `strange-love-strange-love` for both. The upsert is keyed on
+  // originalUrl, so its create threw on `id`, and the catch saved the publisher as a
+  // guid-less `feed-error-*` row titled with its own URL — on production 2026-05-02
+  // (lastError: "Unique constraint failed on the fields: (`id`)") and again 2026-10-18.
+  const section = postMintSection();
+  const check = section.indexOf('if (idExists');
+  assert.notEqual(check, -1, 'POST /api/feeds mints a slug id without checking that it is free');
+  const branch = section.slice(check);
+  assert.ok(branch.includes('console.warn'), 'the collision branch must console.warn — console.log is compiled out');
+  assert.ok(branch.indexOf('console.warn') < branch.indexOf('Date.now()'), 'warn before minting the suffixed id');
+});
+
+test('POST /api/feeds answers 409 for a feed it holds under another URL, before it frees a slug', () => {
+  // Suffixing a taken slug is safe only once the feed is known to be new. The URL
+  // ladder misses a feed that moved to a host with no UUID in its path; the guid the
+  // feed declares does not. Without this check the suffixed id would mint a second
+  // row, and the guid-collision retry would strip the guid to let it through.
+  const section = postMintSection();
+  const guidCheck = section.indexOf('where: { guid: parsedFeed.podcastGuid }');
+  const idCheck = section.indexOf('if (idExists');
+  assert.notEqual(guidCheck, -1, 'POST /api/feeds no longer looks up the parsed <podcast:guid> before minting');
+  assert.ok(guidCheck < idCheck, 'the guid check must come before the slug is freed');
+  assert.ok(section.slice(guidCheck, idCheck).includes('status: 409'), 'a held guid must answer 409');
+});
