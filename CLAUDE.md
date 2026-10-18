@@ -44,13 +44,16 @@ npm run dev:isolated -- -p 3001  # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key, with real NIP-44
 
 # Reading PRODUCTION. `railway login` needs a real TTY — it fails in any non-interactive
-# shell, so run it in a terminal of your own; the credentials then persist to disk. The
+# shell, Claude Code's `!` prefix included ("Cannot login in non-interactive mode"), so run
+# it in a terminal of your own; the credentials then persist to disk. The
 # --service/--environment flags are NOT enough on their own, the directory must be linked:
 railway link --project StableKraft --environment production --service StableKraft
 railway logs -n 400              # ALWAYS pass -n; the default STREAMS and never returns
 railway logs --build -n 400      # the build, when a deploy is the suspect
 railway variables --json         # dump: filter in code, never print a secret's value
 railway domain                   # which hostnames actually serve this instance
+curl -s https://stablekraft.app/api/version  # `commit` is the LIVE deploy's SHA, no login needed —
+                                 # poll it after a merge; `deployedAt` is only the request time
 # Only the current deployment's buffer is kept, and Next logs no successful request — so
 # a quiet log is not evidence of no traffic. Ask what WOULD have been logged before
 # concluding anything from silence.
@@ -285,6 +288,11 @@ line holds the full story.
   `/api/albums/[slug]` — the album page — builds its own, and `app/page.tsx` then copies the albums-fast album field
   by field. A field added to the shared shape reaches neither. `Feed.persons` was written on every parse (#259, #260)
   and still reached no album-page boost until #261, because both copies dropped it → `catalog-display`.
+  **Two loops mint Feed rows from `<podcast:remoteItem>`**, `feeds/[id]/process-remote-items` and the publisher step
+  of `refresh-by-url`, and both must ask `findFeedForRemoteItem` (`lib/feed-lookup.ts`): the URL ladder plus the
+  remoteItem's `feedGuid`. #251 put the first on the ladder and missed the second, whose exact `originalUrl` compare
+  minted an empty copy of every album a publisher feed listed under a new host — again on every podping of that
+  publisher (Strange Love, 2026-10-18, #283) → `feed-ingestion`.
 - **A boost note names people from ONE list, and each entry is both a `p` tag and an @mention.**
   `boostNotifiedPubkeys` (`lib/nostr/boost-note.ts`) merges the feed's `<podcast:person>` / `<podcast:txt>` npubs —
   persons first — with the split recipients' resolved pubkeys. Built separately, an artist is notified but invisible
