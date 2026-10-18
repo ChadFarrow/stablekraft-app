@@ -5,6 +5,7 @@ import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
 // POST /api/feeds/[id]/refresh - Refresh a specific feed (Railway fix)
 export async function POST(
@@ -169,17 +170,10 @@ export async function POST(
       });
       
     } catch (parseError) {
-      // Update feed with error status
+      // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
       const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-      
-      await prisma.feed.update({
-        where: { id },
-        data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
-        }
-      });
+
+      await recordRefreshFailure(prisma, id, errorMessage);
       
       return NextResponse.json({
         error: 'Failed to refresh feed',

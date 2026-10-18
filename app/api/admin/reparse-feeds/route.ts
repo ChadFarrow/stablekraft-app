@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, ParsedItem, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
 /**
  * POST /api/admin/reparse-feeds
@@ -223,15 +224,8 @@ async function reparseSingleFeed(feed: {
     } catch (parseError) {
       const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
 
-      // Update feed with error status
-      await prisma.feed.update({
-        where: { id: feed.id },
-        data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
-        }
-      });
+      // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
+      await recordRefreshFailure(prisma, feed.id, errorMessage);
 
       return {
         success: false,
@@ -442,16 +436,9 @@ async function reparseSingleFeed(feed: {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`  ❌ ${feedTitle} (${feedUrl}): ${errorMessage}`);
 
-    // Try to update feed with error status
+    // Try to record the error; a feed with tracks stays visible
     try {
-      await prisma.feed.update({
-        where: { id: feed.id },
-        data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
-        }
-      });
+      await recordRefreshFailure(prisma, feed.id, errorMessage);
     } catch {
       // Ignore secondary errors
     }

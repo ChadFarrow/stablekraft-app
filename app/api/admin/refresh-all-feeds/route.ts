@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
 // POST /api/admin/refresh-all-feeds - Refresh all RSS feeds in the database
 export async function POST(request: NextRequest) {
@@ -140,15 +141,8 @@ export async function POST(request: NextRequest) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           errors.push({ feed: feed.title, error: errorMessage });
           
-          // Update feed with error status
-          await prisma.feed.update({
-            where: { id: feed.id },
-            data: {
-              status: 'error',
-              lastError: errorMessage,
-              lastFetched: new Date()
-            }
-          });
+          // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
+          await recordRefreshFailure(prisma, feed.id, errorMessage);
           
           console.error(`❌ Failed to refresh ${feed.title}:`, errorMessage);
         }

@@ -9,6 +9,7 @@ import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { checkAdminAuth } from '@/lib/admin-auth';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 import type { Feed } from '@prisma/client';
 
 // Public endpoint (podping consumer) that triggers expensive RSS reparses —
@@ -862,18 +863,11 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
     });
     
   } catch (parseError) {
-    // Update feed with error status
+    // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
     const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-    
-    await prisma.feed.update({
-      where: { id: feed.id },
-      data: {
-        status: 'error',
-        lastError: errorMessage,
-        lastFetched: new Date()
-      }
-    });
-    
+
+    await recordRefreshFailure(prisma, feed.id, errorMessage);
+
     return NextResponse.json({
       error: 'Failed to refresh feed',
       message: errorMessage
