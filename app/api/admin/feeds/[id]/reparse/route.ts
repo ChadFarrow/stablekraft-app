@@ -4,6 +4,7 @@ import { parseRSSFeedWithSegments, calculateTrackOrder, applyParsedItemFields, d
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
 /**
  * POST /api/admin/feeds/[id]/reparse
@@ -38,15 +39,8 @@ export async function POST(
       const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
       console.error(`❌ Parse error for feed ${feed.id}:`, errorMessage);
 
-      // Update feed with error status
-      await prisma.feed.update({
-        where: { id: feed.id },
-        data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
-        }
-      });
+      // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
+      await recordRefreshFailure(prisma, feed.id, errorMessage);
 
       return NextResponse.json({
         error: 'Failed to parse RSS feed',
@@ -298,15 +292,8 @@ export async function POST(
       const errorMessage = dbError instanceof Error ? dbError.message : 'Unknown error';
       console.error(`❌ Database error for feed ${feed.id}:`, errorMessage);
 
-      // Update feed with error status
-      await prisma.feed.update({
-        where: { id: feed.id },
-        data: {
-          status: 'error',
-          lastError: errorMessage,
-          lastFetched: new Date()
-        }
-      });
+      // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
+      await recordRefreshFailure(prisma, feed.id, errorMessage);
 
       return NextResponse.json({
         error: 'Failed to update feed in database',

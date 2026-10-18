@@ -12,6 +12,8 @@ How feeds get into the catalog: the podping consumer, the shared URL lookup ladd
 ```
 npx tsx --test lib/url-utils.test.ts                # feed URL variants (podping ladder) + generateAlbumHref
 npx tsx --test lib/rss-channel-metadata.test.ts     # channel tags found before AND after the <item>s
+npx tsx --test lib/rss-feed-fetch.test.ts           # one fetch per parse; a non-2xx fails as "HTTP <status>"
+npx tsx --test lib/feeds/refresh-failure.test.ts    # a failed refresh never hides a feed with tracks
 npx tsx --test lib/feeds/image-version.test.ts      # image URL versions + every path that writes one
 npx tsx --test lib/feeds/refresh-coalescer.test.ts  # refresh-by-url per-feed window
 ```

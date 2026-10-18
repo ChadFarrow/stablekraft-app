@@ -1154,13 +1154,25 @@ function parseKeywords(keywords: string | undefined): string[] {
   return keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
 }
 
-export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
+/**
+ * Fetch a feed's XML, failing on a non-2xx answer. Without the status check a refusal's
+ * body went to the XML parser: Wavlake's 429 "Too Many Requests" read as "Non-whitespace
+ * before first tag ... Char: T", which says nothing about the host refusing.
+ */
+async function fetchFeedXml(feedUrl: string): Promise<string> {
+  const response = await fetch(feedUrl);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+  }
+  return response.text();
+}
+
+export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promise<ParsedFeed> {
   try {
     console.log(`🔍 Parsing RSS feed: ${feedUrl}`);
-    
+
     // Fetch the raw XML first for direct V4V parsing
-    const response = await fetch(feedUrl);
-    let xmlText = await response.text();
+    let xmlText = fetchedXml ?? await fetchFeedXml(feedUrl);
     
     // Fix common XML typos that break parsing
     xmlText = xmlText.replace(/endcoding=/gi, 'encoding=');
@@ -1577,15 +1589,14 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
 }
 
 // Helper function to parse music segments from podcast RSS feeds
-export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]> {
+export async function parseMusicSegments(feedUrl: string, fetchedXml?: string): Promise<ParsedItem[]> {
   try {
     const xmlParser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '@_'
     });
-    
-    const response = await fetch(feedUrl);
-    const xmlText = await response.text();
+
+    const xmlText = fetchedXml ?? await fetchFeedXml(feedUrl);
     const parsed = xmlParser.parse(xmlText);
     
     const items: ParsedItem[] = [];
@@ -1671,11 +1682,20 @@ export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]>
 
 // Combined parser that handles both regular RSS and music segments
 export async function parseRSSFeedWithSegments(feedUrl: string): Promise<ParsedFeed> {
+  // One fetch for both passes: each used to fetch the feed itself, which doubled the
+  // requests a nightly reparse sends to a host that rate-limits (Wavlake).
+  let xmlText: string;
+  try {
+    xmlText = await fetchFeedXml(feedUrl);
+  } catch (error) {
+    throw new Error(`Failed to parse RSS feed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
   // First try regular RSS parsing
-  const feed = await parseRSSFeed(feedUrl);
-  
+  const feed = await parseRSSFeed(feedUrl, xmlText);
+
   // Then try to extract any music segments
-  const segments = await parseMusicSegments(feedUrl);
+  const segments = await parseMusicSegments(feedUrl, xmlText);
   
   // Merge segments into feed items if any were found
   if (segments.length > 0) {
