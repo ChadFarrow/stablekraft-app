@@ -87,6 +87,20 @@ Playlists use `<podcast:remoteItem>` with `feedGuid` + `itemGuid`. On `?refresh=
 
 **Setting a guid can still fail on `@unique`.** `Feed.guid` is unique, so if a duplicate row already holds it the update throws `Unique constraint failed on the fields: (guid)` and the reparse 400s. Both cases found were **empty duplicates** (0 tracks, 0 favorites) minted from the `%20` form of a literal-space URL, holding the guid the real row needed; the fix was `DELETE /api/feeds?id=<empty row>` then reparse. These were created **2026-07-25/26, after the PR #173 ladder fix**, because the ladder covered *lookups* and two creation paths compared `originalUrl` exactly: `importMissingAlbums()` in `app/api/feeds/route.ts` and the remoteItem loop in `app/api/feeds/[id]/process-remote-items`. Both were fixed in #251 (`022aa294`, 2026-09-06), pinned by `lib/feed-mint-lookup.test.ts`. A NEW path that creates Feed rows must use the same lookup, or it reopens this.
 
+**#251 missed a third loop.** The publisher step of `refresh-by-url` (`processRemoteItems`) still compared `originalUrl` exactly. On 2026-10-18 the Strange Love publisher feed listed two albums under new.musicsideproject.com while their rows stored msp.podtards.com. The loop minted an `album-<ts>` copy of each. Both copies were empty, because `createMany({ skipDuplicates })` skips every track whose guid the real row already holds. The step runs on every refresh of a 0-track feed, so every podping of the publisher repeated it. Since #283, both remoteItem loops call `findFeedForRemoteItem` (`lib/feed-lookup.ts`). That function is the ladder plus the remoteItem's `feedGuid`, and the guid is the identity that survives a change of host. The test lists both loops as `REMOTE_ITEM_PATHS`.
+
+**A taken slug id proves nothing on its own.** `generateFeedId` is `<artist>-<title>`, so two different feeds can share a slug, and so can one feed under two URLs:
+- A self-titled publisher has its self-titled album's slug (`strange-love-strange-love`).
+- The same album re-added under a second URL keeps its slug.
+
+`POST /api/feeds` checked neither case until #284. Its upsert is keyed on `originalUrl`, so the create threw on `id`, and the catch saved a guid-less `feed-error-<ts>` row titled with the URL. By 2026-10-18, production had 6 rows that carried that error in `lastError`. It also had Strange Love's live publisher row, whose error a later refresh cleared. Two of these rows were Strange Love's publisher, and one was a Right Said Fred album re-added with `%27` in place of a stored literal `'`. The ladder misses that pair: `buildFeedUrlLooseVariants` decodes only the incoming URL, and the stored one mixes a literal `'` with `%20`.
+
+`POST` now does two checks, in this order:
+1. A parsed `<podcast:guid>` that a row already holds → 409. The exception is a publisher whose guid an album holds; that case goes on to the guid-collision retry.
+2. A taken slug → `console.warn`, then a `-<ts>` suffix.
+
+A new slug-minting path needs both checks, in that order. A suffix without the guid check turns a re-add into a duplicate.
+
 ---
 
 ## `Feed.medium` — what the feed declared, as opposed to what we concluded
