@@ -417,11 +417,29 @@ function mergeMovedNodes(here: ListNode[], moving: ListNode[]): ListNode[] {
  * can legitimately be a placement group in one half and a favorite in the
  * other, and counting that as "in both halves" would report a defect that is
  * not there.
+ *
+ * AN ITEM THAT NAMES ITS OWN FEED IS A NODE OF ITS OWN, not a member of the
+ * group above it — and since #256 that is every item this app writes, and every
+ * one Boost Me Bitch writes. Counting only groups saw none of them, which made
+ * `withoutCarried` a guard against feeds alone: an item adopted out of the
+ * private half came back in `local` and went out as a plaintext `i` tag, while
+ * `inBothHalves` reported 0.
+ *
+ * Items are keyed on the BARE guid, deliberately, although an item guid is
+ * unique only inside its feed. This is a disclosure guard, and the pair fails
+ * OPEN: the reconcile matches a track by its guid, so the row it adopts can sit
+ * under a different feed row here than the wire names, and a paired key then
+ * matches nothing and lets the item out. Over-matching only keeps an item out
+ * of this half while the other half holds one with the same guid.
  */
 function namedFavoritesIn(nodes: ListNode[]): { feeds: Set<string>; items: Set<string> } {
   const feeds = new Set<string>();
   const items = new Set<string>();
   for (const node of nodes) {
+    if (node.t === 'item') {
+      items.add(node.item.itemGuid);
+      continue;
+    }
     if (node.t !== 'group') continue;
     if (node.group.itemGuids.length === 0) feeds.add(node.group.feedGuid);
     for (const guid of node.group.itemGuids) items.add(guid);

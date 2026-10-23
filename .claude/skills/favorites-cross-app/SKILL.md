@@ -131,6 +131,12 @@ by someone who has the pubkey.
   switch still complete. **Present in the active half wins**: dropping an entry that is in both would
   drop it from `publishedRecordFrom` too, un-claiming something we do publish and making it foreign
   forever. Measured before the fix: 284 in the tags, 287 encrypted, all 284 in both.
+  **It must count ITEM NODES, not only groups.** A three-element item is a node of its own, not a
+  member of the group above it, and `namedFavoritesIn` counted groups alone — so from #256 (when
+  every writer moved to that form) until the fix, the guard held back adopted feeds and let every
+  adopted private item out as a plaintext `i` tag, with `inBothHalves` reading 0. Items match on the
+  **bare** guid on purpose: the reconcile finds a track by guid alone, so the adopted row can sit
+  under a different feed here than the wire names, and a paired key would fail open.
 - **`["visibility","public"|"private"]` states the mode, and it outranks the inference.**
   Multi-letter so relays cannot index it — `#v=private` would enumerate the pubkeys that keep a
   private list. `parseSingleList` reads it into `ParsedSingleList.visibility` and does NOT let it
