@@ -14,6 +14,7 @@ npx tsx --test lib/auth/*.test.ts                   # session token, requireUser
 npx tsx --test lib/favorites-check-input.test.ts    # favorites/check input cap + first-match-wins index
 npx tsx --test lib/cors.test.ts                     # enforce/log modes, Vary: Origin on a refusal
 npx tsx --test lib/proxy-host-allowlist.test.ts     # host allowlist, the playlist drift guard, the catalog cache
+npx tsx --test lib/proxy-image-oversize.test.ts     # an image over the cap: redirect for an <img> only
 npx tsx --test lib/rate-limit-guard.test.ts        # log vs enforce, forged x-forwarded-for
 npx tsx --test lib/native-app-identity.test.ts     # the shell gate, and every branch of it that fails open
 npx tsx --test lib/artwork-image-source.test.ts    # where artwork-colors fetches from; the proxy-URL unwrap
@@ -65,9 +66,24 @@ Known limits: string check only, and no DNS-rebinding defense. The redirect gap 
 
 **Animated GIF artwork — render it through `components/ArtworkImage.tsx`, never bare `next/image`.** The Next optimizer *refuses* to process animated images, but it still fetches and buffers the whole file before logging `⚠ The requested resource … is an animated image so it will not be optimized` to stderr — one line **per card referencing the image**, which Railway records at `severity=error`. Same log-flood family as the "isn't a valid image" case above. It is not only noise: Homegrown Hits ships **~19 MB animated GIFs per episode**, so one HGH track list pushed hundreds of MB through the Next server for images it was never going to optimize. `ArtworkImage` is a thin `next/image` wrapper that sets `unoptimized` exactly when `isAnimatedArtworkUrl(src)` (`lib/cdn-utils.ts`, unwraps `/api/proxy-image?url=<encoded>`; tests: `npx tsx --test lib/cdn-utils.test.ts`) — everything else stays on the optimized path. Every site rendering feed-supplied artwork uses it; `CDNImage` and `AlbumCard` already set `unoptimized` themselves. Verify a change by server-rendering the component and asserting the GIF's `src` is **not** a `/_next/image?…` URL.
 
-Two supporting guards in the route, both driven by those 19 MB GIFs:
+Three supporting guards in the route, all driven by those 19 MB GIFs:
 - **The in-memory cache is bounded by bytes, not just entries.** `MAX_CACHE_ENTRIES` alone let a handful of GIFs pin hundreds of MB of Railway RSS; `MAX_CACHE_BYTES` (96 MB) plus `MAX_CACHEABLE_IMAGE_BYTES` (4 MB, skip-don't-cache) keep it bounded. `cacheBytes` must be maintained by `dropCacheEntry()` on **every** removal path — a direct `imageCache.delete()` leaks the counter and the cache silently stops accepting entries.
 - **The fetch timeout is GIF-aware** (12s vs the 3s default). `AbortSignal.timeout` covers the body read, and 19 MB in 3s needs a sustained >6 MB/s, so GIF art intermittently aborted into the placeholder (`⚠️ Image fetch timeout` in the logs).
+- **An image over `MAX_IMAGE_BYTES` (12 MB) is redirected, not proxied — and only for an `<img>`.** #229's cap
+  turned every bigger cover into the placeholder: Pixel Palace's 18 MB GIF, a 41 MB 12 Rods GIF, `autumn.gif`
+  (21 MB) and the satellite skirmish GIF (18.7 MB) — the log line is `⚠️ Image too large (Response exceeds
+  12582912 bytes)`. Raising the cap was declined (2026-10-24): nothing over 4 MB is cached, so every view would
+  be billed egress, and the body sits in memory. `oversizeImageRedirect` (`lib/proxy-host-allowlist.ts`) answers
+  a 302 to the artist's URL when all three hold: `Sec-Fetch-Dest: image`, a `static`/`catalog` host, and HTTPS
+  before and after the origin's own redirects. **The `Sec-Fetch-Dest` gate is the one that matters.** Without it
+  a link to `/api/proxy-image?url=…` is an open redirect, and the host check cannot stop that alone —
+  `STATIC_ALLOWED_HOSTS` holds shared hosting (`github.io`, `imgur.com`) and an unauthenticated `POST /api/feeds`
+  adds any host to the catalog. A `fetch()` (`downloadImage`), a server-side caller and a browser without Fetch
+  Metadata still get the placeholder, and both answers carry `Vary: Sec-Fetch-Dest` so a cached one cannot
+  reach the other kind of caller. A `crossOrigin` `<img>` (`CDNImage` on mobile) fails on the redirect, because
+  these hosts send no CORS headers, and falls into its own error fallback. Tests:
+  `npx tsx --test lib/proxy-image-oversize.test.ts` (the real route, `fetch` stubbed) and
+  `lib/proxy-host-allowlist.test.ts`.
 
 ---
 
