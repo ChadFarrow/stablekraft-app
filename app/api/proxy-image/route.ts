@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { guardProxyTarget } from '@/lib/proxy-host-allowlist';
+import { guardProxyTarget, oversizeImageRedirect } from '@/lib/proxy-host-allowlist';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedArrayBuffer, MAX_IMAGE_BYTES } from '@/lib/safe-fetch';
@@ -283,8 +283,37 @@ export async function GET(request: NextRequest) {
     // could take the instance down.
     const readImage = await readCappedArrayBuffer(response, MAX_IMAGE_BYTES);
     if (!readImage.ok) {
+      // A refusal on the declared length reads nothing and leaves the download
+      // open; stop it. (A body that ran past the cap was cancelled already.)
+      response.body?.cancel().catch(() => {});
+
+      // Real catalog artwork is bigger than the cap (an 18 MB and a 41 MB GIF),
+      // so send an <img> to the artist's host rather than show the placeholder.
+      // The conditions are in oversizeImageRedirect, and each one matters.
+      const location = await oversizeImageRedirect({
+        fetchUrl,
+        finalUrl: fetched.finalUrl,
+        fetchDest: request.headers.get('sec-fetch-dest'),
+      });
+      if (location) {
+        console.warn(`↪️ Image too large to proxy (${readImage.error}), redirecting <img> to ${location}`);
+        return new NextResponse(null, {
+          status: 302,
+          headers: {
+            Location: location,
+            'Cache-Control': 'public, max-age=3600',
+            // The answer depends on the caller: a cached redirect must not reach
+            // a fetch(), nor a cached placeholder a later <img>.
+            Vary: 'Sec-Fetch-Dest',
+            'X-Image-Proxy': 'stablekraft.app',
+          },
+        });
+      }
+
       console.warn(`⚠️ Image too large (${readImage.error}) for ${imageUrl}, returning placeholder`);
-      return returnPlaceholderImage();
+      const placeholder = await returnPlaceholderImage();
+      placeholder.headers.set('Vary', 'Sec-Fetch-Dest');
+      return placeholder;
     }
     const arrayBuffer = readImage.value;
 

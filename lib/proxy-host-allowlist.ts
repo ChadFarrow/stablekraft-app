@@ -355,3 +355,51 @@ export async function guardProxyTarget(
 
   return check.allowed ? { refusal: null } : { refusal: { error: 'Host not allowed', status: 403 } };
 }
+
+/**
+ * Where /api/proxy-image may send the browser for an image too big to proxy, or
+ * null to serve the placeholder as it always did.
+ *
+ * MAX_IMAGE_BYTES (lib/safe-fetch.ts) caps what the proxy buffers, and real
+ * catalog artwork is bigger: Pixel Palace's cover GIF is 18 MB and a 12 Rods GIF
+ * is 41 MB, so both rendered as the placeholder (2026-10-24). Raising the cap
+ * would bill that egress on every view — nothing over 4 MB is cached — and hold
+ * the body in memory, so the browser fetches those from the artist's host.
+ *
+ * Three conditions, each closing a different hole:
+ *  - `Sec-Fetch-Dest: image` only. A link to /api/proxy-image?url=… is a
+ *    top-level navigation, and redirecting it makes stablekraft.app an open
+ *    redirect to whatever that host shows a browser. A host check cannot stop
+ *    that on its own: STATIC_ALLOWED_HOSTS has shared hosting (github.io,
+ *    imgur.com) and an unauthenticated POST /api/feeds adds any host to the
+ *    catalog. An <img> pointed at an attacker's page only fails to render. A
+ *    fetch() or a browser without Fetch Metadata keeps the placeholder.
+ *  - A host the catalog vouches for ('static' or 'catalog'), so log mode's
+ *    off-catalog allowance and a failed catalog read change nothing.
+ *  - HTTPS before and after the origin's own redirects, or the browser would
+ *    block the image as mixed content.
+ *
+ * `fetchUrl` is the URL the proxy asked for, not the hop it ended on: the
+ * browser follows the origin's redirects itself, and a signed CDN hop would
+ * expire inside a cached 302.
+ */
+export async function oversizeImageRedirect(input: {
+  fetchUrl: string;
+  finalUrl: URL;
+  fetchDest: string | null;
+  /** Test seam, as for checkProxyTarget. */
+  catalogHostsOverride?: Set<string> | null;
+}): Promise<string | null> {
+  if (input.fetchDest !== 'image') return null;
+
+  let location: URL;
+  try {
+    location = new URL(input.fetchUrl);
+  } catch {
+    return null;
+  }
+  if (location.protocol !== 'https:' || input.finalUrl.protocol !== 'https:') return null;
+
+  const check = await checkProxyTarget(location.href, undefined, input.catalogHostsOverride);
+  return check.reason === 'static' || check.reason === 'catalog' ? location.href : null;
+}
