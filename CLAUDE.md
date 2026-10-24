@@ -117,8 +117,8 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   `ws` inlined by webpack throwing `b.mask is not a function` on every frame, and `ws` rethrowing a `close()`
   that landed on a still-connecting socket, both as `uncaughtException`. For anything touching a server route's
   runtime, run the real thing: `npm run build`, copy `.env.local` into `.next/standalone/`, then
-  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — on a local Node 22 that is the shape
-  production has (`node:22-alpine`). Add `NODE_OPTIONS=--no-experimental-websocket` to also prove a relay path does
+  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — on a local Node 24 that is the shape
+  production has (`node:24-alpine`). Add `NODE_OPTIONS=--no-experimental-websocket` to also prove a relay path does
   not lean on the `WebSocket` global, which is how the missing install in six routes was confirmed. Read the
   server log, not just the response body: the first version of that fix returned correct JSON while throwing
   uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
@@ -180,10 +180,10 @@ line holds the full story.
   the only one; the other six routes built clients directly and never installed a WebSocket, so on Node 20 a boost
   note could reach a relay only if the sweep had already patched `nostr-tools` in that process — and a failure
   logged nothing (found in code 2026-09-26). `server-client.test.ts` now fails if anything under `app/api` opens a
-  relay another way. Production now runs `node:22-alpine`, whose `WebSocket` global is **undici's**, and undici
-  recurses with nostr-tools on a failed connect (below); under Node 20 there was no global at all without
-  `--experimental-websocket`. Next polyfills neither case. So both paths run on `ws`, installed by
-  `installNodeWebSocket()` before any socket is opened — which is why `ws` is a **production** dependency and why
+  relay another way. Production now runs `node:24-alpine`, whose `WebSocket` global is **undici's**; under the
+  Node 22 image before it, that global recursed with nostr-tools on a failed connect (below), and under Node 20
+  there was no global at all without `--experimental-websocket`. Next polyfills neither case. So both paths run on
+  `ws`, installed by `installNodeWebSocket()` before any socket is opened — which is why `ws` is a **production** dependency and why
   `next.config.js` sets `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native
   helpers do not survive the bundle, and every frame then throws `TypeError: b.mask is not a function` as an
   `uncaughtException`. Marking it external is also what traces it into `.next/standalone/node_modules` →
@@ -193,12 +193,17 @@ line holds the full story.
   the route answered `success: true`, `status: 'empty'`, zero people, in silence. Connectivity is a separate
   question from emptiness and has to be asked separately: `pool.listConnectionStatus()`, and zero reached is an
   **error**, never an empty result. Same exit as an unreadable private half → `favorites`.
-- **Production runs Node 22, and that is safe ONLY because every server relay socket is on `ws`.** Node 22's
-  undici re-fires `error` from inside `close()` on a socket that already failed, and `nostr-tools` >= 2.25.2 calls
-  `this.ws?.close?.()` from its own `onerror`, so the two recurse until `RangeError: Maximum call stack size
-  exceeded`. Browsers make that `close()` a no-op, so only Node is affected. `ws` avoids it entirely. The move from
-  Node 20 (end-of-life 2026-04-30) waited until the six routes above were on `ws` too; `server-client.test.ts`
-  fails if a route opens a relay on anything else. Node 22 itself is end-of-life 2027-04-30 → `nostr-signer`.
+- **Production runs Node 24, and every server relay socket stays on `ws` — which is what made Node 22 safe.**
+  Node 22's undici re-fires `error` from inside `close()` on a socket that already failed, and `nostr-tools` >=
+  2.25.2 calls `this.ws?.close?.()` from its own `onerror`, so the two recurse until `RangeError: Maximum call
+  stack size exceeded`. Browsers make that `close()` a no-op, so only Node is affected. `ws` avoids it entirely.
+  The move from Node 20 (end-of-life 2026-04-30) waited until the six routes above were on `ws` too;
+  `server-client.test.ts` fails if a route opens a relay on anything else. #289 moved production to Node 24
+  (2026-10-23) for the October 2026 security release. Measured 2026-10-24 against a closed port, an HTTP 404 and a
+  DNS failure: Node 22.16.0 (undici 6.21.2) recurses, on the bare global and through nostr-tools; Node 24.22.1
+  (undici 7.30.1) fires one `error` and one `close` and stops. That is no reason to drop `ws` — nostr-tools still
+  calls `close()` from `onerror`, so the fix lives in whichever undici the runtime ships, and `ws` is what makes
+  every server socket behave the same on any Node. Node 24 is end-of-life 2028-04-30 → `nostr-signer`.
 - **Four guards decide who may use this backend, each behind its own switch, and three ship in LOG mode.**
   `NEXT_PUBLIC_FOREIGN_SHELL_GATE` (defaults to `block`), `PROXY_HOST_MODE`, `CORS_MODE` and
   `RATE_LIMIT_MODE` (all default to `log`). A log-mode guard must be **indistinguishable from before**, and

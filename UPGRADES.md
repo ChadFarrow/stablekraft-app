@@ -22,11 +22,13 @@ Re-check with `npm outdated` rather than trusting the numbers below — they dri
 | lucide-react | `^0.294.0` | 0.294.0 | 1.48.0 | Low |
 | node-fetch | `^2.7.0` | 2.7.0 | 3.3.2 | Low |
 
-**Node is pinned at 22** (`.nvmrc`, `node:22-alpine` in the Dockerfile, CI, `engines`), moved from
-Node 20 (end-of-life 2026-04-30) on 2026-09-26. **Node 22 is end-of-life 2027-04-30** — plan Node 24
-before then. Whatever the version, the server's relay sockets must stay on `ws`
-(`lib/nostr/node-websocket.ts`): Node's own `WebSocket` is undici's, which recurses with
-nostr-tools >= 2.25.2 on a failed connect.
+**Node is pinned at 24** (`.nvmrc`, `node:24-alpine` in the Dockerfile, CI, `engines` `^24.22.1`),
+moved from Node 22 on 2026-10-23 for the October 2026 security release (#289); Node 22 had replaced
+Node 20 (end-of-life 2026-04-30) on 2026-09-26. **Node 24 is end-of-life 2028-04-30.** Whatever the
+version, the server's relay sockets must stay on `ws` (`lib/nostr/node-websocket.ts`): Node 22's
+undici `WebSocket` recurses with nostr-tools >= 2.25.2 on a failed connect. Node 24.22.1's does not
+(measured 2026-10-24), but nostr-tools still calls `close()` from `onerror`, so that is the
+runtime's fix, not one this app can rely on.
 
 ### Advisories left open on purpose (`npm audit`, 2026-09-26: 0 critical, 13 high — from 2 and 43)
 
