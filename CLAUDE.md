@@ -130,6 +130,10 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   file (`@next/env` never overwrites a variable already set), and it covers a copy that lacks one:
   `ADMIN_SECRET=$(openssl rand -hex 24) PORT=3009 …`. With `NEXT_DIST_DIR=.next-build` the server is in
   `.next-build/standalone/`.
+  **Stop it by port, never by name: `fuser -k 3009/tcp`.** Next renames its process to `next-server (v…)`, so
+  `pkill -f "node server.js"` matches nothing but the shell running the `pkill`, and kills that. On 2026-10-24
+  this left the production-attached server listening after the clean-up had "run". Confirm with
+  `ss -ltnp | grep :3009` before believing it stopped.
 - No `src/` directory — all source lives in `app/`, `lib/`, `components/`, `contexts/`
 - No `deploy-*/` artifacts in the repo — add to `.gitignore` if generated
 - No JSON-file databases — all data is in PostgreSQL via Prisma
@@ -231,7 +235,18 @@ line holds the full story.
   `includes` accepts `wavlake.com.attacker.net`. And the HGH/ITDV playlists hardcode ~1800 media URLs in
   `data/`, whose source feeds are in `PLAYLIST_SOURCE_FEED_URLS` and therefore *deliberately absent from
   the catalog*, so the catalog binding does not cover them — `PLAYLIST_MEDIA_HOSTS` and a test over those
-  data files does → `auth-and-security`.
+  data files does. The binding is also only as strong as the catalog's door: `POST /api/feeds` is open on the
+  server (the admin gate covers only `PUT`/`PATCH`/`DELETE`; the podping consumer is what limits minting), so
+  anyone can add a host to it → `auth-and-security`.
+- **`/api/proxy-image` answers every refusal with a 200 PLACEHOLDER, so a cover it refused looks like one that
+  loaded.** An empty cover square reads as a feed that did not parse, and Pixel Palace (2026-10-24) was reported
+  as exactly that — the feed had parsed completely. The tells are the `X-Image-Placeholder: true` header and a
+  `⚠️` warn naming the reason, so ask the proxy before the parser:
+  `curl -s -o /dev/null -D - -H 'Sec-Fetch-Dest: image' 'https://stablekraft.app/api/proxy-image?url=<encoded>'`.
+  Send that header: without it an oversized image gets the placeholder by design. That cover was 18 MB, over
+  `MAX_IMAGE_BYTES` (12 MB, #229), as every larger cover had been since August; over the cap an `<img>` now gets a
+  302 to the artist's host (#290). The redirect is gated on `Sec-Fetch-Dest: image` because a host check alone
+  would make it an open redirect, for the reason in the bullet above → `auth-and-security`.
 - **`isSafePublicUrl()` returns `{ ok, ... }`, not a boolean.** `if (!isSafePublicUrl(u))` negates an object, is
   always `false`, and silently turns the SSRF guard into dead code — and `tsc --noEmit` stays clean. Always
   `const c = isSafePublicUrl(u); if (!c.ok)`. Verify empirically, never by reading it → `auth-and-security`.
