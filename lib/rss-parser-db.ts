@@ -2,10 +2,12 @@ import Parser from 'rss-parser';
 import { XMLParser } from 'fast-xml-parser';
 import { validateDuration } from './duration-validation';
 import { PodcastImage, pickSquareArtwork, pickCanvasBackground } from './podcast-images';
+import { FundingLink, parseChannelFundingFromXML, parseFundingFromBlock } from './podcast-funding';
 
 // Re-export so existing import sites (e.g. lib/feed-parsing.ts) keep resolving these
 // from rss-parser-db; the canonical, dependency-free home is lib/podcast-images.ts.
 export type { PodcastImage };
+export type { FundingLink };
 export { pickSquareArtwork, pickCanvasBackground };
 
 interface CustomFeed {
@@ -112,6 +114,8 @@ export interface ParsedFeed {
    */
   persons?: ParsedPerson[];
   podcastImages?: PodcastImage[];
+  /** Channel-level <podcast:funding> — http(s) only, checked in lib/podcast-funding.ts. */
+  funding?: FundingLink[];
   v4vRecipient?: string;
   v4vValue?: any;
   publisherFeed?: {
@@ -164,6 +168,8 @@ export interface ParsedItem {
   valueTimeSplits?: Array<{ startTime: number; duration: number; remotePercentage: number; remoteItem?: { feedGuid: string; itemGuid: string; medium?: string } }>;
   persons?: ParsedPerson[];
   podcastImages?: PodcastImage[];
+  /** This item's own <podcast:funding>, when it names one. */
+  funding?: FundingLink[];
 }
 
 export interface ParsedPerson {
@@ -254,6 +260,7 @@ export function applyParsedItemFields(updateData: any, matchedItem: ParsedItem |
   if (matchedItem.valueTimeSplits) updateData.valueTimeSplits = matchedItem.valueTimeSplits;
   if (matchedItem.persons && matchedItem.persons.length > 0) updateData.persons = matchedItem.persons;
   if (matchedItem.podcastImages && matchedItem.podcastImages.length > 0) updateData.podcastImages = matchedItem.podcastImages;
+  if (matchedItem.funding && matchedItem.funding.length > 0) updateData.funding = matchedItem.funding;
 }
 
 // NIP-19 bech32 npub format: 63 chars total, lowercase letters + numbers minus 1/b/i/o
@@ -443,6 +450,31 @@ export function parseItemPodcastImagesFromXML(xmlText: string, itemTitle: string
     const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
     if (!itemContent) return [];
     return parsePodcastImagesFromBlock(itemContent);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One item's own <podcast:funding> links. The namespace allows the tag in
+ * <item> as well as <channel>; an item that names none inherits the album's,
+ * which the READ side decides, so nothing is copied down here.
+ */
+export function parseItemFundingFromXML(xmlText: string, itemTitle: string): FundingLink[] {
+  try {
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
+    const items: string[] = [];
+    let itemMatch;
+    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
+
+    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
+    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
+    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    if (!itemContent) return [];
+    return parseFundingFromBlock(itemContent);
   } catch {
     return [];
   }
@@ -1196,6 +1228,10 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
     // route gets them — not only the import path.
     const channelPersons = parseChannelPersonsFromXML(xmlText);
 
+    // Channel-level <podcast:funding> (PayPal, Patreon…) — items and liveItems
+    // cut out first, so a track's own link never reads as the album's.
+    const channelFunding = parseChannelFundingFromXML(xmlText);
+
     // Now parse with the RSS parser
     // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
     // The XML typo fix above helps, but parseURL will fetch again
@@ -1329,6 +1365,12 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
         const itemPodcastImages = parseItemPodcastImagesFromXML(xmlText, item.title || '');
         if (itemPodcastImages.length > 0) {
           parsedItem.podcastImages = itemPodcastImages;
+        }
+
+        // <podcast:funding> at item level — a track's own support link
+        const itemFunding = parseItemFundingFromXML(xmlText, item.title || '');
+        if (itemFunding.length > 0) {
+          parsedItem.funding = itemFunding;
         }
 
         if (itemV4vData.recipient) {
@@ -1578,6 +1620,7 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
       items,
       persons: channelPersons.length > 0 ? channelPersons : undefined,
       podcastImages: channelPodcastImages.length > 0 ? channelPodcastImages : undefined,
+      funding: channelFunding.length > 0 ? channelFunding : undefined,
       v4vRecipient: feedV4vRecipient,
       v4vValue: feedV4vValue,
       publisherFeed: publisherFeed || undefined

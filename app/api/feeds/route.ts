@@ -10,6 +10,7 @@ import { invalidateAlbumsFastCache } from '@/lib/caches/albums-fast-cache';
 import { invalidateSearchCache } from '@/lib/caches/search-cache';
 import { BLACKLISTED_FEED_IDS, BLACKLISTED_FEED_URLS, isBlacklistedFeedUrl } from '@/lib/feed-exclusions';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 
 function invalidateFeedListCaches(): void {
   invalidateAlbumsFastCache();
@@ -231,6 +232,7 @@ async function importMissingAlbums(
           podcastImages: (parsedFeed.podcastImages as any) || undefined,
           publisherId: publisherId,
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           createdAt: new Date(),
@@ -573,6 +575,7 @@ export async function POST(request: NextRequest) {
             v4vValue: parsedFeed.v4vValue || null,
             podcastImages: (parsedFeed.podcastImages as any) || undefined,
             ...channelPersonsFields(parsedFeed),
+            ...channelFundingFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),
@@ -612,6 +615,7 @@ export async function POST(request: NextRequest) {
               v4vValue: parsedFeed.v4vValue || null,
               podcastImages: (parsedFeed.podcastImages as any) || undefined,
               ...channelPersonsFields(parsedFeed),
+              ...channelFundingFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               createdAt: new Date(),
@@ -816,6 +820,7 @@ export async function POST(request: NextRequest) {
                   v4vRecipient: publisherParsedFeed.v4vRecipient || null,
                   v4vValue: publisherParsedFeed.v4vValue || null,
                   ...channelPersonsFields(publisherParsedFeed),
+                  ...channelFundingFields(publisherParsedFeed),
                   lastFetched: new Date(),
                   status: 'active',
                   updatedAt: new Date()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 
 export async function GET() {
   try {
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
           v4vRecipient: parsedFeed.v4vRecipient,
           v4vValue: parsedFeed.v4vValue,
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null

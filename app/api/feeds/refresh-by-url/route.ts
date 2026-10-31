@@ -6,6 +6,7 @@ import { normalizeUrl } from '@/lib/url-utils';
 import { findFeedForRemoteItem, findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { checkAdminAuth } from '@/lib/admin-auth';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
@@ -175,6 +176,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
             v4vValue: parsedAlbum.v4vValue ?? undefined,
             publisherId: publisherFeedId,
             ...channelPersonsFields(parsedAlbum),
+            ...channelFundingFields(parsedAlbum),
             lastFetched: new Date(),
             status: 'active',
             updatedAt: new Date()
@@ -408,6 +410,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           updatedAt: new Date()
@@ -598,6 +601,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
         explicit: parsedFeed.explicit,
         type: customType || feed.type, // Allow updating type too
         ...channelPersonsFields(parsedFeed),
+        ...channelFundingFields(parsedFeed),
         lastFetched: new Date(),
         status: 'active',
         lastError: null,

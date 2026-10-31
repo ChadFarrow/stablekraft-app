@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fundingFromJson } from '@/lib/podcast-funding';
 import { corsHeaders } from '@/lib/cors';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug, getPublisherInfo } from '@/lib/url-utils';
@@ -169,6 +170,8 @@ const TRACK_SELECT_FIELDS = {
   // Track-level <podcast:person> entries. The album page spreads these into the
   // per-track boost, where their npubs become the note's `p` tags.
   persons: true,
+  // Track-level <podcast:funding>. Empty means the track inherits the album's.
+  funding: true,
 } as const;
 
 // Map a DB track to the API response format
@@ -196,6 +199,7 @@ function mapTrackToResponse(track: any, fallbackImage: string | null, index: num
     chapters: track.chapters || undefined,
     valueTimeSplits: track.valueTimeSplits || undefined,
     persons: track.persons || undefined,
+    funding: fundingFromJson(track.funding),
     publishedAt: track.publishedAt || null,
   };
 }
@@ -1315,7 +1319,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
           };
         })(),
-        funding: null,
+        funding: fundingFromJson((feed as any).funding),
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         feedGuid: feed.guid || null,
@@ -1462,7 +1466,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
               artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
             };
           })(),
-          funding: null,
+          funding: fundingFromJson((feed as any).funding),
           feedId: feed.id,
           feedUrl: feed.originalUrl,
           feedGuid: feed.guid || null,

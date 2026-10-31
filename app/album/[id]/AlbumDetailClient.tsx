@@ -696,6 +696,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
     albumName: album.title,
     publisherGuid: album.publisher?.feedGuid,
     persons: (album as any).persons || [],
+    funding: album.funding,
   };
 
   return (
@@ -1311,6 +1312,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                               ...((track as any).persons || []),
                               ...((album as any).persons || []),
                             ]}
+                            funding={(track as any).funding?.length ? (track as any).funding : album.funding}
                             className="text-xs px-2 py-1"
                           />
                         </div>

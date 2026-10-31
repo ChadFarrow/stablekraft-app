@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, ParsedItem, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -256,6 +257,7 @@ async function reparseSingleFeed(feed: {
         ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
         ...(parsedFeed.podcastImages && { podcastImages: parsedFeed.podcastImages as any }),
         ...channelPersonsFields(parsedFeed),
+        ...channelFundingFields(parsedFeed),
         lastFetched: new Date(),
         status: 'active',
         lastError: null,

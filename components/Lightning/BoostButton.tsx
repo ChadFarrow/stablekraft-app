@@ -12,6 +12,7 @@ import { looksLikeNostrIdentifier, resolveBoostSenderName } from '@/lib/lightnin
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { BoostBoxService } from '@/lib/lightning/boostbox';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
+import { fundingFromJson } from '@/lib/podcast-funding';
 import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp, AlertCircle, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from '@/components/Toast';
@@ -46,6 +47,9 @@ interface BoostButtonProps {
   // + feed/album-level. Any entry with an `npub` gets a Nostr `p` tag on the
   // boost event so the person is notified.
   persons?: Array<{ name?: string; role?: string; group?: string; npub?: string }>;
+  // <podcast:funding> links (PayPal, Patreon…) — the track's own when it has
+  // any, else its feed's. Shown under the boost as other ways to support.
+  funding?: Array<{ url: string; message?: string }>;
 }
 
 export function BoostButton({
@@ -66,7 +70,11 @@ export function BoostButton({
   iconOnly = false,
   remoteStartTime,
   persons = [],
+  funding,
 }: BoostButtonProps) {
+  // Re-checked here as well as at the parse and read boundaries: every caller
+  // hands this prop in, and the value becomes an href.
+  const supportLinks = fundingFromJson(funding) ?? [];
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment, supportsKeysend, walletProviderType } = useBitcoinConnect();
@@ -1675,6 +1683,27 @@ export function BoostButton({
                 )}
               </button>
             </div>
+
+            {/* <podcast:funding> — the feed's non-Lightning support links. Under
+                the boost, never instead of it; placement is a first draft. */}
+            {supportLinks.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-700" data-testid="boost-funding-links">
+                <p className="text-xs text-gray-400 mb-2">Other ways to support</p>
+                <div className="flex flex-wrap gap-2">
+                  {supportLinks.map((link) => (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center min-h-[36px] px-3 py-1.5 rounded-full bg-gray-800 hover:bg-gray-700 text-sm text-white transition-colors"
+                    >
+                      💝 {link.message || 'Support'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body

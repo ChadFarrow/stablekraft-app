@@ -120,6 +120,19 @@ A new slug-minting path needs both checks, in that order. A suffix without the g
 
 ---
 
+## `Feed.funding` / `Track.funding` — `<podcast:funding>` links
+
+PayPal, Cash App, Venmo, Patreon, a merch store — whatever URL the tag names. The tag may sit in `<channel>`, `<item>` or `<podcast:liveItem>`, any number of times. The album page shows the feed's links under "More Ways to Support" and the boost dialog under "Other ways to support"; a track with none of its own shows its album's.
+
+- **One reader, `lib/podcast-funding.ts`, and it is a security boundary.** The URL becomes an `href`, and React does not block `javascript:`, so only `http:`/`https:` leaves the parser — and `fundingFromJson` checks again on READ (the album route, and `BoostButton` for every caller's prop), because a stored row is a second source. A host check alone is not enough: `javascript://example.com/%0Aalert(1)` has a hostname. Pinned by `podcast-funding.test.ts`.
+- **Channel funding is read with the items AND liveItems cut out** (`channelFundingXml`) — `getElementsByTagName` (ITDV's reader) also collects every item's tag into the album's list.
+- **Written from the same thirteen parse-fed feed writes as `persons`**, through `channelFundingFields` (`lib/feeds/channel-funding.ts`), plus `importFeedToDatabase`. `channel-funding.test.ts` scans the routes and fails when one drops it. Like persons, a parse that finds no tag writes nothing, so a link an artist removes stays until cleared by hand.
+- **Track funding rides on `applyParsedItemFields`**, like item persons — so the track creates do not write it and the nightly `admin/reparse-feeds` run is the backfill.
+- **The column needs its migration BEFORE the deploy** (`20261031000000_add_funding_to_feed_and_track`): `railway run --service StableKraft --environment production npm run db:migrate`, then merge. The album route selects `Track.funding`, so code without the column 500s every album page.
+- **Not on the albums-fast shape**, on purpose: nothing on the grid shows it, and that payload is this app's egress bill. A new surface that wants it (Now Playing, playlists) needs its own read.
+
+---
+
 ## Adding Music Podcasts (like Upbeats, Two For Tunestr, B4TS)
 Import via `/admin` (paste RSS URL). Non-Wavlake feeds with `<podcast:medium>podcast</podcast:medium>` automatically get `type: 'podcast'`, appear under the Podcasts filter, hide from the album grid, and are searchable — no config edits needed. `/podcast/[id]` dynamic route handles display.
 
