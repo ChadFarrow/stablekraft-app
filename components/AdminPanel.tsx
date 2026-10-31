@@ -61,8 +61,13 @@ export default function AdminPanel() {
     resolvedInPI?: number;
     notInPI?: number;
     hiddenCount?: number;
-    wouldHide?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null }>;
-    hidden?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null }>;
+    wouldHide?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
+    hidden?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
+    // A confirmed-dead feed whose podcast:guid now lives at a verified new URL.
+    wouldRelocate?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; httpStatus: number | null; reason?: string }>;
+    relocated?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; httpStatus: number | null; reason?: string }>;
+    relocatedCount?: number;
+    refreshedMoved?: number;
     needsReview: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; reason?: string }>;
     unconfirmed: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; reason?: string }>;
     message?: string;
@@ -1104,6 +1109,8 @@ export default function AdminPanel() {
       let resolvedInPI = 0;
       let notInPI = 0;
       const toHide: any[] = [];
+      const toMove: any[] = [];
+      let relocatedCount = 0;
       const needsReview: any[] = [];
       const unconfirmed: any[] = [];
 
@@ -1129,6 +1136,9 @@ export default function AdminPanel() {
         notInPI += data.notInPI ?? 0;
         if (Array.isArray(data.wouldHide)) toHide.push(...data.wouldHide);
         if (Array.isArray(data.hidden)) toHide.push(...data.hidden);
+        if (Array.isArray(data.wouldRelocate)) toMove.push(...data.wouldRelocate);
+        if (Array.isArray(data.relocated)) toMove.push(...data.relocated);
+        relocatedCount += data.relocatedCount ?? 0;
         if (Array.isArray(data.needsReview)) needsReview.push(...data.needsReview);
         if (Array.isArray(data.unconfirmed)) unconfirmed.push(...data.unconfirmed);
 
@@ -1140,7 +1150,7 @@ export default function AdminPanel() {
           totalActive,
           resolvedInPI,
           notInPI,
-          ...(dryRun ? { wouldHide: toHide } : { hidden: toHide, hiddenCount }),
+          ...(dryRun ? { wouldHide: toHide, wouldRelocate: toMove } : { hidden: toHide, hiddenCount, relocated: toMove, relocatedCount }),
           needsReview,
           unconfirmed,
           message: `Scanned ${checked} of ${totalActive} active feed(s)…`,
@@ -1150,6 +1160,27 @@ export default function AdminPanel() {
         offset = data.nextOffset;
       }
 
+      // A moved row still holds the dead host's track audio until a refresh
+      // rewrites it: the nightly reparse leaves audioUrl alone on a matched track,
+      // refresh-by-url updates it (by item guid). Paced under its 30/min/IP limit.
+      let refreshedMoved = 0;
+      if (!dryRun) {
+        for (const f of toMove) {
+          setDeadCheckReport((r) => r && { ...r, message: `Refreshing moved feeds… ${refreshedMoved} of ${toMove.length}` });
+          try {
+            const res = await fetch('/api/feeds/refresh-by-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ originalUrl: f.to }),
+            });
+            if (res.ok) refreshedMoved++;
+          } catch {
+            // Reported in the count; the weekly run refreshes again.
+          }
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+      }
+
       setDeadCheckReport({
         dryRun,
         checked,
@@ -1157,15 +1188,15 @@ export default function AdminPanel() {
         totalActive,
         resolvedInPI,
         notInPI,
-        ...(dryRun ? { wouldHide: toHide } : { hidden: toHide, hiddenCount }),
+        ...(dryRun ? { wouldHide: toHide, wouldRelocate: toMove } : { hidden: toHide, hiddenCount, relocated: toMove, relocatedCount, refreshedMoved }),
         needsReview,
         unconfirmed,
         message: dryRun
-          ? `Scanned ${checked} active feed(s): ${toHide.length} confirmed dead, ${needsReview.length} need review.`
-          : `Scanned ${checked} active feed(s): hid ${hiddenCount}, ${needsReview.length} need review.`,
+          ? `Scanned ${checked} active feed(s): ${toMove.length} moved to a new home, ${toHide.length} confirmed dead, ${needsReview.length} need review.`
+          : `Scanned ${checked} active feed(s): moved ${relocatedCount} (refreshed ${refreshedMoved}), hid ${hiddenCount}, ${needsReview.length} need review.`,
       });
       if (!dryRun) {
-        toast.success(`Hid ${hiddenCount} dead feed(s)`);
+        toast.success(`Moved ${relocatedCount} feed(s), hid ${hiddenCount}`);
       }
     } catch (error) {
       console.error('Error checking dead feeds:', error);
@@ -2118,7 +2149,7 @@ export default function AdminPanel() {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-6 mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Check for Dead Feeds</h2>
           <p className="text-sm text-gray-400 mb-4">
-            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s). Asks Podcast Index which of our active feeds it has crawled as dead, then confirms each with a direct 404/410 fetch before hiding it. Confirmed-dead feeds are hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing is hidden until you confirm.
+            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL, the feed is moved there and refreshed; otherwise it is hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing changes until you confirm.
           </p>
           <div className="flex gap-2">
             <button
@@ -2141,8 +2172,39 @@ export default function AdminPanel() {
           {deadCheckReport && (
             <div className="mt-4 space-y-4">
               <p className="text-sm text-gray-300">
-                Checked {deadCheckReport.checked} active feed(s) · {deadCheckReport.resolvedInPI ?? 0} resolved in Podcast Index ({deadCheckReport.notInPI ?? 0} not indexed) · {deadCheckReport.candidates} flagged dead.
+                Checked {deadCheckReport.checked} active feed(s) · {deadCheckReport.resolvedInPI ?? 0} resolved in Podcast Index ({deadCheckReport.notInPI ?? 0} not indexed) · {deadCheckReport.candidates} flagged.
               </p>
+              {deadCheckReport.message && (
+                // Progress while paging and while refreshing moved feeds (2.5 s each), then the summary.
+                <p className="text-sm text-gray-400" data-testid="dead-feed-message">{deadCheckReport.message}</p>
+              )}
+
+              {(() => {
+                const toMove = deadCheckReport.dryRun ? deadCheckReport.wouldRelocate : deadCheckReport.relocated;
+                if (!toMove || toMove.length === 0) return null;
+                return (
+                  <div className="rounded-lg p-4 border bg-blue-500/10 border-blue-500/30" data-testid="dead-feed-relocations">
+                    <h4 className="font-semibold text-blue-300 mb-2">
+                      {deadCheckReport.dryRun
+                        ? `${toMove.length} dead feed(s) would move to their new home (same podcast:guid, verified live)`
+                        : `${deadCheckReport.relocatedCount ?? toMove.length} feed(s) moved · ${deadCheckReport.refreshedMoved ?? 0} refreshed`}
+                    </h4>
+                    <ul className="space-y-1 text-sm">
+                      {toMove.map((f) => (
+                        <li key={f.id} className="text-gray-300">
+                          <span className="font-medium text-white">{f.title}</span>
+                          {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
+                          <span className="text-gray-500"> (HTTP {f.httpStatus ?? '—'})</span>
+                          <br />
+                          <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
+                          <span className="text-xs text-gray-500"> → </span>
+                          <span className="text-xs text-blue-300 font-mono break-all">{f.to}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {(() => {
                 const toHide = deadCheckReport.dryRun ? deadCheckReport.wouldHide : deadCheckReport.hidden;
@@ -2160,35 +2222,41 @@ export default function AdminPanel() {
                             <li key={f.id} className="text-gray-300">
                               <span className="font-medium text-white">{f.title}</span>
                               {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
-                              <span className="text-gray-500"> (PI dead={f.piDead}, HTTP {f.httpStatus ?? '—'})</span>
+                              <span className="text-gray-500"> ({f.signals?.join(', ') || `PI dead=${f.piDead}`}; HTTP {f.httpStatus ?? '—'})</span>
                               <br />
                               <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                             </li>
                           ))}
                         </ul>
-                        {deadCheckReport.dryRun && (
-                          <button
-                            type="button"
-                            onClick={() => runDeadFeedCheck(false)}
-                            disabled={deadCheckBusy}
-                            className="mt-3 w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
-                          >
-                            {deadCheckBusy ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                Hiding...
-                              </>
-                            ) : (
-                              <>🚫 Hide {toHide.length} confirmed-dead feed(s)</>
-                            )}
-                          </button>
-                        )}
                       </div>
                     )}
 
-                    {toHide && toHide.length === 0 && (
-                      <p className="text-sm text-green-400">No confirmed-dead feeds. Nothing to hide. ✅</p>
+                    {toHide && toHide.length === 0 && !(deadCheckReport.dryRun ? deadCheckReport.wouldRelocate : deadCheckReport.relocated)?.length && (
+                      <p className="text-sm text-green-400">No confirmed-dead feeds. Nothing to move or hide. ✅</p>
                     )}
+
+                    {(() => {
+                      const moveCount = deadCheckReport.wouldRelocate?.length ?? 0;
+                      const hideCount = toHide?.length ?? 0;
+                      if (!deadCheckReport.dryRun || (moveCount === 0 && hideCount === 0)) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => runDeadFeedCheck(false)}
+                          disabled={deadCheckBusy}
+                          className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                          {deadCheckBusy ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Applying...
+                            </>
+                          ) : (
+                            <>Apply: move {moveCount}, hide {hideCount}</>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </>
                 );
               })()}
@@ -2196,14 +2264,14 @@ export default function AdminPanel() {
               {deadCheckReport.needsReview.length > 0 && (
                 <div className="rounded-lg p-4 border bg-orange-500/10 border-orange-500/30">
                   <h4 className="font-semibold text-orange-300 mb-2">
-                    {deadCheckReport.needsReview.length} need review — Podcast Index says dead but the URL still responds
+                    {deadCheckReport.needsReview.length} need review
                   </h4>
                   <ul className="space-y-1 text-sm">
                     {deadCheckReport.needsReview.map((f) => (
                       <li key={f.id} className="text-gray-300">
                         <span className="font-medium text-white">{f.title}</span>
                         {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
-                        <span className="text-gray-500"> (PI dead={f.piDead}, HTTP {f.httpStatus ?? '—'})</span>
+                        <span className="text-gray-500"> — {f.reason || `PI dead=${f.piDead}, HTTP ${f.httpStatus ?? '—'}`}</span>
                         <br />
                         <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                       </li>

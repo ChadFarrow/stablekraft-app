@@ -1,10 +1,13 @@
 name: Check Dead Feeds
 
-# Weekly "did an artist take their catalog down?" sweep. Asks PodcastIndex which
-# of our active feeds it has crawled as dead (feed.dead > 0), then confirms each
-# with a direct 404/410 fetch before auto-hiding it via markedDead. Hiding is
-# reversible from the admin "Hide Feed" card, and the run's JSON report (logged
-# below) is the audit trail of what got hidden each week.
+# Weekly "did an artist take their catalog down?" sweep. A feed is a candidate
+# when PodcastIndex crawled it as dead, when our own refresh recorded a 404/410,
+# or when PI's record for its guid now lives on another host. Each candidate is
+# confirmed with a direct 404/410 fetch; then it is MOVED to its new home (same
+# podcast:guid, verified live) or HIDDEN via markedDead. Moved feeds are then
+# refreshed so their tracks pick up the new audio URLs. Hiding is reversible
+# from the admin "Hide Feed" card, and the run's JSON report (logged below) is
+# the audit trail of what was moved and hidden each week.
 #
 # Rare-but-real problem: a taken-down feed keeps showing because its tracks are
 # cached in the DB. See /api/admin/check-dead-feeds and the "Hiding Feeds" /
@@ -21,14 +24,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check for dead feeds (PI dead flag -> confirm 404 -> auto-hide)
+    - name: Check for dead feeds (signals -> confirm 404/410 -> move or hide)
       run: |
         BASE_URL="${BASE_URL:-https://stablekraft.app}"
         LIMIT=300
         OFFSET=0
         TOTAL_HIDDEN=0
         TOTAL_REVIEW=0
+        TOTAL_MOVED=0
         PAGE=0
+        MOVED_URLS=$(mktemp)
 
         echo "🔎 Checking for dead feeds at $(date -u)"
 
@@ -51,13 +56,17 @@ jobs:
           fi
 
           echo "── page ${PAGE}: $(echo "$BODY" | jq -r '.message' 2>/dev/null || echo "$BODY")"
-          # Log any feed actually hidden this page (the audit trail).
-          echo "$BODY" | jq -c '.hidden[]? | {id,title,artist,piDead,httpStatus}' 2>/dev/null || true
+          # Log any feed actually moved or hidden this page (the audit trail).
+          echo "$BODY" | jq -c '.relocated[]? | {moved: .id, title, artist, from: .url, to}' 2>/dev/null || true
+          echo "$BODY" | jq -r '.relocated[]?.to' 2>/dev/null >> "$MOVED_URLS" || true
+          echo "$BODY" | jq -c '.hidden[]? | {id,title,artist,piDead,httpStatus,signals,reason}' 2>/dev/null || true
           echo "$BODY" | jq -c '.needsReview[]? | {id,title,artist,httpStatus,reason}' 2>/dev/null || true
 
           HID=$(echo "$BODY" | jq -r '.hiddenCount // 0' 2>/dev/null || echo 0)
           REVIEW=$(echo "$BODY" | jq -r '.needsReview | length' 2>/dev/null || echo 0)
+          MOVED=$(echo "$BODY" | jq -r '.relocatedCount // 0' 2>/dev/null || echo 0)
           TOTAL_HIDDEN=$((TOTAL_HIDDEN + HID))
+          TOTAL_MOVED=$((TOTAL_MOVED + MOVED))
           TOTAL_REVIEW=$((TOTAL_REVIEW + REVIEW))
 
           NEXT=$(echo "$BODY" | jq -r '.nextOffset // "null"' 2>/dev/null || echo "null")
@@ -65,7 +74,20 @@ jobs:
           OFFSET=$NEXT
         done
 
-        echo "✅ Dead-feed check complete: hid ${TOTAL_HIDDEN} feed(s), ${TOTAL_REVIEW} need review (${PAGE} page(s))"
+        # A moved row still holds the dead host's track audio URLs until a refresh
+        # rewrites them. The nightly reparse does not touch audioUrl on a matched
+        # track; refresh-by-url does (by item guid). Paced under its 30/min/IP limit.
+        while read -r URL; do
+          [ -z "$URL" ] && continue
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 -X POST \
+            -H "Content-Type: application/json" \
+            -d "$(jq -cn --arg u "$URL" '{originalUrl: $u}')" \
+            "${BASE_URL}/api/feeds/refresh-by-url")
+          echo "🔄 refreshed moved feed ${URL}: HTTP ${CODE}"
+          sleep 3
+        done < "$MOVED_URLS"
+
+        echo "✅ Dead-feed check complete: moved ${TOTAL_MOVED} feed(s), hid ${TOTAL_HIDDEN}, ${TOTAL_REVIEW} need review (${PAGE} page(s))"
       env:
         BASE_URL: ${{ secrets.PLAYLIST_BASE_URL || 'https://stablekraft.app' }}
         # Harmless while ADMIN_SECRET is unset on the server (fail-open).
