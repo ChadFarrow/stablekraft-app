@@ -27,7 +27,8 @@ import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
 import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
 import { useDataSaver } from '@/hooks/useDataSaver';
-import { artworkPlan } from '@/lib/data-saver';
+import { artworkPlan, cardArtworkBaseline, isGifSource } from '@/lib/data-saver';
+import { gifStillSrc } from '@/lib/gif-still';
 import { albumTrackCount, isPodcastAlbum } from '@/lib/catalog/album-count';
 
 // Hook to manage prefetch based on visibility and hover
@@ -191,24 +192,40 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
   );
 
   /**
-   * `unoptimized` below is hardcoded TODAY, and on purpose: 271a6ba8 added it to
-   * fix artwork that looked blurry. The cost is that `width`, `height` and
-   * `sizes` on the same element do nothing — Next never resizes — so a
-   * 1400x1400 / 1.26 MB cover is downloaded into a 180px box. That is the
-   * single largest transfer on the home grid, and this card draws the grid,
-   * search, favorites, publisher and playlist pages.
-   *
-   * Data Saver is the user electing to take the softer image. With it off this
-   * resolves to exactly the values that were here before.
+   * An animated cover shows a still first frame here (lib/gif-still.ts); the
+   * album page keeps the animation. 12 catalogue GIFs were 13-41 MB, drawn whole
+   * in a 175 px card. Built from the RAW cover, not `artworkUrl`: that one may
+   * already be wrapped in /api/proxy-image, which the still-frame route refuses.
+   * If the still cannot be made, the card falls back to the full GIF once —
+   * a heavy cover beats no cover.
+   */
+  const rawCover = albumCoverArt || albumImage || '';
+  const [stillFailed, setStillFailed] = useState(false);
+  const stillSrc = useMemo(
+    () => (rawCover && isGifSource(rawCover) ? gifStillSrc(rawCover) : null),
+    [rawCover]
+  );
+  useEffect(() => setStillFailed(false), [stillSrc]);
+  const cardSrc = stillSrc && !stillFailed ? stillSrc : artworkUrl;
+
+  /**
+   * `unoptimized` was hardcoded here until 2026-11-01 (271a6ba8 added it for
+   * blurry covers whose real cause was the `'thumbnail'` source), so `width`,
+   * `height` and `sizes` did nothing and a 1400x1400 cover went into a 175px
+   * box at full size. This card draws the grid, search, favorites, publisher
+   * and playlist pages. `cardArtworkBaseline` now lets the optimizer resize
+   * every cover it safely can, at quality 85; Data Saver goes lower still.
    */
   const dataSaver = useDataSaver();
   const artwork = useMemo(
     () => artworkPlan({
-      src: artworkUrl,
+      src: cardSrc,
       dataSaver,
-      baseline: { quality: 75, unoptimized: true }, // 75 is Next's own default.
+      // Resized by the optimizer wherever that is safe (lib/data-saver.ts). A GIF
+      // still is our own route, already sized, so it stays unoptimized.
+      baseline: cardArtworkBaseline(cardSrc),
     }),
-    [artworkUrl, dataSaver]
+    [cardSrc, dataSaver]
   );
   
   // Check if this is a playlist card, publisher card, and use appropriate URL
@@ -294,7 +311,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
         }}
       >
         <Image
-          src={artworkUrl}
+          src={cardSrc}
           alt={`${album.title} by ${album.artist}`}
           width={300}
           height={300}
@@ -304,6 +321,10 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
           style={{ aspectRatio: '1/1' }}
           onLoad={handleImageLoad}
           onError={(e) => {
+            if (stillSrc && !stillFailed) {
+              setStillFailed(true); // re-renders with the full GIF
+              return;
+            }
             const target = e.target as HTMLImageElement;
             target.src = getPlaceholderImageUrl('thumbnail');
             handleImageError();

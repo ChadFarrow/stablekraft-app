@@ -152,6 +152,31 @@ export function isNextOptimizable(src: string): boolean {
   });
 }
 
+/** The grid card's quality when the optimizer resizes its cover. */
+export const CARD_ARTWORK_QUALITY = 85;
+
+/**
+ * AlbumCard's own baseline — what it asks for with Data Saver OFF.
+ *
+ * It used to hardcode `unoptimized`, so every grid cover went out at full size:
+ * the ten Wavlake covers on the first phone screen averaged 450 KB each, drawn
+ * in a 175 px box (2026-11-01). 271a6ba8 (2025-09) added `unoptimized` to fix
+ * blurry covers, but in the same commit as the real cause — the card asked
+ * for the `'thumbnail'` source. The optimizer itself is not blurry: a 175 px
+ * card at 3x asks for 525 px and gets the 640 px candidate, at quality 85.
+ *
+ * Resized only where that is safe — the same three exclusions Data Saver uses:
+ * a host Next is not configured for (it answers 400, so the cover would
+ * vanish), our own routes (server self-fetch), and GIFs (the optimizer
+ * flattens or passes them through).
+ */
+export function cardArtworkBaseline(src: string): ArtworkBaseline {
+  return {
+    quality: CARD_ARTWORK_QUALITY,
+    unoptimized: !(isNextOptimizable(src) && !isGifSource(src)),
+  };
+}
+
 /** What a component does today, with the switch off. */
 export interface ArtworkBaseline {
   quality: number;

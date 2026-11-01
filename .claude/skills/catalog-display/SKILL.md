@@ -195,11 +195,14 @@ Anything about artwork size belongs in `artworkPlan()` (`lib/data-saver.ts`). Th
 hot ones like `NowPlayingBar` (a 64px box), `NowPlayingScreen`, and `PlaylistTemplateCompact`'s 32px/48px
 track rows, where a 200-track playlist requests 200 full-size files. Known gap, not an oversight.
 
-**`AlbumCard` cancels its own sizing.** It sets `width={300}`, `height={300}`, `loading="lazy"` and a correct
-`sizes`, then adds `unoptimized` — so Next never resizes and every one of those hints is dead. `271a6ba8`
-added the flag **deliberately**, to fix artwork that looked blurry. It is lifted only under Data Saver, which
-is the user electing to take the softer image. The same hardcoded flag is at `app/favorites/page.tsx` (a 40px
-avatar) and `app/publisher/[id]/PublisherDetailClient.tsx`.
+**`AlbumCard` resizes its cover now (since 2026-11-01).** It used to set `width`, `height`, `loading="lazy"` and `sizes`,
+then add `unoptimized`, so Next never resized and every hint was dead. `271a6ba8` (2025-09) added the flag to fix
+blurry covers, in the same commit as the real cause: the card asked for the `'thumbnail'` source. Its baseline is
+now `cardArtworkBaseline()` (`lib/data-saver.ts`): quality 85, resized wherever `isNextOptimizable` and not a GIF. A
+175 px phone card at 3x asks for 525 px and gets the 640 px candidate; measured against the full-size cover it
+differs by 2/255 per pixel with the same edge energy. The first phone screen of the home page went from 46,794 KB to
+693 KB of images. The hardcoded flag is still at `app/favorites/page.tsx` (a 40px avatar) and
+`app/publisher/[id]/PublisherDetailClient.tsx`.
 
 **Phones get no optimization at all.** `CDNImage` branches on `isMobile` and renders a plain `<img>` instead of
 `next/image` — the audience most likely to be on mobile data is the one that bypasses the optimizer.
@@ -217,14 +220,17 @@ Three things that read as if they shrink an image and do not:
   backdrop is the cover reuses the hero's own `/_next/image` response instead (see the canvas-background
   section). Data Saver drops the backdrop by passing `null` to `buildPageBackgroundStyle`, an
   already-supported state that cannot reopen #201.
-- **`/api/gif-placeholder` cannot help the covers that need it.** It answers **413** above the 12 MB cap in
-  `lib/safe-fetch.ts`, and both animated covers in the catalog are over it — `autumn.gif` is **21.0 MB** and
-  `the satellite skirmish mku.gif` is **18.7 MB**. Worse, `CDNImage` fetches the still frame **and then the
-  full animation anyway**, so outside Data Saver the placeholder has never saved a byte, only latency.
-  Pre-converted `.mp4`/`.webm` for both exist in `data/optimized-images/` (`the-satellite-skirmish-mku.mp4`
-  is 226 KB; `autumn.mp4` is 2.1 MB) and
-  `GIF_TO_VIDEO_MAP` in `CDNImage` uses them — but `AlbumCard` renders an `<img>` and cannot. So an animated
-  cover on the grid still ships whole, in either mode. Open.
+- **Grid cards show a still first frame of an animated cover** (since 2026-11-01, `lib/gif-still.ts`); the album page
+  keeps the animation. 17 catalog covers were GIFs and 12 were 13-41 MB — the 12 Rods cover alone was 40 MB of the
+  first phone screen. `AlbumCard` asks `/api/gif-placeholder?url=<raw cover>&w=640` (the RAW cover: `artworkUrl` may
+  already be an `/api/proxy-image` URL) and falls back to the full GIF once if the still fails. The route used to
+  answer **413** above the 12 MB cap for every cover that needed it; it may now read up to 64 MB, but **only for a
+  catalog cover** (`gifByteCap`, against `Feed.image` of active feeds, cached 10 min) — the catalog host binding still
+  ships in log mode, so a bigger read for any public host would let anyone make the server download 64 MB per
+  request. Finished stills are kept in memory (64 entries) and concurrent requests share one fetch: the 40 MB cover
+  took 1.9 s once, then 3 ms. `CDNImage` still fetches the still **and then the full animation anyway**, so there
+  the placeholder saves latency, not bytes; its `GIF_TO_VIDEO_MAP` uses the pre-converted `.mp4`/`.webm` in
+  `data/optimized-images/`.
 
 **`/api/optimized-images/[filename]` does not resize either.** It serves the pre-baked file with a content
 type; the `?w=&h=&q=&f=webp` parameters `CDNImage` builds for it are ignored.
