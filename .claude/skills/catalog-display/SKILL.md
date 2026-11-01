@@ -122,7 +122,14 @@ Files to modify (9 total):
 
 Populate: `curl -H "Authorization: Bearer $ADMIN_SECRET" "https://stablekraft.app/api/playlist/[id]?refresh=true"` — exactly `true`; any other value (`?refresh`, `?refresh=1`) is an ordinary read, not a refresh (`isForceRefresh` in `lib/admin-route-policy.ts`).
 
-**Top 100 (`/playlist/top100`) is not one of these — it reads Podcast Index's hourly chart,** `https://stats.podcastindex.org/v4vmusic.json` (send a User-Agent that names the app; a generic one gets HTTP 403). That chart has been EMPTY since 2026-08-21 10:05 UTC (`items: []`; its own page reads "Top 0"), so the page has no tracks for a reason outside this app — `top100EmptyNotice` (`lib/playlist/top100-notice.ts`) puts that in the empty state instead of "No tracks available". `PlaylistTemplateCompact` shows any `albums[0].emptyNotice` an API sends. `/playlist/top100-music` is the 2025-08 predecessor; it asked for an `/api/playlist/top100-music` that never existed and showed "Failed to load tracks: 404", and now 308-redirects to `/playlist/top100`. `/api/top100-music` is a different, static 2025-08-08 snapshot with no audio URLs — not a fallback for the chart.
+**There is no Top 100 playlist any more (removed 2026-11-01).** It read Podcast Index's hourly chart,
+`https://stats.podcastindex.org/v4vmusic.json` (send a User-Agent that names the app; a generic one gets HTTP 403),
+which has returned `items: []` since 2026-08-21 10:05 UTC — its own page reads "Top 0". The page, its two APIs
+(`/api/playlist/top100` and the static 2025-08-08 snapshot `/api/top100-music`), the empty-chart notice, the
+rank badge, the `top-100-v4v-music` branch of `/api/albums/[slug]` and every listing entry went with it.
+`/playlist/top100` and `/playlist/top100-music` now **307** to `/?filter=playlist` — temporary on purpose, because a
+browser caches a 308 indefinitely and would keep redirecting if the chart, and the page, came back. Bringing it
+back means `git revert`ing that removal, not rebuilding it.
 
 **A placeholder image must be a real image.** `public/placeholder-podcast.jpg` was 1 byte from the initial commit until 2026-11-01 (33 code paths drew a broken-image box from it, while the server answered 200), and `placeholder-album.jpg` and `placeholder-artist.png` did not exist. `lib/public-placeholder-images.test.ts` scans the code for every `/…placeholder….(jpg|png|webp|gif)` it names and checks the bytes.
 

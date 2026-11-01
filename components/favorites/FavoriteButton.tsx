@@ -67,7 +67,7 @@ interface FavoriteButtonProps {
   // Only 'publisher' if favoriting from the publishers filter page
   favoriteType?: 'album' | 'publisher' | 'playlist';
   // Feed GUID for auto-importing album when track not in database
-  // Used for tracks from playlists like Top 100 that are resolved at runtime
+  // Used for playlist tracks that are resolved at runtime
   feedGuidForImport?: string;
 }
 

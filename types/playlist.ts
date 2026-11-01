@@ -13,8 +13,6 @@ export interface Track {
   itemGuid?: string;
   resolved?: boolean;
   loading?: boolean;
-  rank?: number; // Chart position for Top 100 playlist
-  boosts?: number; // Number of boosts for Top 100
   albumTitle?: string; // Album/feed title for share links
   feedTitle?: string; // Feed title for share links
   episodeId?: string; // Reference to parent episode group
