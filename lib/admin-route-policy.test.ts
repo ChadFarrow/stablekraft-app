@@ -125,7 +125,7 @@ test('every refresh value the gate lets through is one the handler treats as a p
   for (const qs of ['refresh=true', 'refresh=1', 'refresh', 'refresh=', 'refresh=TRUE', 'refresh=yes',
     'refresh=false', 'refresh=x&refresh=true', 'foo=bar']) {
     const refreshes = isForceRefresh(new URLSearchParams(qs));
-    for (const path of ['/api/playlist/hgh', '/api/playlist/top100', '/api/albums-fast']) {
+    for (const path of ['/api/playlist/hgh', '/api/playlist/itdv', '/api/albums-fast']) {
       assert.equal(gated(path, 'GET', qs), refreshes, `${path}?${qs}: gate and handler disagree`);
     }
   }

@@ -6,6 +6,7 @@ import { normalizeUrl } from '@/lib/url-utils';
 import { findFeedForRemoteItem, findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { checkAdminAuth } from '@/lib/admin-auth';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
@@ -24,9 +25,9 @@ const refreshLimiter = new RateLimiter(30, 60_000);
 const FEED_REFRESH_WINDOW_MS = 5 * 60_000;
 const feedRefreshes = new RefreshCoalescer({ windowMs: FEED_REFRESH_WINDOW_MS });
 
-/** A real admin (secret set AND matched) skips the window. checkAdminAuth alone fails open. */
-function isAuthenticatedAdmin(request: NextRequest): boolean {
-  return !!process.env.ADMIN_SECRET && checkAdminAuth(request) === null;
+/** A real admin (secret set AND matched, by bearer or Nostr admin cookie) skips the window. checkAdminAuth alone fails open. */
+async function isAuthenticatedAdmin(request: NextRequest): Promise<boolean> {
+  return !!process.env.ADMIN_SECRET && (await checkAdminAuth(request)) === null;
 }
 
 interface RefreshContext {
@@ -175,6 +176,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
             v4vValue: parsedAlbum.v4vValue ?? undefined,
             publisherId: publisherFeedId,
             ...channelPersonsFields(parsedAlbum),
+            ...channelFundingFields(parsedAlbum),
             lastFetched: new Date(),
             status: 'active',
             updatedAt: new Date()
@@ -313,7 +315,7 @@ export async function POST(request: NextRequest) {
       feedId,
       () => refreshFeed(ctx),
       () => refreshFeedLater(feedId, ctx),
-      { bypass: isAuthenticatedAdmin(request) }
+      { bypass: await isAuthenticatedAdmin(request) }
     );
     if (outcome.ran) return outcome.value;
     // 202, not 429: the podping service logs any non-5xx status as done and does
@@ -408,6 +410,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
           category: parsedFeed.category,
           explicit: parsedFeed.explicit,
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           updatedAt: new Date()
@@ -598,6 +601,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
         explicit: parsedFeed.explicit,
         type: customType || feed.type, // Allow updating type too
         ...channelPersonsFields(parsedFeed),
+        ...channelFundingFields(parsedFeed),
         lastFetched: new Date(),
         status: 'active',
         lastError: null,

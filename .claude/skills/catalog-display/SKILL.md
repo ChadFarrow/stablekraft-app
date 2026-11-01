@@ -14,6 +14,7 @@ npx tsx --test lib/url-utils.test.ts                # feed URL variants + genera
 npx tsx --test lib/cdn-utils.test.ts                # animated-artwork detection
 npx tsx --test lib/album-detail-routes.test.ts      # which routes render AlbumDetailClient
 npx tsx --test lib/artwork-image-url.test.ts        # album backdrop = the hero cover's own URL
+npx tsx --test lib/catalog/album-shape.test.ts lib/catalog/album-count.test.ts  # trackCount + the home mapper
 ```
 
 ---
@@ -25,6 +26,19 @@ Main-grid play button plays tracks straight from this endpoint — fields missin
 - **Must include `chaptersUrl`, `chapters`, `valueTimeSplits`** in both selects and both track-mapping blocks — otherwise chapter ticks/titles and VTS playback silently fail when playing from the grid.
 - **`persons` and `podcastImages`** (the JSON fields parsed from XML) follow the same both-selects-both-mappings rule — feed-level and track-level. See [Podcasting 2.0 `<podcast:image>` Tag](#podcasting-20-podcastimage-tag-since-2026-06-12) for the full write/read path.
 - **The rule does not stop at albums-fast.** `/api/albums/[slug]` (the album page) builds its own album shape, and `app/page.tsx`'s `rssAlbums` mapper copies the albums-fast album field by field — neither goes through `lib/catalog/album-shape.ts`. Both dropped `persons` until #261, so the album page's and the home grid's boosts tagged no artist even though albums-fast carried the key. The slug route now selects and maps track `persons` and puts `Feed.persons` on **both** `foundAlbum` objects; the home mapper keeps album-level `persons` (`API_VERSION` → `v19`). `lib/feeds/channel-persons.test.ts` scans all of it. Why it matters for boosts → `lightning-boost`, *Who a boost note names*.
+- **A card's count is `trackCount`, never `tracks.length`.** albums-fast cuts every feed's `tracks` at 20
+  (`ALBUM_TRACK_LIMIT`, `PODCAST_EPISODE_LIMIT`, since #231) and states the real number in `trackCount`. The home
+  mapper dropped that field, so from 2026-09-06 to 2026-11-01 every podcast card said "20 tracks" (Homegrown Hits
+  has 158) and so did 47 albums. Count through `albumTrackCount()` (`lib/catalog/album-count.ts`) — the badge, the
+  list rows, the client sort and the Albums/EPs/Singles groups all do. `feedToAlbum` sets the number: the deduped
+  list length when every playable row arrived, else the `_count` of playable rows. `_count` uses
+  `PLAYABLE_TRACK_WHERE`, the select's own filter, or the two cannot be compared. The catalog holds **duplicate
+  Track rows** (DREAMS: 14 rows, 7 tracks), which the deduped length hides and a capped `_count` cannot — Trapped in
+  London still says 36 for 18 tracks, because Prisma cannot count distinct rows. The server's default format sort
+  reads `trackCount` too: the client pages one format at a time by `formatCounts`, so the two must agree.
+  Podcast cards say "episodes" via `isPodcastAlbum()`, from the `type` the mapper keeps — **not `isPodcast`**, which
+  turns every grid link into a title slug (see *Album links*). `lib/catalog/album-count.test.ts` scans the mapper
+  for all of this. `API_VERSION` → `v20`.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the response shape changes — main page caches under `localStorage['cachedAlbums_${N}_${API_VERSION}']` and without a bump, stale field-missing data sticks indefinitely.
 - **Read-path cache stack** (each layer needs its own bust when debugging "feed minted but not visible"):
   1. **Railway in-memory, fingerprinted** (`lib/caches/albums-fast-cache.ts` over `lib/caches/fingerprinted-cache.ts`). Every 15 min a request triggers a ~0.5 s Postgres md5 over every active Feed row and their Track rows (32 bytes back); only a changed hash, an invalidation, or 6 h of age re-reads the catalog (~20 MB). A due check serves the old rows immediately and rebuilds behind the request, so a new track shows up on the request *after* the one that noticed it — still within ~15 min. Concurrent requests share one load. The `filter=podcasts` view has its own instance (it was uncached and re-read ~1,060 episodes per request). Each real rebuild logs `[albums-fast-cache] <catalog|podcasts> rebuilt (<reason>) in <ms>` via `console.warn`, so production logs show how often it happens. Auto-invalidates on `POST`/`PUT`/`DELETE /api/feeds` via `invalidateAlbumsFastCache()` (same hook busts the 5-min `searchCache` in `lib/caches/search-cache.ts`). Manual bust: `?refresh=true`, admin-only (bearer secret) — anyone could otherwise force a full catalog rescan in a loop.
@@ -71,6 +85,14 @@ Three exclusion layers, each catches what the others miss: `where: { type: 'albu
 2. Index fallback over the episodes array. `getEpisodesFromAPI` (`lib/feed-parsing.ts`) sorts PI episodes by `datePublished` ascending — do **not** remove the sort; PI returns newest-first and the raw order reversed every PI-imported album without itunes episode tags (PR #150).
 3. Identical-timestamp items stay in PI's arbitrary tie order. Corrective: admin reparse, which uses RSS document order (also auto-runs nightly for newly imported feeds via Step 5c).
 
+**A podcast skips all of this: its album page lists episodes newest first by `publishedAt`.** Rule 1 breaks on
+feeds that tag some items and not others — Rollz Radio's 008 and 009 carry no `<itunes:season>`, so they scored
+8 and 9 against 1001–1014 for the rest and sat on top (2026-11-01). `isPodcastFeed()` (`lib/podcast-feeds.ts`)
+decides, and both album objects in `/api/albums/[slug]` ask it: `Feed.type === 'podcast'` first, then the
+hand-kept `PODCAST_FEED_IDS`/`PODCAST_FEED_URLS`. Those lists used to be the only test, so the five
+`type = 'podcast'` feeds nobody had listed rendered as music albums. The second album object (the flexible title
+match) never handled podcasts at all. `lib/podcast-feeds.test.ts` pins both, and the order.
+
 ---
 
 ## Duration Filtering
@@ -89,7 +111,7 @@ Album titles are **not unique** — four active feeds are titled exactly `Single
 - **`feedId` beats `id`, and that ordering is the whole fix.** `/api/albums` returns a **synthetic** `id` — `` `${generateAlbumSlug(title)}-${feed.id.split('-')[0]}` ``, e.g. `all-thats-haunting-me-ariel` — alongside the real `feedId`. That synthetic id **404s**. Preferring `id` would take the podroll tiles and the publisher-page client fallbacks from "wrong album" to "no album". Same pattern at `app/api/albums/[slug]/route.ts`, `app/api/publishers/[id]/route.ts`, `app/api/publishers-by-id/route.ts`. A unit test pins it.
 - **There is no single place a link is minted** — every surface builds its own href from whatever album object it holds (publisher grid + list, `AlbumCard`, the home list views, `/search`, `SearchBar`'s album *and* track rows, podroll, Now Playing, `RadioPlayer`, boost/share URLs). Adding a new one? Use the helper. Same "derived in N places, so N places can disagree" family as the `currentTrackIndex` problem in [End of Album](#end-of-album--rewind-the-media-not-just-the-index-contextsaudiocontexttsx).
 - **No route change was needed and none should be made.** `/api/albums/[slug]`'s first rung is already an exact case-insensitive `id` match, and **every title rung must stay** so previously-shared `/album/singles`-style links keep resolving.
-- **`/podcast/` links stay title-slug-driven** — they have their own canonical-slug redirect machinery in `lib/podcast-feeds.ts`. `AlbumCard`'s `isPodcast` branch still calls `generateAlbumUrl(title, 'podcast')`. Note `app/page.tsx` strips `isPodcast` when mapping albums-fast results, so podcast cards on the home grid reach `/podcast/` via the `/album/<id>` → `/podcast/<canonical>` redirect — which is why **every curated podcast needs its DB id in `PODCAST_SLUGS`**, not just its canonical slug (Upbeats was missing its own and would have skipped the redirect once links became id-based).
+- **`/podcast/` links stay title-slug-driven** — they have their own canonical-slug redirect machinery in `lib/podcast-feeds.ts`. `AlbumCard`'s `isPodcast` branch still calls `generateAlbumUrl(title, 'podcast')`. Note `app/page.tsx` strips `isPodcast` when mapping albums-fast results (it keeps `type` for the "episodes" label instead), so podcast cards on the home grid reach `/podcast/` via the `/album/<id>` → `/podcast/<canonical>` redirect — which is why **every curated podcast needs its DB id in `PODCAST_SLUGS`**, not just its canonical slug (Upbeats was missing its own and would have skipped the redirect once links became id-based).
 - Accepted trade-off: PI/Wavlake-imported feeds get a UUID URL (`/album/e19d84d9-…`). Id-based album URLs were already public-facing via `ShareButton`, `AdminPanel` and `/favorites`.
 - **Publisher URLs have the same collision shape and are NOT fixed.** `/publisher/horseheads` is a name slug from `generatePublisherSlug`, and publisher ids are themselves name-derived synthetics (`artist-$2-holla`), so the only unique handle is a raw `feedGuid`. Left deliberately; don't half-fix it.
 
@@ -113,6 +135,17 @@ Files to modify (9 total):
 9. `.github/workflows/refresh-playlists.yml` - Add to `PLAYLISTS` array
 
 Populate: `curl -H "Authorization: Bearer $ADMIN_SECRET" "https://stablekraft.app/api/playlist/[id]?refresh=true"` — exactly `true`; any other value (`?refresh`, `?refresh=1`) is an ordinary read, not a refresh (`isForceRefresh` in `lib/admin-route-policy.ts`).
+
+**There is no Top 100 playlist any more (removed 2026-11-01).** It read Podcast Index's hourly chart,
+`https://stats.podcastindex.org/v4vmusic.json` (send a User-Agent that names the app; a generic one gets HTTP 403),
+which has returned `items: []` since 2026-08-21 10:05 UTC — its own page reads "Top 0". The page, its two APIs
+(`/api/playlist/top100` and the static 2025-08-08 snapshot `/api/top100-music`), the empty-chart notice, the
+rank badge, the `top-100-v4v-music` branch of `/api/albums/[slug]` and every listing entry went with it.
+`/playlist/top100` and `/playlist/top100-music` now **307** to `/?filter=playlist` — temporary on purpose, because a
+browser caches a 308 indefinitely and would keep redirecting if the chart, and the page, came back. Bringing it
+back means `git revert`ing that removal, not rebuilding it.
+
+**A placeholder image must be a real image.** `public/placeholder-podcast.jpg` was 1 byte from the initial commit until 2026-11-01 (33 code paths drew a broken-image box from it, while the server answered 200), and `placeholder-album.jpg` and `placeholder-artist.png` did not exist. `lib/public-placeholder-images.test.ts` scans the code for every `/…placeholder….(jpg|png|webp|gif)` it names and checks the bytes.
 
 ---
 
@@ -162,11 +195,14 @@ Anything about artwork size belongs in `artworkPlan()` (`lib/data-saver.ts`). Th
 hot ones like `NowPlayingBar` (a 64px box), `NowPlayingScreen`, and `PlaylistTemplateCompact`'s 32px/48px
 track rows, where a 200-track playlist requests 200 full-size files. Known gap, not an oversight.
 
-**`AlbumCard` cancels its own sizing.** It sets `width={300}`, `height={300}`, `loading="lazy"` and a correct
-`sizes`, then adds `unoptimized` — so Next never resizes and every one of those hints is dead. `271a6ba8`
-added the flag **deliberately**, to fix artwork that looked blurry. It is lifted only under Data Saver, which
-is the user electing to take the softer image. The same hardcoded flag is at `app/favorites/page.tsx` (a 40px
-avatar) and `app/publisher/[id]/PublisherDetailClient.tsx`.
+**`AlbumCard` resizes its cover now (since 2026-11-01).** It used to set `width`, `height`, `loading="lazy"` and `sizes`,
+then add `unoptimized`, so Next never resized and every hint was dead. `271a6ba8` (2025-09) added the flag to fix
+blurry covers, in the same commit as the real cause: the card asked for the `'thumbnail'` source. Its baseline is
+now `cardArtworkBaseline()` (`lib/data-saver.ts`): quality 85, resized wherever `isNextOptimizable` and not a GIF. A
+175 px phone card at 3x asks for 525 px and gets the 640 px candidate; measured against the full-size cover it
+differs by 2/255 per pixel with the same edge energy. The first phone screen of the home page went from 46,794 KB to
+693 KB of images. The hardcoded flag is still at `app/favorites/page.tsx` (a 40px avatar) and
+`app/publisher/[id]/PublisherDetailClient.tsx`.
 
 **Phones get no optimization at all.** `CDNImage` branches on `isMobile` and renders a plain `<img>` instead of
 `next/image` — the audience most likely to be on mobile data is the one that bypasses the optimizer.
@@ -184,17 +220,22 @@ Three things that read as if they shrink an image and do not:
   backdrop is the cover reuses the hero's own `/_next/image` response instead (see the canvas-background
   section). Data Saver drops the backdrop by passing `null` to `buildPageBackgroundStyle`, an
   already-supported state that cannot reopen #201.
-- **`/api/gif-placeholder` cannot help the covers that need it.** It answers **413** above the 12 MB cap in
-  `lib/safe-fetch.ts`, and both animated covers in the catalog are over it — `autumn.gif` is **21.0 MB** and
-  `the satellite skirmish mku.gif` is **18.7 MB**. Worse, `CDNImage` fetches the still frame **and then the
-  full animation anyway**, so outside Data Saver the placeholder has never saved a byte, only latency.
-  Pre-converted `.mp4`/`.webm` for both exist in `data/optimized-images/` (`the-satellite-skirmish-mku.mp4`
-  is 226 KB; `autumn.mp4` is 2.1 MB) and
-  `GIF_TO_VIDEO_MAP` in `CDNImage` uses them — but `AlbumCard` renders an `<img>` and cannot. So an animated
-  cover on the grid still ships whole, in either mode. Open.
+- **Grid cards show a still first frame of an animated cover** (since 2026-11-01, `lib/gif-still.ts`); the album page
+  keeps the animation. 17 catalog covers were GIFs and 12 were 13-41 MB — the 12 Rods cover alone was 40 MB of the
+  first phone screen. `AlbumCard` asks `/api/gif-placeholder?url=<raw cover>&w=640` (the RAW cover: `artworkUrl` may
+  already be an `/api/proxy-image` URL) and falls back to the full GIF once if the still fails. The route used to
+  answer **413** above the 12 MB cap for every cover that needed it; it may now read up to 64 MB, but **only for a
+  catalog cover** (`gifByteCap`, against `Feed.image` of active feeds, cached 10 min) — the catalog host binding still
+  ships in log mode, so a bigger read for any public host would let anyone make the server download 64 MB per
+  request. Finished stills are kept in memory (64 entries) and concurrent requests share one fetch: the 40 MB cover
+  took 1.9 s once, then 3 ms. `CDNImage` still fetches the still **and then the full animation anyway**, so there
+  the placeholder saves latency, not bytes; its `GIF_TO_VIDEO_MAP` uses the pre-converted `.mp4`/`.webm` in
+  `data/optimized-images/`.
 
 **`/api/optimized-images/[filename]` does not resize either.** It serves the pre-baked file with a content
 type; the `?w=&h=&q=&f=webp` parameters `CDNImage` builds for it are ignored.
+
+**The layout rocket wallpaper is left out where it is covered** (`lib/layout-background.ts`, since 2026-11-01). `app/layout.tsx` painted `/stablekraft-rocket.webp` (203 KB) on every route, but the album/podcast page and every `PlaylistTemplateCompact` page paint an opaque layer over it, so it was downloaded and never seen — a screenshot with it forced back on differs by 0.000%. `LayoutRocketBackground` renders the element without the image on those routes; `lib/layout-background.test.ts` keeps the playlist list in step with `app/playlist`. Both rocket files go out with `max-age=2592000` (`next.config.js`) where `public/` otherwise sends `max-age=0` — so **change a rocket by giving the file a new name**, never in place.
 
 ---
 

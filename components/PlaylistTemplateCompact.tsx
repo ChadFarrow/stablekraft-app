@@ -787,7 +787,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             Dynamic Island on a notched iPhone (59px inset). Safari's own chrome hides
             this, which is why it only showed up once installed to the home screen. The
             24px is the old pt-6 value, so devices reporting no inset are unchanged. */}
-        <div className="container mx-auto px-6 pt-[calc(var(--sk-safe-top)+24px)] pb-40 lg:pb-8 lg:h-full lg:flex lg:flex-col">
+        {/* Desktop bottom padding carries `--sk-player-reserve`: at lg+ this page is
+            `fixed inset-0`, which ignores the layout wrapper's reserve, so a flat
+            `lg:pb-8` ran both columns under GlobalNowPlayingBar. Same fix as the album
+            page (AlbumDetailClient); the track list's old `lg:pb-28` patch is gone. */}
+        <div className="container mx-auto px-6 pt-[calc(var(--sk-safe-top)+24px)] pb-40 lg:pb-[calc(var(--sk-player-reserve)+2rem)] lg:h-full lg:flex lg:flex-col">
           <div className="lg:flex-shrink-0">
             {/* Back walks to the playlist list; Home escapes the stack entirely. Same
                 pairing as album/publisher/downloads — see HomeButton. The row carries
@@ -807,11 +811,24 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
           {/* Main Content - Two Column Layout */}
           <div className="py-8 lg:py-0 grid grid-cols-1 lg:grid-cols-5 gap-8 lg:min-h-0">
-            {/* Left Column - Playlist Info (2/5 width) */}
-            <div className="flex flex-col gap-6 lg:col-span-2">
-              {/* Artwork - responsive sizing like album page */}
+            {/* Left Column - Playlist Info (2/5 width).
+                `lg:min-h-0` is what keeps this column inside the window. Without it the
+                grid row took the column's full content height (400px cover + info card),
+                so on a short window the row ran past the bottom of this `fixed`,
+                overflow-hidden page and BOTH columns were cut off — the Website link and
+                the end of the track list unreachable, with or without the player
+                (1366x657: content to y=740 in a 657px window). The track column always
+                had it; the album page's left column does too. */}
+            <div className="flex flex-col gap-6 lg:col-span-2 lg:min-h-0">
+              {/* Artwork - responsive sizing like album page.
+                  Desktop size: 400px, shrinking on a short window so the info card keeps
+                  ~90px for its text above the Website footer (same reasoning as the album
+                  page cover). 330px is everything else in the column: 84px above the
+                  cover, the 24px gap, the card's 48px padding and 52px footer, the 32px
+                  below the card, and the ~90px of text. Windows of ~810px and up with the
+                  player (~730px without) keep the full 400px. */}
               <div
-                className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px] bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
+                className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[clamp(160px,calc(100dvh-var(--sk-player-reserve)-330px),400px)] lg:flex-shrink-0 bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
                 onClick={() => {
                   if (filteredTracks.length > 0) {
                     handlePlay(filteredTracks[0]);
@@ -841,31 +858,16 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 )}
               </div>
 
-              {/* Info Card with glass background */}
-              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 lg:max-w-[400px]">
+              {/* Info Card with glass background. At lg+ it is a column: title,
+                  description and stats scroll, and the Website link below them is a
+                  footer that stays on screen — the album card's Boost row pattern. The
+                  wrapper is a plain block on mobile, so the phone layout is unchanged. */}
+              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 lg:max-w-[400px] lg:min-h-0 lg:flex lg:flex-col">
+                <div className="lg:min-h-0 lg:overflow-y-auto">
                 {/* Title & Description */}
                 <div className="text-center lg:text-left">
                   <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                    {config.title.includes('Top 100') ? (
-                      <>
-                        Top{' '}
-                        <span className="relative inline-block mx-2">
-                          <span className="line-through opacity-50">100</span>
-                          <span
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 font-black -rotate-12 text-[2.5rem] md:text-[3rem]"
-                            style={{
-                              textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(239, 68, 68, 0.7), 0 0 20px rgba(239, 68, 68, 0.5)',
-                              WebkitTextStroke: '2px black'
-                            }}
-                          >
-                            {tracks.length}
-                          </span>
-                        </span>
-                        {' '}V4V Music
-                      </>
-                    ) : (
-                      config.title
-                    )}
+                    {config.title}
                   </h1>
                   <p className="text-gray-300">{config.description}</p>
                 </div>
@@ -880,10 +882,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                     <span>{formatDuration(stats.totalDuration)}</span>
                   </div>
                 )}
+                </div>
 
-                {/* Website Link */}
+                {/* Website Link - the card's desktop footer (`lg:flex-shrink-0`) */}
                 {playlistLink && (
-                  <div className="flex justify-center lg:justify-start mt-4">
+                  <div className="flex justify-center lg:justify-start mt-4 lg:flex-shrink-0">
                     <a
                       href={playlistLink}
                       target="_blank"
@@ -975,7 +978,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 </div>
 
                 {/* Track List */}
-                <div className="space-y-1 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-28">
+                <div className="space-y-1 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                   {/* Grouped View with Episodes */}
                   {hasEpisodeMarkers && episodeViewMode === 'grouped' && filteredEpisodes.length > 0 ? (
                     <div className="space-y-3 md:space-y-2">
@@ -1188,20 +1191,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                             <Play className="h-5 w-5 text-white" />
                           )}
                         </button>
-                        {/* Rank badge for Top 100 */}
-                        {track.rank && (
-                          <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ${
-                            track.rank === 1
-                              ? 'bg-yellow-500 text-black'
-                              : track.rank <= 3
-                                ? 'bg-gray-300 text-black'
-                                : track.rank <= 10
-                                  ? 'bg-amber-700 text-white'
-                                  : 'bg-gray-700 text-white'
-                          }`}>
-                            {track.rank}
-                          </div>
-                        )}
                       </div>
                     ) : (
                       /* Fallback: Track Number / Play Button when no image */
@@ -1348,7 +1337,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                       <Search className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
-                    <p className="text-gray-400">
+                    <p className="text-gray-400" data-testid="playlist-empty-message">
                       {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
                     </p>
                   </div>

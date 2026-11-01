@@ -4,6 +4,7 @@ import { parseRSSFeedWithSegments, detectTrackMediaType } from '@/lib/rss-parser
 import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -45,6 +46,7 @@ export async function POST(
           v4vRecipient: parsedFeed.v4vRecipient || undefined,
           v4vValue: parsedFeed.v4vValue ? JSON.parse(JSON.stringify(parsedFeed.v4vValue)) : undefined,
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null

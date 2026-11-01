@@ -19,6 +19,7 @@ import { Play, Pause } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
+import { albumTrackCount, isPodcastAlbum } from '@/lib/catalog/album-count';
 import { SkeletonGrid } from '@/components/SkeletonCard';
 
 
@@ -181,7 +182,10 @@ function HomePageContent() {
   //
   // v19: the mapper below now keeps album-level persons, so AlbumCard's boost
   // can tag the artist. A cached album has none and would keep tagging nobody.
-  const API_VERSION = 'v19';
+  //
+  // v20: the mapper keeps trackCount and type. A cached album has neither, so
+  // its card would keep counting the 20 shipped tracks.
+  const API_VERSION = 'v20';
   
   // HGH filter removed - no longer needed
   
@@ -1115,6 +1119,13 @@ function HomePageContent() {
         feedId: album.feedId,
         feedUrl: album.feedUrl,
         feedGuid: album.feedGuid,
+        // The real count. `tracks` above is cut at 20 by albums-fast, so a card
+        // that counted it said "20 tracks" for Homegrown Hits' 158 episodes.
+        trackCount: album.trackCount,
+        // The Feed row's own type, so a podcast card says "episodes". Not
+        // `isPodcast`: AlbumCard links an isPodcast album by title slug, and the
+        // grid links podcasts by id (lib/catalog/album-count.ts).
+        type: album.type,
         // Include V4V payment data for boost buttons
         ...(album.v4vRecipient && { v4vRecipient: album.v4vRecipient }),
         ...(album.v4vValue && { v4vValue: album.v4vValue }),
@@ -1422,14 +1433,14 @@ function HomePageContent() {
         });
       case 'tracks-desc':
         return sorted.sort((a, b) => {
-          const tracksA = a.tracks?.length || a.totalTracks || 0;
-          const tracksB = b.tracks?.length || b.totalTracks || 0;
+          const tracksA = albumTrackCount(a);
+          const tracksB = albumTrackCount(b);
           return tracksB - tracksA; // Most tracks first
         });
       case 'tracks-asc':
         return sorted.sort((a, b) => {
-          const tracksA = a.tracks?.length || a.totalTracks || 0;
-          const tracksB = b.tracks?.length || b.totalTracks || 0;
+          const tracksA = albumTrackCount(a);
+          const tracksB = albumTrackCount(b);
           return tracksA - tracksB; // Least tracks first
         });
       default:
@@ -1443,7 +1454,7 @@ function HomePageContent() {
   // Memoize expensive filtering operations to prevent re-computation on every render
   const albumsWithMultipleTracks = useMemo(() =>
     sortAlbums(
-      filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) >= 6),
+      filteredAlbums.filter(album => albumTrackCount(album) >= 6),
       sortType
     ),
     [filteredAlbums, sortType, sortAlbums]
@@ -1452,7 +1463,7 @@ function HomePageContent() {
   const epsOnly = useMemo(() =>
     sortAlbums(
       filteredAlbums.filter(album => {
-        const trackCount = album.tracks?.length || album.totalTracks || 0;
+        const trackCount = albumTrackCount(album);
         return trackCount >= 2 && trackCount <= 5;
       }),
       sortType
@@ -1462,7 +1473,7 @@ function HomePageContent() {
 
   const singlesOnly = useMemo(() =>
     sortAlbums(
-      filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) === 1),
+      filteredAlbums.filter(album => albumTrackCount(album) === 1),
       sortType
     ),
     [filteredAlbums, sortType, sortAlbums]
@@ -1867,7 +1878,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Album</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -1947,7 +1958,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">EP</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -2027,7 +2038,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Single</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -2114,9 +2125,9 @@ function HomePageContent() {
                           </div>
                           <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                             <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                            <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                            <span className="font-medium">{albumTrackCount(album)} {isPodcastAlbum(album) ? 'episodes' : 'tracks'}</span>
                             <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                              {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
+                              {albumTrackCount(album) <= 6 ? (albumTrackCount(album) === 1 ? 'Single' : 'EP') : 'Album'}
                             </span>
                             {album.explicit && (
                               <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">

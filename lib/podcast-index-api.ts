@@ -450,6 +450,39 @@ export async function generatePodcastIndexHeaders(): Promise<Record<string, stri
 }
 
 /**
+ * Podcast Index's `lastUpdateTime` (unix seconds — the last time PI saw the feed's
+ * content change) for each `podcast:guid` it knows, keyed by the lower-cased guid.
+ * One POST to `podcasts/batch/byguid` per 1,000 guids (3,500 in one call answered in
+ * under 0.3 s on 2026-11-01). A guid PI does not know is simply absent.
+ *
+ * Throws on any failed call: the nightly reparse then skips its Wavlake lane for the
+ * night rather than guessing — a guess here means fetching Wavlake blind, which is
+ * the burst it refuses.
+ */
+export async function getPodcastIndexLastUpdateByGuid(guids: string[]): Promise<Map<string, number>> {
+  const unique = [...new Set(guids.map((g) => g.trim().toLowerCase()).filter(Boolean))];
+  const out = new Map<string, number>();
+  for (let i = 0; i < unique.length; i += 1000) {
+    const chunk = unique.slice(i, i + 1000);
+    const response = await fetch('https://api.podcastindex.org/api/1.0/podcasts/batch/byguid', {
+      method: 'POST',
+      headers: await generatePodcastIndexHeaders(),
+      body: JSON.stringify(chunk),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`Podcast Index batch/byguid: HTTP ${response.status}`);
+    const data = await response.json();
+    // A list with no match answers 200 with status "false" and no `feeds`.
+    for (const feed of Array.isArray(data?.feeds) ? data.feeds : []) {
+      const guid = typeof feed?.podcastGuid === 'string' ? feed.podcastGuid.trim().toLowerCase() : '';
+      const t = Number(feed?.lastUpdateTime);
+      if (guid && Number.isFinite(t) && t > 0) out.set(guid, t);
+    }
+  }
+  return out;
+}
+
+/**
  * Normalize Podcast Index API response to handle both 'feed' and 'feeds' formats
  */
 export function normalizeFeedResponse(data: any): PodcastIndexFeed | null {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { toast } from '@/components/Toast';
 import { useNostr } from '@/contexts/NostrContext';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
-import { adminFetch } from '@/lib/admin-fetch';
+import { adminFetch, setAdminReauth } from '@/lib/admin-fetch';
 
 /**
  * refresh-by-url answers 202 when the feed was refreshed in the last few minutes:
@@ -215,28 +215,28 @@ export default function AdminPanel() {
   // Admin authentication state (separate from Nostr auth)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
-  // Verify admin access - requires signing a challenge to prove key ownership
-  const verifyAdminAccess = useCallback(async (npub: string, pubkey: string) => {
+  // Admin sign-in with Nostr alone (lib/admin-session.ts): sign a NIP-98 event
+  // for /api/admin/verify and send it. The server checks the signature and the
+  // ADMIN_NPUBS list, then sets the `sk_admin` cookie every admin action accepts.
+  // This used to sign the event and send only the npub, so the server could not
+  // trust it and every action also asked for the ADMIN_SECRET.
+  const verifyAdminAccess = useCallback(async (npub: string, pubkey: string): Promise<boolean> => {
     setVerifying(true);
     try {
-      // Step 1: Verify key ownership by signing a challenge
       const signer = getUnifiedSigner();
       await signer.ensureInitialized();
 
       if (!signer.isAvailable()) {
         toast.error('No Nostr signer available. Please connect your extension or signer app.');
-        setVerifying(false);
-        setLoading(false);
-        return;
+        return false;
       }
 
-      // Create and sign a challenge event
-      const challenge = `stablekraft-admin-verify-${Date.now()}`;
+      // NIP-98 HTTP Auth: bound to this exact route and method, valid for 60 s.
       const eventTemplate = {
-        kind: 27235, // NIP-98 HTTP Auth kind
+        kind: 27235,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [['u', window.location.href], ['method', 'GET']],
-        content: challenge,
+        tags: [['u', `${window.location.origin}/api/admin/verify`], ['method', 'POST']],
+        content: '',
         pubkey: pubkey,
       };
 
@@ -244,18 +244,16 @@ export default function AdminPanel() {
 
       if (!signedEvent?.sig || signedEvent.pubkey !== pubkey) {
         toast.error('Key verification failed. Signature does not match.');
-        setVerifying(false);
-        setLoading(false);
-        return;
+        return false;
       }
 
-      // Step 2: Check admin whitelist
       const response = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ npub, pubkey }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ event: signedEvent }),
       });
 
       const data = await response.json();
@@ -264,6 +262,7 @@ export default function AdminPanel() {
         setIsAdminAuthenticated(true);
         localStorage.setItem('admin-authenticated', 'true');
         localStorage.setItem('admin-npub', npub);
+        return true;
       } else {
         setIsAdminAuthenticated(false);
         localStorage.removeItem('admin-authenticated');
@@ -277,6 +276,7 @@ export default function AdminPanel() {
         } else if (data.error) {
           toast.error(data.error);
         }
+        return false;
       }
     } catch (error) {
       console.error('Error verifying admin access:', error);
@@ -284,11 +284,35 @@ export default function AdminPanel() {
       localStorage.removeItem('admin-authenticated');
       localStorage.removeItem('admin-npub');
       toast.error('Failed to verify admin access. Please try again.');
+      return false;
     } finally {
       setVerifying(false);
       setLoading(false);
     }
   }, []);
+
+  // The old flow kept the bearer ADMIN_SECRET in localStorage. Nothing reads it
+  // now, so take it out of this browser rather than leave it lying there.
+  useEffect(() => {
+    try {
+      localStorage.removeItem('admin_secret');
+    } catch {
+      // storage unavailable — nothing stored either
+    }
+  }, []);
+
+  // When the admin cookie has expired, adminFetch asks for a fresh Nostr
+  // signature here and retries once, instead of prompting for a secret.
+  useEffect(() => {
+    if (!nostrUser) return;
+    const { nostrNpub, nostrPubkey } = nostrUser;
+    return setAdminReauth(() => verifyAdminAccess(nostrNpub, nostrPubkey));
+  }, [nostrUser, verifyAdminAccess]);
+
+  const endAdminSession = () => {
+    // Clears the httpOnly `sk_admin` cookie, which this page cannot touch itself.
+    fetch('/api/admin/verify', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+  };
 
   // When Nostr user logs in, automatically verify admin access
   useEffect(() => {
@@ -299,6 +323,7 @@ export default function AdminPanel() {
       setIsAdminAuthenticated(false);
       localStorage.removeItem('admin-authenticated');
       localStorage.removeItem('admin-npub');
+      endAdminSession();
       setLoading(false);
     } else {
       // User is logged in, verify admin access (includes key ownership check)
@@ -310,6 +335,7 @@ export default function AdminPanel() {
     setIsAdminAuthenticated(false);
     localStorage.removeItem('admin-authenticated');
     localStorage.removeItem('admin-npub');
+    endAdminSession();
   };
 
   const fetchRecentFeeds = async () => {

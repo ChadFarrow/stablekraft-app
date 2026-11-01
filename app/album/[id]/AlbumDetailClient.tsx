@@ -18,6 +18,7 @@ import BackButton from '@/components/BackButton';
 import HomeButton from '@/components/HomeButton';
 import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import { FundingButton } from '@/components/FundingButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
@@ -696,6 +697,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
     albumName: album.title,
     publisherGuid: album.publisher?.feedGuid,
     persons: (album as any).persons || [],
+    funding: album.funding,
   };
 
   return (
@@ -720,7 +722,14 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             Safe-Area Insets rule, the inset comes from `var(--sk-safe-*)`, never bare
             `env()`. The 24px base preserves the compact spacing on devices that report
             no inset (Android browser, desktop), where the var resolves to 0. */}
-        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-8 lg:h-full lg:flex lg:flex-col">
+        {/* Desktop bottom padding must carry `--sk-player-reserve`. At lg+ this page is
+            `fixed inset-0`, and a fixed box ignores the layout wrapper's
+            `pb-[var(--sk-player-reserve)]` (app/layout.tsx) — so with a flat `lg:pb-8`
+            both columns ran ~49px under GlobalNowPlayingBar, and on a 909px-tall
+            window it covered the album card's Boost button. The track list hid this
+            with its own `lg:pb-28`; the album card had nothing. The reserve is 0
+            with nothing playing, so that case keeps the old 2rem. */}
+        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-[calc(var(--sk-player-reserve)+2rem)] lg:h-full lg:flex lg:flex-col">
         {/* Back / Home buttons */}
         <div className="mb-3 lg:mb-6 lg:flex-shrink-0 flex items-center gap-1">
           <BackButton label="Back" />
@@ -731,8 +740,16 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-8 mb-8 lg:mb-0 lg:flex-1 lg:min-h-0">
           {/* Left Column: Album Art and Info (2/5 width) */}
           <div className="flex flex-col gap-3 lg:gap-4 lg:col-span-2 lg:min-h-0">
-            {/* Album Art with Play Button Overlay */}
-            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[320px] lg:flex-shrink-0">
+            {/* Album Art with Play Button Overlay.
+                Desktop size: 320px, shrinking on a short window so the album card below
+                keeps ~90px for its text (title + artist) above its Boost footer. A fixed
+                320px left the card nothing on a 1366x768 laptop (~657px of window) with
+                the player showing — the footer took the card's whole height and the
+                title was not visible at all. 366px is everything else in the column:
+                116px above the cover, the 16px gap, the card's 48px padding and 64px
+                footer, the 32px below the card, and the ~90px of text. Windows of
+                ~830px and up with the player (~750px without) keep the full 320px. */}
+            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[clamp(160px,calc(100dvh-var(--sk-player-reserve)-366px),320px)] lg:flex-shrink-0">
             <ArtworkImage
               src={albumArtError || !album?.coverArt ? getPlaceholderImageUrl('medium') : heroArtworkSrc(album.coverArt)}
               alt={album.title}
@@ -814,9 +831,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             )}
           </div>
           
-            {/* Album Info */}
-            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-            <div className="text-center lg:text-left space-y-3 lg:space-y-4">
+            {/* Album Info. At lg+ the card is a column: the text scrolls, and the
+                desktop action row below it is a footer that never scrolls away. The
+                card used to scroll as one block with the row last, so on any window
+                too short for the description the Boost button sat below the card's
+                visible edge (1440x900, 1280x720, 1024x768 all measured that way). */}
+            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+            <div className="text-center lg:text-left space-y-3 lg:space-y-4 lg:min-h-0 lg:overflow-y-auto">
             <h1 className="text-2xl md:text-4xl font-bold leading-tight">{album.title}</h1>
             {album.publisher ? (
               <Link
@@ -930,7 +951,10 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                 rem-based, so at 1.3x the rem-sized circles inflated until shuffle ran
                 off the left edge and share off the right — justify-center spills both
                 ways. Only text should grow. Same rule as the Now Playing transport row. */}
-            <div className="lg:hidden flex items-center justify-center" style={{ gap: 12 }}>
+            {/* `flex-wrap`: with the $ the row is six circles (324px), which fits from
+                ~356px wide; on a narrower phone the last circle wraps instead of
+                running off both edges. */}
+            <div className="lg:hidden flex flex-wrap items-center justify-center" style={{ gap: 12 }}>
               <button
                 onClick={shuffleAllTracks}
                 className="flex items-center justify-center rounded-full bg-black/45 ring-1 ring-white/25 backdrop-blur-md shadow-lg text-white active:scale-95 transition-transform flex-shrink-0"
@@ -948,6 +972,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   className="!w-[44px] !h-[44px] !p-0 !rounded-full flex-shrink-0"
                 />
               )}
+
+              {/* <podcast:funding>: the green $ beside the ⚡ — the non-Lightning way to pay. */}
+              <FundingButton funding={album.funding} variant="icon" />
 
               {album.feedId && (
                 <div className="flex items-center flex-shrink-0" style={{ gap: 12 }}>
@@ -980,8 +1007,15 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               </div>
             </div>
 
-            {/* Lightning Boost and Funding Information */}
-            <div className="space-y-4">
+            </div>
+
+            {/* Lightning Boost, with the funding $ beside it (FundingButton) — the card's
+                desktop footer, outside the scrolling text so it stays on screen.
+                `lg:flex-shrink-0` holds it at full height while the text above shrinks.
+                `pt-3` keeps the 12px the old `space-y-3` margin gave this block on
+                mobile, where its children are all hidden; `lg:pt-4` is the old
+                `lg:space-y-4` gap above the row. */}
+            <div className="pt-3 lg:pt-4 lg:flex-shrink-0">
               {/* Lightning Boost Button - only show if v4v data exists.
                   Desktop only: mobile carries Boost in the action row above. */}
               {checkHasV4V(album) ? (
@@ -990,6 +1024,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                     {...albumBoostProps}
                     className="flex items-center gap-2 px-6 py-3 text-base"
                   />
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               ) : (
@@ -997,31 +1032,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   <div className="px-6 py-3 bg-gray-800/50 rounded-lg text-gray-400 text-sm">
                     No Lightning payment info available for this album
                   </div>
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               )}
 
-              {/* Traditional Funding Information */}
-              {album.funding && album.funding.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-white text-center lg:text-left">More Ways to Support</h3>
-                  <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                    {album.funding.map((funding, index) => (
-                      <a
-                        key={index}
-                        href={funding.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
-                      >
-                        💝 {funding.message || 'Support'}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
           </div>
 
           {/* Doerfels Publisher Information */}
@@ -1111,11 +1127,11 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   onShuffle={shuffleAllTracks}
                   showShuffle={true}
                   resultCount={filteredTracks.length}
-                  resultLabel={filterParam === 'videos' ? 'video tracks' : 'tracks'}
+                  resultLabel={filterParam === 'videos' ? 'video tracks' : (album as any)?.isPodcast ? 'episodes' : 'tracks'}
                   className="flex-shrink-0 hidden lg:flex"
                 />
               </div>
-              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-28">
+              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                 {filteredTracks.map((track, displayIndex) => {
                   // Find the original index in album.tracks for correct playback
                   const originalIndex = album.tracks.findIndex(t => t === track);
@@ -1311,6 +1327,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                               ...((track as any).persons || []),
                               ...((album as any).persons || []),
                             ]}
+                            funding={(track as any).funding?.length ? (track as any).funding : album.funding}
                             className="text-xs px-2 py-1"
                           />
                         </div>

@@ -3,9 +3,9 @@
 ## A playlist is registered in FOUR places
 
 Nothing fails if you miss one — the playlist just half-exists, and which half depends on which
-registration you skipped. `top100` is the live example: it has a route and a page, but is absent
-from both `PLAYLIST_CONFIGS` and the nightly workflow array, so it is the one playlist that never
-auto-refreshes.
+registration you skipped. `top100` was the example until it was removed (2026-11-01): it had a route
+and a page, but was absent from both `PLAYLIST_CONFIGS` and the nightly workflow array, so it never
+auto-refreshed.
 
 | # | File | What breaks if you skip it |
 |---|---|---|
@@ -52,8 +52,8 @@ export const maxDuration = 300;
 export const GET = createPlaylistHandler(PLAYLIST_CONFIGS.yourPlaylist);
 ```
 
-`app/api/playlist/template.example.ts` is the older hand-rolled approach, kept for the one route
-(`top100`) that needs behaviour the factory doesn't cover. Prefer the factory.
+`app/api/playlist/template.example.ts` is the older hand-rolled approach. No route has used it since
+`top100` was removed (2026-11-01). Use the factory.
 
 ### 3. Create the playlist page
 

@@ -12,6 +12,8 @@ import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { calculateTrackOrder, parsePodcastGuidFromXML, parsePodcastMediumFromXML, fetchChapters, parseChannelPersonsFromXML, parseChannelPodcastImagesFromXML, pickSquareArtwork } from '@/lib/rss-parser-db';
 import { decodeHtmlEntities } from '@/lib/decode-entities';
+import { parseChannelFundingFromXML } from '@/lib/podcast-funding';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
@@ -269,6 +271,10 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
     if (channelPodcastImagesData) {
       console.log(`🖼️ Found ${channelPodcastImages.length} channel-level podcast:image variant(s) for feed ${feedId}`);
     }
+    // Channel-level <podcast:funding> (PayPal, Patreon…), the same reader every
+    // refresh route uses through parseRSSFeed.
+    const channelFunding = xmlText ? parseChannelFundingFromXML(xmlText) : [];
+
     // Fall back to a square podcast:image only when no other image source exists.
     const feedImage = feedData.image || pickSquareArtwork(channelPodcastImagesData) || null;
 
@@ -300,7 +306,8 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
         ...(podcastGuid && { guid: podcastGuid }),
         ...(podcastMedium && { medium: podcastMedium }),
         ...(channelPersonsData && { persons: channelPersonsData }),
-        ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData })
+        ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData }),
+        ...channelFundingFields({ funding: channelFunding })
       },
       update: {
         // Update existing feed metadata
@@ -319,7 +326,8 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
         ...(podcastGuid && { guid: podcastGuid }),
         ...(podcastMedium && { medium: podcastMedium }),
         ...(channelPersonsData && { persons: channelPersonsData }),
-        ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData })
+        ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData }),
+        ...channelFundingFields({ funding: channelFunding })
       }
     });
 

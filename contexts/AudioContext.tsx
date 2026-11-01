@@ -1739,19 +1739,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     loadAlbumsRef.current = loadAlbums;
 
     /**
-     * Data Saver does not pull the whole catalogue on mount.
+     * Nothing pulls the whole catalogue on mount — `shuffleAllTracks` starts the
+     * load when someone shuffles, and RadioClient hands its own list to
+     * `setInitialAlbums`.
      *
      * This request is `/api/albums?limit=0` — every column of every track of up
-     * to 500 feeds, with no per-feed cap, no server cache and no gzip — and
-     * AudioProvider wraps the root layout, so it runs on EVERY page. The only
-     * thing that consumes it is the shuffle pool, which most sessions never
-     * touch. `shuffleAllTracks` now starts it on demand instead.
+     * to 500 feeds: 3.6 MB of JSON, 406 KB gzipped, measured 2026-11-01. And
+     * AudioProvider wraps the root layout, so it ran on EVERY page, for every
+     * visitor, to fill a shuffle pool most sessions never touch (nothing else
+     * reads `albums`). Data Saver made it on-demand first; since 2026-11-01 it
+     * is on-demand for everyone, and the first shuffle waits for it instead.
      */
-    if (isDataSaverOn()) {
-      return;
-    }
-
-    loadAlbums(0);
   }, []); // Run only once on mount
 
   // Helper function to detect if URL is a video
@@ -3780,9 +3778,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     if (pool.length === 0) {
       /**
-       * START the load, do not merely wait for one. Under Data Saver the mount
-       * effect deliberately does not fetch the catalogue, so waiting alone is a
-       * five-second pause followed by a refusal — nobody is loading anything.
+       * START the load, do not merely wait for one. The mount effect
+       * deliberately does not fetch the catalogue (for anyone, since
+       * 2026-11-01), so waiting alone is a five-second pause followed by a
+       * refusal — nobody is loading anything.
        */
       if (!albumsLoadedRef.current && loadAlbumsRef.current) {
         console.log('⏳ Loading albums for shuffle...');

@@ -61,8 +61,8 @@ The workflow's `PLAYLISTS` array is the operative list:
 hgh  mmt  sas  mmm  iam  itdv  b4ts  upbeats  flowgnar  lt  tft  greatest-hits
 ```
 
-That is **12**. There are 13 playlist routes under `app/api/playlist/` — `top100` has a route and a
-page but is not in the nightly array, so it is not refreshed by this job.
+That is **12** — one for each playlist route under `app/api/playlist/`. (`top100` was a 13th, never in
+the array; it was removed on 2026-11-01, when its source chart had been empty since August.)
 
 When adding a playlist, add it to this array too, or it will only ever refresh on a cache miss.
 
@@ -94,7 +94,7 @@ doesn't cover. See the `feed-ingestion` skill for the host coverage table.
 
 ## Troubleshooting
 
-**A playlist isn't updating.** Check whether it's in the `PLAYLISTS` array above — `top100` isn't.
+**A playlist isn't updating.** Check whether it's in the `PLAYLISTS` array above.
 Then refresh it by hand with `?refresh=true` and read the response rather than the page, since the
 client also caches.
 

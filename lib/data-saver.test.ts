@@ -12,6 +12,8 @@ import {
   artworkPlan,
   fallbackArtworkSrc,
   isNextOptimizable,
+  cardArtworkBaseline,
+  CARD_ARTWORK_QUALITY,
   type ArtworkBaseline,
 } from './data-saver';
 
@@ -49,8 +51,10 @@ test('OFF returns the caller baseline field for field — this is the contract',
   // these drift, the promise that "off changes nothing" has been broken and
   // this test is the thing that says so.
   const surfaces: Array<{ name: string; src: string; baseline: ArtworkBaseline }> = [
-    // components/AlbumCard.tsx — hardcodes `unoptimized`, no quality prop.
-    { name: 'grid card', src: 'https://d12wklypp119aj.cloudfront.net/image/a.jpg', baseline: { quality: 75, unoptimized: true } },
+    // components/AlbumCard.tsx — cardArtworkBaseline: resized, quality 85.
+    { name: 'grid card', src: 'https://d12wklypp119aj.cloudfront.net/image/a.jpg', baseline: { quality: 85, unoptimized: false } },
+    // components/AlbumCard.tsx — a host Next is not configured for stays full size.
+    { name: 'grid card, unlisted host', src: 'https://unlisted.example/art/cover.png', baseline: { quality: 85, unoptimized: true } },
     // components/CDNImage.tsx — quality defaults to 85.
     { name: 'CDNImage remote', src: 'https://music.behindthesch3m3s.com/art.png', baseline: { quality: 85, unoptimized: false } },
     // components/CDNImage.tsx — our own route, already unoptimized today.
@@ -216,4 +220,28 @@ test('every ALLOWED_IMAGE_DOMAINS host is also in next.config.js remotePatterns'
 
   const missing = ALLOWED_IMAGE_DOMAINS.filter((d) => !configured.has(d.toLowerCase()));
   assert.deepEqual(missing, [], `hosts in ALLOWED_IMAGE_DOMAINS but not in remotePatterns: ${missing.join(', ')}`);
+});
+
+// AlbumCard hardcoded `unoptimized` until 2026-11-01, so every grid cover went
+// out at full size (the first phone screen: ten Wavlake covers at ~450 KB each
+// in a 175 px box). It now lets the optimizer resize what it safely can.
+test('the grid card resizes a cover on a configured host, at quality 85', () => {
+  assert.deepEqual(cardArtworkBaseline('https://d12wklypp119aj.cloudfront.net/image/a.jpg'), { quality: CARD_ARTWORK_QUALITY, unoptimized: false });
+  assert.equal(CARD_ARTWORK_QUALITY, 85);
+});
+
+test('the grid card keeps full size where resizing would break the cover', () => {
+  // Next answers 400 for an unlisted host — the cover would vanish.
+  assert.equal(cardArtworkBaseline('https://unlisted.example/art/cover.png').unoptimized, true);
+  // Our own route — the optimizer cannot fetch it from inside the server.
+  assert.equal(cardArtworkBaseline('/api/proxy-image?url=https%3A%2F%2Fx.test%2Fa.jpg').unoptimized, true);
+  // An animation — the optimizer would flatten or pass it through.
+  assert.equal(cardArtworkBaseline('https://www.doerfelverse.com/art/alandace.gif').unoptimized, true);
+  assert.equal(cardArtworkBaseline('').unoptimized, true);
+});
+
+test('AlbumCard takes its baseline from cardArtworkBaseline, not a hardcoded unoptimized', () => {
+  const source = readFileSync(new URL('../components/AlbumCard.tsx', import.meta.url), 'utf8');
+  assert.match(source, /baseline: cardArtworkBaseline\(cardSrc\)/);
+  assert.doesNotMatch(source, /baseline: \{ quality: \d+, unoptimized: true \}/);
 });

@@ -27,7 +27,9 @@ import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
 import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
 import { useDataSaver } from '@/hooks/useDataSaver';
-import { artworkPlan } from '@/lib/data-saver';
+import { artworkPlan, cardArtworkBaseline, isGifSource } from '@/lib/data-saver';
+import { gifStillSrc } from '@/lib/gif-still';
+import { albumTrackCount, isPodcastAlbum } from '@/lib/catalog/album-count';
 
 // Hook to manage prefetch based on visibility and hover
 function usePrefetchControl() {
@@ -190,24 +192,40 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
   );
 
   /**
-   * `unoptimized` below is hardcoded TODAY, and on purpose: 271a6ba8 added it to
-   * fix artwork that looked blurry. The cost is that `width`, `height` and
-   * `sizes` on the same element do nothing — Next never resizes — so a
-   * 1400x1400 / 1.26 MB cover is downloaded into a 180px box. That is the
-   * single largest transfer on the home grid, and this card draws the grid,
-   * search, favorites, publisher and playlist pages.
-   *
-   * Data Saver is the user electing to take the softer image. With it off this
-   * resolves to exactly the values that were here before.
+   * An animated cover shows a still first frame here (lib/gif-still.ts); the
+   * album page keeps the animation. 12 catalogue GIFs were 13-41 MB, drawn whole
+   * in a 175 px card. Built from the RAW cover, not `artworkUrl`: that one may
+   * already be wrapped in /api/proxy-image, which the still-frame route refuses.
+   * If the still cannot be made, the card falls back to the full GIF once —
+   * a heavy cover beats no cover.
+   */
+  const rawCover = albumCoverArt || albumImage || '';
+  const [stillFailed, setStillFailed] = useState(false);
+  const stillSrc = useMemo(
+    () => (rawCover && isGifSource(rawCover) ? gifStillSrc(rawCover) : null),
+    [rawCover]
+  );
+  useEffect(() => setStillFailed(false), [stillSrc]);
+  const cardSrc = stillSrc && !stillFailed ? stillSrc : artworkUrl;
+
+  /**
+   * `unoptimized` was hardcoded here until 2026-11-01 (271a6ba8 added it for
+   * blurry covers whose real cause was the `'thumbnail'` source), so `width`,
+   * `height` and `sizes` did nothing and a 1400x1400 cover went into a 175px
+   * box at full size. This card draws the grid, search, favorites, publisher
+   * and playlist pages. `cardArtworkBaseline` now lets the optimizer resize
+   * every cover it safely can, at quality 85; Data Saver goes lower still.
    */
   const dataSaver = useDataSaver();
   const artwork = useMemo(
     () => artworkPlan({
-      src: artworkUrl,
+      src: cardSrc,
       dataSaver,
-      baseline: { quality: 75, unoptimized: true }, // 75 is Next's own default.
+      // Resized by the optimizer wherever that is safe (lib/data-saver.ts). A GIF
+      // still is our own route, already sized, so it stays unoptimized.
+      baseline: cardArtworkBaseline(cardSrc),
     }),
-    [artworkUrl, dataSaver]
+    [cardSrc, dataSaver]
   );
   
   // Check if this is a playlist card, publisher card, and use appropriate URL
@@ -293,7 +311,7 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
         }}
       >
         <Image
-          src={artworkUrl}
+          src={cardSrc}
           alt={`${album.title} by ${album.artist}`}
           width={300}
           height={300}
@@ -303,6 +321,10 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
           style={{ aspectRatio: '1/1' }}
           onLoad={handleImageLoad}
           onError={(e) => {
+            if (stillSrc && !stillFailed) {
+              setStillFailed(true); // re-renders with the full GIF
+              return;
+            }
             const target = e.target as HTMLImageElement;
             target.src = getPlaceholderImageUrl('thumbnail');
             handleImageError();
@@ -373,13 +395,13 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
         </div>
 
         {/* Track count badge or album count for publishers */}
-        {(((album as any).trackCount || album.tracks?.length || 0) > 0 || isPublisherCard) && (
+        {(albumTrackCount(album as any) > 0 || isPublisherCard) && (
           <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/90 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white border border-gray-600">
             {isPublisherCard
               ? `${(album as any).albumCount || 0} ${((album as any).albumCount || 0) !== 1 ? 'releases' : 'release'}`
               : (() => {
-                  const count = (album as any).trackCount || album.tracks?.length || 0;
-                  const isPodcast = (album as any).isPodcast === true;
+                  const count = albumTrackCount(album as any);
+                  const isPodcast = isPodcastAlbum(album as any);
                   // `hasVideoTracks` is for callers that omit `album.tracks`
                   // — listing pages, which no longer ship a track list per
                   // album. When the tracks ARE present that answer is exact and
@@ -557,6 +579,10 @@ export default memo(AlbumCard, (prevProps, nextProps) => {
     prevProps.isPlaying === nextProps.isPlaying &&
     prevProps.className === nextProps.className &&
     (prevProps.album.tracks?.length || 0) === (nextProps.album.tracks?.length || 0) &&
+    // The badge reads this, and `tracks` is cut at 20, so a list that grows
+    // past 20 changes the count while the line above stays equal.
+    albumTrackCount(prevProps.album as any) === albumTrackCount(nextProps.album as any) &&
+    isPodcastAlbum(prevProps.album as any) === isPodcastAlbum(nextProps.album as any) &&
     // Listing pages send this instead of a track list, so on those pages the
     // line above compares 0 to 0 and would never notice a change.
     (prevProps.album as any).downloadableTrackCount ===
