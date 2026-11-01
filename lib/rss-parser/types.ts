@@ -147,6 +147,13 @@ export interface RSSAlbum {
   guid?: string; // Episode GUID for Helipad TLV
   episodeGuid?: string; // Alternative episode GUID field
   totalTracks?: number;
+  /**
+   * The feed's real track count from /api/albums-fast. `tracks` there is cut at
+   * 20, so count with `albumTrackCount()` (lib/catalog/album-count.ts).
+   */
+  trackCount?: number;
+  /** The Feed row's own classification ('album', 'podcast', …), not `medium`. */
+  type?: string;
   /** When the feed/item was added to the site; used for "Added" sort. */
   dateAdded?: string;
   // V4V (Value4Value) fields

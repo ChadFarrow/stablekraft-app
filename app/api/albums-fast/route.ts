@@ -431,10 +431,11 @@ export async function GET(request: Request) {
         filteredAlbums.sort((a, b) => (a.trackCount || 0) - (b.trackCount || 0));
         break;
       default: {
-        // Default: format (Albums → EPs → Singles) then alphabetically by title
-        // Build a Map for O(1) feed lookups instead of O(n) .find() per album
-        const feedMap = new Map(feeds.map(f => [f.id, f]));
-
+        // Default: format (Albums → EPs → Singles) then alphabetically by title.
+        // Classified by `trackCount`, the same number formatCounts below uses and
+        // the card shows: the client pages through this order one format at a
+        // time using formatCounts, so the two must agree. This read the raw
+        // `_count` row count, which counts a duplicate Track row twice.
         const getFormatOrder = (trackCount: number) => {
           if (trackCount >= 6) return 1; // Albums first
           if (trackCount >= 2) return 2; // EPs second
@@ -442,8 +443,8 @@ export async function GET(request: Request) {
         };
 
         filteredAlbums.sort((a, b) => {
-          const aCount = feedMap.get(a.id)?._count?.Track || 0;
-          const bCount = feedMap.get(b.id)?._count?.Track || 0;
+          const aCount = a.trackCount || 0;
+          const bCount = b.trackCount || 0;
 
           const aFormatOrder = getFormatOrder(aCount);
           const bFormatOrder = getFormatOrder(bCount);
