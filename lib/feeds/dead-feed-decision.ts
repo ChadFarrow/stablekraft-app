@@ -221,6 +221,59 @@ export function decideDeadFeed(input: {
   return { action: 'hide', reason: `HTTP ${ownStatus}` };
 }
 
+/** One stored track's audio URL, fetched. `contentType` only matters on a 2xx. */
+export interface AudioProbe {
+  status: number | 'error';
+  contentType?: string | null;
+}
+
+export interface AudioVerdict {
+  verdict: 'plays' | 'silent' | 'unknown';
+  /** Probed tracks whose audio answered as something a player can play. */
+  playing: number;
+  probed: number;
+}
+
+/**
+ * Does any of a dead feed's stored tracks still play?
+ *
+ * A feed URL that answers 410 says nothing about its audio. RSS Blue proved it: of the
+ * 126 albums with no new home, 122 had audio that answered 410 too, but 4 (Catacomb,
+ * lemons, socrates, Worried) kept their audio on Fountain and still played. Hiding
+ * those would take playable music out of the catalog.
+ *
+ * - `plays`: a track answered 2xx with anything but a web page. Generous on purpose.
+ * - `silent`: EVERY stored track answered 404/410, or a 2xx web page in place of the
+ *   audio (a host that redirects dead files to its home page — Stereon Music's second
+ *   track). No tracks at all is silent too: nothing that plays can be lost.
+ * - `unknown`: anything else — an error, a timeout, 401/403/429, a 5xx, a 3xx — or
+ *   fewer tracks probed than stored. Never hide on it.
+ */
+export function audioVerdict(probes: AudioProbe[], stored: number): AudioVerdict {
+  const isPage = (p: AudioProbe) => /^\s*text\/html\b/i.test(p.contentType ?? '');
+  const plays = (p: AudioProbe) => typeof p.status === 'number' && p.status >= 200 && p.status < 300 && !isPage(p);
+  const silent = (p: AudioProbe) => p.status === 404 || p.status === 410 || (typeof p.status === 'number' && p.status >= 200 && p.status < 300 && isPage(p));
+  const playing = probes.filter(plays).length;
+  const verdict = playing > 0 ? 'plays' : probes.every(silent) && probes.length >= stored ? 'silent' : 'unknown';
+  return { verdict, playing, probed: probes.length };
+}
+
+/**
+ * The last word on a HIDE: a dead feed is hidden only when none of its tracks plays.
+ * One that still plays goes to `needsReview` and stays visible; one whose audio could
+ * not be checked goes to `unconfirmed`. Every other action passes through unchanged.
+ */
+export function applyAudioCheck(d: DeadFeedAction, a: AudioVerdict): DeadFeedAction {
+  if (d.action !== 'hide') return d;
+  if (a.verdict === 'plays') {
+    return { action: 'needsReview', reason: `${d.reason}; but ${a.playing} track(s) still play, so it stays visible` };
+  }
+  if (a.verdict === 'unknown') {
+    return { action: 'unconfirmed', reason: `${d.reason}; its track audio could not be checked, so it stays visible` };
+  }
+  return { action: 'hide', reason: `${d.reason}; none of ${a.probed} track(s) plays` };
+}
+
 /**
  * The next page's offset. A non-dry run that HID feeds removed them from the
  * `markedDead: false` set it pages over, so every later row moved up by that many;

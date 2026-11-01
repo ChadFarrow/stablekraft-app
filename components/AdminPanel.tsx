@@ -2197,7 +2197,7 @@ export default function AdminPanel() {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-6 mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Check for Dead Feeds</h2>
           <p className="text-sm text-gray-400 mb-4">
-            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL that still lists every track under the same item guid, the feed and the audio of its tracks move there together, and the feed is then refreshed; otherwise it is hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing changes until you confirm.
+            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL that still lists every track under the same item guid, the feed and the audio of its tracks move there together, and the feed is then refreshed; otherwise, if none of its tracks still plays, it is hidden via the same reversible flag as &quot;Hide Feed&quot; above (one whose tracks still play goes to review instead). Preview first — nothing changes until you confirm.
           </p>
           <div className="flex gap-2">
             <button
