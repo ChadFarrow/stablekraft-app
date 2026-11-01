@@ -25,9 +25,9 @@ const refreshLimiter = new RateLimiter(30, 60_000);
 const FEED_REFRESH_WINDOW_MS = 5 * 60_000;
 const feedRefreshes = new RefreshCoalescer({ windowMs: FEED_REFRESH_WINDOW_MS });
 
-/** A real admin (secret set AND matched) skips the window. checkAdminAuth alone fails open. */
-function isAuthenticatedAdmin(request: NextRequest): boolean {
-  return !!process.env.ADMIN_SECRET && checkAdminAuth(request) === null;
+/** A real admin (secret set AND matched, by bearer or Nostr admin cookie) skips the window. checkAdminAuth alone fails open. */
+async function isAuthenticatedAdmin(request: NextRequest): Promise<boolean> {
+  return !!process.env.ADMIN_SECRET && (await checkAdminAuth(request)) === null;
 }
 
 interface RefreshContext {
@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
       feedId,
       () => refreshFeed(ctx),
       () => refreshFeedLater(feedId, ctx),
-      { bypass: isAuthenticatedAdmin(request) }
+      { bypass: await isAuthenticatedAdmin(request) }
     );
     if (outcome.ran) return outcome.value;
     // 202, not 429: the podping service logs any non-5xx status as done and does
