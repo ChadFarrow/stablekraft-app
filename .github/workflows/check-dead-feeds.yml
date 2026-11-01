@@ -5,7 +5,8 @@ name: Check Dead Feeds
 # or when PI's record for its guid now lives on another host. Each candidate is
 # confirmed with a direct 404/410 fetch; then it is MOVED to its new home (same
 # podcast:guid and item guids, verified live; the URL and every track's audio move
-# in one transaction) or HIDDEN via markedDead. Moved feeds are then refreshed for
+# in one transaction) or HIDDEN via markedDead, but only when none of its tracks
+# still plays (one that plays goes to review). Moved feeds are then refreshed for
 # their artwork and metadata. Hiding is reversible
 # from the admin "Hide Feed" card, and the run's JSON report (logged below) is
 # the audit trail of what was moved and hidden each week.

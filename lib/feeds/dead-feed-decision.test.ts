@@ -9,6 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applyAudioCheck,
+  audioVerdict,
   decideDeadFeed,
   hostOf,
   isHostMove,
@@ -184,4 +186,63 @@ test('a page that HID feeds does not skip the feeds that moved up', () => {
   assert.equal(nextPageOffset(0, 300, 1000, 0), 300);
   assert.equal(nextPageOffset(900, 100, 1000, 5), null);
   assert.equal(nextPageOffset(700, 300, 1000, 0), null);
+});
+
+// --- never hide an album that still plays ------------------------------------
+// 4 of the 126 RSS Blue albums with no new home kept their audio on Fountain
+// (Catacomb, lemons, socrates, Worried): the feed answers 410, the tracks play.
+
+test('audioVerdict: one track that plays keeps the album', () => {
+  const v = audioVerdict([{ status: 410 }, { status: 206, contentType: 'audio/mpeg' }], 2);
+  assert.deepEqual(v, { verdict: 'plays', playing: 1, probed: 2 });
+  // A 200 whose type is not a web page counts as playable — be generous here.
+  assert.equal(audioVerdict([{ status: 200, contentType: 'application/octet-stream' }], 1).verdict, 'plays');
+  assert.equal(audioVerdict([{ status: 200, contentType: null }], 1).verdict, 'plays');
+});
+
+test('audioVerdict: 404, 410 and a web page in place of the audio are silent', () => {
+  // Stereon Music: one track 410, the other redirected to the rssblue.com home page.
+  assert.equal(audioVerdict([{ status: 410 }, { status: 200, contentType: 'text/html; charset=utf-8' }], 2).verdict, 'silent');
+  assert.equal(audioVerdict([{ status: 404 }], 1).verdict, 'silent');
+});
+
+test('audioVerdict: an error, a refusal or an outage proves nothing', () => {
+  for (const s of ['error', 401, 403, 429, 500, 503, 302] as const) {
+    assert.equal(audioVerdict([{ status: 410 }, { status: s }], 2).verdict, 'unknown', String(s));
+  }
+});
+
+test('audioVerdict: silent needs EVERY stored track checked', () => {
+  // The route stops probing at a cap; an unprobed track might play.
+  assert.equal(audioVerdict([{ status: 410 }, { status: 410 }], 3).verdict, 'unknown');
+  // No tracks stored: nothing that plays can be lost.
+  assert.equal(audioVerdict([], 0).verdict, 'silent');
+});
+
+test('a dead feed whose tracks still play is never hidden — it goes to review', () => {
+  const d = applyAudioCheck({ action: 'hide', reason: 'HTTP 410' }, audioVerdict([{ status: 206, contentType: 'audio/mpeg' }], 1));
+  assert.equal(d.action, 'needsReview');
+  assert.match(d.reason, /HTTP 410/);
+  assert.match(d.reason, /1 track\(s\) still play/);
+});
+
+test('a hide waits when the audio could not be checked', () => {
+  const d = applyAudioCheck({ action: 'hide', reason: 'HTTP 410' }, audioVerdict([{ status: 'error' }], 1));
+  assert.equal(d.action, 'unconfirmed');
+  assert.match(d.reason, /could not be checked/);
+});
+
+test('a silent feed is hidden, and the reason says no track plays', () => {
+  const d = applyAudioCheck({ action: 'hide', reason: 'HTTP 410' }, audioVerdict([{ status: 410 }, { status: 410 }], 2));
+  assert.equal(d.action, 'hide');
+  assert.match(d.reason, /HTTP 410; none of 2 track\(s\) plays/);
+  assert.equal(applyAudioCheck({ action: 'hide', reason: 'HTTP 410' }, audioVerdict([], 0)).action, 'hide');
+});
+
+test('applyAudioCheck changes only a hide', () => {
+  const plays = audioVerdict([{ status: 206, contentType: 'audio/mpeg' }], 1);
+  const relocate = { action: 'relocate' as const, to: EPOCH, reason: 'moved' };
+  assert.deepEqual(applyAudioCheck(relocate, plays), relocate);
+  const review = { action: 'needsReview' as const, reason: 'x' };
+  assert.deepEqual(applyAudioCheck(review, plays), review);
 });

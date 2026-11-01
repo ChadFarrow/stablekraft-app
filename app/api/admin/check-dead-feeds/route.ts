@@ -7,12 +7,16 @@ import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { parsePodcastGuidFromXML, parseRSSFeed } from '@/lib/rss-parser-db';
 import { safeFetch, readCappedText, MAX_FEED_BYTES, type FetchLike } from '@/lib/safe-fetch';
 import {
+  applyAudioCheck,
+  audioVerdict,
   decideDeadFeed,
   isHostMove,
   matchTracksByGuid,
   nextPageOffset,
   refreshSaysGone,
   sameFeedUrl,
+  type AudioProbe,
+  type AudioVerdict,
   type ConfirmStatus,
   type DeadFeedSignal,
   type NewHomeCheck,
@@ -43,7 +47,10 @@ import {
  *      the feed is RELOCATED there: `originalUrl` and each track's `audioUrl`
  *      move in ONE transaction, so a moved album plays even if no refresh ever
  *      follows (the caller still refreshes it, for artwork and metadata).
- *      Otherwise it is HIDDEN. PI-says-dead-but-URL-200 and a new home whose
+ *      Otherwise it is HIDDEN — but only when none of its stored tracks
+ *      still plays (`checkTrackAudio`): a dead feed URL says nothing about
+ *      its audio, and 4 RSS Blue albums kept theirs on Fountain. One that
+ *      plays goes to `needsReview`. PI-says-dead-but-URL-200 and a new home whose
  *      item guids changed go to `needsReview`; transient errors, at either
  *      URL, go to `unconfirmed`. Neither is touched.
  *
@@ -60,6 +67,13 @@ import {
 const PI_BATCH_SIZE = 15;
 const PI_BATCH_DELAY_MS = 250;
 const CONFIRM_TIMEOUT_MS = 15000;
+// Before a hide, each stored track's audio is asked for its first two bytes.
+const AUDIO_PROBE_TIMEOUT_MS = 10000;
+// Podcast prefixes chain redirects (op3 → podtrac → chartable → host).
+const AUDIO_PROBE_MAX_REDIRECTS = 6;
+const AUDIO_PROBE_BATCH = 4;
+// More tracks than this and the feed cannot be proven silent: it stays visible.
+const MAX_AUDIO_PROBES = 100;
 // Paginate: the active-feed set is large (thousands), so a single request
 // processes one bounded slice and returns `nextOffset`. The weekly workflow
 // (and any caller) loops until `nextOffset` is null. Keeps each request well
@@ -189,6 +203,42 @@ async function checkNewHome(feed: FeedRow, piUrl: string): Promise<NewHome> {
   return { check: { ...check, tracks: { stored: m.stored, matched: m.matched } }, audioMoves: m.audioMoves };
 }
 
+/** The first two bytes of one track's audio: enough for the status and the type. */
+async function probeAudio(url: string): Promise<AudioProbe> {
+  const deadline = AbortSignal.timeout(AUDIO_PROBE_TIMEOUT_MS);
+  const withDeadline: FetchLike = (u, init) =>
+    fetch(u, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
+  try {
+    const got = await safeFetch(url, {
+      allowHttp: true,
+      maxRedirects: AUDIO_PROBE_MAX_REDIRECTS,
+      timeoutMs: AUDIO_PROBE_TIMEOUT_MS,
+      headers: { 'User-Agent': 'StableKraft-Feed-Parser/1.0', Range: 'bytes=0-1' },
+      fetchImpl: withDeadline,
+    });
+    if (!got.ok) return { status: 'error' };
+    await got.response.body?.cancel().catch(() => {});
+    return { status: got.response.status, contentType: got.response.headers.get('content-type') };
+  } catch {
+    return { status: 'error' };
+  }
+}
+
+/**
+ * Does any stored track of this feed still play? Probed a few at a time, stopping
+ * at the first that plays. A feed is hidden only when this says `silent`.
+ */
+async function checkTrackAudio(feedId: string): Promise<AudioVerdict> {
+  const tracks = await prisma.track.findMany({ where: { feedId }, select: { audioUrl: true }, orderBy: { id: 'asc' } });
+  const urls = tracks.slice(0, MAX_AUDIO_PROBES).map((t) => t.audioUrl);
+  const probes: AudioProbe[] = [];
+  for (let i = 0; i < urls.length; i += AUDIO_PROBE_BATCH) {
+    probes.push(...(await Promise.all(urls.slice(i, i + AUDIO_PROBE_BATCH).map(probeAudio))));
+    if (audioVerdict(probes, tracks.length).verdict === 'plays') break;
+  }
+  return audioVerdict(probes, tracks.length);
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -277,7 +327,9 @@ export async function POST(request: NextRequest) {
       // Fetch the new home only for a feed whose own URL is confirmed gone.
       const gone = own.status === 404 || own.status === 410;
       const newHome = gone && piUrl ? await checkNewHome(feed, piUrl) : null;
-      const d = decideDeadFeed({ signals, ownStatus: own.status, newHome: newHome?.check });
+      let d = decideDeadFeed({ signals, ownStatus: own.status, newHome: newHome?.check });
+      // The feed is gone; its music may not be. Never hide an album that still plays.
+      if (d.action === 'hide') d = applyAudioCheck(d, await checkTrackAudio(feed.id));
       const reason =
         own.status === 'error'
           ? own.reason ?? d.reason
