@@ -6,6 +6,7 @@ import { playlistCache } from '@/lib/playlist-cache';
 import { prisma } from '@/lib/prisma';
 import { validateDuration } from '@/lib/duration-validation';
 import { decodeHtmlEntitiesInUrl } from '@/lib/cdn-utils';
+import { top100EmptyNotice } from '@/lib/playlist/top100-notice';
 
 // Set timeout to 60 seconds (works on most Vercel plans)
 export const maxDuration = 60;
@@ -94,6 +95,8 @@ export async function GET(request: Request) {
       publishedAt: new Date(data.timestamp * 1000).toISOString(),
       isPlaylistCard: true,
       playlistUrl: '/playlist/top100',
+      // Shown by PlaylistTemplateCompact in place of "No tracks available" (lib/playlist/top100-notice.ts).
+      emptyNotice: top100EmptyNotice(data.items.length, tracks.length, data.timestamp),
       playlistContext: {
         source: 'top100-playlist',
         originalUrl: TOP100_JSON_URL,
