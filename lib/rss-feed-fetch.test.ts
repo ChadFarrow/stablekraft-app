@@ -46,3 +46,21 @@ test('the feed is fetched once for both its items and its music segments', async
     f.restore();
   }
 });
+
+test('the feed fetch carries a timeout, so one silent host cannot hold a whole reparse', async () => {
+  // A host that accepts the connection and never answers held a nightly batch until
+  // Railway cut the request at 300 s. Every fetch must carry an AbortSignal.
+  const original = globalThis.fetch;
+  let signal: AbortSignal | undefined;
+  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+    signal = init?.signal ?? undefined;
+    return new Response(FEED, { status: 200 });
+  }) as typeof fetch;
+  try {
+    await parseRSSFeedWithSegments('https://example.com/feed.xml');
+    assert.ok(signal instanceof AbortSignal, 'fetchFeedXml passes no AbortSignal');
+    assert.equal(signal.aborted, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
