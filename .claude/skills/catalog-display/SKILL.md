@@ -71,6 +71,14 @@ Three exclusion layers, each catches what the others miss: `where: { type: 'albu
 2. Index fallback over the episodes array. `getEpisodesFromAPI` (`lib/feed-parsing.ts`) sorts PI episodes by `datePublished` ascending — do **not** remove the sort; PI returns newest-first and the raw order reversed every PI-imported album without itunes episode tags (PR #150).
 3. Identical-timestamp items stay in PI's arbitrary tie order. Corrective: admin reparse, which uses RSS document order (also auto-runs nightly for newly imported feeds via Step 5c).
 
+**A podcast skips all of this: its album page lists episodes newest first by `publishedAt`.** Rule 1 breaks on
+feeds that tag some items and not others — Rollz Radio's 008 and 009 carry no `<itunes:season>`, so they scored
+8 and 9 against 1001–1014 for the rest and sat on top (2026-11-01). `isPodcastFeed()` (`lib/podcast-feeds.ts`)
+decides, and both album objects in `/api/albums/[slug]` ask it: `Feed.type === 'podcast'` first, then the
+hand-kept `PODCAST_FEED_IDS`/`PODCAST_FEED_URLS`. Those lists used to be the only test, so the five
+`type = 'podcast'` feeds nobody had listed rendered as music albums. The second album object (the flexible title
+match) never handled podcasts at all. `lib/podcast-feeds.test.ts` pins both, and the order.
+
 ---
 
 ## Duration Filtering

@@ -1127,7 +1127,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   onShuffle={shuffleAllTracks}
                   showShuffle={true}
                   resultCount={filteredTracks.length}
-                  resultLabel={filterParam === 'videos' ? 'video tracks' : 'tracks'}
+                  resultLabel={filterParam === 'videos' ? 'video tracks' : (album as any)?.isPodcast ? 'episodes' : 'tracks'}
                   className="flex-shrink-0 hidden lg:flex"
                 />
               </div>
