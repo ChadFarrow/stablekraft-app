@@ -170,7 +170,8 @@ line holds the full story.
   still sent ~2.3 GB/day, and the HTTP logs put 99% of it on two uncached readers: a `/api/albums/[slug]` that
   matched nothing read every active feed with all its tracks (33 MB per miss; 368 misses, mostly crawlers on bad
   `/album/` URLs that the page's own metadata and Open Graph fetches then asked again), and `/api/albums`
-  (4.8 MB per call, sent on every page load by `AudioProvider`) — issue #272. Attribute egress per route before
+  (4.8 MB per call, sent on every page load by `AudioProvider` — on demand, at the first shuffle, since 2026-11-01)
+  — issue #272. Attribute egress per route before
   fixing a reader; see *Reading PRODUCTION* under Commands. The public proxy is also why
   `railway run --service StableKraft` works from a laptop: the app's `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
   `railway run` command.
@@ -273,8 +274,9 @@ line holds the full story.
   a bare `curl`, which asks for no encoding and so always gets the raw body.
 - **There is a Data Saver mode, and OFF must stay byte-for-byte what it is today.** A manual switch
   (`sk_data_saver`, Settings → Data & Offline), never auto-enabled — `navigator.connection.saveData` is
-  deliberately not consulted, for the reason Offline mode ignores `navigator.onLine`. It spans artwork, the
-  catalog fetch, audio prefetch and the wallet chunk, so the decision lives in **one** pure function,
+  deliberately not consulted, for the reason Offline mode ignores `navigator.onLine`. It spans artwork, audio
+  prefetch and the wallet chunk (it also gated the catalog fetch, which is on demand for everyone since
+  2026-11-01), so the decision lives in **one** pure function,
   `artworkPlan()` in `lib/data-saver.ts` — a branch per component is the N-places bug this file keeps
   describing. **Three** of the four artwork paths ask it today (`AlbumCard`, `CDNImage`, `ArtworkImage`); the
   33 raw `<img>` tags do not, and simply save nothing. Wire a new one by calling `artworkPlan`, never by

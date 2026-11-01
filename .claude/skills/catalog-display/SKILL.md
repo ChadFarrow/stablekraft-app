@@ -229,6 +229,8 @@ Three things that read as if they shrink an image and do not:
 **`/api/optimized-images/[filename]` does not resize either.** It serves the pre-baked file with a content
 type; the `?w=&h=&q=&f=webp` parameters `CDNImage` builds for it are ignored.
 
+**The layout rocket wallpaper is left out where it is covered** (`lib/layout-background.ts`, since 2026-11-01). `app/layout.tsx` painted `/stablekraft-rocket.webp` (203 KB) on every route, but the album/podcast page and every `PlaylistTemplateCompact` page paint an opaque layer over it, so it was downloaded and never seen — a screenshot with it forced back on differs by 0.000%. `LayoutRocketBackground` renders the element without the image on those routes; `lib/layout-background.test.ts` keeps the playlist list in step with `app/playlist`. Both rocket files go out with `max-age=2592000` (`next.config.js`) where `public/` otherwise sends `max-age=0` — so **change a rocket by giving the file a new name**, never in place.
+
 ---
 
 ## Episode/Play Count Markers
