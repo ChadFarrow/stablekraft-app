@@ -37,9 +37,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(null);
   const [playlistArtwork, setPlaylistArtwork] = useState<string | null>(null);
   const [playlistLink, setPlaylistLink] = useState<string | null>(null);
-  // Why the playlist is empty, when its API knows (only /api/playlist/top100 says so today).
-  // Never cached: the cache is only read when it holds tracks.
-  const [emptyNotice, setEmptyNotice] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   // Search and filtering
@@ -247,7 +244,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       if (data.albums && data.albums[0] && data.albums[0].link) {
         setPlaylistLink(data.albums[0].link);
       }
-      setEmptyNotice(typeof data.albums?.[0]?.emptyNotice === 'string' ? data.albums[0].emptyNotice : null);
 
       logger.info(`✅ Loaded ${tracksData.length} tracks for ${config.title}`);
       console.log(`🔍 First track sample:`, tracksData[0]);
@@ -871,26 +867,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 {/* Title & Description */}
                 <div className="text-center lg:text-left">
                   <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                    {config.title.includes('Top 100') ? (
-                      <>
-                        Top{' '}
-                        <span className="relative inline-block mx-2">
-                          <span className="line-through opacity-50">100</span>
-                          <span
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 font-black -rotate-12 text-[2.5rem] md:text-[3rem]"
-                            style={{
-                              textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(239, 68, 68, 0.7), 0 0 20px rgba(239, 68, 68, 0.5)',
-                              WebkitTextStroke: '2px black'
-                            }}
-                          >
-                            {tracks.length}
-                          </span>
-                        </span>
-                        {' '}V4V Music
-                      </>
-                    ) : (
-                      config.title
-                    )}
+                    {config.title}
                   </h1>
                   <p className="text-gray-300">{config.description}</p>
                 </div>
@@ -1214,20 +1191,6 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                             <Play className="h-5 w-5 text-white" />
                           )}
                         </button>
-                        {/* Rank badge for Top 100 */}
-                        {track.rank && (
-                          <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md ${
-                            track.rank === 1
-                              ? 'bg-yellow-500 text-black'
-                              : track.rank <= 3
-                                ? 'bg-gray-300 text-black'
-                                : track.rank <= 10
-                                  ? 'bg-amber-700 text-white'
-                                  : 'bg-gray-700 text-white'
-                          }`}>
-                            {track.rank}
-                          </div>
-                        )}
                       </div>
                     ) : (
                       /* Fallback: Track Number / Play Button when no image */
@@ -1375,7 +1338,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                     </div>
                     <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
                     <p className="text-gray-400" data-testid="playlist-empty-message">
-                      {searchQuery ? 'Try adjusting your search query' : (emptyNotice || 'No tracks available in this playlist')}
+                      {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
                     </p>
                   </div>
                 )}

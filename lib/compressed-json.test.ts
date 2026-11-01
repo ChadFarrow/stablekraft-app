@@ -89,7 +89,8 @@ test('keeps the status and every header the caller passed', async () => {
 test('/api/albums/[slug] gzips every album it returns', () => {
   const source = readFileSync(new URL('../app/api/albums/[slug]/route.ts', import.meta.url), 'utf8');
   const successReturns = source.match(/return compressedJson\(request, \{\s*album: /g) ?? [];
-  assert.ok(successReturns.length >= 6, `expected the album returns to use compressedJson, found ${successReturns.length}`);
+  // Five since the Top 100 branch was removed (2026-11-01); it was the sixth.
+  assert.ok(successReturns.length >= 5, `expected the album returns to use compressedJson, found ${successReturns.length}`);
   assert.doesNotMatch(
     source,
     /NextResponse\.json\(\{\s*album: (?!null)/,

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
 export interface PlaylistRequestParams {
-  type?: 'itdv' | 'hgh' | 'top100';
+  type?: 'itdv' | 'hgh';
   format?: 'json' | 'rss';
   limit?: number;
   offset?: number;
@@ -48,8 +48,6 @@ export class PlaylistAPIHandler {
           return this.handleITDVPlaylist(params);
         case 'hgh':
           return this.handleHGHPlaylist(params);
-        case 'top100':
-          return this.handleTop100Playlist(params);
         default:
           return this.handlePlaylistIndex();
       }
@@ -101,8 +99,6 @@ export class PlaylistAPIHandler {
       type = 'itdv';
     } else if (pathname.includes('/hgh')) {
       type = 'hgh';
-    } else if (pathname.includes('/top100')) {
-      type = 'top100';
     } else {
       type = searchParams.get('type') as PlaylistRequestParams['type'];
     }
@@ -195,32 +191,6 @@ export class PlaylistAPIHandler {
     }
   }
 
-  private static async handleTop100Playlist(params: PlaylistRequestParams): Promise<NextResponse> {
-    try {
-      // Load top 100 tracks
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/top100-music`);
-      const data = await response.json();
-
-      return NextResponse.json({
-        success: true,
-        playlist: {
-          id: 'top100',
-          title: 'Top 100 Music Tracks',
-          description: 'Top 100 most popular music tracks',
-          type: 'top-tracks',
-          tracks: data.tracks || [],
-          metadata: {
-            totalTracks: data.tracks?.length || 0,
-            lastUpdated: new Date().toISOString()
-          }
-        }
-      });
-    } catch (error) {
-      logger.error('Top 100 playlist request failed', error);
-      throw error;
-    }
-  }
-
   private static async handlePlaylistIndex(): Promise<NextResponse> {
     try {
       const playlists = [
@@ -242,15 +212,6 @@ export class PlaylistAPIHandler {
           endpoints: {
             json: '/api/playlist?type=hgh',
             rss: '/api/playlist?type=hgh&format=rss'
-          }
-        },
-        {
-          id: 'top100',
-          title: 'Top 100 Music Tracks',
-          description: 'Top 100 most popular music tracks',
-          trackCount: null,
-          endpoints: {
-            json: '/api/playlist?type=top100'
           }
         }
       ];
