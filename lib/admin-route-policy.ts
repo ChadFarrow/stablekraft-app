@@ -120,7 +120,7 @@ export function requiresAdminAuth(
   if (upper === 'OPTIONS') return false;
 
   if (pathname.startsWith('/api/admin/')) {
-    // npub-allowlist login check, used by AdminPanel before it has the secret.
+    // The Nostr admin sign-in (lib/admin-session.ts): how an operator gets through this gate.
     return pathname !== '/api/admin/verify';
   }
 
