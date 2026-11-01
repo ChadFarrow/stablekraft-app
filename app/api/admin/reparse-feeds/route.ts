@@ -5,16 +5,33 @@ import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
+import { getPodcastIndexLastUpdateByGuid } from '@/lib/podcast-index-api';
+import {
+  BUDGET_SECONDS_DEFAULT,
+  WAVLAKE_LOOKBACK_DAYS_DEFAULT,
+  WAVLAKE_SPACING_MS_DEFAULT,
+  categorizeReparseError,
+  isWavlakeFeedUrl,
+  planWavlakeLane,
+} from '@/lib/feeds/reparse-plan';
 
 /**
  * POST /api/admin/reparse-feeds
- * Bulk reparse feeds to detect new tracks
+ * Bulk reparse feeds to detect new tracks (the nightly refresh-playlists.yml Step 2).
  *
  * Query parameters:
  * - type: 'album' | 'music' | 'publisher' | 'all' (default: 'album')
  * - maxAgeHours: Only reparse feeds older than X hours (default: 12)
- * - batchSize: Concurrent feeds per batch (default: 5)
- * - limit: Max feeds to process (default: 100)
+ * - batchSize: Concurrent non-Wavlake feeds per batch (default: 5)
+ * - limit: Max non-Wavlake feeds selected per call (default: 100)
+ * - budgetSeconds: Start no new feed after this (default: 240). The answer then carries
+ *   `remaining` > 0 and the caller calls again — Railway cuts a request at 300 s.
+ * - wavlake: 'changed' (default) | 'skip'
+ * - wavlakeSpacingMs: Pause between two Wavlake fetches (default: 1500)
+ * - wavlakeLookbackDays: Catch-up window for Wavlake feeds whose last attempt failed (default: 60)
+ *
+ * Wavlake feeds never join the parallel batches. lib/feeds/reparse-plan.ts says why,
+ * and decides which of them are due.
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -23,92 +40,61 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'album';
     const maxAgeHours = parseInt(searchParams.get('maxAgeHours') || '12', 10);
-    const batchSize = parseInt(searchParams.get('batchSize') || '5', 10);
+    const batchSize = Math.max(1, parseInt(searchParams.get('batchSize') || '5', 10) || 5);
     const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const budgetMs = Math.max(0, Number(searchParams.get('budgetSeconds') ?? BUDGET_SECONDS_DEFAULT) || 0) * 1000;
+    const wavlakeMode = searchParams.get('wavlake') === 'skip' ? 'skip' : 'changed';
+    const wavlakeSpacingMs = Math.max(0, Number(searchParams.get('wavlakeSpacingMs') ?? WAVLAKE_SPACING_MS_DEFAULT) || 0);
+    const lookbackMs = Math.max(0, Number(searchParams.get('wavlakeLookbackDays') ?? WAVLAKE_LOOKBACK_DAYS_DEFAULT) || 0) * 24 * 60 * 60 * 1000;
+    const budgetLeft = () => Date.now() - startTime < budgetMs;
 
-    console.log(`🔄 Starting bulk reparse: type=${type}, maxAgeHours=${maxAgeHours}, batchSize=${batchSize}, limit=${limit}`);
+    console.log(`🔄 Starting bulk reparse: type=${type}, maxAgeHours=${maxAgeHours}, batchSize=${batchSize}, limit=${limit}, budget=${budgetMs / 1000}s, wavlake=${wavlakeMode}`);
 
     // Calculate cutoff time
     const cutoffTime = new Date(Date.now() - (maxAgeHours * 60 * 60 * 1000));
+    const dueByAge = { OR: [{ lastFetched: null }, { lastFetched: { lt: cutoffTime } }] };
+    const onWavlake = { originalUrl: { contains: 'wavlake.com', mode: 'insensitive' as const } };
 
-    // Find feeds that need reparsing
-    // For publisher feeds, include even those without tracks (newly added)
-    // For album/music feeds, require at least one track (already parsed)
-
-    // Build the where clause based on type
-    let whereClause: any;
-
+    // Which feeds this type covers. For publisher feeds, include even those without
+    // tracks (newly added); album/music feeds need at least one track (already parsed).
+    let baseWhere: any;
     if (type === 'publisher') {
-      // Publisher feeds don't need tracks - they reference albums via remoteItem
-      whereClause = {
-        status: 'active',
-        type: 'publisher',
-        OR: [
-          { lastFetched: null },
-          { lastFetched: { lt: cutoffTime } }
-        ]
-      };
+      baseWhere = { status: 'active', type: 'publisher' };
     } else if (type === 'all') {
-      // For 'all': publisher feeds don't need tracks, others do
-      whereClause = {
+      baseWhere = {
         status: 'active',
         type: { in: ['album', 'music', 'publisher', 'podcast'] },
-        OR: [
-          { lastFetched: null },
-          { lastFetched: { lt: cutoffTime } }
-        ],
-        // Either it's a publisher feed, or it has tracks
-        AND: [
-          {
-            OR: [
-              { type: 'publisher' },
-              { Track: { some: {} } }
-            ]
-          }
-        ]
+        OR: [{ type: 'publisher' }, { Track: { some: {} } }],
       };
     } else {
-      // album or music - require tracks
-      whereClause = {
-        status: 'active',
-        type,
-        OR: [
-          { lastFetched: null },
-          { lastFetched: { lt: cutoffTime } }
-        ],
-        Track: { some: {} }
-      };
+      baseWhere = { status: 'active', type, Track: { some: {} } };
     }
 
-    const feedsToReparse = await prisma.feed.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        title: true,
-        originalUrl: true,
-        type: true,
-        lastFetched: true,
-        image: true
-      },
+    const feedSelect = { id: true, title: true, originalUrl: true, type: true, lastFetched: true, image: true } as const;
+
+    // Lane 1 — every host but Wavlake: due by age, oldest first, in parallel batches.
+    // The SQL filter is a coarse substring; isWavlakeFeedUrl is the real (dot-boundary) test.
+    const hostsWhere = { AND: [baseWhere, dueByAge, { NOT: onWavlake }] };
+    // Counted too, so `remaining` stays honest when `limit` is smaller than the due set.
+    const hostsDueTotal = await prisma.feed.count({ where: hostsWhere });
+    const hostFeeds = (await prisma.feed.findMany({
+      where: hostsWhere,
+      select: feedSelect,
       take: limit,
-      orderBy: { lastFetched: 'asc' }  // Oldest first
+      orderBy: { lastFetched: 'asc' }, // Oldest first
+    })).filter((f) => !isWavlakeFeedUrl(f.originalUrl));
+
+    // Lane 2 — Wavlake: due by age is only the first gate; PI decides the rest.
+    const wavlakeRows = await prisma.feed.findMany({
+      where: { AND: [baseWhere, dueByAge, onWavlake] },
+      select: { ...feedSelect, guid: true, lastError: true },
+      orderBy: { lastFetched: 'asc' },
     });
+    // A URL that merely CONTAINS "wavlake.com" belongs in lane 1.
+    for (const f of wavlakeRows) if (!isWavlakeFeedUrl(f.originalUrl) && hostFeeds.length < limit) hostFeeds.push(f);
+    const wavlakeCandidates = wavlakeRows.filter((f) => isWavlakeFeedUrl(f.originalUrl));
 
-    console.log(`📋 Found ${feedsToReparse.length} feeds to reparse`);
-
-    if (feedsToReparse.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No feeds need reparsing',
-        stats: {
-          feedsProcessed: 0,
-          newTracksAdded: 0,
-          feedsFailed: 0
-        },
-        errors: [],
-        duration: `${((Date.now() - startTime) / 1000).toFixed(1)}s`
-      });
-    }
+    console.log(`📋 Found ${hostFeeds.length} non-Wavlake feeds due, ${wavlakeCandidates.length} Wavlake candidates`);
 
     // Process stats
     const stats = {
@@ -119,50 +105,77 @@ export async function POST(request: NextRequest) {
     };
     const errors: Array<{ feedId: string; title: string; url: string; error: string; errorType: string }> = [];
     const errorCounts: Record<string, number> = {};
-
-    // Split into batches
-    const batches: typeof feedsToReparse[] = [];
-    for (let i = 0; i < feedsToReparse.length; i += batchSize) {
-      batches.push(feedsToReparse.slice(i, i + batchSize));
-    }
-
-    console.log(`📦 Processing ${batches.length} batches of ${batchSize} feeds`);
-
-    // Process each batch
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      console.log(`🔄 Processing batch ${batchIndex + 1}/${batches.length}`);
-
-      const results = await Promise.all(
-        batch.map(feed => reparseSingleFeed(feed))
-      );
-
-      // Aggregate results
-      for (const result of results) {
-        if (result.success) {
-          stats.feedsProcessed++;
-          stats.newTracksAdded += result.newTracks;
-          stats.tracksUpdated += result.updatedTracks;
-        } else {
-          stats.feedsFailed++;
-          const errorType = categorizeError(result.error);
-          errorCounts[errorType] = (errorCounts[errorType] || 0) + 1;
-          errors.push({
-            feedId: result.feedId,
-            title: result.title,
-            url: result.url,
-            error: result.error,
-            errorType
-          });
-        }
+    const record = (result: Awaited<ReturnType<typeof reparseSingleFeed>>) => {
+      if (result.success) {
+        stats.feedsProcessed++;
+        stats.newTracksAdded += result.newTracks;
+        stats.tracksUpdated += result.updatedTracks;
+      } else {
+        stats.feedsFailed++;
+        const errorType = categorizeReparseError(result.error);
+        errorCounts[errorType] = (errorCounts[errorType] || 0) + 1;
+        errors.push({ feedId: result.feedId, title: result.title, url: result.url, error: result.error, errorType });
       }
+    };
 
+    // Lane 1: batches of `batchSize`, until done or the budget is spent.
+    let hostsDone = 0;
+    for (let i = 0; i < hostFeeds.length; i += batchSize) {
+      if (!budgetLeft()) break;
+      const batch = hostFeeds.slice(i, i + batchSize);
+      console.log(`🔄 Processing batch ${i / batchSize + 1}/${Math.ceil(hostFeeds.length / batchSize)}`);
+      const results = await Promise.all(batch.map(feed => reparseSingleFeed(feed)));
+      results.forEach(record);
+      hostsDone += batch.length;
       // Delay between batches (except after last batch)
-      if (batchIndex < batches.length - 1) {
-        await delay(500);
+      if (i + batchSize < hostFeeds.length) await delay(500);
+    }
+    const hostsRemaining = Math.max(hostFeeds.length, hostsDueTotal) - hostsDone;
+
+    // Lane 2: one PI call, then the due Wavlake feeds one at a time.
+    const wavlake = {
+      mode: wavlakeMode,
+      candidates: wavlakeCandidates.length,
+      due: 0,
+      processed: 0,
+      failed: 0,
+      remaining: 0,
+      noGuid: 0,
+      notInPI: 0,
+      piError: undefined as string | undefined,
+    };
+    // The PI lookup runs even when lane 1 spent the budget: it is one quick call, and
+    // without it `remaining` would read 0 and the workflow would stop before Wavlake.
+    if (wavlakeMode === 'changed' && wavlakeCandidates.length > 0) {
+      let piLastUpdate: Map<string, number> | null = null;
+      try {
+        piLastUpdate = await getPodcastIndexLastUpdateByGuid(
+          wavlakeCandidates.map((f) => f.guid || '').filter(Boolean)
+        );
+      } catch (piErr) {
+        // Never fall back to fetching Wavlake blind: that is the burst it refuses.
+        wavlake.piError = piErr instanceof Error ? piErr.message : String(piErr);
+        console.warn(`⚠️ Wavlake lane skipped — Podcast Index lookup failed: ${wavlake.piError}`);
+      }
+      if (piLastUpdate) {
+        const plan = planWavlakeLane(wavlakeCandidates, piLastUpdate, Date.now(), cutoffTime.getTime(), lookbackMs);
+        wavlake.due = plan.due.length;
+        wavlake.noGuid = plan.noGuid;
+        wavlake.notInPI = plan.notInPI;
+        for (let i = 0; i < plan.due.length; i++) {
+          if (!budgetLeft()) break;
+          const result = await reparseSingleFeed(plan.due[i]);
+          record(result);
+          wavlake.processed++;
+          if (!result.success) wavlake.failed++;
+          if (i < plan.due.length - 1) await delay(wavlakeSpacingMs);
+        }
+        wavlake.remaining = wavlake.due - wavlake.processed;
       }
     }
 
+    const remaining = hostsRemaining + wavlake.remaining;
+    const stoppedForBudget = remaining > 0;
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     // Log error summary
@@ -173,12 +186,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.warn(`✅ Bulk reparse completed in ${duration}s: ${stats.feedsProcessed} feeds processed, ${stats.newTracksAdded} new tracks added, ${stats.feedsFailed} failed`);
+    console.warn(`✅ Bulk reparse completed in ${duration}s: ${stats.feedsProcessed} feeds processed, ${stats.newTracksAdded} new tracks added, ${stats.feedsFailed} failed, ${remaining} remaining (Wavlake: ${wavlake.processed}/${wavlake.due} due of ${wavlake.candidates})`);
 
     return NextResponse.json({
       success: true,
-      message: `Reparsed ${stats.feedsProcessed} feeds`,
+      message: stats.feedsProcessed + stats.feedsFailed === 0 && remaining === 0 ? 'No feeds need reparsing' : `Reparsed ${stats.feedsProcessed} feeds`,
       stats,
+      remaining,
+      stoppedForBudget,
+      wavlake,
       errorSummary: Object.keys(errorCounts).length > 0 ? errorCounts : undefined,
       errors: errors.length > 0 ? errors.slice(0, 50) : undefined, // Limit to first 50 errors
       duration: `${duration}s`
@@ -457,45 +473,6 @@ async function reparseSingleFeed(feed: {
   }
 }
 
-/**
- * Categorize an error message into a type
- */
-function categorizeError(error: string): string {
-  const errorLower = error.toLowerCase();
-
-  if (errorLower.includes('enotfound') || errorLower.includes('getaddrinfo')) {
-    return 'DNS_LOOKUP_FAILED';
-  }
-  if (errorLower.includes('econnrefused')) {
-    return 'CONNECTION_REFUSED';
-  }
-  if (errorLower.includes('econnreset') || errorLower.includes('socket hang up')) {
-    return 'CONNECTION_RESET';
-  }
-  if (errorLower.includes('etimedout') || errorLower.includes('timeout')) {
-    return 'TIMEOUT';
-  }
-  if (errorLower.includes('404') || errorLower.includes('not found')) {
-    return 'NOT_FOUND_404';
-  }
-  if (errorLower.includes('403') || errorLower.includes('forbidden')) {
-    return 'FORBIDDEN_403';
-  }
-  if (errorLower.includes('500') || errorLower.includes('internal server')) {
-    return 'SERVER_ERROR_5XX';
-  }
-  if (errorLower.includes('ssl') || errorLower.includes('certificate') || errorLower.includes('cert')) {
-    return 'SSL_ERROR';
-  }
-  if (errorLower.includes('parse') || errorLower.includes('xml') || errorLower.includes('invalid')) {
-    return 'PARSE_ERROR';
-  }
-  if (errorLower.includes('no items') || errorLower.includes('empty')) {
-    return 'EMPTY_FEED';
-  }
-
-  return 'OTHER';
-}
 
 /**
  * Helper function to delay execution

@@ -45,18 +45,37 @@ jobs:
         echo ""
         echo "📋 Step 2: Reparsing music feeds to detect new tracks..."
 
-        REPARSE_RESPONSE=$(curl -s -X POST -w "\n%{http_code}" -H "$AUTH_HEADER" "${BASE_URL}/api/admin/reparse-feeds?type=all&maxAgeHours=24&limit=5000") || REPARSE_RESPONSE=$'\n000'
-        HTTP_CODE=$(echo "$REPARSE_RESPONSE" | tail -n1)
-        RESPONSE_BODY=$(echo "$REPARSE_RESPONSE" | sed '$d')
-
-        if [ "$HTTP_CODE" -eq 200 ]; then
-          PROCESSED=$(echo "$RESPONSE_BODY" | jq -r '.stats.feedsProcessed // 0' 2>/dev/null || echo "?")
-          NEW_TRACKS=$(echo "$RESPONSE_BODY" | jq -r '.stats.newTracksAdded // 0' 2>/dev/null || echo "?")
-          FAILED=$(echo "$RESPONSE_BODY" | jq -r '.stats.feedsFailed // 0' 2>/dev/null || echo "?")
+        # One call used to do the whole catalog and ran past Railway's 300 s edge
+        # timeout on about half the nights (HTTP 502, exactly 5:00 after the call).
+        # Each call now stops starting work after budgetSeconds and reports
+        # `remaining`; call again until nothing is left. Wavlake feeds are fetched
+        # only when Podcast Index says they changed (lib/feeds/reparse-plan.ts).
+        REPARSE_URL="${BASE_URL}/api/admin/reparse-feeds?type=all&maxAgeHours=24&limit=5000&budgetSeconds=240"
+        TOTAL_PROCESSED=0; TOTAL_NEW=0; TOTAL_FAILED=0; REMAINING=0; CALL=0; REPARSE_OK=true
+        while [ "$CALL" -lt 12 ]; do
+          CALL=$((CALL + 1))
+          REPARSE_RESPONSE=$(curl -s --max-time 290 -X POST -w "\n%{http_code}" -H "$AUTH_HEADER" "$REPARSE_URL") || REPARSE_RESPONSE=$'\n000'
+          HTTP_CODE=$(echo "$REPARSE_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$REPARSE_RESPONSE" | sed '$d')
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️ Music feed reparse had issues on call ${CALL} (HTTP $HTTP_CODE) - continuing..."
+            REPARSE_OK=false
+            break
+          fi
+          PROCESSED=$(echo "$RESPONSE_BODY" | jq -r '.stats.feedsProcessed // 0' 2>/dev/null || echo 0)
+          NEW_TRACKS=$(echo "$RESPONSE_BODY" | jq -r '.stats.newTracksAdded // 0' 2>/dev/null || echo 0)
+          FAILED=$(echo "$RESPONSE_BODY" | jq -r '.stats.feedsFailed // 0' 2>/dev/null || echo 0)
+          REMAINING=$(echo "$RESPONSE_BODY" | jq -r '.remaining // 0' 2>/dev/null || echo 0)
           DURATION=$(echo "$RESPONSE_BODY" | jq -r '.duration // "?"' 2>/dev/null || echo "?")
-          echo "✅ Music feeds reparsed: ${PROCESSED} feeds, ${NEW_TRACKS} new tracks, ${FAILED} failed (${DURATION})"
-        else
-          echo "⚠️ Music feed reparse had issues (HTTP $HTTP_CODE) - continuing..."
+          WAVLAKE=$(echo "$RESPONSE_BODY" | jq -r '.wavlake | "Wavlake \(.processed)/\(.due) due of \(.candidates) (no guid \(.noGuid), not in PI \(.notInPI))\(if .piError then ", PI error: \(.piError)" else "" end)"' 2>/dev/null || echo "Wavlake ?")
+          echo "  call ${CALL}: ${PROCESSED} reparsed, ${NEW_TRACKS} new tracks, ${FAILED} failed, ${REMAINING} remaining (${DURATION}) — ${WAVLAKE}"
+          ERRORS=$(echo "$RESPONSE_BODY" | jq -c '.errorSummary // empty' 2>/dev/null || true)
+          if [ -n "$ERRORS" ]; then echo "    errors: ${ERRORS}"; fi
+          TOTAL_PROCESSED=$((TOTAL_PROCESSED + PROCESSED)); TOTAL_NEW=$((TOTAL_NEW + NEW_TRACKS)); TOTAL_FAILED=$((TOTAL_FAILED + FAILED))
+          if [ "$REMAINING" = "0" ]; then break; fi
+        done
+        if [ "$REPARSE_OK" = true ]; then
+          echo "✅ Music feeds reparsed: ${TOTAL_PROCESSED} feeds, ${TOTAL_NEW} new tracks, ${TOTAL_FAILED} failed (${CALL} calls, ${REMAINING} left)"
         fi
 
         # Step 2b: Reparse podcast feeds (curated list — these are blacklisted from album view)

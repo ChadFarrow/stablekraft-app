@@ -1152,9 +1152,15 @@ function parseKeywords(keywords: string | undefined): string[] {
  * Fetch a feed's XML, failing on a non-2xx answer. Without the status check a refusal's
  * body went to the XML parser: Wavlake's 429 "Too Many Requests" read as "Non-whitespace
  * before first tag ... Char: T", which says nothing about the host refusing.
+ *
+ * 30 s timeout: a host that accepts the connection and never answers held the whole
+ * batch — and the nightly reparse's time budget — until Railway cut the request at
+ * 300 s. The largest catalog feeds download in a few seconds.
  */
+export const FEED_FETCH_TIMEOUT_MS = 30000;
+
 async function fetchFeedXml(feedUrl: string): Promise<string> {
-  const response = await fetch(feedUrl);
+  const response = await fetch(feedUrl, { signal: AbortSignal.timeout(FEED_FETCH_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
   }
