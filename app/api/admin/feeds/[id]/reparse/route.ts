@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, applyParsedItemFields, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -82,6 +83,7 @@ export async function POST(
           ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
           ...(parsedFeed.podcastImages && { podcastImages: parsedFeed.podcastImages as any }),
           ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null,

@@ -18,6 +18,7 @@ import BackButton from '@/components/BackButton';
 import HomeButton from '@/components/HomeButton';
 import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import { FundingButton } from '@/components/FundingButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
@@ -696,6 +697,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
     albumName: album.title,
     publisherGuid: album.publisher?.feedGuid,
     persons: (album as any).persons || [],
+    funding: album.funding,
   };
 
   return (
@@ -930,7 +932,10 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                 rem-based, so at 1.3x the rem-sized circles inflated until shuffle ran
                 off the left edge and share off the right — justify-center spills both
                 ways. Only text should grow. Same rule as the Now Playing transport row. */}
-            <div className="lg:hidden flex items-center justify-center" style={{ gap: 12 }}>
+            {/* `flex-wrap`: with the $ the row is six circles (324px), which fits from
+                ~356px wide; on a narrower phone the last circle wraps instead of
+                running off both edges. */}
+            <div className="lg:hidden flex flex-wrap items-center justify-center" style={{ gap: 12 }}>
               <button
                 onClick={shuffleAllTracks}
                 className="flex items-center justify-center rounded-full bg-black/45 ring-1 ring-white/25 backdrop-blur-md shadow-lg text-white active:scale-95 transition-transform flex-shrink-0"
@@ -948,6 +953,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   className="!w-[44px] !h-[44px] !p-0 !rounded-full flex-shrink-0"
                 />
               )}
+
+              {/* <podcast:funding>: the green $ beside the ⚡ — the non-Lightning way to pay. */}
+              <FundingButton funding={album.funding} variant="icon" />
 
               {album.feedId && (
                 <div className="flex items-center flex-shrink-0" style={{ gap: 12 }}>
@@ -980,7 +988,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               </div>
             </div>
 
-            {/* Lightning Boost and Funding Information */}
+            {/* Lightning Boost, with the funding $ beside it (FundingButton) */}
             <div className="space-y-4">
               {/* Lightning Boost Button - only show if v4v data exists.
                   Desktop only: mobile carries Boost in the action row above. */}
@@ -990,6 +998,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                     {...albumBoostProps}
                     className="flex items-center gap-2 px-6 py-3 text-base"
                   />
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               ) : (
@@ -997,29 +1006,11 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   <div className="px-6 py-3 bg-gray-800/50 rounded-lg text-gray-400 text-sm">
                     No Lightning payment info available for this album
                   </div>
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               )}
 
-              {/* Traditional Funding Information */}
-              {album.funding && album.funding.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-white text-center lg:text-left">More Ways to Support</h3>
-                  <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                    {album.funding.map((funding, index) => (
-                      <a
-                        key={index}
-                        href={funding.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
-                      >
-                        💝 {funding.message || 'Support'}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
           </div>
@@ -1311,6 +1302,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                               ...((track as any).persons || []),
                               ...((album as any).persons || []),
                             ]}
+                            funding={(track as any).funding?.length ? (track as any).funding : album.funding}
                             className="text-xs px-2 py-1"
                           />
                         </div>

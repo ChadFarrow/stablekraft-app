@@ -5,6 +5,7 @@ import { generateAlbumSlug, normalizeUrl } from '@/lib/url-utils';
 import { findFeedForRemoteItem } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl, isPlaylistSourceFeedUrl } from '@/lib/feed-exclusions';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 
 interface RemoteItem {
   feedGuid?: string;
@@ -228,6 +229,7 @@ export async function POST(
             v4vValue: parsedFeed.v4vValue || null,
             publisherId: id,
             ...channelPersonsFields(parsedFeed),
+            ...channelFundingFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),

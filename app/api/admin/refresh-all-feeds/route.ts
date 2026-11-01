@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
               // that never declared a medium keeps NULL rather than being defaulted.
               ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
               ...channelPersonsFields(parsedFeed),
+              ...channelFundingFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               lastError: null
