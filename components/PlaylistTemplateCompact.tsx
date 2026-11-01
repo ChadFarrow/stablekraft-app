@@ -811,11 +811,24 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
 
           {/* Main Content - Two Column Layout */}
           <div className="py-8 lg:py-0 grid grid-cols-1 lg:grid-cols-5 gap-8 lg:min-h-0">
-            {/* Left Column - Playlist Info (2/5 width) */}
-            <div className="flex flex-col gap-6 lg:col-span-2">
-              {/* Artwork - responsive sizing like album page */}
+            {/* Left Column - Playlist Info (2/5 width).
+                `lg:min-h-0` is what keeps this column inside the window. Without it the
+                grid row took the column's full content height (400px cover + info card),
+                so on a short window the row ran past the bottom of this `fixed`,
+                overflow-hidden page and BOTH columns were cut off — the Website link and
+                the end of the track list unreachable, with or without the player
+                (1366x657: content to y=740 in a 657px window). The track column always
+                had it; the album page's left column does too. */}
+            <div className="flex flex-col gap-6 lg:col-span-2 lg:min-h-0">
+              {/* Artwork - responsive sizing like album page.
+                  Desktop size: 400px, shrinking on a short window so the info card keeps
+                  ~90px for its text above the Website footer (same reasoning as the album
+                  page cover). 330px is everything else in the column: 84px above the
+                  cover, the 24px gap, the card's 48px padding and 52px footer, the 32px
+                  below the card, and the ~90px of text. Windows of ~810px and up with the
+                  player (~730px without) keep the full 400px. */}
               <div
-                className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[400px] bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
+                className="relative mx-auto lg:mx-0 w-[280px] h-[280px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[clamp(160px,calc(100dvh-var(--sk-player-reserve)-330px),400px)] lg:flex-shrink-0 bg-gray-900/60 backdrop-blur-sm rounded-lg overflow-hidden group cursor-pointer"
                 onClick={() => {
                   if (filteredTracks.length > 0) {
                     handlePlay(filteredTracks[0]);
@@ -845,8 +858,12 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 )}
               </div>
 
-              {/* Info Card with glass background */}
-              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 lg:max-w-[400px]">
+              {/* Info Card with glass background. At lg+ it is a column: title,
+                  description and stats scroll, and the Website link below them is a
+                  footer that stays on screen — the album card's Boost row pattern. The
+                  wrapper is a plain block on mobile, so the phone layout is unchanged. */}
+              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-6 lg:max-w-[400px] lg:min-h-0 lg:flex lg:flex-col">
+                <div className="lg:min-h-0 lg:overflow-y-auto">
                 {/* Title & Description */}
                 <div className="text-center lg:text-left">
                   <h1 className="text-3xl md:text-4xl font-bold mb-2">
@@ -884,10 +901,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                     <span>{formatDuration(stats.totalDuration)}</span>
                   </div>
                 )}
+                </div>
 
-                {/* Website Link */}
+                {/* Website Link - the card's desktop footer (`lg:flex-shrink-0`) */}
                 {playlistLink && (
-                  <div className="flex justify-center lg:justify-start mt-4">
+                  <div className="flex justify-center lg:justify-start mt-4 lg:flex-shrink-0">
                     <a
                       href={playlistLink}
                       target="_blank"
