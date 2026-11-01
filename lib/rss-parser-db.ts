@@ -1,4 +1,5 @@
 import Parser from 'rss-parser';
+import { findItemBlockByTitle } from './feeds/item-block';
 import { XMLParser } from 'fast-xml-parser';
 import { validateDuration } from './duration-validation';
 import { PodcastImage, pickSquareArtwork, pickCanvasBackground } from './podcast-images';
@@ -307,17 +308,9 @@ function parsePersonsFromBlock(xmlBlock: string): ParsedPerson[] {
 
 export function parseItemPersonsFromXML(xmlText: string, itemTitle: string): ParsedPerson[] {
   try {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items: string[] = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
-
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
     if (!itemContent) return [];
     return withTxtNpubPersons(parsePersonsFromBlock(itemContent), itemContent);
   } catch {
@@ -437,17 +430,9 @@ function parsePodcastImagesFromBlock(xmlBlock: string): PodcastImage[] {
 
 export function parseItemPodcastImagesFromXML(xmlText: string, itemTitle: string): PodcastImage[] {
   try {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items: string[] = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
-
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
     if (!itemContent) return [];
     return parsePodcastImagesFromBlock(itemContent);
   } catch {
@@ -462,17 +447,9 @@ export function parseItemPodcastImagesFromXML(xmlText: string, itemTitle: string
  */
 export function parseItemFundingFromXML(xmlText: string, itemTitle: string): FundingLink[] {
   try {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items: string[] = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
-
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
     if (!itemContent) return [];
     return parseFundingFromBlock(itemContent);
   } catch {
@@ -920,25 +897,10 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
   try {
     console.log(`🔍 DEBUG: Parsing V4V for item "${itemTitle}" from XML...`);
 
-    // Split XML into individual items to avoid regex matching across item boundaries
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
-      items.push(itemMatch[0]);
-    }
-
-    console.log(`🔍 DEBUG: Found ${items.length} items in XML`);
-
-    // Find the item with the matching title
-    // Try both decoded title and XML-encoded version (& -> &amp;, etc.)
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours: a title written with
+    // `&apos;` used to find no block, and the track fell back to the album's split.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
 
     if (!itemContent) {
       console.log(`ℹ️ DEBUG: Item "${itemTitle}" not found in XML (tried both decoded and XML-encoded)`);
