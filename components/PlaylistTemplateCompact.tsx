@@ -37,6 +37,9 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(null);
   const [playlistArtwork, setPlaylistArtwork] = useState<string | null>(null);
   const [playlistLink, setPlaylistLink] = useState<string | null>(null);
+  // Why the playlist is empty, when its API knows (only /api/playlist/top100 says so today).
+  // Never cached: the cache is only read when it holds tracks.
+  const [emptyNotice, setEmptyNotice] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   // Search and filtering
@@ -244,6 +247,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
       if (data.albums && data.albums[0] && data.albums[0].link) {
         setPlaylistLink(data.albums[0].link);
       }
+      setEmptyNotice(typeof data.albums?.[0]?.emptyNotice === 'string' ? data.albums[0].emptyNotice : null);
 
       logger.info(`✅ Loaded ${tracksData.length} tracks for ${config.title}`);
       console.log(`🔍 First track sample:`, tracksData[0]);
@@ -1370,8 +1374,8 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                       <Search className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="text-lg font-medium text-white mb-2">No tracks found</h3>
-                    <p className="text-gray-400">
-                      {searchQuery ? 'Try adjusting your search query' : 'No tracks available in this playlist'}
+                    <p className="text-gray-400" data-testid="playlist-empty-message">
+                      {searchQuery ? 'Try adjusting your search query' : (emptyNotice || 'No tracks available in this playlist')}
                     </p>
                   </div>
                 )}

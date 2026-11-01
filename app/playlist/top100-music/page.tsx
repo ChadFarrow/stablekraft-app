@@ -1,17 +1,11 @@
-'use client';
+import { permanentRedirect } from 'next/navigation';
 
-import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
-import type { PlaylistConfig } from '@/types/playlist';
-
-const TOP100_MUSIC_CONFIG: PlaylistConfig = {
-  cacheKey: 'top100_music_playlist_cache_v2',
-  cacheDuration: 1000 * 60 * 30, // 30 minutes
-  apiEndpoint: '/api/playlist/top100-music',
-  title: 'Top 100 Music - Value for Value Charts',
-  description: 'The top 100 music tracks by value received in sats, showcasing the most supported Value for Value music content',
-  useAudioContext: true
-};
-
+/**
+ * The old Top 100 page (2025-08). It asked for `/api/playlist/top100-music`, a route
+ * that never existed, so every visit showed "Error Loading Playlist — Failed to load
+ * tracks: 404". `/playlist/top100` (2025-11) replaced it and is the one the playlist
+ * index links to. Old links and search results land there instead (HTTP 308).
+ */
 export default function Top100MusicPage() {
-  return <PlaylistTemplateCompact config={TOP100_MUSIC_CONFIG} />;
+  permanentRedirect('/playlist/top100');
 }
