@@ -722,7 +722,14 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             Safe-Area Insets rule, the inset comes from `var(--sk-safe-*)`, never bare
             `env()`. The 24px base preserves the compact spacing on devices that report
             no inset (Android browser, desktop), where the var resolves to 0. */}
-        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-8 lg:h-full lg:flex lg:flex-col">
+        {/* Desktop bottom padding must carry `--sk-player-reserve`. At lg+ this page is
+            `fixed inset-0`, and a fixed box ignores the layout wrapper's
+            `pb-[var(--sk-player-reserve)]` (app/layout.tsx) — so with a flat `lg:pb-8`
+            both columns ran ~49px under GlobalNowPlayingBar, and on a 909px-tall
+            window it covered the album card's Boost button. The track list hid this
+            with its own `lg:pb-28`; the album card had nothing. The reserve is 0
+            with nothing playing, so that case keeps the old 2rem. */}
+        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-[calc(var(--sk-player-reserve)+2rem)] lg:h-full lg:flex lg:flex-col">
         {/* Back / Home buttons */}
         <div className="mb-3 lg:mb-6 lg:flex-shrink-0 flex items-center gap-1">
           <BackButton label="Back" />
@@ -733,8 +740,16 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-8 mb-8 lg:mb-0 lg:flex-1 lg:min-h-0">
           {/* Left Column: Album Art and Info (2/5 width) */}
           <div className="flex flex-col gap-3 lg:gap-4 lg:col-span-2 lg:min-h-0">
-            {/* Album Art with Play Button Overlay */}
-            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[320px] lg:flex-shrink-0">
+            {/* Album Art with Play Button Overlay.
+                Desktop size: 320px, shrinking on a short window so the album card below
+                keeps ~90px for its text (title + artist) above its Boost footer. A fixed
+                320px left the card nothing on a 1366x768 laptop (~657px of window) with
+                the player showing — the footer took the card's whole height and the
+                title was not visible at all. 366px is everything else in the column:
+                116px above the cover, the 16px gap, the card's 48px padding and 64px
+                footer, the 32px below the card, and the ~90px of text. Windows of
+                ~830px and up with the player (~750px without) keep the full 320px. */}
+            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[clamp(160px,calc(100dvh-var(--sk-player-reserve)-366px),320px)] lg:flex-shrink-0">
             <ArtworkImage
               src={albumArtError || !album?.coverArt ? getPlaceholderImageUrl('medium') : heroArtworkSrc(album.coverArt)}
               alt={album.title}
@@ -816,9 +831,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             )}
           </div>
           
-            {/* Album Info */}
-            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-            <div className="text-center lg:text-left space-y-3 lg:space-y-4">
+            {/* Album Info. At lg+ the card is a column: the text scrolls, and the
+                desktop action row below it is a footer that never scrolls away. The
+                card used to scroll as one block with the row last, so on any window
+                too short for the description the Boost button sat below the card's
+                visible edge (1440x900, 1280x720, 1024x768 all measured that way). */}
+            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+            <div className="text-center lg:text-left space-y-3 lg:space-y-4 lg:min-h-0 lg:overflow-y-auto">
             <h1 className="text-2xl md:text-4xl font-bold leading-tight">{album.title}</h1>
             {album.publisher ? (
               <Link
@@ -988,8 +1007,15 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               </div>
             </div>
 
-            {/* Lightning Boost, with the funding $ beside it (FundingButton) */}
-            <div className="space-y-4">
+            </div>
+
+            {/* Lightning Boost, with the funding $ beside it (FundingButton) — the card's
+                desktop footer, outside the scrolling text so it stays on screen.
+                `lg:flex-shrink-0` holds it at full height while the text above shrinks.
+                `pt-3` keeps the 12px the old `space-y-3` margin gave this block on
+                mobile, where its children are all hidden; `lg:pt-4` is the old
+                `lg:space-y-4` gap above the row. */}
+            <div className="pt-3 lg:pt-4 lg:flex-shrink-0">
               {/* Lightning Boost Button - only show if v4v data exists.
                   Desktop only: mobile carries Boost in the action row above. */}
               {checkHasV4V(album) ? (
@@ -1012,7 +1038,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               )}
 
             </div>
-          </div>
           </div>
 
           {/* Doerfels Publisher Information */}
@@ -1106,7 +1131,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   className="flex-shrink-0 hidden lg:flex"
                 />
               </div>
-              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-28">
+              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                 {filteredTracks.map((track, displayIndex) => {
                   // Find the original index in album.tracks for correct playback
                   const originalIndex = album.tracks.findIndex(t => t === track);

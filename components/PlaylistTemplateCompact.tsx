@@ -787,7 +787,11 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
             Dynamic Island on a notched iPhone (59px inset). Safari's own chrome hides
             this, which is why it only showed up once installed to the home screen. The
             24px is the old pt-6 value, so devices reporting no inset are unchanged. */}
-        <div className="container mx-auto px-6 pt-[calc(var(--sk-safe-top)+24px)] pb-40 lg:pb-8 lg:h-full lg:flex lg:flex-col">
+        {/* Desktop bottom padding carries `--sk-player-reserve`: at lg+ this page is
+            `fixed inset-0`, which ignores the layout wrapper's reserve, so a flat
+            `lg:pb-8` ran both columns under GlobalNowPlayingBar. Same fix as the album
+            page (AlbumDetailClient); the track list's old `lg:pb-28` patch is gone. */}
+        <div className="container mx-auto px-6 pt-[calc(var(--sk-safe-top)+24px)] pb-40 lg:pb-[calc(var(--sk-player-reserve)+2rem)] lg:h-full lg:flex lg:flex-col">
           <div className="lg:flex-shrink-0">
             {/* Back walks to the playlist list; Home escapes the stack entirely. Same
                 pairing as album/publisher/downloads — see HomeButton. The row carries
@@ -975,7 +979,7 @@ export default function PlaylistTemplateCompact({ config }: PlaylistTemplateComp
                 </div>
 
                 {/* Track List */}
-                <div className="space-y-1 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-28">
+                <div className="space-y-1 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                   {/* Grouped View with Episodes */}
                   {hasEpisodeMarkers && episodeViewMode === 'grouped' && filteredEpisodes.length > 0 ? (
                     <div className="space-y-3 md:space-y-2">
