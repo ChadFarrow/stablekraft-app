@@ -753,6 +753,19 @@ const nextConfig = {
           },
         ],
       },
+      // The two rocket wallpapers (app/layout.tsx via LayoutRocketBackground, app/page.tsx).
+      // public/ files go out with `max-age=0` and a Last-Modified that moves on every
+      // deploy, so a phone downloaded 203 KB + 112 KB again after each one (2026-11-01).
+      // 30 days. To change a picture, give the file a NEW NAME — as
+      // stablekraft-rocket-new.webp was — rather than replacing it in place.
+      {
+        source: '/stablekraft-rocket.webp',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
+      },
+      {
+        source: '/stablekraft-rocket-new.webp',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
+      },
       // Performance headers
       {
         source: '/(.*)',
