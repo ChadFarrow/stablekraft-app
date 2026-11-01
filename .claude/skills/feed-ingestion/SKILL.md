@@ -122,7 +122,7 @@ A new slug-minting path needs both checks, in that order. A suffix without the g
 
 ## `Feed.funding` / `Track.funding` — `<podcast:funding>` links
 
-PayPal, Cash App, Venmo, Patreon, a merch store — whatever URL the tag names. The tag may sit in `<channel>`, `<item>` or `<podcast:liveItem>`, any number of times. The album page shows the feed's links under "More Ways to Support" and the boost dialog under "Other ways to support"; a track with none of its own shows its album's.
+PayPal, Cash App, Venmo, Patreon, a merch store — whatever URL the tag names. The tag may sit in `<channel>`, `<item>` or `<podcast:liveItem>`, any number of times. The album page shows them as a green **$** right of the ⚡ Boost (`components/FundingButton.tsx`: the mobile action-row circle, and a "$ Support" pill beside Boost on desktop) — one link opens it, several open a menu named by the tag text or the service's host. The boost dialog lists them under "Other ways to support"; a track with none of its own shows its album's.
 
 - **One reader, `lib/podcast-funding.ts`, and it is a security boundary.** The URL becomes an `href`, and React does not block `javascript:`, so only `http:`/`https:` leaves the parser — and `fundingFromJson` checks again on READ (the album route, and `BoostButton` for every caller's prop), because a stored row is a second source. A host check alone is not enough: `javascript://example.com/%0Aalert(1)` has a hostname. Pinned by `podcast-funding.test.ts`.
 - **Channel funding is read with the items AND liveItems cut out** (`channelFundingXml`) — `getElementsByTagName` (ITDV's reader) also collects every item's tag into the album's list.
