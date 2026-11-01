@@ -28,6 +28,7 @@ import DownloadButton from '@/components/downloads/DownloadButton';
 import { hasV4V as checkHasV4V } from '@/lib/v4v-utils';
 import { useDataSaver } from '@/hooks/useDataSaver';
 import { artworkPlan } from '@/lib/data-saver';
+import { albumTrackCount, isPodcastAlbum } from '@/lib/catalog/album-count';
 
 // Hook to manage prefetch based on visibility and hover
 function usePrefetchControl() {
@@ -373,13 +374,13 @@ function AlbumCard({ album, isPlaying = false, onPlay, className = '', linkFilte
         </div>
 
         {/* Track count badge or album count for publishers */}
-        {(((album as any).trackCount || album.tracks?.length || 0) > 0 || isPublisherCard) && (
+        {(albumTrackCount(album as any) > 0 || isPublisherCard) && (
           <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-black/90 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-white border border-gray-600">
             {isPublisherCard
               ? `${(album as any).albumCount || 0} ${((album as any).albumCount || 0) !== 1 ? 'releases' : 'release'}`
               : (() => {
-                  const count = (album as any).trackCount || album.tracks?.length || 0;
-                  const isPodcast = (album as any).isPodcast === true;
+                  const count = albumTrackCount(album as any);
+                  const isPodcast = isPodcastAlbum(album as any);
                   // `hasVideoTracks` is for callers that omit `album.tracks`
                   // — listing pages, which no longer ship a track list per
                   // album. When the tracks ARE present that answer is exact and
@@ -557,6 +558,10 @@ export default memo(AlbumCard, (prevProps, nextProps) => {
     prevProps.isPlaying === nextProps.isPlaying &&
     prevProps.className === nextProps.className &&
     (prevProps.album.tracks?.length || 0) === (nextProps.album.tracks?.length || 0) &&
+    // The badge reads this, and `tracks` is cut at 20, so a list that grows
+    // past 20 changes the count while the line above stays equal.
+    albumTrackCount(prevProps.album as any) === albumTrackCount(nextProps.album as any) &&
+    isPodcastAlbum(prevProps.album as any) === isPodcastAlbum(nextProps.album as any) &&
     // Listing pages send this instead of a track list, so on those pages the
     // line above compares 0 to 0 and would never notice a change.
     (prevProps.album as any).downloadableTrackCount ===

@@ -160,8 +160,11 @@ export function albumFeedSelect(take: TrackTake, opts: AlbumFeedSelectOptions = 
       orderBy: opts.order === 'newest' ? EPISODE_TRACK_ORDER_BY : ALBUM_TRACK_ORDER_BY,
       ...(take === 'unbounded' ? {} : { take }),
     },
+    // The SAME rows the Track select returns. feedToAlbum compares the two to
+    // tell a list cut at `take` from a complete one; counting `status: 'active'`
+    // alone also counted rows with no audio URL, which the select drops.
     _count: {
-      select: { Track: { where: { status: 'active' } } },
+      select: { Track: { where: PLAYABLE_TRACK_WHERE } },
     },
   };
 }
@@ -299,6 +302,23 @@ export function trackToAlbumTrack(track: AlbumSourceTrack): AlbumTrack {
 }
 
 /**
+ * The number of tracks a card shows. `tracks` is cut at the select's `take`
+ * (20 on the grid), so it cannot be the count on its own.
+ *
+ * When every playable row arrived, the list after dedupe is exact — and it is
+ * what the album page lists. The row count would be wrong there: the catalog
+ * holds duplicate Track rows (DREAMS, 2026-11-01: 14 rows, 7 tracks).
+ *
+ * When the list was cut, the playable row count is the only number there is.
+ * It still counts a duplicate row twice (Trapped in London: 36 rows, 18 tracks),
+ * because Prisma's `_count` cannot count distinct rows. 0 means unknown.
+ */
+function realTrackCount(rowsReturned: number, tracksKept: number, playableRows: number | undefined): number {
+  if (playableRows == null) return 0;
+  return rowsReturned >= playableRows ? tracksKept : playableRows;
+}
+
+/**
  * A Feed row as the album object every catalog surface returns.
  *
  * The contract, unchanged from `albums-fast`:
@@ -370,7 +390,6 @@ export function feedToAlbum(feed: AlbumSourceFeed, opts: FeedToAlbumOptions = {}
       (opts.v4vTrackFallback === false ? null : identityTrack?.v4vValue || null),
     persons: feed.persons || undefined,
     podcastImages: feed.podcastImages || undefined,
-    // The real count; `tracks` above is capped by the select's `take`.
-    trackCount: feed._count?.Track ?? 0,
+    trackCount: realTrackCount(source.length, tracks.length, feed._count?.Track),
   };
 }
