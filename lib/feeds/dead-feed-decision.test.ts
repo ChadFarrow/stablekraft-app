@@ -12,6 +12,7 @@ import {
   decideDeadFeed,
   hostOf,
   isHostMove,
+  matchTracksByGuid,
   nextPageOffset,
   refreshSaysGone,
   sameFeedUrl,
@@ -21,7 +22,7 @@ import {
 const RSSBLUE = 'https://feeds.rssblue.com/raskolnikov';
 const EPOCH = 'https://epochradio.com/feed/jack-phemister-raskolnikov';
 const home = (over: Partial<NewHomeCheck> = {}): NewHomeCheck => ({
-  url: EPOCH, status: 200, isRss: true, guidMatches: true, collidesWith: null, ...over,
+  url: EPOCH, status: 200, isRss: true, guidMatches: true, collidesWith: null, tracks: { stored: 1, matched: 1 }, ...over,
 });
 
 // --- signals -------------------------------------------------------------------
@@ -81,13 +82,79 @@ test('RSS Blue, gone: 410 and no new home → hide', () => {
 });
 
 test('the new home must prove it is THIS feed', () => {
+  // An RSS feed that declares another guid, or a URL that is gone too: no new home.
   assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ guidMatches: false }) }).action, 'hide');
-  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ isRss: false }) }).action, 'hide');
   assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ status: 404 }) }).action, 'hide');
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ status: 410 }) }).action, 'hide');
 });
 
 test('a new home that did not answer is NOT a reason to hide', () => {
   assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ status: 'error' }) }).action, 'unconfirmed');
+});
+
+test('a new home that refuses or fails FOR NOW is not a reason to hide either', () => {
+  // A hide is permanent for the sweep (it reads only markedDead:false), so a 429 on
+  // one Monday would hide a playable album for good.
+  for (const s of [403, 429, 500, 502, 503, 301]) {
+    const d = decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ status: s, isRss: false, guidMatches: false }) });
+    assert.equal(d.action, 'unconfirmed', String(s));
+    assert.match(d.reason, new RegExp(`HTTP ${s}`));
+  }
+  // A 200 that is not RSS — a challenge page, a parked domain — proves nothing.
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ isRss: false, guidMatches: false }) }).action, 'unconfirmed');
+});
+
+test('a new home on the feed blacklist is never moved to — the album is hidden', () => {
+  // lib/feed-exclusions.ts bans this exact URL; every import path refuses it.
+  const banned = 'https://epochradio.com/feed/phantom-power-business-hour';
+  const d = decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ url: banned }) });
+  assert.equal(d.action, 'hide');
+  assert.match(d.reason, /blacklist/);
+  // The blacklist matches loosely (scheme, slash), like every other path that asks it.
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ url: `${banned}/` }) }).action, 'hide');
+});
+
+test('a move stores the URL the way every write path does (normalizeUrl)', () => {
+  const d = decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ url: `${EPOCH}/` }) });
+  assert.equal(d.action === 'relocate' && d.to, EPOCH);
+  const f = decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ url: 'http://feeds.fountain.fm/nLddnuKGmKvOU9QGTTlL' }) });
+  assert.equal(f.action === 'relocate' && f.to, 'https://feeds.fountain.fm/nLddnuKGmKvOU9QGTTlL');
+});
+
+test('a move whose tracks changed their item guids goes to review — a refresh would list them twice', () => {
+  // refresh-by-url matches by item guid (then by the old, dead audio URL) and never
+  // deletes a track, so every unmatched item would be added beside a dead copy.
+  const d = decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ tracks: { stored: 10, matched: 0 } }) });
+  assert.equal(d.action, 'needsReview');
+  assert.match(d.reason, /0 of 10/);
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ tracks: { stored: 10, matched: 9 } }) }).action, 'needsReview');
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ tracks: { stored: 10, matched: 10 } }) }).action, 'relocate');
+  // No tracks stored: nothing to duplicate.
+  assert.equal(decideDeadFeed({ signals: ['moved'], ownStatus: 410, newHome: home({ tracks: { stored: 0, matched: 0 } }) }).action, 'relocate');
+});
+
+// --- moving the audio with the feed --------------------------------------------
+
+const OLD_AUDIO = 'https://op3.dev/e,pg=c8ee8930-289b-5e6f-b5a2-d9305897b620/media.rssblue.com/raskolnikov.mp3';
+const NEW_AUDIO = 'https://op3.dev/e,pg=c8ee8930-289b-5e6f-b5a2-d9305897b620/files.epochradio.com/raskolnikov.mp3';
+
+test('matchTracksByGuid: each stored track takes the audio its item guid has in the new feed', () => {
+  const m = matchTracksByGuid(
+    [{ id: 't1', guid: 'g1', audioUrl: OLD_AUDIO }, { id: 't2', guid: 'g2', audioUrl: NEW_AUDIO }],
+    [{ guid: 'g1', audioUrl: NEW_AUDIO }, { guid: 'g2', audioUrl: NEW_AUDIO }, { guid: 'g3', audioUrl: 'https://x/bonus.mp3' }]
+  );
+  assert.deepEqual({ stored: m.stored, matched: m.matched }, { stored: 2, matched: 2 });
+  // Only the track whose audio actually changes is written; a bonus item is not ours to add here.
+  assert.deepEqual(m.audioMoves, [{ id: 't1', audioUrl: NEW_AUDIO }]);
+});
+
+test('matchTracksByGuid: a track with no guid, or an item with no audio, does not match', () => {
+  const m = matchTracksByGuid(
+    [{ id: 't1', guid: null, audioUrl: OLD_AUDIO }, { id: 't2', guid: 'g2', audioUrl: OLD_AUDIO }, { id: 't3', guid: 'g3', audioUrl: OLD_AUDIO }],
+    [{ guid: 'g2', audioUrl: null }, { guid: 'g3', audioUrl: NEW_AUDIO }, { guid: undefined, audioUrl: NEW_AUDIO }]
+  );
+  assert.deepEqual({ stored: m.stored, matched: m.matched }, { stored: 3, matched: 1 });
+  assert.deepEqual(m.audioMoves, [{ id: 't3', audioUrl: NEW_AUDIO }]);
 });
 
 test('a new home already in the catalog goes to review — never merged or hidden blind', () => {

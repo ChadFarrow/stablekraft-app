@@ -1,15 +1,16 @@
 /**
  * What the dead-feed sweep (`/api/admin/check-dead-feeds`) does with one feed.
  *
- * Import-free on purpose, so `dead-feed-decision.test.ts` loads the shipping module.
+ * Imports only pure modules (no database, no network), so `dead-feed-decision.test.ts`
+ * loads the shipping module — and the shipping blacklist.
  *
  * WHY THIS EXISTS. RSS Blue shut down (2026), and every one of its feeds answers
  * 410 Gone. 266 albums stayed in the catalog as "active" for months, none of them
  * playable, because the sweep only ever looked at feeds Podcast Index had marked
  * `dead` — and PI had last crawled them on 2026-05-27, when they still answered 200.
  * Half of those albums had not gone anywhere: the artists re-published them on
- * epochradio.com and Fountain under the SAME `<podcast:guid>`, with the same item
- * guids, and PI's record for that guid already points at the new URL. Nothing
+ * epochradio.com and Fountain under the SAME `<podcast:guid>` (and, on the albums
+ * checked, the same item guids), and PI's record for that guid already points there. Nothing
  * redirects (a bare 410, no `Location`), so the guid is the only thread to follow.
  *
  * So a feed becomes a CANDIDATE on any of three signals, and is only ever acted on
@@ -19,9 +20,15 @@
  *   - `moved`         PI's record for our guid now lives on a DIFFERENT HOST
  *
  * A confirmed-dead feed whose guid has a verified new home — answers 200, is RSS,
- * and declares the same `<podcast:guid>` — is RELOCATED (its `originalUrl` moves);
- * otherwise it is HIDDEN via `markedDead`. Anything uncertain is reported, not acted on.
+ * declares the same `<podcast:guid>`, is not blacklisted, and lists every stored track
+ * under the same item guid — is RELOCATED (its `originalUrl` and its tracks' audio
+ * move together); a new home that is gone too, or another feed, means HIDDEN via
+ * `markedDead`. Anything uncertain — including a new home that fails for now — is
+ * reported, not acted on.
  */
+
+import { isBlacklistedFeedUrl } from '../feed-exclusions';
+import { normalizeUrl } from '../url-utils';
 
 export type DeadFeedSignal = 'pi-dead' | 'refresh-gone' | 'moved';
 
@@ -86,6 +93,46 @@ export interface NewHomeCheck {
   guidMatches: boolean;
   /** Another catalog row already holds this URL. */
   collidesWith: string | null;
+  /** Our stored tracks, and how many of them the new feed lists under the same item guid. */
+  tracks: { stored: number; matched: number };
+}
+
+export interface StoredTrack {
+  id: string;
+  guid: string | null;
+  audioUrl: string | null;
+}
+
+export interface NewFeedItem {
+  guid?: string | null;
+  audioUrl?: string | null;
+}
+
+/**
+ * Which of our tracks the new feed still lists, and the audio each should now play.
+ *
+ * Matches the way `refresh-by-url` and the nightly reparse do — exact item guid,
+ * through a `Map`, so a guid listed twice resolves to its last item there too. Their
+ * fallback match on the stored `audioUrl` is left out on purpose: after a host shut
+ * down, that URL is the dead one, so it never matches anything in the new feed.
+ *
+ * An item with no enclosure does not count: re-pointing a track at nothing would
+ * leave it as unplayable as before.
+ */
+export function matchTracksByGuid(
+  stored: StoredTrack[],
+  items: NewFeedItem[]
+): { stored: number; matched: number; audioMoves: Array<{ id: string; audioUrl: string }> } {
+  const byGuid = new Map(items.filter((i) => i.guid).map((i) => [i.guid as string, i]));
+  let matched = 0;
+  const audioMoves: Array<{ id: string; audioUrl: string }> = [];
+  for (const t of stored) {
+    const audioUrl = t.guid ? byGuid.get(t.guid)?.audioUrl : null;
+    if (!audioUrl) continue;
+    matched++;
+    if (audioUrl !== t.audioUrl) audioMoves.push({ id: t.id, audioUrl });
+  }
+  return { stored: stored.length, matched, audioMoves };
 }
 
 export type DeadFeedAction =
@@ -138,13 +185,38 @@ export function decideDeadFeed(input: {
         reason: `HTTP ${ownStatus}; its new home ${newHome.url} is already in the catalog as ${newHome.collidesWith}`,
       };
     }
-    if (newHome.status >= 200 && newHome.status < 300 && newHome.isRss && newHome.guidMatches) {
-      return { action: 'relocate', to: newHome.url, reason: `HTTP ${ownStatus}; same podcast:guid now at ${newHome.url}` };
+    // Only an answer that SAYS something may hide: the other URL is gone too, or it
+    // serves an RSS feed that is not ours. A hide is permanent for this sweep (it reads
+    // only `markedDead: false`), so a 429, a 5xx, a 403 or a 200 challenge page on one
+    // Monday must never hide an album that would have moved the next.
+    if (newHome.status === 404 || newHome.status === 410) {
+      return { action: 'hide', reason: `HTTP ${ownStatus}; PI's other URL ${newHome.url} is gone too (HTTP ${newHome.status})` };
     }
-    return {
-      action: 'hide',
-      reason: `HTTP ${ownStatus}; PI's other URL is not this feed (HTTP ${newHome.status}${newHome.isRss ? '' : ', not RSS'}${newHome.guidMatches ? '' : ', different guid'})`,
-    };
+    if (newHome.status < 200 || newHome.status >= 300 || !newHome.isRss) {
+      return {
+        action: 'unconfirmed',
+        reason: `HTTP ${ownStatus}; new home ${newHome.url} answered HTTP ${newHome.status}${newHome.isRss ? '' : ', not RSS'}, so it could not be checked`,
+      };
+    }
+    if (!newHome.guidMatches) {
+      return { action: 'hide', reason: `HTTP ${ownStatus}; PI's other URL ${newHome.url} serves a different podcast:guid` };
+    }
+    // It is this feed. A URL every import path refuses is still no home for it.
+    if (isBlacklistedFeedUrl(newHome.url)) {
+      return { action: 'hide', reason: `HTTP ${ownStatus}; its new home ${newHome.url} is on the feed blacklist` };
+    }
+    // refresh-by-url matches tracks by item guid and never deletes one, so a track the
+    // new feed lists under another guid would be added beside its dead copy.
+    const { stored, matched } = newHome.tracks;
+    if (matched < stored) {
+      return {
+        action: 'needsReview',
+        reason: `HTTP ${ownStatus}; same podcast:guid at ${newHome.url}, but only ${matched} of ${stored} tracks keep their item guid there — a move would list the rest twice`,
+      };
+    }
+    // Stored the way every write path stores a feed URL, so the URL ladder finds it.
+    const to = normalizeUrl(newHome.url);
+    return { action: 'relocate', to, reason: `HTTP ${ownStatus}; same podcast:guid now at ${to}` };
   }
   return { action: 'hide', reason: `HTTP ${ownStatus}` };
 }

@@ -64,8 +64,8 @@ export default function AdminPanel() {
     wouldHide?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
     hidden?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
     // A confirmed-dead feed whose podcast:guid now lives at a verified new URL.
-    wouldRelocate?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; httpStatus: number | null; reason?: string }>;
-    relocated?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; httpStatus: number | null; reason?: string }>;
+    wouldRelocate?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; tracksRepointed?: number; httpStatus: number | null; reason?: string }>;
+    relocated?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; tracksRepointed?: number; httpStatus: number | null; reason?: string }>;
     relocatedCount?: number;
     refreshedMoved?: number;
     needsReview: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; reason?: string }>;
@@ -1140,18 +1140,27 @@ export default function AdminPanel() {
       const needsReview: any[] = [];
       const unconfirmed: any[] = [];
 
+      // A failed page ends the SCAN, not the run: the feeds earlier pages already
+      // moved still get their refresh below, and the report says where it stopped.
+      let pageError: string | null = null;
+
       // Hard cap on pages as a runaway guard (1000 limit × 60 ≈ 60k feeds).
       for (let page = 0; page < 60; page++) {
-        const response = await adminFetch('/api/admin/check-dead-feeds', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dryRun, limit: 300, offset }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-          toast.error(data.error || 'Dead-feed check failed');
-          setDeadCheckBusy(false);
-          return;
+        let data: any = null;
+        try {
+          const response = await adminFetch('/api/admin/check-dead-feeds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dryRun, limit: 300, offset }),
+          });
+          data = await response.json().catch(() => null);
+          if (!response.ok || !data?.success) {
+            pageError = data?.error || `Dead-feed check failed (HTTP ${response.status})`;
+            break;
+          }
+        } catch {
+          pageError = 'Network error during the dead-feed check';
+          break;
         }
 
         totalActive = data.totalActive ?? totalActive;
@@ -1186,26 +1195,35 @@ export default function AdminPanel() {
         offset = data.nextOffset;
       }
 
-      // A moved row still holds the dead host's track audio until a refresh
-      // rewrites it: the nightly reparse leaves audioUrl alone on a matched track,
-      // refresh-by-url updates it (by item guid). Paced under its 30/min/IP limit.
+      // The move already re-pointed every track's audio, in the same transaction as
+      // the URL, so a moved album plays now. This refresh brings the rest from the
+      // new feed — track artwork, titles, value splits. Nothing retries it: one that
+      // fails leaves the album playable and is reported in the count, not hidden.
+      // adminFetch, so the admin session skips refresh-by-url's coalescing window;
+      // a 202 (queued, not run) is still counted apart. Paced under its 30/min/IP limit.
       let refreshedMoved = 0;
+      let queuedMoved = 0;
       if (!dryRun) {
-        for (const f of toMove) {
-          setDeadCheckReport((r) => r && { ...r, message: `Refreshing moved feeds… ${refreshedMoved} of ${toMove.length}` });
+        for (let i = 0; i < toMove.length; i++) {
+          const f = toMove[i];
+          setDeadCheckReport((r) => r && { ...r, message: `Refreshing moved feeds… ${i} of ${toMove.length}` });
           try {
-            const res = await fetch('/api/feeds/refresh-by-url', {
+            const res = await adminFetch('/api/feeds/refresh-by-url', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ originalUrl: f.to }),
             });
-            if (res.ok) refreshedMoved++;
+            if (res.status === 202) queuedMoved++;
+            else if (res.ok) refreshedMoved++;
           } catch {
-            // Reported in the count; the weekly run refreshes again.
+            // Counted as not refreshed.
           }
           await new Promise((r) => setTimeout(r, 2500));
         }
       }
+      const refreshNote = toMove.length
+        ? ` (refreshed ${refreshedMoved}${queuedMoved ? `, queued ${queuedMoved}` : ''} of ${toMove.length})`
+        : '';
 
       setDeadCheckReport({
         dryRun,
@@ -1217,11 +1235,15 @@ export default function AdminPanel() {
         ...(dryRun ? { wouldHide: toHide, wouldRelocate: toMove } : { hidden: toHide, hiddenCount, relocated: toMove, relocatedCount, refreshedMoved }),
         needsReview,
         unconfirmed,
-        message: dryRun
-          ? `Scanned ${checked} active feed(s): ${toMove.length} moved to a new home, ${toHide.length} confirmed dead, ${needsReview.length} need review.`
-          : `Scanned ${checked} active feed(s): moved ${relocatedCount} (refreshed ${refreshedMoved}), hid ${hiddenCount}, ${needsReview.length} need review.`,
+        message:
+          (pageError ? `Stopped early — ${pageError}. ` : '') +
+          (dryRun
+            ? `Scanned ${checked} active feed(s): ${toMove.length} moved to a new home, ${toHide.length} confirmed dead, ${needsReview.length} need review.`
+            : `Scanned ${checked} active feed(s): moved ${relocatedCount}${refreshNote}, hid ${hiddenCount}, ${needsReview.length} need review.`),
       });
-      if (!dryRun) {
+      if (pageError) {
+        toast.error(pageError);
+      } else if (!dryRun) {
         toast.success(`Moved ${relocatedCount} feed(s), hid ${hiddenCount}`);
       }
     } catch (error) {
@@ -2175,7 +2197,7 @@ export default function AdminPanel() {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-6 mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Check for Dead Feeds</h2>
           <p className="text-sm text-gray-400 mb-4">
-            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL, the feed is moved there and refreshed; otherwise it is hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing changes until you confirm.
+            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL that still lists every track under the same item guid, the feed and the audio of its tracks move there together, and the feed is then refreshed; otherwise it is hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing changes until you confirm.
           </p>
           <div className="flex gap-2">
             <button
@@ -2212,7 +2234,7 @@ export default function AdminPanel() {
                   <div className="rounded-lg p-4 border bg-blue-500/10 border-blue-500/30" data-testid="dead-feed-relocations">
                     <h4 className="font-semibold text-blue-300 mb-2">
                       {deadCheckReport.dryRun
-                        ? `${toMove.length} dead feed(s) would move to their new home (same podcast:guid, verified live)`
+                        ? `${toMove.length} dead feed(s) would move to their new home (same podcast:guid and item guids, verified live)`
                         : `${deadCheckReport.relocatedCount ?? toMove.length} feed(s) moved · ${deadCheckReport.refreshedMoved ?? 0} refreshed`}
                     </h4>
                     <ul className="space-y-1 text-sm">
@@ -2221,6 +2243,9 @@ export default function AdminPanel() {
                           <span className="font-medium text-white">{f.title}</span>
                           {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
                           <span className="text-gray-500"> (HTTP {f.httpStatus ?? '—'})</span>
+                          {typeof f.tracksRepointed === 'number' ? (
+                            <span className="text-gray-500"> · {f.tracksRepointed} track(s) {deadCheckReport.dryRun ? 'to re-point' : 're-pointed'}</span>
+                          ) : null}
                           <br />
                           <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                           <span className="text-xs text-gray-500"> → </span>
@@ -2249,6 +2274,10 @@ export default function AdminPanel() {
                               <span className="font-medium text-white">{f.title}</span>
                               {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
                               <span className="text-gray-500"> ({f.signals?.join(', ') || `PI dead=${f.piDead}`}; HTTP {f.httpStatus ?? '—'})</span>
+                              {/* Why hidden rather than moved — a new home that is gone too, another feed, or blacklisted. */}
+                              {f.reason && f.reason !== `HTTP ${f.httpStatus}` ? (
+                                <span className="text-gray-500"> — {f.reason}</span>
+                              ) : null}
                               <br />
                               <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                             </li>

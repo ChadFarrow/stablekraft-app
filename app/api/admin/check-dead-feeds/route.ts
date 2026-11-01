@@ -4,10 +4,12 @@ import { podcastIndexAPI } from '@/lib/podcast-index-api';
 import { invalidateAlbumsFastCache } from '@/lib/caches/albums-fast-cache';
 import { invalidateSearchCache } from '@/lib/caches/search-cache';
 import { findFeedIdByUrl } from '@/lib/feed-lookup';
-import { parsePodcastGuidFromXML } from '@/lib/rss-parser-db';
+import { parsePodcastGuidFromXML, parseRSSFeed } from '@/lib/rss-parser-db';
+import { safeFetch, readCappedText, MAX_FEED_BYTES, type FetchLike } from '@/lib/safe-fetch';
 import {
   decideDeadFeed,
   isHostMove,
+  matchTracksByGuid,
   nextPageOffset,
   refreshSaysGone,
   sameFeedUrl,
@@ -37,10 +39,13 @@ import {
  *   2. CONFIRM (only the candidates): directly fetch the feed URL and require a
  *      hard 404/410 before acting. Then follow the guid: if PI holds it under
  *      another URL that answers 200, is RSS and declares the same
- *      `<podcast:guid>`, the feed is RELOCATED there (`originalUrl` moves, and
- *      the caller refreshes it so the tracks pick up the new audio). Otherwise
- *      it is HIDDEN. PI-says-dead-but-URL-200 goes to `needsReview`; transient
- *      errors go to `unconfirmed`. Neither is touched.
+ *      `<podcast:guid>`, and lists every stored track under the same item guid,
+ *      the feed is RELOCATED there: `originalUrl` and each track's `audioUrl`
+ *      move in ONE transaction, so a moved album plays even if no refresh ever
+ *      follows (the caller still refreshes it, for artwork and metadata).
+ *      Otherwise it is HIDDEN. PI-says-dead-but-URL-200 and a new home whose
+ *      item guids changed go to `needsReview`; transient errors, at either
+ *      URL, go to `unconfirmed`. Neither is touched.
  *
  * Why the extra signals: RSS Blue shut down in 2026 and its 266 albums stayed
  * "active" for months — PI had last crawled them while they still answered 200,
@@ -83,7 +88,7 @@ type FlaggedFeed = {
   reason?: string;
 };
 
-type Relocation = FlaggedFeed & { to: string };
+type Relocation = FlaggedFeed & { to: string; tracksRepointed: number };
 
 type Candidate = {
   feed: FeedRow;
@@ -93,53 +98,95 @@ type Candidate = {
   piUrl: string | null;
 };
 
-const MAX_NEW_HOME_BYTES = 15 * 1024 * 1024;
-
 /**
  * GET a URL for its status. The body is read only when asked (the new-home check
  * needs the XML to compare guids); a feed's own URL only needs its status, so its
  * body is cancelled rather than downloaded.
+ *
+ * Through `safeFetch`, because both URLs come from outside: the new home is
+ * whatever PI's record says, and anyone can put a URL in PI. Every redirect hop is
+ * checked against private addresses, and the body is capped by counting bytes, not
+ * by trusting `content-length`. Could-not-verify is never "is not this feed", so
+ * every refusal here is `'error'`, which never hides.
  */
 async function fetchStatus(
   url: string,
   readBody = false
 ): Promise<{ status: ConfirmStatus; reason?: string; body?: string }> {
+  // safeFetch's own timeout stops once the headers arrive. This one deadline spans
+  // every redirect hop AND the body read, so a slow-drip server cannot hold a page.
+  const deadline = AbortSignal.timeout(CONFIRM_TIMEOUT_MS);
+  const withDeadline: FetchLike = (u, init) =>
+    fetch(u, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
   try {
-    const res = await fetch(url, {
-      method: 'GET',
+    const got = await safeFetch(url, {
+      allowHttp: true,
+      timeoutMs: CONFIRM_TIMEOUT_MS,
       headers: { 'User-Agent': 'StableKraft-Feed-Parser/1.0' },
-      signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
+      fetchImpl: withDeadline,
     });
+    if (!got.ok) return { status: 'error', reason: got.error };
+    const res = got.response;
     if (!readBody || !res.ok) {
       await res.body?.cancel().catch(() => {});
       return { status: res.status };
     }
-    const len = Number(res.headers.get('content-length') || 0);
-    if (len > MAX_NEW_HOME_BYTES) {
-      // Could not verify is not "is not this feed": never hide on it.
-      await res.body?.cancel().catch(() => {});
-      return { status: 'error', reason: `new home is ${len} bytes, too large to verify` };
-    }
-    return { status: res.status, body: await res.text() };
+    const read = await readCappedText(res, MAX_FEED_BYTES);
+    if (!read.ok) return { status: 'error', reason: `${read.error}, too large to verify` };
+    return { status: res.status, body: read.value };
   } catch (err) {
     return { status: 'error', reason: err instanceof Error ? err.message : 'fetch failed' };
   }
 }
 
-/** Does PI's other URL for this guid really serve THIS feed, and is it free in the catalog? */
-async function checkNewHome(feed: FeedRow, piUrl: string): Promise<NewHomeCheck> {
+type NewHome = {
+  check: NewHomeCheck;
+  /** Why the new home could not be checked, when it could not. */
+  reason?: string;
+  /** Each matched track whose audio the move re-points, from the feed just verified. */
+  audioMoves: Array<{ id: string; audioUrl: string }>;
+};
+
+/**
+ * Does PI's other URL for this guid really serve THIS feed, is it free in the
+ * catalog, and does it still list our tracks under the same item guids?
+ */
+async function checkNewHome(feed: FeedRow, piUrl: string): Promise<NewHome> {
   const got = await fetchStatus(piUrl, true);
   const body = got.body ?? '';
   const declared = body ? parsePodcastGuidFromXML(body) : null;
   const match = await findFeedIdByUrl(piUrl);
-  return {
+  const check: NewHomeCheck = {
     url: piUrl,
     status: got.status,
     isRss: /<rss\b|<channel\b/i.test(body),
     guidMatches: !!declared && !!feed.guid && declared.trim().toLowerCase() === feed.guid.trim().toLowerCase(),
     // The URL ladder's uuid-in-URL rung can match THIS row by its own guid.
     collidesWith: match && match.id !== feed.id ? match.id : null,
+    tracks: { stored: 0, matched: 0 },
   };
+  if (typeof check.status !== 'number' || check.status < 200 || check.status >= 300 || !check.isRss || !check.guidMatches) {
+    return { check, reason: got.reason, audioMoves: [] };
+  }
+
+  // Same parser as refresh-by-url, on the XML already fetched, so `audioUrl` is
+  // exactly what a refresh would store.
+  let items;
+  try {
+    items = (await parseRSSFeed(piUrl, body)).items;
+  } catch (err) {
+    return {
+      check: { ...check, status: 'error' },
+      reason: `new home did not parse: ${err instanceof Error ? err.message : 'unknown error'}`,
+      audioMoves: [],
+    };
+  }
+  const stored = await prisma.track.findMany({
+    where: { feedId: feed.id },
+    select: { id: true, guid: true, audioUrl: true },
+  });
+  const m = matchTracksByGuid(stored, items);
+  return { check: { ...check, tracks: { stored: m.stored, matched: m.matched } }, audioMoves: m.audioMoves };
 }
 
 function delay(ms: number): Promise<void> {
@@ -214,6 +261,7 @@ export async function POST(request: NextRequest) {
     const needsReview: FlaggedFeed[] = []; // PI dead but URL 200, or new home already a row
     const unconfirmed: FlaggedFeed[] = []; // transient / other errors
     let ignored = 0; // a candidate whose own URL still serves (stale lastError, two hosts)
+    const audioMovesById = new Map<string, NewHome['audioMoves']>();
 
     for (const { feed, piDead, signals, piUrl } of candidates) {
       const own = await fetchStatus(feed.originalUrl);
@@ -229,11 +277,20 @@ export async function POST(request: NextRequest) {
       // Fetch the new home only for a feed whose own URL is confirmed gone.
       const gone = own.status === 404 || own.status === 410;
       const newHome = gone && piUrl ? await checkNewHome(feed, piUrl) : null;
-      const d = decideDeadFeed({ signals, ownStatus: own.status, newHome });
-      const flagged = { ...base, reason: own.status === 'error' ? own.reason ?? d.reason : d.reason };
+      const d = decideDeadFeed({ signals, ownStatus: own.status, newHome: newHome?.check });
+      const reason =
+        own.status === 'error'
+          ? own.reason ?? d.reason
+          : d.action === 'unconfirmed' && newHome?.reason
+            ? `${d.reason} (${newHome.reason})`
+            : d.reason;
+      const flagged = { ...base, reason };
 
-      if (d.action === 'relocate') relocations.push({ ...flagged, to: d.to });
-      else if (d.action === 'hide') confirmed.push(flagged);
+      if (d.action === 'relocate') {
+        const moves = newHome?.audioMoves ?? [];
+        audioMovesById.set(feed.id, moves);
+        relocations.push({ ...flagged, to: d.to, tracksRepointed: moves.length });
+      } else if (d.action === 'hide') confirmed.push(flagged);
       else if (d.action === 'needsReview') needsReview.push(flagged);
       else if (d.action === 'unconfirmed') unconfirmed.push(flagged);
       else ignored++;
@@ -245,20 +302,31 @@ export async function POST(request: NextRequest) {
     if (!dryRun) {
       for (const r of relocations) {
         const row = candidates.find((c) => c.feed.id === r.id)!.feed;
+        const now = new Date();
         try {
-          await prisma.feed.update({
-            where: { id: r.id },
-            data: {
-              originalUrl: r.to,
-              // cdnUrl mirrors originalUrl on every row the import paths write.
-              ...(row.cdnUrl === row.originalUrl ? { cdnUrl: r.to } : {}),
-              lastError: null,
-              updatedAt: new Date(),
-            },
-          });
+          // The URL and the audio move together or not at all. Moved alone, the row
+          // would serve the dead host's audio until a refresh rewrote it — and after a
+          // move nothing makes the row a candidate again (its URL answers, its
+          // `lastError` is clear), and the nightly reparse never rewrites `audioUrl`.
+          await prisma.$transaction([
+            prisma.feed.update({
+              where: { id: r.id },
+              data: {
+                originalUrl: r.to,
+                // cdnUrl mirrors originalUrl on every row the import paths write.
+                ...(row.cdnUrl === row.originalUrl ? { cdnUrl: r.to } : {}),
+                lastError: null,
+                updatedAt: now,
+              },
+            }),
+            ...(audioMovesById.get(r.id) ?? []).map((t) =>
+              prisma.track.update({ where: { id: t.id }, data: { audioUrl: t.audioUrl, updatedAt: now } })
+            ),
+          ]);
           relocated.push(r);
         } catch (err) {
-          // Lost a race on @unique originalUrl since the collision check.
+          // Lost a race on @unique originalUrl since the collision check, or a track
+          // went away mid-run. The transaction rolled back: nothing moved.
           needsReview.push({ ...r, reason: `could not move to ${r.to}: ${err instanceof Error ? err.message : 'update failed'}` });
         }
       }
