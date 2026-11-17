@@ -20,8 +20,12 @@ export default function ServiceWorkerRegistration() {
       let registration: ServiceWorkerRegistration;
       let updateInterval: NodeJS.Timeout | null = null;
 
-      // Register service worker with cache busting
-      const swUrl = `/sw.js?v=${Date.now()}`;
+      // The script URL must be STABLE. It used to carry `?v=${Date.now()}`, and a
+      // new script URL is a new worker, so every page load installed one —
+      // which went unseen only while every install failed. `updateViaCache:
+      // 'none'` already makes the browser fetch a fresh sw.js on every update
+      // check, so a deploy is still picked up. next-pwa registers the same URL.
+      const swUrl = '/sw.js';
       navigator.serviceWorker
         .register(swUrl, {
           scope: '/',

@@ -3,8 +3,30 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-  // Comprehensive exclusions to prevent API and RSC caching issues
-  exclude: [
+  // What the service worker PRECACHES at install. One failed URL fails the
+  // whole install, and the worker is thrown away.
+  //
+  // This MUST be `buildExcludes`, never `exclude`. next-pwa spreads any option
+  // it does not know over its own config, so an `exclude` here REPLACED its
+  // default — the one that drops `server/*` and `build-manifest.json` — and
+  // nine build manifests went into the precache list and 404'd. The worker had
+  // never installed in production, so there was no offline start page and no
+  // `/downloads` offline (measured 2026-11-17: 9 of 166 entries 404).
+  // `buildExcludes` is added to next-pwa's default instead.
+  buildExcludes: [
+    // Only `.next/static/**` is served (as `/_next/static/**`). Everything else
+    // the client build emits is a manifest Next reads on the server — and Next
+    // adds new ones: next-pwa 5.6 knows `build-manifest.json`, not
+    // `app-build-manifest.json` or Next 15's `dynamic-css-manifest.json`.
+    // Public files and the two pages below reach the list by other routes.
+    // A REGEX, not a function: Workbox 6.6's `checkConditions` returns the
+    // result of the FIRST function in this list and never looks at anything
+    // after it — a function here silently disabled every pattern below.
+    /^(?!static\/)/,
+
+    // The patterns below are matched against BUILD ASSET names such as
+    // `static/chunks/app/admin/page-….js`, not URLs, so only the page-chunk
+    // ones (`/admin/`, `/test-…/`) ever match anything.
     // Next.js internals
     /_next\/static\/.*\/_buildManifest\.js$/,
     /_next\/static\/.*\/_ssgManifest\.js$/,
@@ -39,7 +61,14 @@ const withPWA = require('next-pwa')({
     /api\/publishers/,
     /api\/playlist/,
   ],
-  // Enhanced runtime caching with better API exclusions
+  // Runtime caching. Every rule matches by FUNCTION and only this site's own
+  // requests. The page rule used to be a regex, `^https?:\/\/[^/]*\/(?!api\/)…`,
+  // which matches EVERY host: a song played direct from its own host
+  // (`DIRECT_FIRST_DOMAINS`) and every HLS segment would have gone through a
+  // NetworkFirst cache — the same audio-in-Cache-Storage problem #310 removed.
+  // That never happened only because the worker never installed. Audio is
+  // matched by NO rule, so the worker does not answer for it at all. The user's
+  // downloads are the only audio in Cache Storage (`lib/downloads/`).
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -64,8 +93,10 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Use NetworkFirst for external images to avoid CORS/blocking issues
-      urlPattern: /^https?.*\.(png|jpg|jpeg|svg|gif|webp|ico)$/i,
+      // Our own static images (icons, logos). A cover from a feed host is
+      // cross-origin and opaque, and is not the worker's business.
+      urlPattern: ({ url, sameOrigin }) =>
+        sameOrigin && /\.(png|jpg|jpeg|svg|gif|webp|ico)$/i.test(url.pathname),
       handler: 'NetworkFirst',
       options: {
         cacheName: 'static-images-cache',
@@ -85,8 +116,9 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Cache CSS and JS files
-      urlPattern: /^https?.*\.(css|js)$/i,
+      // Our own CSS and JS. CacheFirst for 7 days is safe only for hashed
+      // files, so a third-party script must not land here.
+      urlPattern: ({ url, sameOrigin }) => sameOrigin && /\.(css|js)$/i.test(url.pathname),
       handler: 'CacheFirst',
       options: {
         cacheName: 'static-resources-cache',
@@ -97,8 +129,10 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Network first for pages (but exclude API and RSC)
-      urlPattern: /^https?:\/\/[^/]*\/(?!api\/)(?!.*\?_rsc=).*$/,
+      // Network first for our own PAGES: navigations only. An RSC fetch is not a
+      // navigation, and neither is a media request.
+      urlPattern: ({ url, request, sameOrigin }) =>
+        sameOrigin && request.mode === 'navigate' && !url.pathname.startsWith('/api/'),
       handler: 'NetworkFirst',
       options: {
         cacheName: 'pages-cache',
