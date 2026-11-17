@@ -19,6 +19,7 @@ import { reportBoost } from '@/lib/lightning/report-boost';
 import { resolveAutoBoostSenderName, resolveBoostSenderName } from '@/lib/lightning/sender-name';
 import { hasV4V as checkHasV4V, getV4VRecipients, getPrimaryRecipient, getPrimaryRecipientObject, formatValueSplitsForBoost } from '@/lib/v4v-utils';
 import { purgeLegacyAudioCache } from '@/lib/legacy-audio-cache';
+import { holdsSource } from '@/lib/media-source';
 import { isCorsProblematicHost, isDirectFirstHost } from '@/lib/audio-url-utils';
 import { NextTrackBlobCache } from '@/lib/audio-blob-prefetch';
 import { downloadManager } from '@/lib/downloads/download-manager';
@@ -2543,7 +2544,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
       try {
         // Reuse the idle element if it already holds this exact source loaded.
-        const alreadyLoaded = idle.src === secureUrl && idle.readyState >= 2;
+        const alreadyLoaded = holdsSource(idle.src, secureUrl, document.baseURI) && idle.readyState >= 2;
         if (!alreadyLoaded) {
           idle.src = secureUrl;
           idle.load();
@@ -2608,6 +2609,29 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
 
     return false;
   };
+
+  // The 15-second warm-up element (`preloadAudioRef`) lives as long as the song
+  // change it warms up for — NOT as long as one run of the media-listener effect
+  // below. That effect lists `publishNip38StatusDebounced`, which depends on
+  // `currentTime`, so React tears it down and rebuilds it on every `timeupdate`
+  // (measured 2026-11-17: ~3.7 runs a second). Its cleanup used to drop this
+  // element, so for the last 15 seconds of every song the warm-up was rebuilt
+  // four times a second — ~55 aborted `/api/proxy-audio` requests per song
+  // change, and a warm-up that never finished. These deps are that effect's own
+  // minus the one that changes every tick; `handlePlay` still drops the element
+  // when the next song starts, and the 15s branch replaces it when the next
+  // song's URL changes.
+  const dropPreloader = useCallback(() => {
+    const el = preloadAudioRef.current;
+    if (!el) return;
+    el.removeAttribute('src');
+    el.load();
+    preloadAudioRef.current = null;
+  }, []);
+  useEffect(
+    () => dropPreloader,
+    [dropPreloader, isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode]
+  );
 
   // Media event listeners
   useEffect(() => {
@@ -2842,7 +2866,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
               if (isAndroidRef.current) {
                 prefetchBlobForTrack(nextTrack);
               }
-            } else if (!preloadAudioRef.current || preloadAudioRef.current.src !== secureNextUrl) {
+            } else if (
+              !preloadAudioRef.current ||
+              !holdsSource(preloadAudioRef.current.src, secureNextUrl, document.baseURI)
+            ) {
               console.log('🔄 Preloading next track audio into browser cache:', nextTrack.title);
               if (preloadAudioRef.current) {
                 preloadAudioRef.current.removeAttribute('src');
@@ -2868,7 +2895,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
                 ? videoRef.current
                 : (isAndroidRef.current && !isVideoMode ? getIdleAudioEl() : audioRef.current);
               if (nextElement && nextElement !== currentElement) {
-                if (!nextElement.src || nextElement.src !== secureNextUrl) {
+                if (!holdsSource(nextElement.src, secureNextUrl, document.baseURI)) {
                   console.log('🔄 Preloading next track into alternate element:', nextTrack.title);
                   nextElement.src = secureNextUrl;
                   nextElement.preload = 'auto';
@@ -3163,12 +3190,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         iosAdvanceTimerRef.current = null;
       }
 
-      // Clean up preload Audio element
-      if (preloadAudioRef.current) {
-        preloadAudioRef.current.removeAttribute('src');
-        preloadAudioRef.current.load();
-        preloadAudioRef.current = null;
-      }
+      // The preload Audio element is NOT dropped here: this cleanup runs on
+      // every tick. See `dropPreloader` above this effect.
 
       // Clean up HLS instance - but NOT if:
       // 1. We're in the middle of initializing HLS

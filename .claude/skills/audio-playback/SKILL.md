@@ -34,6 +34,9 @@ When an album finishes with repeat off, `playNextTrack` rewinds to the first **a
 ## iOS PWA Background Audio (`contexts/AudioContext.tsx`)
 Three-layer strategy: (1) preload at 15s before end, (2) proactive timer at 5s before end, (3) visibility change safety net. `trackEndProcessedRef` prevents double-advance. **Critical**: do not auto-resume if user explicitly paused. All three layers sit inside a `nextTrack` existence check, so none of them fire on the last track with repeat off — end of album is reached only via `handleEnded` or a manual/lock-screen Next.
 
+- **Ask "does this element already hold this URL?" with `holdsSource()` (`lib/media-source.ts`), never `el.src === url`.** `el.src` reads back absolute and serialized, and every proxied track is the RELATIVE `/api/proxy-audio?url=…`, so the raw compare is false for most of the catalog and the code behind it reloads. Three places did: the 15s warm-up, the Android 5s idle preload, and the ping-pong `alreadyLoaded` reuse. `lib/media-source.test.ts` fails on any raw `.src ===` left in `AudioContext.tsx`.
+- **The media-listener effect re-runs on every `timeupdate`** (~3.7 runs a second, measured 2026-11-17): it lists `publishNip38StatusDebounced`, which depends on `currentTime`. So nothing that must outlive one tick may be torn down in its cleanup. The 15s warm-up element was, and was rebuilt ~55 times per song change even after the URL compare was fixed; it now has its own effect (`dropPreloader`) keyed on that effect's deps minus the per-tick one. The re-run itself is NOT fixed: the handlers read `chapters`, `isPlaying`, `radioMode`, `updateMediaSession` and others that are not in the dep list and are fresh today only because of it — stopping the re-run means adding those deps first.
+
 ---
 
 ## Android Background Audio — Ping-Pong Dual Element (`contexts/AudioContext.tsx`)
