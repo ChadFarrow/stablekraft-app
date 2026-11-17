@@ -36,8 +36,31 @@ npm run seed:relay -- <npub>     # copies the real kind:10333 in — read-only a
 npm run seed:relay -- <npub> --content 'AkQB…'   # force a private half to test the carry against
 npm run dev:isolated             # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key: read → merge → publish → assert
+npm run e2e:signers              # the same, in Chrome, through nos2x (NIP-07) and `nak bunker` (NIP-46)
 npx tsx lib/nostr/favorites.relay-probe.ts --relay ws://127.0.0.1:7777
 ```
+
+**`e2e:signers` is the only test that goes through a REAL signer.** Everything else stands in for one:
+`e2e:favorites` signs with a raw key, and the earlier browser runs defined `window.nostr` themselves. It
+loads the published nos2x into a headless Chrome over a CDP pipe (`--load-extension` is gone from branded
+Chrome; `Extensions.loadUnpacked` answers only on `--remote-debugging-pipe`), pastes a throwaway key into
+nos2x's own options page and answers its permission prompts; then it runs `nak bunker` on the same key and
+signs in through the "Bunker URI" card. Each signer favorites an album and a track, unfavorites the album,
+reloads, switches to Private and does it again, and every step is read off the relay (decrypting the
+private half with the key) and the rows. It builds its own local database, relay, TLS front and dev
+server, and stops and deletes all of them. nak and nos2x are fetched once into `~/.cache/stablekraft-e2e`,
+pinned by sha256.
+
+- **The relay is behind a TLS front because the NIP-46 client accepts only `wss://`.** The app is pointed
+  at `wss://127.0.0.1:7792` only; `RelayManager.connect` allows it because it is the configured relay.
+- **It found a NIP-46 bug that every stand-in hid** (2026-11-17, on `main` too): `NIP46Client`'s
+  per-method rate limit THROWS when a second request of the same method comes within its window
+  (500–2000ms). One heart tap asks for two signatures ~100ms apart (the kind 30001 item and this list),
+  so the list publish fails and waits for the next page load; in Private mode every load decrypts the
+  private half twice, the second throws, and the sync stops on "the private half is unreadable" — a
+  NIP-46 user on Private gets no automatic update at all. Waiting for the slot instead of throwing
+  made every check pass. Until that ships, the script reports these as failures and reloads the page
+  so the merge checks still run.
 
 **`NEXT_PUBLIC_NOSTR_RELAYS` alone is NOT isolation, and that is why `dev:isolated` exists.** Setting
 it points `getDefaultRelays()` at the local relay, and the publish path used to union the user's real
@@ -187,12 +210,14 @@ Files: `lib/nostr/pc20-identifiers.ts` (the NIP-73 vocabulary, which outlives an
 
 **The debounce is 600ms** (was 1500ms), sized off the burst it exists to absorb: favoriting an album writes one `FavoriteTrack` per track, measured at 12ms apart in production. Each cycle costs one signing prompt, so do not shave it without a number that concrete.
 
-## Placement is POSITIONAL, and everything below follows from it
+## An entry names its own feed, and only `medium` is positional
 
-An item entry carries no parent. It belongs to the feed group most recently opened above it, under the medium most recently declared above that. Reordering the tags is therefore not cosmetic — it re-parents entries and re-labels media, while leaving the event perfectly well-formed.
+An item entry is `['i','podcast:guid:<feed>','podcast:item:guid:<item>']` — it carries the guid of its feed on its own tag, so reordering the array moves nothing. `medium` is the exception and is still a running value: it applies to every entry after it until the next `medium` tag, and an entry before any `medium` tag has an UNKNOWN medium that nothing may default.
 
-- **A feed group is opened for every parent of a favorited track**, favorited or not, because there is no other way to name the feed a track came from. Measured on real data: 82 favorited feeds, 159 distinct parents, **196 groups**. Nothing on the wire distinguishes a group opened for placement from a feed the user chose. Resolving the guids and deciding what to render is the consuming app's job — they are the standard Podcasting 2.0 identifiers.
-- **Unfavoriting a feed while a track of it stays favorited is invisible.** The placement group and the favorite are the same bytes, so the removal cannot be expressed until the last track goes too. Pinned by a test; found because an idempotence assertion failed and was right to.
+- **Nothing is on this list for structural reasons.** A feed entry appears only when the user favorited the feed, so a reader never has to work out whether an entry is a favorite or scaffolding. A group this app holds only to supply its items' feed guid says `favorited: false` and emits its items and no feed tag.
+- **Unfavoriting a feed while a track of it stays favorited is an ordinary removal.** It used to be invisible: the placement group and the favorite were the same bytes, so the removal could not be stated until the last track went too. That is what the first revision cost — 82 favorited feeds, 159 distinct parents, **196 groups**, 114 of them feeds nobody chose on a list relays index under `#i`.
+- **A feed entry our own record does not claim is another app's.** Not holding it here does not beat it: delete it and that app restates it next cycle, and the two rewrite the event at each other forever. The record is the only thing that separates our removal from their addition.
+- **The LEGACY two-element item is still positional and reading it stays mandatory.** `['i','podcast:item:guid:<item>']` takes its feed from the entry above it. A writer rewrites such a tag once, WHOLE — the identifier moves to position 2 and position 1 becomes the feed's. An item whose feed nobody knows goes back as it arrived, in band 0, ahead of every feed entry in its run.
 - **A track whose feed has no `<podcast:guid>` cannot be expressed** and is dropped on write. The two-list format could carry it parentless. No favorite is in that state today; the fix is an admin reparse, not an invented parent.
 
 ## A republish renders from `nodes`, never from `groups`
@@ -226,7 +251,7 @@ The format cannot tell "another app added this" from "I removed this" — a publ
 
 **Four production bugs on 2026-08-13 came from having some of the rules below and not others.** They are individually correct and only work together — check all four before changing any of them.
 
-1. **An itemless group is a real favorite; a group with items is unknowable.** The reconcile creates a `FavoriteAlbum` for incoming feed guids, and a placement group is indistinguishable from a chosen one, so without this it manufactures favorites — reading our own list back would have created **114** (#210).
+1. **An itemless group is a real favorite; a group with items is unknowable.** The reconcile creates a `FavoriteAlbum` for incoming feed guids, and a placement group is indistinguishable from a chosen one, so without this it manufactures favorites — reading our own list back would have created **114** (#210). **This is the INBOUND rule and it still stands**, even though this app no longer writes a placement entry: it is about what another writer may have put on the list, and a writer still on the old rules writes them. Loosening it waits on confirming Boost Me Bitch's stage 3.
 2. **The merge drops what we published and no longer hold, and carries what we never published.** Getting "foreign" to mean "not in our favorites" made an unfavorited album carry forever, get read back as an itemless group, and be re-created by rule 1 — unfavoriting undid itself on every load (#212).
 3. **The published record is written on the digest-unchanged path too.** Writing it only after a real publish left it empty forever on a device whose list already matched, so rule 2 could never engage (#213).
 4. **The inbound reconcile applies the same filter** (`suppressOwnRemovals`). `runPull` is read → reconcile → push, so between an unfavorite and its publish the list still carries the entry; the reconcile re-creates the row, the push then sees it as local, produces identical tags, and the digest gate skips it. Nothing ever propagates (#214).

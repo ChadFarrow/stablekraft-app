@@ -189,6 +189,12 @@ export async function POST(request: NextRequest) {
     // track — so reconciling this app's OWN list back in would have created 114
     // album favorites the user never made, on the next page load, silently.
     //
+    // THE FORMAT HAS MOVED ON AND THIS RULE HAS NOT, deliberately. An item names
+    // its own feed now, so this app writes a feed entry only for a feed the user
+    // chose — but the rule is about what ANOTHER writer put on the list, and a
+    // writer still on the old rules still writes placement groups. Loosening it
+    // waits on confirming the other app's stage 3, not on our own.
+    //
     // The conservative reading is the only safe one: a group with no items is
     // unambiguously a favorited feed, a group with items is unknowable, and
     // inventing a favorite is worse than missing one. The cost is that another

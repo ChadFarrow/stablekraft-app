@@ -401,6 +401,11 @@ function mergeMovedNodes(here: ListNode[], moving: ListNode[]): ListNode[] {
     if (!existing.group.medium && node.group.medium) {
       existing.group.medium = node.group.medium;
     }
+    // A FEED ENTRY EITHER HALF STATES SURVIVES THE FOLD. `favorited === false`
+    // is a retraction of OUR entry; the other half may hold that same feed as
+    // another app's favorite, and folding the two by taking the first answer
+    // would delete it on their behalf. Either half saying yes is yes.
+    if (node.group.favorited) existing.group.favorited = true;
   }
   return out;
 }
@@ -478,8 +483,8 @@ export function countNamedFavorites(list: ParsedSingleList): number {
  * road, and the same rule Boost Me Bitch settled on (boostmebitch#289).
  *
  * A group whose feed is carried but whose items are ours keeps its items and
- * loses only `favorited`. The group still emits its feed tag, because it has
- * to — that is the placement above — and a placement is not a favorite.
+ * loses only `favorited` — so the items go out and the feed entry does not,
+ * which is the whole of what "the other half already states this feed" means.
  */
 function withoutCarried(
   local: SingleListGroup[],

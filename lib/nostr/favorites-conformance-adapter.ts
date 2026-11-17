@@ -142,8 +142,8 @@ export function parseTags(tags: string[][]) {
       const id = showId(node.group.feedGuid);
       const medium = node.group.medium ?? null;
       // A FEED ENTRY IS A FEED FAVORITE. Nothing is on the list for structural
-      // reasons any more — but this app still WRITES a placement group, so the
-      // claim is about what the wire says rather than about what it holds.
+      // reasons any more, on the way in or on the way out: this app writes an
+      // entry only for a feed the user chose, and reads one the same way.
       entries.push({
         id,
         kind: SHOW_KIND,
@@ -369,9 +369,9 @@ export function plan(input: {
   // conforming events differ byte for byte — a `k` beside every `i` and one `k`
   // per kind at the end are both legal and mean the same list — so comparing the
   // read as it arrived republishes a list nothing had changed, on every load,
-  // forever if the other app does the same. `readAsWeWouldWriteIt` renders the
-  // parsed read through the same emitter the plan used, which is what
-  // `publishSingleList` compares against.
+  // forever if the other app does the same. `frameForCompare` regenerates `alt`,
+  // `visibility` and the trailing `k` tags and leaves the ORDER alone, which is
+  // what `publishSingleList` compares against.
   const privateTags = p.privateTags ?? [];
   const privateSame =
     JSON.stringify(privateTags.filter((t) => t[0] === 'i')) ===
