@@ -285,6 +285,17 @@ line holds the full story.
   test. Audio is **prefetch only** — the `preload` attribute, the ping-pong elements and every playback URL are
   untouched, and the Android blob prefetch is *delayed* to the 15s mark rather than dropped, because it is what
   keeps a locked-screen handoff gapless → `catalog-display`, `downloads`.
+- **Cache Storage holds only the user's downloads. An automatic audio cache filled 4.52 GB in one profile, and
+  nothing ever read it.** `lib/audio-prefetch.ts` stored every warmed-up track — the next one at the 15s mark, the
+  next three on every shuffle start — in `stablekraft-audio-cache-v1`, and nothing removed an entry
+  (`MAX_CACHED_TRACKS` capped the look-ahead, not the cache): 606 entries in one Firefox profile on 2026-11-17. No
+  service-worker route served it and playback never asked it for a blob, and the `fetch()` did not warm the media
+  element either (Chrome took 0 of 273 media requests from disk), so every prefetched song was downloaded twice —
+  through `/api/proxy-audio`, billed egress, for proxied hosts. Removed 2026-11-17. `purgeLegacyAudioCache()`
+  (`lib/legacy-audio-cache.ts`) deletes the bucket on every load by its EXACT name — a `stablekraft-` prefix match
+  would take `stablekraft-downloads-v1` with it — and `legacy-audio-cache.test.ts` fails if anything but the
+  downloads layer opens a bucket. A new automatic cache needs a reader, a byte limit and eviction, or it is this
+  bug again → `downloads`, `audio-playback`.
 - **`/_next/image` answers HTTP 400 for a host not in `remotePatterns` — it does not return a bigger image, it
   returns none.** So lifting `unoptimized` on an unlisted host *deletes* the artwork rather than merely leaving
   it large, and the 30-byte JSON error body is easy to mistake for a very small image. Measured 2026-09-20 against

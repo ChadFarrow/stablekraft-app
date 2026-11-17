@@ -1,9 +1,11 @@
 /**
  * Audio-bytes layer for offline downloads, built on the Cache API.
  *
- * Distinct from the small disposable LRU prefetch cache in lib/audio-prefetch.ts
- * (`stablekraft-audio-cache-v1`, 3 items). This cache holds user-requested
- * downloads and is only ever emptied by explicit removal / clear-all.
+ * This cache holds user-requested downloads and is only ever emptied by
+ * explicit removal / clear-all. It is the only Cache Storage the page writes.
+ * Earlier builds also kept an automatic audio cache that grew without limit;
+ * lib/legacy-audio-cache.ts deletes it by its exact name on every load and
+ * must never match these bucket names.
  *
  * Entries are keyed by the canonical `primaryPlaybackKey` (the original secure
  * media URL) but FETCHED via `audioUrlCandidates` — the same ordered

@@ -9,8 +9,8 @@
  * It mirrors the normalization AudioContext applies before building its URL
  * candidate list: unwrap op3.dev analytics wrappers, encode stray spaces, and
  * upgrade http -> https. It deliberately does NOT apply the proxy rewrite —
- * the key is the ORIGINAL media URL (like lib/audio-prefetch.ts keys its cache
- * by the secure original URL, then fetches via the proxy).
+ * the key is the ORIGINAL media URL (the download is then fetched via the
+ * proxy when the host needs it).
  */
 export function primaryPlaybackKey(rawUrl: string | undefined | null): string {
   if (!rawUrl || typeof rawUrl !== 'string') return '';

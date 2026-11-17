@@ -14,9 +14,10 @@
  * `contexts/DownloadsContext.tsx`. A mode that turns itself on is a mode whose
  * behaviour nobody can reproduce from the UI.
  *
- * WHY THIS FILE HAS NO REACT: `lib/audio-prefetch.ts` is not a component and
- * still has to ask. `useDataSaver` (hooks/useDataSaver.ts) is the React face of
- * the same flag; this is the whole of the logic.
+ * WHY THIS FILE HAS NO REACT: the player's timeupdate handler and the wallet
+ * provider's restore are not renders and still have to ask. `useDataSaver`
+ * (hooks/useDataSaver.ts) is the React face of the same flag; this is the
+ * whole of the logic.
  */
 
 import { ALLOWED_IMAGE_DOMAINS } from './cdn-utils';

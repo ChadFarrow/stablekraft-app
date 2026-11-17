@@ -18,7 +18,7 @@ import { ValueRecipient } from '@/lib/lightning/value-parser';
 import { reportBoost } from '@/lib/lightning/report-boost';
 import { resolveAutoBoostSenderName, resolveBoostSenderName } from '@/lib/lightning/sender-name';
 import { hasV4V as checkHasV4V, getV4VRecipients, getPrimaryRecipient, getPrimaryRecipientObject, formatValueSplitsForBoost } from '@/lib/v4v-utils';
-import { prefetchUpcomingTracks, prefetchAudio } from '@/lib/audio-prefetch';
+import { purgeLegacyAudioCache } from '@/lib/legacy-audio-cache';
 import { isCorsProblematicHost, isDirectFirstHost } from '@/lib/audio-url-utils';
 import { NextTrackBlobCache } from '@/lib/audio-blob-prefetch';
 import { downloadManager } from '@/lib/downloads/download-manager';
@@ -405,6 +405,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   useEffect(() => {
     autoBoostKeysendWarningShownRef.current = false;
   }, [supportsKeysend]);
+
+  // Delete the automatic audio cache that earlier builds filled without limit
+  // (4.52 GB in one profile). Exact bucket name only: the user's downloads are
+  // separate buckets and must survive. See lib/legacy-audio-cache.ts.
+  useEffect(() => {
+    purgeLegacyAudioCache().then((deleted) => {
+      if (deleted) console.warn('🗑️ Deleted the legacy automatic audio cache');
+    });
+  }, []);
 
   // Native Android: hold a foreground service while audio is playing so the OS
   // does not suspend the backgrounded WebView (locked-screen playback). No-op on
@@ -2824,8 +2833,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
             // This populates the browser's HTTP cache so load() in handleEnded is instant
             //
             // Data Saver takes the other branch. It skips this warm-up entirely
-            // — a hidden element with preload="auto" AND a fetch() of the same
-            // bytes, so the file is pulled twice over — and on Android runs the
+            // — a hidden element with preload="auto" that pulls the file ahead
+            // of the boundary — and on Android runs the
             // blob prefetch that normally starts at track start instead. The
             // locked-screen handoff still gets its bytes; it gets them once, and
             // 15 seconds before the boundary rather than three minutes.
@@ -2843,8 +2852,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
               preloader.preload = 'auto';
               preloader.src = secureNextUrl;
               preloadAudioRef.current = preloader;
-              // Also prefetch via fetch() as backup cache warming
-              prefetchAudio(secureNextUrl).catch(() => {});
             }
 
             // At 5s: Cross-element preload.
@@ -3921,14 +3928,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       return true;
     }
 
-    // Prefetch upcoming tracks in the background for smooth radio playback
-    if (shuffledTracks.length > 1) {
-      const upcomingTracks = shuffledTracks.slice(1, 4).map(item => item.track);
-      prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
-        // Silent fail - prefetching is best-effort
-      });
-    }
-
     return success;
   };
 
@@ -4035,14 +4034,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
         }
       }, 500);
       return true;
-    }
-
-    // Prefetch upcoming tracks in the background for smooth playback
-    if (shuffledTracks.length > 1) {
-      const upcomingTracks = shuffledTracks.slice(1, 4).map(item => item.track);
-      prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {
-        // Silent fail - prefetching is best-effort
-      });
     }
 
     return success;
@@ -4368,12 +4359,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
           }, 500);
           return;
         }
-
-        // Prefetch upcoming tracks in the background
-        const upcomingTracks = shuffledPlaylist.slice(nextShuffleIndex + 1, nextShuffleIndex + 4).map(item => item.track);
-        if (upcomingTracks.length > 0) {
-          prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
-        }
       } else {
         // End of shuffled playlist
         if (repeatMode === 'all') {
@@ -4393,12 +4378,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
               }
             }, 500);
             return;
-          }
-
-          // Prefetch upcoming tracks from the start
-          const upcomingTracks = shuffledPlaylist.slice(1, 4).map(item => item.track);
-          if (upcomingTracks.length > 0) {
-            prefetchUpcomingTracks(upcomingTracks, 0).catch(() => {});
           }
         } else {
           // repeatMode === 'none' - stop playback but stay in shuffle mode.
