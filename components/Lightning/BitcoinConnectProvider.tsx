@@ -15,6 +15,8 @@ import {
 } from '@/lib/lightning/wallet-detection';
 import { WalletConnectModal } from './WalletConnectModal';
 
+import { isDataSaverOn } from '@/lib/data-saver';
+
 interface BitcoinConnectContextType {
   isConnected: boolean;
   provider: WebLNProvider | null;
@@ -90,6 +92,46 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
   const walletModalResolveRef = useRef<(() => void) | null>(null);
   const backupOfferCheckedRef = useRef(false);
 
+  /**
+   * Load and initialise bitcoin-connect, exactly once, whenever it is first
+   * needed. Idempotent: every caller gets the same promise.
+   *
+   * Extracted so Data Saver can DEFER it. `init()` configures persistence, the
+   * auto-reconnect from localStorage['bc:config'] and the appName handed to NWC
+   * connectors, so it has to have run before any wallet action — which is why
+   * every path that opens the wallet modal calls this first.
+   */
+  const bitcoinConnectReadyRef = useRef<Promise<void> | null>(null);
+  const ensureBitcoinConnect = useCallback((): Promise<void> => {
+    if (bitcoinConnectReadyRef.current) return bitcoinConnectReadyRef.current;
+
+    bitcoinConnectReadyRef.current = import('@getalby/bitcoin-connect').then(
+      ({ init, onConnected, onDisconnected }) => {
+        init({
+          appName: APP_NAME,
+          showBalance: true,
+        });
+
+        // Listen for connection events
+        onConnected((provider) => {
+          console.log('\u2705 Bitcoin Connect: onConnected event', provider);
+          setProvider(provider);
+          setIsConnected(true);
+          setIsLoading(false);
+          console.log('\u2705 State updated: isConnected = true');
+        });
+
+        onDisconnected(() => {
+          console.log('\ud83d\udd0c Bitcoin Connect: onDisconnected event');
+          setProvider(null);
+          setIsConnected(false);
+        });
+      }
+    );
+
+    return bitcoinConnectReadyRef.current;
+  }, []);
+
   useEffect(() => {
     // Initialize Bitcoin Connect on component mount (client-side only)
     // Note: We always initialize Bitcoin Connect even for NIP-46/NIP-55/Amber logins
@@ -101,27 +143,31 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // configures persistence, the auto-reconnect from localStorage['bc:config'],
     // and the appName passed to NWC connectors.
     if (typeof window !== 'undefined') {
-      import('@getalby/bitcoin-connect').then(({ init, onConnected, onDisconnected }) => {
-        init({
-          appName: APP_NAME,
-          showBalance: true,
-        });
+      /**
+       * Data Saver defers this 398 KB chunk — but ONLY when there is provably
+       * nothing for it to do.
+       *
+       * Everything the eager load accomplishes needs a wallet that already
+       * exists: the auto-reconnect reads localStorage['bc:config'], and the
+       * listeners below cannot fire without one. With neither that key nor a
+       * pending post-login restore, this import is 398 KB on the critical path
+       * of every page in the app in exchange for nothing at all.
+       *
+       * So a user who HAS connected a wallet keeps today's behaviour exactly,
+       * in either mode. A user who has not gets the bytes back, and
+       * `ensureBitcoinConnect` runs the moment they open the wallet modal.
+       */
+      const hasWalletToRestore =
+        localStorage.getItem('bc:config') !== null ||
+        localStorage.getItem('wallet_restore_after_login') === 'true';
 
-        // Listen for connection events
-        onConnected((provider) => {
-          console.log('✅ Bitcoin Connect: onConnected event', provider);
-          setProvider(provider);
-          setIsConnected(true);
-          setIsLoading(false);
-          console.log('✅ State updated: isConnected = true');
-        });
+      if (isDataSaverOn() && !hasWalletToRestore) {
+        console.log('ℹ️ Data Saver: deferring Bitcoin Connect — no saved wallet to restore.');
+        setIsLoading(false);
+        return;
+      }
 
-        onDisconnected(() => {
-          console.log('🔌 Bitcoin Connect: onDisconnected event');
-          setProvider(null);
-          setIsConnected(false);
-        });
-
+      ensureBitcoinConnect().then(() => {
         // Handle wallet restoration after Nostr login (Android fix)
         // Check if we should restore wallet connection after page reload from Nostr login
         const shouldRestoreWallet = localStorage.getItem('wallet_restore_after_login') === 'true';
@@ -183,7 +229,10 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     // No `bc-modal` CSS shim here any more: wallet selection is now our own
     // WalletConnectModal, and nothing in the app renders bitcoin-connect's web
     // components. The library is still used for the connectors themselves.
-  }, []);
+    //
+    // ensureBitcoinConnect is a useCallback([]) and therefore stable; naming it
+    // satisfies the exhaustive-deps rule without changing that this runs once.
+  }, [ensureBitcoinConnect]);
 
   // Auto-connect WebLN when Nostr user is authenticated (Alby extension)
   // This will override any existing wallet connection to use the same Alby wallet for Lightning
@@ -481,6 +530,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     }
 
     setWalletModalView('picker');
+    void ensureBitcoinConnect(); // Data Saver may have deferred the library; the modal needs init().
     setIsWalletModalOpen(true);
 
     return new Promise<void>((resolve) => {
@@ -496,8 +546,9 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
    */
   const openBackupOffer = useCallback(() => {
     setWalletModalView('offer-backup');
+    void ensureBitcoinConnect(); // Data Saver may have deferred the library; the modal needs init().
     setIsWalletModalOpen(true);
-  }, []);
+  }, [ensureBitcoinConnect]);
 
   // BoostButton and UserMenu `await connect()`, whose promise is held in a ref
   // until the modal closes. If the provider unmounts while it's open that
@@ -688,6 +739,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
         if (cancelled) return;
 
         setWalletModalView('offer-backup');
+        void ensureBitcoinConnect(); // Data Saver may have deferred the library; the modal needs init().
         setIsWalletModalOpen(true);
       } catch (err) {
         // Never surface — this is an optional convenience layered onto login.
@@ -698,7 +750,7 @@ export function BitcoinConnectProvider({ children }: { children: React.ReactNode
     return () => {
       cancelled = true;
     };
-  }, [isNostrAuthenticated, nostrUser?.nostrPubkey]);
+  }, [isNostrAuthenticated, nostrUser?.nostrPubkey, ensureBitcoinConnect]);
 
   /**
    * Disconnecting does NOT remove the Nostr backup — deliberately.

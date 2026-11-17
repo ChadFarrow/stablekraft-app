@@ -1,17 +1,14 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import PlaylistTemplateCompact from '@/components/PlaylistTemplateCompact';
-import type { PlaylistConfig } from '@/types/playlist';
-
-const TOP100_CONFIG: PlaylistConfig = {
-  cacheKey: 'top100_playlist_cache_v1',
-  cacheDuration: 1000 * 60 * 30, // 30 minutes (source updates hourly)
-  apiEndpoint: '/api/playlist/top100',
-  title: 'Top 100 V4V Music',
-  description: 'The hottest tracks in the Value4Value music economy, updated hourly',
-  useAudioContext: true
-};
-
+/**
+ * The Top 100 playlist is gone (2026-11-01). It read Podcast Index's hourly chart,
+ * https://stats.podcastindex.org/v4vmusic.json, which has returned `items: []` since
+ * 2026-08-21, so the page could only ever say "Top 0". Old links and search results
+ * land on the playlists tab instead.
+ *
+ * A temporary redirect (307) on purpose: a browser caches a 308 indefinitely, which
+ * would keep sending people away if the chart comes back and the page with it.
+ */
 export default function Top100PlaylistPage() {
-  return <PlaylistTemplateCompact config={TOP100_CONFIG} />;
+  redirect('/?filter=playlist');
 }

@@ -26,6 +26,7 @@ import ScrollRestorationProvider from '@/components/ScrollRestorationProvider'
 import GlobalErrorHandler from '@/components/GlobalErrorHandler'
 import { BackToTop } from '@/components/BackToTop'
 import KeyboardShortcutsProvider from '@/components/KeyboardShortcutsProvider'
+import LayoutRocketBackground from '@/components/LayoutRocketBackground'
 
 
 
@@ -225,10 +226,6 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Favicon */}
-        <link rel="icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
-        <link rel="shortcut icon" type="image/png" href="/stablekraft-rocket.png?v=20251204" />
-        
         {/* PWA Meta Tags */}
         <meta name="theme-color" content="#1f2937" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -273,16 +270,8 @@ export default function RootLayout({
                                 opacity: 0.8
                               }}
                             />
-                            {/* Background image loads after critical content - using WebP for 55% smaller file */}
-                            <div
-                              className="fixed inset-0 z-0 opacity-0 transition-opacity duration-1000"
-                              id="background-image"
-                              style={{
-                                background: 'url(/stablekraft-rocket.webp) center/contain fixed',
-                                backgroundAttachment: 'fixed',
-                                opacity: 0.6
-                              }}
-                            />
+                            {/* The rocket wallpaper — left out on routes that paint an opaque background over it (lib/layout-background.ts) */}
+                            <LayoutRocketBackground />
 
                             {/* Content overlay.
 

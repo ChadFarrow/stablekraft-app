@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder } from '@/lib/rss-parser-db';
 import { generateAlbumSlug, normalizeUrl } from '@/lib/url-utils';
-import { findFeedIdByUrl } from '@/lib/feed-lookup';
+import { findFeedForRemoteItem } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl, isPlaylistSourceFeedUrl } from '@/lib/feed-exclusions';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 
 interface RemoteItem {
   feedGuid?: string;
@@ -147,20 +149,10 @@ export async function POST(
         // remoteItem naming the `%20` form of a row stored with literal spaces
         // matched neither, and this loop minted a duplicate of an album it already
         // had (#247). The ladder's rung 2 percent-decodes and compares
-        // case-insensitively, which is exactly that miss.
+        // case-insensitively, which is exactly that miss. The lookup is shared
+        // with refresh-by-url's publisher step, which had its own exact compare.
         const normalizedUrl = normalizeUrl(remoteItem.feedUrl);
-        const urlMatch = await findFeedIdByUrl(remoteItem.feedUrl);
-        const conditions: any[] = [];
-        if (urlMatch) conditions.push({ id: urlMatch.id });
-        if (remoteItem.feedGuid) {
-          conditions.push({ id: remoteItem.feedGuid });
-          conditions.push({ guid: remoteItem.feedGuid });
-          conditions.push({ originalUrl: { contains: remoteItem.feedGuid } });
-        }
-
-        const existingFeed = conditions.length > 0
-          ? await prisma.feed.findFirst({ where: { OR: conditions } })
-          : null;
+        const existingFeed = await findFeedForRemoteItem(remoteItem.feedUrl, remoteItem.feedGuid);
 
         if (existingFeed) {
           console.log(`⚡ Feed already exists: ${existingFeed.title} (${existingFeed.id})`);
@@ -236,6 +228,8 @@ export async function POST(
             v4vRecipient: parsedFeed.v4vRecipient || null,
             v4vValue: parsedFeed.v4vValue || null,
             publisherId: id,
+            ...channelPersonsFields(parsedFeed),
+            ...channelFundingFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),

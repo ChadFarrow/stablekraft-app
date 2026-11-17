@@ -181,8 +181,8 @@ async function realRead(relays: string[], pubkey: string) {
 }
 
 async function main() {
-  // Must precede the first `new SimplePool()`. On Node 20 (this repo's `.nvmrc`)
-  // there is no `WebSocket` global, and without this every relay below reports
+  // Must precede the first `new SimplePool()`. On Node 20 there is no
+  // `WebSocket` global, and without this every relay below reports
   // `no connection: WebSocket is not defined` — a tool for finding dead relays
   // declaring all of them dead. See lib/nostr/node-websocket.ts.
   await installNodeWebSocket();

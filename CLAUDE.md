@@ -44,27 +44,52 @@ npm run dev:isolated -- -p 3001  # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key, with real NIP-44
 
 # Reading PRODUCTION. `railway login` needs a real TTY — it fails in any non-interactive
-# shell, so run it in a terminal of your own; the credentials then persist to disk. The
+# shell, Claude Code's `!` prefix included ("Cannot login in non-interactive mode"), so run
+# it in a terminal of your own; the credentials then persist to disk. The
 # --service/--environment flags are NOT enough on their own, the directory must be linked:
 railway link --project StableKraft --environment production --service StableKraft
 railway logs -n 400              # ALWAYS pass -n; the default STREAMS and never returns
 railway logs --build -n 400      # the build, when a deploy is the suspect
 railway variables --json         # dump: filter in code, never print a secret's value
 railway domain                   # which hostnames actually serve this instance
+curl -s https://stablekraft.app/api/version  # `commit` is the LIVE deploy's SHA, no login needed —
+                                 # poll it after a merge; `deployedAt` is only the request time
 # Only the current deployment's buffer is kept, and Next logs no successful request — so
 # a quiet log is not evidence of no traffic. Ask what WOULD have been logged before
 # concluding anything from silence.
+# Per-ROUTE traffic does exist: Railway keeps HTTP logs (path, status, ms, bytes, UA) even for
+# REMOVED deployments. GraphQL httpLogs(deploymentId, anchorDate, beforeLimit, filter) pages
+# backwards from anchorDate; startDate/endDate are NOT its arguments and silently return one
+# row. filter takes "@path:/api/albums" or "@httpStatus:404". An old deployment's console:
+# `railway logs <deploymentId> -n 5000` (5000 is the cap). This is how #272 found its readers.
+# Per-QUERY: `pg_stat_statements` is enabled on the production database (created 2026-09-26, stats
+# kept since the server's start) — `select calls, rows, query from pg_stat_statements order by rows
+# desc`. No migration creates it, so a database rebuilt from migrations will not have it.
+
+# COST. The Usage page's Network Egress chart is a running total for the billing period, so
+# it only ever rises — it is not a rate. For per-day, per-hour or per-service numbers, POST to
+# https://backboard.railway.app/graphql/v2 with the token in ~/.railway/config.json:
+#   usage(projectId, measurements:[NETWORK_TX_GB, NETWORK_RX_GB, MEMORY_USAGE_GB],
+#         groupBy:[SERVICE_ID, ENVIRONMENT_ID], startDate, endDate)
+# The StableKraft card does NOT include the database — it is a separate project (see below).
 ```
 Per-subsystem test commands live in the skill that owns the subsystem — each skill opens with its own.
 
 ## Boundaries
-- Never commit secrets (`.env`, API keys). `SESSION_SECRET` and `ADMIN_SECRET` live in Railway env + `.env.local` only.
+- Never commit secrets (`.env`, API keys). The production `SESSION_SECRET` and `ADMIN_SECRET` live in Railway
+  env. `.env.local` carries a `SESSION_SECRET` (it did on 2026-09-19 too — "carries neither" was wrong) and, since
+  2026-09-26, a LOCAL throwaway `ADMIN_SECRET` that is not production's; admin calls to production use
+  `~/.stablekraft-admin.env`. This matters for any local server; see the standalone recipe below.
 - **`console.log` does not exist in production.** `next.config.js` sets `compiler.removeConsole` with
   `exclude: ['error', 'warn']`, so every `console.log` is compiled out of a production build and survives in dev.
   A diagnostic added with `log` is therefore absent from the one environment worth diagnosing — this cost a
   deploy-and-retest cycle on 2026-08-20, when stage timings added to chase a slow signing prompt printed nothing
   on stablekraft.app. Use `console.warn` for anything you intend to read in production.
 - **A grep that returns nothing is not evidence that nothing exists.** Under zsh, an unquoted `--include=*.tsx` errors with `no matches found` and prints nothing — indistinguishable from a clean result. This produced three wrong conclusions during the security audit, including "this route has no callers" about a live endpoint that was nearly deleted. Quote the globs, and check the exit status before believing an empty result.
+- **`next lint` keeps a cache, and it does not notice a plugin upgrade.** The cache key is ESLint's own version and
+  the resolved config, so after changing `eslint-config-next` or any plugin, run `npx next lint --no-cache`. On
+  2026-09-26 the bump to eslint-config-next 15 linted clean locally from the cache, and CI (which has no cache)
+  failed on four new `no-html-link-for-pages` errors.
 - **A local relay is not isolation on its own, and the difference is a real publish.** The commands
   are under Commands; the trap is here. Use **`npm run dev:isolated`**, never a hand-set
   `NEXT_PUBLIC_NOSTR_RELAYS` — the publish path unions the user's NIP-65 relays with the defaults, so
@@ -92,10 +117,23 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   `ws` inlined by webpack throwing `b.mask is not a function` on every frame, and `ws` rethrowing a `close()`
   that landed on a still-connecting socket, both as `uncaughtException`. For anything touching a server route's
   runtime, run the real thing: `npm run build`, copy `.env.local` into `.next/standalone/`, then
-  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — add
-  `NODE_OPTIONS=--no-experimental-websocket` to stand in for `node:20-alpine`, which is the shape production
-  actually has. Read the server log, not just the response body: the first version of that fix returned correct
-  JSON while throwing uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
+  `cd .next/standalone && PORT=3009 NODE_ENV=production node server.js` — on a local Node 24 that is the shape
+  production has (`node:24-alpine`). Add `NODE_OPTIONS=--no-experimental-websocket` to also prove a relay path does
+  not lean on the `WebSocket` global, which is how the missing install in six routes was confirmed. Read the
+  server log, not just the response body: the first version of that fix returned correct JSON while throwing
+  uncaught exceptions behind it. Delete the copied `.env.local` afterwards.
+  **That server is attached to the PRODUCTION database.** The copied `.env.local` points at production, and
+  `checkAdminAuth` fails OPEN when `ADMIN_SECRET` is unset — so every admin-gated route runs for real. On 2026-09-19,
+  when `.env.local` had no `ADMIN_SECRET`, a test meant to prove `?refresh=true` returns 401 got 200 and rebuilt the
+  `iam` playlist's `SystemPlaylistTrack` rows on production. `.env.local` now carries a local throwaway secret, so
+  the gate is on — but still start the server with one of its own: a value on the command line beats the copied
+  file (`@next/env` never overwrites a variable already set), and it covers a copy that lacks one:
+  `ADMIN_SECRET=$(openssl rand -hex 24) PORT=3009 …`. With `NEXT_DIST_DIR=.next-build` the server is in
+  `.next-build/standalone/`.
+  **Stop it by port, never by name: `fuser -k 3009/tcp`.** Next renames its process to `next-server (v…)`, so
+  `pkill -f "node server.js"` matches nothing but the shell running the `pkill`, and kills that. On 2026-10-24
+  this left the production-attached server listening after the clean-up had "run". Confirm with
+  `ss -ltnp | grep :3009` before believing it stopped.
 - No `src/` directory — all source lives in `app/`, `lib/`, `components/`, `contexts/`
 - No `deploy-*/` artifacts in the repo — add to `.gitignore` if generated
 - No JSON-file databases — all data is in PostgreSQL via Prisma
@@ -115,27 +153,62 @@ These span several subsystems, so they stay here rather than in any one skill. T
 line holds the full story.
 
 - **`git push origin main` IS the production deploy.** There is no preview environment. `NEXT_PUBLIC_*` bakes at
-  build time, so set it *before* the deploy that should use it.
+  build time, so set it *before* the deploy that should use it. There WAS one, unnoticed: a `test` environment
+  (a 2026-04-23 deploy of a feature branch, `test.stablekraft.app`, plus its own Postgres) ran for five months,
+  served ~0.1 GB, and was ~42% of the project's memory bill. Deleted 2026-09-19. An environment is billed 24/7
+  whether or not anyone uses it.
+- **The production database is a SEPARATE Railway project ("Postgres"), reached over the public TCP proxy, and
+  that is a decision, not an accident to fix.** Private networking does not cross projects, so every query result
+  is billed as egress on that project — ~65 GB (~$3.25) for Aug 19 → Sep 19 2026, more than the app's own egress,
+  and invisible on the StableKraft card. A move into this project was prepared and **declined on 2026-09-19**: the
+  saving did not justify touching a working production database. Do not re-propose it. To cut that traffic, change
+  what the app READS — it pulled 1–4 GB/day from a 129 MB database, mostly `albums-fast` re-reading the whole
+  catalog (~20 MB: Prisma's per-feed `take` is applied AFTER the read) every 15 minutes although the rows had
+  changed in ~3% of those windows. It now re-reads only when a Postgres-side md5 of the rows changes
+  (`lib/caches/fingerprinted-cache.ts`); count its `[albums-fast-cache] … rebuilt` warnings to see how often
+  that is. **That was not most of it.** The week after (Sep 19 → 26) rebuilds fell to ~3 a day, yet the database
+  still sent ~2.3 GB/day, and the HTTP logs put 99% of it on two uncached readers: a `/api/albums/[slug]` that
+  matched nothing read every active feed with all its tracks (33 MB per miss; 368 misses, mostly crawlers on bad
+  `/album/` URLs that the page's own metadata and Open Graph fetches then asked again), and `/api/albums`
+  (4.8 MB per call, sent on every page load by `AudioProvider` — on demand, at the first shuffle, since 2026-11-01)
+  — issue #272. Attribute egress per route before
+  fixing a reader; see *Reading PRODUCTION* under Commands. The public proxy is also why
+  `railway run --service StableKraft` works from a laptop: the app's `DATABASE_URL` is the public URL, so any future move to `*.railway.internal` breaks every documented
+  `railway run` command.
 - **Railway does not run migrations on deploy.** The Dockerfile has no `prisma migrate deploy`, so after merging a
   migration run `railway run --service StableKraft --environment production npm run db:migrate` **before** the code
   that reads the new column goes live — otherwise every query selecting it 500s (issue #122).
-- **The server has exactly ONE relay read, and it must bring its own WebSocket.** Everything else Nostr happens in
-  the browser; `/api/nostr/global-favorites` is the exception. `node:20-alpine` runs `node server.js` with no
-  `--experimental-websocket`, and **Node 20 exposes the `WebSocket` global only behind that flag** (v22 exposes it
-  unconditionally). Next does not polyfill it. So the sweep runs on `ws`, installed by `installNodeWebSocket()`
-  before the pool is constructed — which is why `ws` is a **production** dependency and why `next.config.js` sets
-  `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native helpers do not survive the
-  bundle, and every frame then throws `TypeError: b.mask is not a function` as an `uncaughtException`. Marking it
-  external is also what traces it into `.next/standalone/node_modules` → `favorites`, `nostr-signer`.
+- **Every server relay socket must bring its own WebSocket, and there are TWO paths that open one.** The Community
+  sweep (`/api/nostr/global-favorites`, `lib/nostr/community-favorites.ts`) and every `NostrClient` a route builds —
+  the boost note (the ONLY place one is published), `/auth/me`, NIP-05 login, share, follow, profile update — which
+  must come from `connectServerNostrClient()` (`lib/nostr/server-client.ts`). This file used to say the sweep was
+  the only one; the other six routes built clients directly and never installed a WebSocket, so on Node 20 a boost
+  note could reach a relay only if the sweep had already patched `nostr-tools` in that process — and a failure
+  logged nothing (found in code 2026-09-26). `server-client.test.ts` now fails if anything under `app/api` opens a
+  relay another way. Production now runs `node:24-alpine`, whose `WebSocket` global is **undici's**; under the
+  Node 22 image before it, that global recursed with nostr-tools on a failed connect (below), and under Node 20
+  there was no global at all without `--experimental-websocket`. Next polyfills neither case. So both paths run on
+  `ws`, installed by `installNodeWebSocket()` before any socket is opened — which is why `ws` is a **production** dependency and why
+  `next.config.js` sets `serverExternalPackages: ['ws']`. Do not drop either: webpack inlines `ws`, its native
+  helpers do not survive the bundle, and every frame then throws `TypeError: b.mask is not a function` as an
+  `uncaughtException`. Marking it external is also what traces it into `.next/standalone/node_modules` →
+  `favorites`, `nostr-signer`.
 - **A relay sweep that reached nobody looks EXACTLY like one that found nothing.** `querySync` swallows a connect
   failure inside nostr-tools and resolves to `[]`, so a per-filter `catch` never fires and **nothing is logged** —
   the route answered `success: true`, `status: 'empty'`, zero people, in silence. Connectivity is a separate
   question from emptiness and has to be asked separately: `pool.listConnectionStatus()`, and zero reached is an
   **error**, never an empty result. Same exit as an unreadable private half → `favorites`.
-- **Do not raise the base image to Node 22 on its own.** Node 22's undici re-fires `error` from inside `close()` on
-  a socket that already failed, and `nostr-tools` >= 2.25.2 calls `this.ws?.close?.()` from its own `onerror`, so
-  the two recurse until `RangeError: Maximum call stack size exceeded`. Browsers make that `close()` a no-op, so
-  only Node is affected. `ws` avoids it entirely — which is the other reason the server is on `ws` → `nostr-signer`.
+- **Production runs Node 24, and every server relay socket stays on `ws` — which is what made Node 22 safe.**
+  Node 22's undici re-fires `error` from inside `close()` on a socket that already failed, and `nostr-tools` >=
+  2.25.2 calls `this.ws?.close?.()` from its own `onerror`, so the two recurse until `RangeError: Maximum call
+  stack size exceeded`. Browsers make that `close()` a no-op, so only Node is affected. `ws` avoids it entirely.
+  The move from Node 20 (end-of-life 2026-04-30) waited until the six routes above were on `ws` too;
+  `server-client.test.ts` fails if a route opens a relay on anything else. #289 moved production to Node 24
+  (2026-10-23) for the October 2026 security release. Measured 2026-10-24 against a closed port, an HTTP 404 and a
+  DNS failure: Node 22.16.0 (undici 6.21.2) recurses, on the bare global and through nostr-tools; Node 24.22.1
+  (undici 7.30.1) fires one `error` and one `close` and stops. That is no reason to drop `ws` — nostr-tools still
+  calls `close()` from `onerror`, so the fix lives in whichever undici the runtime ships, and `ws` is what makes
+  every server socket behave the same on any Node. Node 24 is end-of-life 2028-04-30 → `nostr-signer`.
 - **Four guards decide who may use this backend, each behind its own switch, and three ship in LOG mode.**
   `NEXT_PUBLIC_FOREIGN_SHELL_GATE` (defaults to `block`), `PROXY_HOST_MODE`, `CORS_MODE` and
   `RATE_LIMIT_MODE` (all default to `log`). A log-mode guard must be **indistinguishable from before**, and
@@ -163,14 +236,64 @@ line holds the full story.
   `includes` accepts `wavlake.com.attacker.net`. And the HGH/ITDV playlists hardcode ~1800 media URLs in
   `data/`, whose source feeds are in `PLAYLIST_SOURCE_FEED_URLS` and therefore *deliberately absent from
   the catalog*, so the catalog binding does not cover them — `PLAYLIST_MEDIA_HOSTS` and a test over those
-  data files does → `auth-and-security`.
+  data files does. The binding is also only as strong as the catalog's door: `POST /api/feeds` is open on the
+  server (the admin gate covers only `PUT`/`PATCH`/`DELETE`; the podping consumer is what limits minting), so
+  anyone can add a host to it → `auth-and-security`.
+- **`/api/proxy-image` answers every refusal with a 200 PLACEHOLDER, so a cover it refused looks like one that
+  loaded.** An empty cover square reads as a feed that did not parse, and Pixel Palace (2026-10-24) was reported
+  as exactly that — the feed had parsed completely. The tells are the `X-Image-Placeholder: true` header and a
+  `⚠️` warn naming the reason, so ask the proxy before the parser:
+  `curl -s -o /dev/null -D - -H 'Sec-Fetch-Dest: image' 'https://stablekraft.app/api/proxy-image?url=<encoded>'`.
+  Send that header: without it an oversized image gets the placeholder by design. That cover was 18 MB, over
+  `MAX_IMAGE_BYTES` (12 MB, #229), as every larger cover had been since August; over the cap an `<img>` now gets a
+  302 to the artist's host (#290). The redirect is gated on `Sec-Fetch-Dest: image` because a host check alone
+  would make it an open redirect, for the reason in the bullet above → `auth-and-security`.
 - **`isSafePublicUrl()` returns `{ ok, ... }`, not a boolean.** `if (!isSafePublicUrl(u))` negates an object, is
   always `false`, and silently turns the SSRF guard into dead code — and `tsc --noEmit` stays clean. Always
   `const c = isSafePublicUrl(u); if (!c.ok)`. Verify empirically, never by reading it → `auth-and-security`.
+- **A gate and the handler it guards must read the same input through the SAME function.** The admin gate asked
+  `get('refresh') === 'true'` while the playlist handler asked `has('refresh')`, so `?refresh=1` skipped the gate
+  and still rebuilt the playlist from an anonymous GET (#268). Both now call `isForceRefresh()`, and a test fails
+  if a refresh-gated route reads `refresh` any other way. Adding a query-param gate means one shared predicate,
+  never a second expression of it → `auth-and-security`.
 - **User identity is the signed session cookie, never a request header.** `requireUser(request)` is the only way a
   route learns who is calling; `grep -rn "x-nostr-user-id" app/api` must stay empty → `auth-and-security`.
+- **`Feed.image` / `Track.image` may carry OUR version, `?skv=<8 letters>`, which the feed never wrote.** An artist
+  can replace a cover at the same URL and podping from anywhere, so the podping refresh asks the image host and puts
+  its answer in the URL — the only thing every cache (proxy, `/_next/image`, browsers, offline) keys on. Compare a
+  stored image with a feed's only after `stripImageVersion`, and a new path that overwrites an existing image must
+  call `preserveImageVersion` or it strips the version every run → `feed-ingestion`.
 - **Bump `API_VERSION` in `app/page.tsx`** whenever the `/api/albums-fast` response shape changes, or clients keep
   serving field-missing data out of localStorage indefinitely → `catalog-display`.
+- **`compress: true` does NOT compress route handlers — return large JSON with `compressedJson()`.** Next copies a
+  route's headers with `res.appendHeader()`, which makes `Content-Type` an array, and the compression middleware
+  then calls it "not compressible". Pages, JS and CSS are gzipped; every `/api/*` JSON body went out raw — 645 KB
+  for `albums-fast` (62 KB gzipped) and 1–10 MB per full playlist, most of this app's billed egress. There is no
+  CDN in front of Railway, so `s-maxage` saves nothing. `lib/compressed-json.ts` gzips when the caller accepts it;
+  use it for any success body over a few KB. Check with `curl -D - -o /dev/null -H 'Accept-Encoding: gzip'`, never
+  a bare `curl`, which asks for no encoding and so always gets the raw body.
+- **There is a Data Saver mode, and OFF must stay byte-for-byte what it is today.** A manual switch
+  (`sk_data_saver`, Settings → Data & Offline), never auto-enabled — `navigator.connection.saveData` is
+  deliberately not consulted, for the reason Offline mode ignores `navigator.onLine`. It spans artwork, audio
+  prefetch and the wallet chunk (it also gated the catalog fetch, which is on demand for everyone since
+  2026-11-01), so the decision lives in **one** pure function,
+  `artworkPlan()` in `lib/data-saver.ts` — a branch per component is the N-places bug this file keeps
+  describing. **Three** of the four artwork paths ask it today (`AlbumCard`, `CDNImage`, `ArtworkImage`); the
+  33 raw `<img>` tags do not, and simply save nothing. Wire a new one by calling `artworkPlan`, never by
+  reading the flag directly. With the flag off that function returns each caller's own baseline
+  field for field, and `lib/data-saver.test.ts` pins that for every surface: it is the contract, so it is the
+  test. Audio is **prefetch only** — the `preload` attribute, the ping-pong elements and every playback URL are
+  untouched, and the Android blob prefetch is *delayed* to the 15s mark rather than dropped, because it is what
+  keeps a locked-screen handoff gapless → `catalog-display`, `downloads`.
+- **`/_next/image` answers HTTP 400 for a host not in `remotePatterns` — it does not return a bigger image, it
+  returns none.** So lifting `unoptimized` on an unlisted host *deletes* the artwork rather than merely leaving
+  it large, and the 30-byte JSON error body is easy to mistake for a very small image. Measured 2026-09-20 against
+  `hogstory.net`, `music.jimmyv4v.com` and `justcast.sfo2.digitaloceanspaces.com`, all of which carry real
+  catalog covers. `ALLOWED_IMAGE_DOMAINS` (`lib/cdn-utils.ts`) is the in-app mirror of that list and is what
+  `isNextOptimizable()` consults — the two are **hand-mirrored**, because `next.config.js` is CommonJS and loads
+  before the app, so a host added to one alone is a missing cover on whichever feed uses it.
+  `lib/data-saver.test.ts` compares them and fails on a seeded drift. This is the same hand-mirroring hazard as
+  the three external-host lists above → `catalog-display`, `auth-and-security`.
 - **The same field is often written or read from N places, and fixing one is the standard bug here.**
   `/api/albums-fast` has **two** Track selects; `podcastImages` has
   **three** write paths; the release date has **seven** read paths; `Feed.medium` has **ten** create/upsert paths
@@ -183,6 +306,30 @@ line holds the full story.
   are polymorphic (`Feed.id` vs `Feed.guid`; `Track.id` vs `Track.guid` vs `audioUrl`), every rung carries real
   rows, and a rung present on one path and not another means a favorite that renders on the page and is missing
   from the published Nostr list → `favorites-cross-app`.
+  **There are two album shapes, not one.** `lib/catalog/album-shape.ts` serves `albums-fast` and `feeds/recent`;
+  `/api/albums/[slug]` — the album page — builds its own, and `app/page.tsx` then copies the albums-fast album field
+  by field. A field added to the shared shape reaches neither. `Feed.persons` was written on every parse (#259, #260)
+  and still reached no album-page boost until #261, because both copies dropped it → `catalog-display`.
+  **Two loops mint Feed rows from `<podcast:remoteItem>`**, `feeds/[id]/process-remote-items` and the publisher step
+  of `refresh-by-url`, and both must ask `findFeedForRemoteItem` (`lib/feed-lookup.ts`): the URL ladder plus the
+  remoteItem's `feedGuid`. #251 put the first on the ladder and missed the second, whose exact `originalUrl` compare
+  minted an empty copy of every album a publisher feed listed under a new host — again on every podping of that
+  publisher (Strange Love, 2026-10-18, #283) → `feed-ingestion`.
+- **A boost note names people from ONE list, and each entry is both a `p` tag and an @mention.**
+  `boostNotifiedPubkeys` (`lib/nostr/boost-note.ts`) merges the feed's `<podcast:person>` / `<podcast:txt>` npubs —
+  persons first — with the split recipients' resolved pubkeys. Built separately, an artist is notified but invisible
+  in the body: that shipped, and Jumble showed only the booster, reached through the MSP 2.0 split. Only **five of
+  fourteen** `BoostButton` call sites pass a `persons` prop, so the button also names whatever its own boost-time
+  lookups return — `/api/music-tracks/[id]` (track and `Feed.persons`) and `/api/feeds/[id]`. Those two routes must
+  keep returning `persons`, or every playlist, favorites, track-card and now-playing boost names nobody again, in
+  silence. `channel-persons.test.ts` pins the write side, the read side and both lookups → `lightning-boost`.
+- **`remoteFeedGuid` beats `BoostButton`'s own lookup ON PURPOSE, so a wrong one is published as fact.** For a VTS
+  segment `NowPlayingScreen` passes the remote item's feed, which legitimately differs from the episode's; preferring
+  the lookup would break that. The price is that every caller must be right. The playlist database fast path returned
+  `Track.guid` — the ITEM guid — as `feedGuid` for 137 of 137 ITDV tracks, so every playlist boost published
+  `podcast:guid:<item guid>`, a feed that does not exist, on a note that cannot be edited (#264). Fix a wrong guid at
+  its source (`lib/playlist/db-track.ts` for playlists), never by reordering the button's fallbacks →
+  `lightning-boost`.
 - **`Feed.type` is this app's classification; `Feed.medium` is what the feed declared.** They are not
   interchangeable and the difference is load-bearing. `type` defaults to `"album"`, so it always has a value and
   that value is often a guess; `medium` is NULL until a feed actually says, and **nothing may default it**. Only

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { corsHeaders } from '@/lib/cors';
 import resolvedSongsData from '@/data/itdv-resolved-songs.json';
 
-export async function GET() {
+export async function GET(request: Request) {
   const cors = await corsHeaders();
   try {
     console.log('📊 Serving resolved songs data:', resolvedSongsData.length, 'songs');
@@ -44,7 +45,7 @@ export async function GET() {
       responseType: typeof response
     });
 
-    return NextResponse.json(response, {
+    return compressedJson(request, response, {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=3600', // Cache for 1 hour

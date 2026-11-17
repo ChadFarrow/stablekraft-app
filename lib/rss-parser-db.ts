@@ -1,11 +1,14 @@
 import Parser from 'rss-parser';
+import { findItemBlockByTitle } from './feeds/item-block';
 import { XMLParser } from 'fast-xml-parser';
 import { validateDuration } from './duration-validation';
 import { PodcastImage, pickSquareArtwork, pickCanvasBackground } from './podcast-images';
+import { FundingLink, parseChannelFundingFromXML, parseFundingFromBlock } from './podcast-funding';
 
 // Re-export so existing import sites (e.g. lib/feed-parsing.ts) keep resolving these
 // from rss-parser-db; the canonical, dependency-free home is lib/podcast-images.ts.
 export type { PodcastImage };
+export type { FundingLink };
 export { pickSquareArtwork, pickCanvasBackground };
 
 interface CustomFeed {
@@ -99,7 +102,21 @@ export interface ParsedFeed {
   podcastGuid?: string;
   medium?: string;
   items: ParsedItem[];
+  /**
+   * Channel-level `<podcast:person>` / `<podcast:txt>` entries — the band or
+   * host of the whole feed, and the Nostr keys they publish.
+   *
+   * Absent from this shape until now, which made `Feed.persons` a field only
+   * the IMPORT path could write (`importFeedToDatabase`). Every refresh route
+   * parses through here, so a key added to a feed already in the catalog could
+   * not land however often the feed was reparsed — the boost note kept tagging
+   * nobody and the feed looked like it named nobody. Item-level persons never
+   * had that problem; they ride on `ParsedItem` and refresh with every parse.
+   */
+  persons?: ParsedPerson[];
   podcastImages?: PodcastImage[];
+  /** Channel-level <podcast:funding> — http(s) only, checked in lib/podcast-funding.ts. */
+  funding?: FundingLink[];
   v4vRecipient?: string;
   v4vValue?: any;
   publisherFeed?: {
@@ -152,6 +169,8 @@ export interface ParsedItem {
   valueTimeSplits?: Array<{ startTime: number; duration: number; remotePercentage: number; remoteItem?: { feedGuid: string; itemGuid: string; medium?: string } }>;
   persons?: ParsedPerson[];
   podcastImages?: PodcastImage[];
+  /** This item's own <podcast:funding>, when it names one. */
+  funding?: FundingLink[];
 }
 
 export interface ParsedPerson {
@@ -242,6 +261,7 @@ export function applyParsedItemFields(updateData: any, matchedItem: ParsedItem |
   if (matchedItem.valueTimeSplits) updateData.valueTimeSplits = matchedItem.valueTimeSplits;
   if (matchedItem.persons && matchedItem.persons.length > 0) updateData.persons = matchedItem.persons;
   if (matchedItem.podcastImages && matchedItem.podcastImages.length > 0) updateData.podcastImages = matchedItem.podcastImages;
+  if (matchedItem.funding && matchedItem.funding.length > 0) updateData.funding = matchedItem.funding;
 }
 
 // NIP-19 bech32 npub format: 63 chars total, lowercase letters + numbers minus 1/b/i/o
@@ -288,19 +308,11 @@ function parsePersonsFromBlock(xmlBlock: string): ParsedPerson[] {
 
 export function parseItemPersonsFromXML(xmlText: string, itemTitle: string): ParsedPerson[] {
   try {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items: string[] = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
-
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
     if (!itemContent) return [];
-    return parsePersonsFromBlock(itemContent);
+    return withTxtNpubPersons(parsePersonsFromBlock(itemContent), itemContent);
   } catch {
     return [];
   }
@@ -308,13 +320,89 @@ export function parseItemPersonsFromXML(xmlText: string, itemTitle: string): Par
 
 export function parseChannelPersonsFromXML(xmlText: string): ParsedPerson[] {
   try {
-    // Channel block = from opening <channel> up to first <item> (or </channel>)
-    const channelMatch = xmlText.match(/<channel[^>]*>([\s\S]*?)(?=<item\b|<\/channel>)/i);
-    if (!channelMatch) return [];
-    return parsePersonsFromBlock(channelMatch[1] || '');
+    // Channel-level tags may sit before OR after the items — see channelMetadataXml.
+    // This used to slice "everything up to the first <item>", which finds nothing at
+    // all on the MSP-generated music feeds, the very feeds that carry the npubs.
+    const channelBlock = channelMetadataXml(xmlText);
+    if (!channelBlock) return [];
+    return withTxtNpubPersons(parsePersonsFromBlock(channelBlock), channelBlock);
   } catch {
     return [];
   }
+}
+
+/**
+ * Nostr public keys carried by `<podcast:txt>` rather than by `<podcast:person>`.
+ *
+ * Both forms are in the wild for the same fact — "this is my Nostr identity" —
+ * and only the person form was read, so a feed that published
+ * `<podcast:txt purpose="nostr">npub1…</podcast:txt>` reached the boost note
+ * with nobody tagged.
+ *
+ * The PURPOSE is deliberately not matched, and neither is the SHAPE of the
+ * value. `purpose` is free text — feeds use `nostr`, `npub` and
+ * verification-flavoured spellings for the same thing — and the value is
+ * sometimes the bare key, sometimes the `nostr:` URI a client copies, sometimes
+ * a sentence with the key inside it. Guessing any of that wrong fails silently:
+ * the feed parses, and simply looks like it named nobody.
+ *
+ * The payload is what validates, and it validates itself. `npub1` plus 58-63
+ * bech32 characters is a checksummed key by construction, so the values that
+ * must NOT match cannot match by accident — an Apple verification token, the
+ * `source-feed` URL our own playlists emit, an `nsec` somebody pasted by
+ * mistake. Scanning the text for the key is therefore both wider and safer than
+ * requiring an exact spelling of either half.
+ *
+ * The boundaries are load-bearing. A bech32 run longer than 63 characters is
+ * not an npub with something after it, it is a different identifier: the
+ * trailing lookahead makes the match fail rather than take a 63-character
+ * prefix of it, which would be a plausible-looking key belonging to nobody.
+ */
+function parseNpubTxtFromBlock(xmlBlock: string): string[] {
+  const npubs: string[] = [];
+  // Open/close form only: a self-closing <podcast:txt/> carries no value.
+  const regex = /<podcast:txt\b[^>]*>([\s\S]*?)<\/podcast:txt>/gi;
+  // Not anchored: the key may be the whole value or sit inside a sentence.
+  const inner = /(?<![0-9a-z])(?:nostr:)?(npub1[02-9ac-hj-np-z]{58,63})(?![0-9a-z])/gi;
+  let match;
+  while ((match = regex.exec(xmlBlock)) !== null) {
+    const text = (match[1] || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+    inner.lastIndex = 0;
+    let keyMatch;
+    while ((keyMatch = inner.exec(text)) !== null) {
+      // bech32 is case-insensitive, and lowercase is the form every reader
+      // downstream expects — BoostButton filters on a literal `npub1` prefix.
+      const npub = keyMatch[1].toLowerCase();
+      if (!NPUB_REGEX.test(npub)) continue;
+      if (!npubs.includes(npub)) npubs.push(npub);
+    }
+  }
+  return npubs;
+}
+
+/**
+ * Fold txt-carried npubs into the person list of the same block.
+ *
+ * `persons` is the single store, so every reader downstream — the boost note's
+ * p-tags above all — picks these up with no further change. An npub already
+ * named by a `<podcast:person>` is skipped: the person entry carries a name and
+ * a role, and a second entry for the same key would p-tag the same pubkey twice.
+ *
+ * The name is left EMPTY. A txt tag states a key and nothing else, and the feed
+ * title is the album's name, not the person's — putting it here would invent a
+ * credit that the feed never made. Only `npub` is a fact, so only `npub` is set.
+ */
+function withTxtNpubPersons(persons: ParsedPerson[], xmlBlock: string): ParsedPerson[] {
+  const txtNpubs = parseNpubTxtFromBlock(xmlBlock);
+  if (txtNpubs.length === 0) return persons;
+  const known = new Set(persons.map(p => p.npub?.toLowerCase()).filter(Boolean));
+  const merged = [...persons];
+  for (const npub of txtNpubs) {
+    if (known.has(npub.toLowerCase())) continue;
+    known.add(npub.toLowerCase());
+    merged.push({ name: '', npub });
+  }
+  return merged;
 }
 
 // Extract <podcast:image> entries from any XML block (item or channel scope).
@@ -342,19 +430,28 @@ function parsePodcastImagesFromBlock(xmlBlock: string): PodcastImage[] {
 
 export function parseItemPodcastImagesFromXML(xmlText: string, itemTitle: string): PodcastImage[] {
   try {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items: string[] = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) items.push(itemMatch[0]);
-
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
     if (!itemContent) return [];
     return parsePodcastImagesFromBlock(itemContent);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One item's own <podcast:funding> links. The namespace allows the tag in
+ * <item> as well as <channel>; an item that names none inherits the album's,
+ * which the READ side decides, so nothing is copied down here.
+ */
+export function parseItemFundingFromXML(xmlText: string, itemTitle: string): FundingLink[] {
+  try {
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
+    if (!itemContent) return [];
+    return parseFundingFromBlock(itemContent);
   } catch {
     return [];
   }
@@ -800,25 +897,10 @@ export function parseItemV4VFromXML(xmlText: string, itemTitle: string): { recip
   try {
     console.log(`🔍 DEBUG: Parsing V4V for item "${itemTitle}" from XML...`);
 
-    // Split XML into individual items to avoid regex matching across item boundaries
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/g;
-    const items = [];
-    let itemMatch;
-    while ((itemMatch = itemRegex.exec(xmlText)) !== null) {
-      items.push(itemMatch[0]);
-    }
-
-    console.log(`🔍 DEBUG: Found ${items.length} items in XML`);
-
-    // Find the item with the matching title
-    // Try both decoded title and XML-encoded version (& -> &amp;, etc.)
-    const xmlEncodedTitle = itemTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const escapedTitle = itemTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedXmlTitle = xmlEncodedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const titleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedTitle}(\\]\\]>)?</title>`, 'i');
-    const xmlTitleRegex = new RegExp(`<title>(<!\\[CDATA\\[)?${escapedXmlTitle}(\\]\\]>)?</title>`, 'i');
-
-    const itemContent = items.find(item => titleRegex.test(item) || xmlTitleRegex.test(item));
+    // The raw <item> block for this title. lib/feeds/item-block.ts says why the
+    // match decodes the RAW title rather than re-encoding ours: a title written with
+    // `&apos;` used to find no block, and the track fell back to the album's split.
+    const itemContent = findItemBlockByTitle(xmlText, itemTitle);
 
     if (!itemContent) {
       console.log(`ℹ️ DEBUG: Item "${itemTitle}" not found in XML (tried both decoded and XML-encoded)`);
@@ -1066,13 +1148,31 @@ function parseKeywords(keywords: string | undefined): string[] {
   return keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
 }
 
-export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
+/**
+ * Fetch a feed's XML, failing on a non-2xx answer. Without the status check a refusal's
+ * body went to the XML parser: Wavlake's 429 "Too Many Requests" read as "Non-whitespace
+ * before first tag ... Char: T", which says nothing about the host refusing.
+ *
+ * 30 s timeout: a host that accepts the connection and never answers held the whole
+ * batch — and the nightly reparse's time budget — until Railway cut the request at
+ * 300 s. The largest catalog feeds download in a few seconds.
+ */
+export const FEED_FETCH_TIMEOUT_MS = 30000;
+
+async function fetchFeedXml(feedUrl: string): Promise<string> {
+  const response = await fetch(feedUrl, { signal: AbortSignal.timeout(FEED_FETCH_TIMEOUT_MS) });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
+  }
+  return response.text();
+}
+
+export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promise<ParsedFeed> {
   try {
     console.log(`🔍 Parsing RSS feed: ${feedUrl}`);
-    
+
     // Fetch the raw XML first for direct V4V parsing
-    const response = await fetch(feedUrl);
-    let xmlText = await response.text();
+    let xmlText = fetchedXml ?? await fetchFeedXml(feedUrl);
     
     // Fix common XML typos that break parsing
     xmlText = xmlText.replace(/endcoding=/gi, 'encoding=');
@@ -1090,6 +1190,15 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
 
     // Extract channel-level <podcast:image> variants (Podcasting 2.0 multi-variant artwork)
     const channelPodcastImages = parseChannelPodcastImagesFromXML(xmlText);
+
+    // Extract channel-level <podcast:person> and the npubs carried by
+    // <podcast:txt>. Parsed here, beside the images, so that every refresh
+    // route gets them — not only the import path.
+    const channelPersons = parseChannelPersonsFromXML(xmlText);
+
+    // Channel-level <podcast:funding> (PayPal, Patreon…) — items and liveItems
+    // cut out first, so a track's own link never reads as the album's.
+    const channelFunding = parseChannelFundingFromXML(xmlText);
 
     // Now parse with the RSS parser
     // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
@@ -1224,6 +1333,12 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
         const itemPodcastImages = parseItemPodcastImagesFromXML(xmlText, item.title || '');
         if (itemPodcastImages.length > 0) {
           parsedItem.podcastImages = itemPodcastImages;
+        }
+
+        // <podcast:funding> at item level — a track's own support link
+        const itemFunding = parseItemFundingFromXML(xmlText, item.title || '');
+        if (itemFunding.length > 0) {
+          parsedItem.funding = itemFunding;
         }
 
         if (itemV4vData.recipient) {
@@ -1471,7 +1586,9 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
       podcastGuid: podcastGuid || undefined,
       medium: podcastMedium || undefined,
       items,
+      persons: channelPersons.length > 0 ? channelPersons : undefined,
       podcastImages: channelPodcastImages.length > 0 ? channelPodcastImages : undefined,
+      funding: channelFunding.length > 0 ? channelFunding : undefined,
       v4vRecipient: feedV4vRecipient,
       v4vValue: feedV4vValue,
       publisherFeed: publisherFeed || undefined
@@ -1483,15 +1600,14 @@ export async function parseRSSFeed(feedUrl: string): Promise<ParsedFeed> {
 }
 
 // Helper function to parse music segments from podcast RSS feeds
-export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]> {
+export async function parseMusicSegments(feedUrl: string, fetchedXml?: string): Promise<ParsedItem[]> {
   try {
     const xmlParser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '@_'
     });
-    
-    const response = await fetch(feedUrl);
-    const xmlText = await response.text();
+
+    const xmlText = fetchedXml ?? await fetchFeedXml(feedUrl);
     const parsed = xmlParser.parse(xmlText);
     
     const items: ParsedItem[] = [];
@@ -1577,11 +1693,20 @@ export async function parseMusicSegments(feedUrl: string): Promise<ParsedItem[]>
 
 // Combined parser that handles both regular RSS and music segments
 export async function parseRSSFeedWithSegments(feedUrl: string): Promise<ParsedFeed> {
+  // One fetch for both passes: each used to fetch the feed itself, which doubled the
+  // requests a nightly reparse sends to a host that rate-limits (Wavlake).
+  let xmlText: string;
+  try {
+    xmlText = await fetchFeedXml(feedUrl);
+  } catch (error) {
+    throw new Error(`Failed to parse RSS feed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
   // First try regular RSS parsing
-  const feed = await parseRSSFeed(feedUrl);
-  
+  const feed = await parseRSSFeed(feedUrl, xmlText);
+
   // Then try to extract any music segments
-  const segments = await parseMusicSegments(feedUrl);
+  const segments = await parseMusicSegments(feedUrl, xmlText);
   
   // Merge segments into feed items if any were found
   if (segments.length > 0) {

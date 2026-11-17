@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
+import { fundingFromJson } from '@/lib/podcast-funding';
 import { corsHeaders } from '@/lib/cors';
 import { prisma } from '@/lib/prisma';
 import { generateAlbumSlug, getPublisherInfo } from '@/lib/url-utils';
 import { getAllPlaylistIds, getPlaylistUrls, getPlaylistConfig, PLAYLIST_CONFIGS } from '@/lib/playlist/configs';
-import { PODCAST_FEED_IDS, PODCAST_FEED_URLS } from '@/lib/podcast-feeds';
+import { isPodcastFeed, sortEpisodesNewestFirst } from '@/lib/podcast-feeds';
 import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
+import { compressedJson } from '@/lib/compressed-json';
+import { pickFlexibleSlugMatch } from '@/lib/catalog/flexible-slug-match';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -164,6 +167,11 @@ const TRACK_SELECT_FIELDS = {
   chaptersUrl: true,
   chapters: true,
   valueTimeSplits: true,
+  // Track-level <podcast:person> entries. The album page spreads these into the
+  // per-track boost, where their npubs become the note's `p` tags.
+  persons: true,
+  // Track-level <podcast:funding>. Empty means the track inherits the album's.
+  funding: true,
 } as const;
 
 // Map a DB track to the API response format
@@ -190,6 +198,8 @@ function mapTrackToResponse(track: any, fallbackImage: string | null, index: num
     chaptersUrl: track.chaptersUrl || undefined,
     chapters: track.chapters || undefined,
     valueTimeSplits: track.valueTimeSplits || undefined,
+    persons: track.persons || undefined,
+    funding: fundingFromJson(track.funding),
     publishedAt: track.publishedAt || null,
   };
 }
@@ -292,7 +302,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -407,7 +417,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -522,7 +532,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
         lastUpdated: new Date().toISOString()
       }, {
@@ -637,87 +647,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       console.log(`✅ Created playlist album with ${playlistAlbum.tracks.length} tracks`);
 
-      return NextResponse.json({
+      return compressedJson(request, {
         album: playlistAlbum,
-        lastUpdated: new Date().toISOString()
-      }, {
-        headers: {
-          // Was 'no-cache, no-store, must-revalidate' on every return path. This is
-          // the album DETAIL endpoint — the second most visited route, fully
-          // deterministic per slug, and the heaviest per-request work in the repo.
-          // Nothing about it is per-user.
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          'ETag': `"${Date.now()}"`,
-          'Content-Type': 'application/json',
-          ...cors,
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY'
-        }
-      });
-    }
-
-    // Handle Top 100 V4V Music playlist
-    if (slug === 'top-100-v4v-music' || slug === 'top100-playlist' || slug === 'top-100-playlist') {
-      console.log('🏆 Fetching Top 100 V4V Music playlist album details...');
-
-      // Fetch from Top 100 API
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app';
-      const top100Response = await fetch(`${baseUrl}/api/playlist/top100`);
-
-      if (!top100Response.ok) {
-        throw new Error(`Failed to fetch Top 100: ${top100Response.status}`);
-      }
-
-      const top100Data = await top100Response.json();
-      const playlistAlbum = top100Data.albums?.[0];
-
-      if (!playlistAlbum) {
-        throw new Error('Top 100 playlist data not available');
-      }
-
-      // Convert tracks to album format expected by AlbumDetailClient
-      const tracks = playlistAlbum.tracks.map((track: any, index: number) => ({
-        title: track.title,
-        duration: track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '3:00',
-        url: track.audioUrl || '',
-        trackNumber: index + 1,
-        subtitle: track.artist,
-        summary: track.description || `#${track.rank} on the V4V Music charts`,
-        image: track.image || '/placeholder-podcast.jpg',
-        explicit: false,
-        keywords: [],
-        albumTitle: track.albumTitle || track.feedTitle,
-        feedTitle: track.feedTitle,
-        guid: track.guid || track.itemGuid
-      }));
-
-      const top100Album = {
-        id: 'top-100-v4v-music',
-        title: 'Top 100 V4V Music',
-        artist: 'Various Artists',
-        description: playlistAlbum.description || 'The hottest tracks in the Value4Value music economy',
-        summary: playlistAlbum.description || 'The hottest tracks in the Value4Value music economy',
-        subtitle: '',
-        coverArt: playlistAlbum.coverArt || playlistAlbum.image || '/placeholder-podcast.jpg',
-        releaseDate: playlistAlbum.publishedAt || new Date().toISOString(),
-        explicit: false,
-        tracks: tracks,
-        podroll: null,
-        publisher: null,
-        funding: null,
-        feedId: 'top-100-v4v-music',
-        feedUrl: 'https://stats.podcastindex.org/v4vmusic.json',
-        lastUpdated: new Date().toISOString()
-      };
-
-      console.log(`✅ Created Top 100 album with ${top100Album.tracks.length} tracks`);
-
-      return NextResponse.json({
-        album: top100Album,
         lastUpdated: new Date().toISOString()
       }, {
         headers: {
@@ -1038,12 +969,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         return v4vValue;
       };
 
-      // Check if this is a curated podcast feed
-      const isPodcastFeed = PODCAST_FEED_IDS.includes(feed.id) ||
-        PODCAST_FEED_IDS.includes(feed.guid || '') ||
-        PODCAST_FEED_URLS.includes(feed.originalUrl);
+      // A podcast by its own type or the curated lists — lib/podcast-feeds.ts.
+      const asPodcast = isPodcastFeed(feed);
 
-      const deduplicatedTracks = feed.Track
+      const uniqueTracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
           return self.findIndex((t: any) =>
@@ -1051,14 +980,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           ) === index;
         });
 
-      // For podcast feeds, sort episodes newest-first
-      if (isPodcastFeed) {
-        deduplicatedTracks.sort((a: any, b: any) => {
-          const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-          const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-          return dateB - dateA;
-        });
-      }
+      // Podcast episodes newest first. An album keeps the trackOrder order the
+      // query returned.
+      const deduplicatedTracks = asPodcast ? sortEpisodesNewestFirst(uniqueTracks) : uniqueTracks;
 
       const tracks = deduplicatedTracks
         .map((track: any, index: number) => mapTrackToResponse(track, feed.image, index, parseV4VValue));
@@ -1266,6 +1190,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         subtitle: '',
         coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
         podcastImages: (feed as any).podcastImages || undefined,
+        // The feed's own <podcast:person> / <podcast:txt> npubs. The album boost
+        // turns these into `p` tags; without them the note tags no artist, and
+        // nothing says so. albums-fast carries this via lib/catalog/album-shape.ts.
+        persons: (feed as any).persons || undefined,
         // Real release date. lastFetched is when we last CRAWLED the feed and
         // createdAt is when it was added to StableKraft — both report the wrong
         // year for back-catalogue albums (issue #169). Matches albums-fast.
@@ -1305,7 +1233,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
           };
         })(),
-        funding: null,
+        funding: fundingFromJson((feed as any).funding),
         feedId: feed.id,
         feedUrl: feed.originalUrl,
         feedGuid: feed.guid || null,
@@ -1315,7 +1243,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         // Include albums for publisher feeds
         albums: publisherAlbums.length > 0 ? publisherAlbums : undefined,
         isPublisher: feed.type === 'publisher' || feed.type === 'test' ? true : undefined,
-        isPodcast: isPodcastFeed || undefined
+        isPodcast: asPodcast || undefined
       };
     }
 
@@ -1323,50 +1251,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     if (!foundAlbum) {
       console.log(`🔍 Trying flexible matching for slug: "${slug}"`);
 
-      const searchSlug = slug.toLowerCase();
-      const decodedSlug = decodeURIComponent(searchSlug);
-      const titleFromSlug = decodedSlug.replace(/-/g, ' ');
-
-      // Get all active feeds with tracks for flexible matching
-      const feeds = await prisma.feed.findMany({
+      // Match on a few columns of every active feed, then load only the winner.
+      // This used to read every active feed WITH all its tracks — 33 MB per miss,
+      // and every slug that matches nothing lands here (see flexible-slug-match.ts).
+      const candidates = await prisma.feed.findMany({
         where: { status: 'active' },
-        include: trackInclude
-      });
-
-      const flexibleMatches = [];
-
-      for (const feed of feeds) {
-        if (feed.Track.length === 0) continue;
-        
-        const albumTitle = feed.title;
-        const albumTitleLower = albumTitle.toLowerCase();
-        
-        // Try various matching strategies
-        const matches = [
-          albumTitleLower === searchSlug,
-          albumTitleLower === decodedSlug,
-          albumTitleLower === titleFromSlug,
-          albumTitleLower.replace(/\s+/g, '-') === searchSlug,
-          albumTitleLower.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') === searchSlug,
-          searchSlug.length > 5 && albumTitleLower.includes(searchSlug),
-          titleFromSlug.length > 5 && albumTitleLower.includes(titleFromSlug),
-          feed.guid === slug,  // Podcast Index GUID match
-          feed.guid?.toLowerCase() === searchSlug  // Case-insensitive GUID match
-        ];
-        
-        if (matches.some(match => match)) {
-          console.log(`🔍 Found flexible match: "${albumTitle}" with ${feed.Track.length} tracks`);
-          flexibleMatches.push({ feed, trackCount: feed.Track.length });
+        select: {
+          id: true,
+          title: true,
+          guid: true,
+          _count: { select: { Track: { where: trackInclude.Track.where } } }
         }
-      }
-      
-      // If we have flexible matches, prefer the one with the most tracks
-      if (flexibleMatches.length > 0) {
-        const bestFlexibleMatch = flexibleMatches.reduce((best, current) => 
-          current.trackCount > best.trackCount ? current : best
-        );
-        
-        const feed = bestFlexibleMatch.feed;
+      });
+      const bestFlexibleMatch = pickFlexibleSlugMatch(
+        candidates.map(c => ({ id: c.id, title: c.title, guid: c.guid, trackCount: c._count.Track })),
+        slug
+      );
+      const feed = bestFlexibleMatch
+        ? await prisma.feed.findUnique({ where: { id: bestFlexibleMatch.id }, include: trackInclude })
+        : null;
+
+      if (feed) {
         console.log(`✅ Selected best flexible match: "${feed.title}" with ${feed.Track.length} tracks`);
 
         // Redirect playlist feeds to their playlist page
@@ -1400,13 +1305,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           return v4vValue;
         };
 
-        const tracks = feed.Track
+        // Same podcast rule as the exact-match branch above. This branch never
+        // had one, so a podcast reached by a loose title slug came back in
+        // trackOrder with no isPodcast.
+        const asPodcast = isPodcastFeed(feed);
+
+        const uniqueTracks = feed.Track
         .filter((track: any, index: number, self: any[]) => {
           // Deduplicate tracks by URL and title
-          return self.findIndex((t: any) => 
+          return self.findIndex((t: any) =>
             t.audioUrl === track.audioUrl && t.title === track.title
           ) === index;
-        })
+        });
+
+        const tracks = (asPodcast ? sortEpisodesNewestFirst(uniqueTracks) : uniqueTracks)
         .map((track: any, index: number) => mapTrackToResponse(track, feed.image, index, parseV4VValue));
 
         const isPlaylist = tracks.length > 1 &&
@@ -1436,6 +1348,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           subtitle: '',
           coverArt: (isValidImageUrl(feed.image) ? feed.image : `/api/placeholder-image?title=${encodeURIComponent(albumTitle)}&artist=${encodeURIComponent(feed.artist || 'Unknown Artist')}`),
           podcastImages: (feed as any).podcastImages || undefined,
+          // Boost `p` tags — see the note on the other branch above.
+          persons: (feed as any).persons || undefined,
           // Real release date — see the note on the other branch above.
           releaseDate: feed.oldestItemPubdate || feed.createdAt,
           explicit: feed.explicit ?? false,
@@ -1473,13 +1387,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
               artistImage: (isValidImageUrl(feed.image) ? feed.image : null)
             };
           })(),
-          funding: null,
+          funding: fundingFromJson((feed as any).funding),
           feedId: feed.id,
           feedUrl: feed.originalUrl,
           feedGuid: feed.guid || null,
           lastUpdated: feed.updatedAt,
           v4vRecipient: feed.v4vRecipient || feed.Track?.[0]?.v4vRecipient || null,
-          v4vValue: parseV4VValue(feed.v4vValue) || parseV4VValue(feed.Track?.[0]?.v4vValue) || null
+          v4vValue: parseV4VValue(feed.v4vValue) || parseV4VValue(feed.Track?.[0]?.v4vValue) || null,
+          isPodcast: asPodcast || undefined
         };
       }
     }
@@ -1494,7 +1409,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     
     console.log(`✅ Database Album API: Returning album "${foundAlbum.title}" by ${foundAlbum.artist}`);
     
-    return NextResponse.json({
+    return compressedJson(request, {
       album: foundAlbum,
       lastUpdated: new Date().toISOString()
     }, {

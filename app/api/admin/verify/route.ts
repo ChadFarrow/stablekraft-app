@@ -1,18 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { npubToPublicKey } from '@/lib/nostr/keys';
+import { nip19 } from 'nostr-tools';
 import { RateLimiter, clientIp, rateLimitHeaders } from '@/lib/rate-limit';
+import {
+  ADMIN_COOKIE_NAME,
+  ADMIN_SESSION_MAX_AGE_S,
+  adminPubkeys,
+  checkAdminAuthEvent,
+  signAdminSession,
+} from '@/lib/admin-session';
 
 /**
- * This route is deliberately OUTSIDE the admin bearer gate — AdminPanel calls it
- * before it has the secret (see lib/admin-route-policy.ts). That makes it an
- * oracle: POST an npub, learn from the 200-vs-403 whether it is an operator.
- * Nothing bounded how fast a caller could walk a list of npubs through it.
+ * Admin sign-in with Nostr — see lib/admin-session.ts.
+ *
+ * This route is deliberately OUTSIDE the admin gate (lib/admin-route-policy.ts):
+ * it is how an operator gets through it. It used to take a bare npub and answer
+ * 200 or 403, which proved nothing and made it an oracle for walking a list of
+ * npubs. It now takes the SIGNED NIP-98 event the admin page asks for, and only
+ * a valid signature from an ADMIN_NPUBS key gets a 200 — and the `sk_admin`
+ * cookie every admin action then accepts in place of the bearer secret.
  */
 const verifyLimiter = new RateLimiter(20, 60_000);
 
+/** Event ids already used, until their 60-second window has passed: one signature, one session. */
+const usedEventIds = new Map<string, number>();
+const REPLAY_WINDOW_MS = 2 * 60_000;
+
+function rememberEvent(id: string, nowMs: number): boolean {
+  for (const [seen, until] of usedEventIds) if (until <= nowMs) usedEventIds.delete(seen);
+  if (usedEventIds.has(id)) return false;
+  usedEventIds.set(id, nowMs + REPLAY_WINDOW_MS);
+  return true;
+}
+
 /**
- * POST /api/admin/verify
- * Verify if a Nostr user (by npub or pubkey) is whitelisted for admin access
+ * The hosts this server answers as. The Host header is what the proxy routed
+ * on, so a client cannot set it to another site and still reach us.
+ * X-Forwarded-Host is NOT used: a client sets it freely, and accepting it would
+ * let an event signed for another site through. NEXT_PUBLIC_BASE_URL — with
+ * the same https://stablekraft.app default the rest of the app uses — covers a
+ * proxy that rewrites Host.
+ */
+function ownHosts(request: NextRequest): string[] {
+  const hosts = [request.headers.get('host') || ''];
+  try {
+    hosts.push(new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://stablekraft.app').host);
+  } catch {
+    // malformed — the Host header alone
+  }
+  return hosts.filter(Boolean);
+}
+
+/**
+ * POST /api/admin/verify  { event: <signed kind 27235 event> }
+ * 200 + `sk_admin` cookie for an admin, 401 for a bad event, 403 for a valid
+ * signature from a key that is not an admin.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,120 +65,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { npub, pubkey } = body;
-
-    if (!npub && !pubkey) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing npub or pubkey',
-        },
-        { status: 400 }
-      );
+    const admins = adminPubkeys(process.env.ADMIN_NPUBS);
+    if (admins.size === 0) {
+      return NextResponse.json({ success: false, error: 'No admin npubs configured' }, { status: 500 });
     }
 
-    // Get whitelisted npubs from environment variable
-    const adminNpubs = process.env.ADMIN_NPUBS?.split(',').map(n => n.trim()).filter(Boolean) || [];
-    
-    if (adminNpubs.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No admin npubs configured',
-        },
-        { status: 500 }
-      );
+    let body: { event?: unknown } | null = null;
+    try {
+      body = await request.json();
+    } catch {
+      body = null;
     }
 
-    // Normalize npub (remove whitespace, convert to lowercase for comparison)
-    let normalizedNpub: string;
-    let normalizedPubkey: string;
-
-    if (npub) {
-      normalizedNpub = npub.trim();
-      // Convert npub to pubkey for comparison
-      try {
-        normalizedPubkey = npubToPublicKey(normalizedNpub);
-      } catch (error) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid npub format',
-          },
-          { status: 400 }
-        );
-      }
-    } else if (pubkey) {
-      normalizedPubkey = pubkey.trim();
-      // Convert pubkey to npub for comparison
-      try {
-        const { publicKeyToNpub } = await import('@/lib/nostr/keys');
-        normalizedNpub = publicKeyToNpub(normalizedPubkey);
-      } catch (error) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid pubkey format',
-          },
-          { status: 400 }
-        );
-      }
-    } else {
-      // This should never happen due to the check above, but TypeScript needs it
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing npub or pubkey',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if npub is in whitelist
-    const isWhitelisted = adminNpubs.some(whitelistedNpub => {
-      const trimmed = whitelistedNpub.trim();
-      // Compare both npub and pubkey formats
-      if (trimmed === normalizedNpub) return true;
-      
-      // Also check if whitelisted npub converts to the same pubkey
-      try {
-        const whitelistedPubkey = npubToPublicKey(trimmed);
-        return whitelistedPubkey === normalizedPubkey;
-      } catch {
-        // If whitelisted entry is not a valid npub, skip it
-        return false;
-      }
+    const nowMs = Date.now();
+    const result = checkAdminAuthEvent(body?.event, {
+      host: ownHosts(request),
+      nowS: Math.floor(nowMs / 1000),
+      admins,
     });
-
-    if (!isWhitelisted) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Not authorized for admin access',
-        },
-        { status: 403 }
-      );
+    if (!result.ok) {
+      return result.forbidden
+        ? NextResponse.json({ success: false, error: 'Not authorized for admin access' }, { status: 403 })
+        : NextResponse.json({ success: false, error: `Sign-in failed: ${result.reason}` }, { status: 401 });
+    }
+    if (!rememberEvent(String((body!.event as { id: string }).id), nowMs)) {
+      return NextResponse.json({ success: false, error: 'Sign-in failed: event already used' }, { status: 401 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       authorized: true,
-      npub: normalizedNpub,
-      pubkey: normalizedPubkey,
+      npub: nip19.npubEncode(result.pubkey),
+      pubkey: result.pubkey,
     });
+    const secret = process.env.ADMIN_SECRET;
+    // No secret means the gate is open (fail-open), so there is nothing to sign with or to pass.
+    if (secret) {
+      response.cookies.set(ADMIN_COOKIE_NAME, await signAdminSession(result.pubkey, secret, nowMs), {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: ADMIN_SESSION_MAX_AGE_S,
+      });
+    }
+    return response;
   } catch (error) {
     console.error('Admin verification error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to verify admin access',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to verify admin access' }, { status: 500 });
   }
 }
 
+/** DELETE /api/admin/verify — sign out of admin: clears the cookie. */
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.set(ADMIN_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0,
+  });
+  return response;
+}

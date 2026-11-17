@@ -6,6 +6,7 @@ import {
   albumFeedSelect,
   ALBUM_TRACK_SELECT,
   EPISODE_TRACK_ORDER_BY,
+  PLAYABLE_TRACK_WHERE,
   type AlbumSourceFeed,
   type AlbumSourceTrack,
 } from './album-shape';
@@ -74,6 +75,39 @@ test('trackCount is the real count, not the capped tracks array', () => {
 test('trackCount is 0 when _count is absent', () => {
   assert.equal(feedToAlbum(feed({ _count: null })).trackCount, 0);
   assert.equal(feedToAlbum(feed({ _count: undefined })).trackCount, 0);
+});
+
+// The catalog holds duplicate Track rows: DREAMS had 14 playable rows and 7
+// tracks (2026-11-01). When every row arrived, the deduped list IS the count,
+// and the album page shows the same 7. The row count would have put "14 tracks"
+// on a card whose album page lists 7.
+test('trackCount is the deduped length when every playable row arrived', () => {
+  const rows = [
+    track({ id: 'a1', audioUrl: 'https://example.com/a.mp3', title: 'A' }),
+    track({ id: 'a2', audioUrl: 'https://example.com/a.mp3', title: 'A' }),
+    track({ id: 'b1', audioUrl: 'https://example.com/b.mp3', title: 'B' }),
+  ];
+  const album = feedToAlbum(feed({ Track: rows, _count: { Track: 3 } }), { dedupeTracks: true });
+  assert.equal(album.tracks.length, 2);
+  assert.equal(album.trackCount, 2);
+});
+
+test('trackCount is the tracks length when every row arrived and nothing was deduped', () => {
+  const rows = [track({ id: 'a' }), track({ id: 'b', audioUrl: 'https://example.com/b.mp3' })];
+  assert.equal(feedToAlbum(feed({ Track: rows, _count: { Track: 2 } })).trackCount, 2);
+});
+
+// Cut at `take`, the row count is the only number available. It still counts a
+// duplicate row twice — Trapped in London: 36 rows, 18 tracks — which is the
+// known limit of a count Prisma cannot make distinct.
+test('trackCount is the playable row count when the list was cut at take', () => {
+  const rows = [
+    track({ id: 'a1', audioUrl: 'https://example.com/a.mp3', title: 'A' }),
+    track({ id: 'a2', audioUrl: 'https://example.com/a.mp3', title: 'A' }),
+  ];
+  const album = feedToAlbum(feed({ Track: rows, _count: { Track: 36 } }), { dedupeTracks: true });
+  assert.equal(album.tracks.length, 1);
+  assert.equal(album.trackCount, 36);
 });
 
 test('artist falls back to the title', () => {
@@ -154,7 +188,15 @@ test('albumFeedSelect requires an explicit take', () => {
   const select = albumFeedSelect(20);
   assert.equal((select.Track as { take?: number }).take, 20);
   assert.deepEqual(select.Track.select, ALBUM_TRACK_SELECT);
-  assert.equal(select._count.select.Track.where.status, 'active');
+});
+
+// `_count` used to ask for `status: 'active'` alone, so it also counted rows
+// with no audio URL, which the Track select drops. feedToAlbum compares the
+// two to tell a capped list from a complete one, so they must count the same rows.
+test('_count counts the same rows the Track select returns', () => {
+  const select = albumFeedSelect(20);
+  assert.deepEqual(select._count.select.Track.where, select.Track.where);
+  assert.deepEqual(select._count.select.Track.where, PLAYABLE_TRACK_WHERE);
 });
 
 test("'unbounded' omits take, and says so rather than leaving it off silently", () => {

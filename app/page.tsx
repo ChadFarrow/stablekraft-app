@@ -19,6 +19,7 @@ import { Play, Pause } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
+import { albumTrackCount, isPodcastAlbum } from '@/lib/catalog/album-count';
 import { SkeletonGrid } from '@/components/SkeletonCard';
 
 
@@ -74,6 +75,7 @@ const LoadingSkeleton = ({ count = 6 }: { count?: number }) => (
 // Import types and sort option sets from ControlsBar
 import type { FilterType, ViewType, SortType } from '@/components/ControlsBar';
 import { SORT_OPTIONS_ALBUMS, SORT_OPTIONS_PUBLISHERS, SORT_OPTIONS_PLAYLIST } from '@/components/ControlsBar';
+import { useDataSaver } from '@/hooks/useDataSaver';
 // RSS feed configuration - CDN removed, using original URLs directly
 
 // Development logging utility - disabled for performance
@@ -157,6 +159,7 @@ function HomePageContent() {
   // Mobile: when the search input is expanded it takes over the whole header
   // row (the dropdown + action buttons hide) so it can't get squished/overflow.
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const dataSaver = useDataSaver();
   const ALBUMS_PER_PAGE = 50; // Load 50 albums per page for better user experience
 
   // Format-aware loading state (for "all" filter - load all albums before EPs)
@@ -176,7 +179,13 @@ function HomePageContent() {
   // only consumer: app/radio/RadioClient.tsx hands the raw response to
   // setInitialAlbums and playback reads all four off those track objects. See
   // lib/catalog/album-shape.ts.
-  const API_VERSION = 'v18';
+  //
+  // v19: the mapper below now keeps album-level persons, so AlbumCard's boost
+  // can tag the artist. A cached album has none and would keep tagging nobody.
+  //
+  // v20: the mapper keeps trackCount and type. A cached album has neither, so
+  // its card would keep counting the 20 shipped tracks.
+  const API_VERSION = 'v20';
   
   // HGH filter removed - no longer needed
   
@@ -405,9 +414,15 @@ function HomePageContent() {
   // and cached/restored via localStorage alongside album data
 
 
-  // Show background image after critical content loads (no artificial delay)
+  // Show background image after critical content loads (no artificial delay).
+  //
+  // Not in Data Saver. This effect, not the hidden <Image> below, is what turns
+  // `backgroundImageLoaded` on in practice — that <Image> is lazy inside a
+  // display:none div, so it never loads and its onLoad never fires. Gating only
+  // the <Image> therefore saved nothing: the rocket was painted, and downloaded,
+  // with Data Saver on. Measured on production 2026-09-26.
   useEffect(() => {
-    if (isCriticalLoaded && !backgroundImageLoaded) {
+    if (isCriticalLoaded && !backgroundImageLoaded && !dataSaver) {
       // Show background immediately when critical content is ready
       const bgElement = document.getElementById('background-image');
       if (bgElement) {
@@ -415,7 +430,7 @@ function HomePageContent() {
         setBackgroundImageLoaded(true);
       }
     }
-  }, [isCriticalLoaded, backgroundImageLoaded]);
+  }, [isCriticalLoaded, backgroundImageLoaded, dataSaver]);
 
 
 
@@ -1104,9 +1119,19 @@ function HomePageContent() {
         feedId: album.feedId,
         feedUrl: album.feedUrl,
         feedGuid: album.feedGuid,
+        // The real count. `tracks` above is cut at 20 by albums-fast, so a card
+        // that counted it said "20 tracks" for Homegrown Hits' 158 episodes.
+        trackCount: album.trackCount,
+        // The Feed row's own type, so a podcast card says "episodes". Not
+        // `isPodcast`: AlbumCard links an isPodcast album by title slug, and the
+        // grid links podcasts by id (lib/catalog/album-count.ts).
+        type: album.type,
         // Include V4V payment data for boost buttons
         ...(album.v4vRecipient && { v4vRecipient: album.v4vRecipient }),
-        ...(album.v4vValue && { v4vValue: album.v4vValue })
+        ...(album.v4vValue && { v4vValue: album.v4vValue }),
+        // The feed's npubs. AlbumCard's boost turns these into the note's `p`
+        // tags; dropped here, every boost from the grid tagged no artist.
+        ...(album.persons && { persons: album.persons })
       } as RSSAlbum));
       
       // Apply limit if specified (for critical loading)
@@ -1408,14 +1433,14 @@ function HomePageContent() {
         });
       case 'tracks-desc':
         return sorted.sort((a, b) => {
-          const tracksA = a.tracks?.length || a.totalTracks || 0;
-          const tracksB = b.tracks?.length || b.totalTracks || 0;
+          const tracksA = albumTrackCount(a);
+          const tracksB = albumTrackCount(b);
           return tracksB - tracksA; // Most tracks first
         });
       case 'tracks-asc':
         return sorted.sort((a, b) => {
-          const tracksA = a.tracks?.length || a.totalTracks || 0;
-          const tracksB = b.tracks?.length || b.totalTracks || 0;
+          const tracksA = albumTrackCount(a);
+          const tracksB = albumTrackCount(b);
           return tracksA - tracksB; // Least tracks first
         });
       default:
@@ -1429,7 +1454,7 @@ function HomePageContent() {
   // Memoize expensive filtering operations to prevent re-computation on every render
   const albumsWithMultipleTracks = useMemo(() =>
     sortAlbums(
-      filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) >= 6),
+      filteredAlbums.filter(album => albumTrackCount(album) >= 6),
       sortType
     ),
     [filteredAlbums, sortType, sortAlbums]
@@ -1438,7 +1463,7 @@ function HomePageContent() {
   const epsOnly = useMemo(() =>
     sortAlbums(
       filteredAlbums.filter(album => {
-        const trackCount = album.tracks?.length || album.totalTracks || 0;
+        const trackCount = albumTrackCount(album);
         return trackCount >= 2 && trackCount <= 5;
       }),
       sortType
@@ -1448,7 +1473,7 @@ function HomePageContent() {
 
   const singlesOnly = useMemo(() =>
     sortAlbums(
-      filteredAlbums.filter(album => (album.tracks?.length || album.totalTracks || 0) === 1),
+      filteredAlbums.filter(album => albumTrackCount(album) === 1),
       sortType
     ),
     [filteredAlbums, sortType, sortAlbums]
@@ -1477,7 +1502,7 @@ function HomePageContent() {
         <div 
           className="fixed inset-0 z-10 transition-opacity duration-300"
           style={{
-            backgroundImage: 'url(/stablekraft-rocket-new.png)',
+            backgroundImage: 'url(/stablekraft-rocket-new.webp)',
             backgroundSize: 'auto 100vh',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat'
@@ -1489,13 +1514,19 @@ function HomePageContent() {
       )}
       
       {/* Preload background image after critical content - Always render but handle loading client-side */}
+      {/* Data Saver skips it: decoration, and the z-0 gradient below is already
+          the designed fallback. The gate that matters is on the effect that sets
+          `backgroundImageLoaded` (above); this one keeps the loader consistent.
+          With both, `backgroundImageLoaded` never turns true, which is the same
+          path a failed load already takes. */}
       <div className="hidden">
-        {isClient && isCriticalLoaded && (
+        {isClient && isCriticalLoaded && !dataSaver && (
           <Image
-            src="/stablekraft-rocket-new.png"
+            src="/stablekraft-rocket-new.webp"
             alt=""
-            width={1920}
-            height={1080}
+            width={1024}
+            height={1024}
+            unoptimized
             onLoad={() => setBackgroundImageLoaded(true)}
             onError={() => setBackgroundImageLoaded(true)}
           />
@@ -1847,7 +1878,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Album</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -1927,7 +1958,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">EP</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -2007,7 +2038,7 @@ function HomePageContent() {
                                   </div>
                                   <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                                     <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                                    <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                                    <span className="font-medium">{albumTrackCount(album)} tracks</span>
                                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">Single</span>
                                     {album.explicit && (
                                       <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -2094,9 +2125,9 @@ function HomePageContent() {
                           </div>
                           <div className="hidden sm:flex items-center gap-4 text-sm text-gray-200">
                             <span className="font-medium">{new Date(album.releaseDate).getFullYear()}</span>
-                            <span className="font-medium">{album.tracks?.length || album.totalTracks || 0} tracks</span>
+                            <span className="font-medium">{albumTrackCount(album)} {isPodcastAlbum(album) ? 'episodes' : 'tracks'}</span>
                             <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                              {(album.tracks?.length || album.totalTracks || 0) <= 6 ? ((album.tracks?.length || album.totalTracks || 0) === 1 ? 'Single' : 'EP') : 'Album'}
+                              {albumTrackCount(album) <= 6 ? (albumTrackCount(album) === 1 ? 'Single' : 'EP') : 'Album'}
                             </span>
                             {album.explicit && (
                               <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">

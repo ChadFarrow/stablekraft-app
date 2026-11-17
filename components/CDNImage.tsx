@@ -2,6 +2,8 @@
 
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
+import { useDataSaver } from '@/hooks/useDataSaver';
+import { artworkPlan } from '@/lib/data-saver';
 
 // Mapping of large GIFs to their video conversions
 const GIF_TO_VIDEO_MAP: Record<string, { mp4: string; webm: string }> = {
@@ -68,6 +70,28 @@ export default function CDNImage({
   const [videoFormats, setVideoFormats] = useState<{ mp4: string; webm: string } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  /**
+   * One decision, taken in lib/data-saver.ts rather than branched on here.
+   *
+   * The baseline below is what this component does TODAY, so with Data Saver
+   * off `artwork` is `{ quality, unoptimized }` exactly as it was. `unoptimized`
+   * stays true for our own routes even in Data Saver — handing /api/proxy-image
+   * to /_next/image would make the server fetch our own proxy (3b8c1da8).
+   */
+  const dataSaver = useDataSaver();
+  const artwork = artworkPlan({
+    src: currentSrc || src || '',
+    dataSaver,
+    baseline: {
+      quality,
+      unoptimized:
+        (currentSrc || '').includes('/api/optimized-images/') ||
+        (currentSrc || '').includes('/api/placeholder-image/') ||
+        (currentSrc || '').includes('/api/proxy-image') ||
+        isGif,
+    },
+  });
 
   // Check if we're on mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -185,8 +209,13 @@ export default function CDNImage({
         setPlaceholderLoaded(true);
         
         // Once placeholder is loaded, start preloading the full GIF in the background
-        // This ensures the full GIF is ready when we want to show it
-        if (currentSrc && !gifLoaded) {
+        // This ensures the full GIF is ready when we want to show it.
+        //
+        // Except in Data Saver. Note what this line costs the rest of the time:
+        // the still frame is fetched for speed and then the whole animation is
+        // fetched anyway, so the placeholder has never saved a single byte.
+        // Measured covers: 7.58 MB and 11.86 MB; a comment below cites ~19 MB.
+        if (currentSrc && !gifLoaded && artwork.allowAnimation) {
           const fullGifImg = new window.Image();
           fullGifImg.onload = () => {
             setGifLoaded(true);
@@ -203,12 +232,25 @@ export default function CDNImage({
       // Fallback if Image constructor is not available
       setPlaceholderLoaded(true);
     }
-  }, [isGif, isClient, currentSrc, placeholderLoaded, gifLoaded]);
+  }, [isGif, isClient, currentSrc, placeholderLoaded, gifLoaded, artwork.allowAnimation]);
 
   // Intersection Observer for GIF lazy loading
   useEffect(() => {
     if (!isGif || !isClient || priority) {
       setShowGif(true);
+      return;
+    }
+
+    // Data Saver stops at the still first frame and never fetches the animation.
+    //
+    // The second half of that condition is load-bearing. If /api/gif-placeholder
+    // failed, `placeholderLoaded` is true while `gifPlaceholder` is still null,
+    // and the still-frame branch in the render below does NOT draw — so holding
+    // `showGif` false there would leave a permanently blank card. Falling
+    // through to the observer costs one animation in a case that should be rare;
+    // a blank card costs the whole image.
+    if (!artwork.allowAnimation && (!placeholderLoaded || gifPlaceholder)) {
+      setShowGif(false);
       return;
     }
 
@@ -232,7 +274,7 @@ export default function CDNImage({
     }
 
     return () => observer.disconnect();
-  }, [isGif, isClient, priority]);
+  }, [isGif, isClient, priority, artwork.allowAnimation, placeholderLoaded, gifPlaceholder]);
 
   // Generate optimized image URL
   const getOptimizedUrl = (originalUrl: string, targetWidth?: number, targetHeight?: number) => {
@@ -648,7 +690,7 @@ export default function CDNImage({
               height={dims.height}
               className={`opacity-100 transition-opacity duration-300`}
               priority={priority}
-              quality={quality}
+              quality={artwork.quality}
               sizes={getResponsiveSizes()}
               unoptimized
               style={style}
@@ -664,7 +706,7 @@ export default function CDNImage({
               height={dims.height}
               className={`${isLoading && !(isGif && placeholderLoaded) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
               priority={priority}
-              quality={quality}
+              quality={artwork.quality}
               sizes={getResponsiveSizes()}
               onError={handleError}
               onLoad={() => {
@@ -675,7 +717,9 @@ export default function CDNImage({
                 handleLoad();
               }}
               placeholder={placeholder}
-              unoptimized={currentSrc.includes('/api/optimized-images/') || currentSrc.includes('/api/placeholder-image/') || currentSrc.includes('/api/proxy-image') || isGif} // Don't optimize API images, SVG placeholders, proxy images, or GIFs
+              // Our own routes and animations stay unoptimized in every mode; a
+              // remote cover becomes optimizable in Data Saver. See lib/data-saver.ts.
+              unoptimized={artwork.unoptimized}
               style={style}
               {...props}
             />

@@ -9,6 +9,8 @@ import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { invalidateAlbumsFastCache } from '@/lib/caches/albums-fast-cache';
 import { invalidateSearchCache } from '@/lib/caches/search-cache';
 import { BLACKLISTED_FEED_IDS, BLACKLISTED_FEED_URLS, isBlacklistedFeedUrl } from '@/lib/feed-exclusions';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
 
 function invalidateFeedListCaches(): void {
   invalidateAlbumsFastCache();
@@ -229,6 +231,8 @@ async function importMissingAlbums(
           v4vValue: parsedFeed.v4vValue || null,
           podcastImages: (parsedFeed.podcastImages as any) || undefined,
           publisherId: publisherId,
+          ...channelPersonsFields(parsedFeed),
+          ...channelFundingFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           createdAt: new Date(),
@@ -502,8 +506,45 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // The same feed under another URL. The ladder above matches URLs, so a feed that
+      // moved to a host with no UUID in its path gets past it; the guid the feed
+      // declares does not. A publisher whose guid an album row holds is the one case
+      // let through, to the guid-collision retry below.
+      if (parsedFeed.podcastGuid) {
+        const guidHolder = await prisma.feed.findFirst({
+          where: { guid: parsedFeed.podcastGuid },
+          include: {
+            _count: {
+              select: { Track: true }
+            }
+          }
+        });
+        if (guidHolder && (resolvedType !== 'publisher' || guidHolder.type === 'publisher')) {
+          return NextResponse.json(
+            { error: 'Feed already exists', feed: guidHolder },
+            { status: 409 }
+          );
+        }
+      }
+
       // Generate a URL-friendly feed ID from artist and title
       let feedId = generateFeedId(parsedFeed.artist, parsedFeed.title);
+
+      // A taken slug here is a naming clash, not a duplicate: the URL ladder and the
+      // guid check above both say this feed is new. It is the normal case for a
+      // self-titled publisher, whose slug is its self-titled album's — "Strange Love"
+      // by "Strange Love" is `strange-love-strange-love` for both. The upsert below is
+      // keyed on originalUrl, so its create threw on `id`, and the catch at the bottom
+      // saved the publisher as a guid-less `feed-error-*` row titled with its own URL.
+      const idExists = await prisma.feed.findUnique({ where: { id: feedId }, select: { id: true } });
+      if (idExists) {
+        // `console.warn` survives production's `removeConsole`; `console.log` does not.
+        console.warn(
+          `⚠️ feed id collision: ${feedId} already exists, creating ${feedId}-<ts> ` +
+          `for ${normalizedOriginalUrl}`
+        );
+        feedId = `${feedId}-${Date.now()}`;
+      }
 
       // Use upsert to atomically handle feed creation (prevents race conditions)
       // If another request created the same feed between our check and create, this won't fail
@@ -533,6 +574,8 @@ export async function POST(request: NextRequest) {
             v4vRecipient: parsedFeed.v4vRecipient || null,
             v4vValue: parsedFeed.v4vValue || null,
             podcastImages: (parsedFeed.podcastImages as any) || undefined,
+            ...channelPersonsFields(parsedFeed),
+            ...channelFundingFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),
@@ -571,6 +614,8 @@ export async function POST(request: NextRequest) {
               v4vRecipient: parsedFeed.v4vRecipient || null,
               v4vValue: parsedFeed.v4vValue || null,
               podcastImages: (parsedFeed.podcastImages as any) || undefined,
+              ...channelPersonsFields(parsedFeed),
+              ...channelFundingFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               createdAt: new Date(),
@@ -774,6 +819,8 @@ export async function POST(request: NextRequest) {
                   explicit: publisherParsedFeed.explicit,
                   v4vRecipient: publisherParsedFeed.v4vRecipient || null,
                   v4vValue: publisherParsedFeed.v4vValue || null,
+                  ...channelPersonsFields(publisherParsedFeed),
+                  ...channelFundingFields(publisherParsedFeed),
                   lastFetched: new Date(),
                   status: 'active',
                   updatedAt: new Date()

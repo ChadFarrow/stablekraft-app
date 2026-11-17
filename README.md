@@ -102,9 +102,9 @@ components/
 
 ### Curated Playlists
 
-13 playlists in Podcasting 2.0 musicL format:
+12 playlists in Podcasting 2.0 musicL format:
 
-`b4ts` · `flowgnar` · `greatest-hits` · `hgh` · `iam` · `itdv` · `lt` · `mmm` · `mmt` · `sas` · `tft` · `top100` · `upbeats`
+`b4ts` · `flowgnar` · `greatest-hits` · `hgh` · `iam` · `itdv` · `lt` · `mmm` · `mmt` · `sas` · `tft` · `upbeats`
 
 Each has a `/api/playlist/<name>` route (most also have a `-fast` variant) and a page under
 `app/playlist/<name>/`.

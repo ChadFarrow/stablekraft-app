@@ -4,62 +4,18 @@ import { playlistCache } from '@/lib/playlist-cache';
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const refreshParam = url.searchParams.get('refresh');
-    
-    // Handle manual refresh of specific playlist
-    if (refreshParam && refreshParam !== 'all') {
-      const refreshUrl = `/api/playlist/${refreshParam}?refresh=true`;
-      try {
-        const response = await fetch(`${url.origin}${refreshUrl}`);
-        if (response.ok) {
-          return NextResponse.json({
-            success: true,
-            message: `Playlist ${refreshParam} refreshed successfully`,
-            refreshedAt: new Date().toISOString()
-          });
-        } else {
-          return NextResponse.json({
-            success: false,
-            error: `Failed to refresh playlist ${refreshParam}: ${response.status}`
-          }, { status: 400 });
-        }
-      } catch (error) {
-        return NextResponse.json({
-          success: false,
-          error: `Error refreshing playlist ${refreshParam}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        }, { status: 500 });
-      }
-    }
 
-    // Handle refresh all playlists
-    if (refreshParam === 'all') {
-      const playlists = ['iam', 'mmm', 'itdv', 'hgh'];
-      const results = [];
-      
-      for (const playlist of playlists) {
-        try {
-          const refreshUrl = `/api/playlist/${playlist}?refresh=true`;
-          const response = await fetch(`${url.origin}${refreshUrl}`);
-          results.push({
-            playlist,
-            success: response.ok,
-            status: response.status
-          });
-        } catch (error) {
-          results.push({
-            playlist,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-        }
-      }
-      
+    // This route used to refresh playlists (?refresh=<id> / ?refresh=all) by
+    // re-fetching /api/playlist/<id>?refresh=true on its own origin. In production
+    // that fetch failed to connect ("fetch failed" for all four playlists on every
+    // nightly run checked, 2026-09-17 to 19) and carried no admin secret, so it
+    // refreshed nothing while the nightly job reported success. Refresh the
+    // playlist route directly instead.
+    if (url.searchParams.has('refresh')) {
       return NextResponse.json({
-        success: true,
-        message: 'All playlists refresh attempted',
-        results,
-        refreshedAt: new Date().toISOString()
-      });
+        success: false,
+        error: 'Refreshing through /api/playlist-cache was removed. Call GET /api/playlist/<id>?refresh=true with the admin bearer token.'
+      }, { status: 410 });
     }
 
     // Default: return cache stats
@@ -76,8 +32,7 @@ export async function GET(request: NextRequest) {
       totalCaches: stats.length,
       commands: {
         viewStats: 'GET /api/playlist-cache',
-        refreshSingle: 'GET /api/playlist-cache?refresh=playlist-id (iam, mmm, itdv, hgh)',
-        refreshAll: 'GET /api/playlist-cache?refresh=all',
+        refreshPlaylist: 'GET /api/playlist/<id>?refresh=true (admin)',
         clearSingle: 'DELETE /api/playlist-cache?clear=playlist-id',
         clearAll: 'DELETE /api/playlist-cache?clear=all'
       }

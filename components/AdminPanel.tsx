@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from '@/components/Toast';
 import { useNostr } from '@/contexts/NostrContext';
 import { getUnifiedSigner } from '@/lib/nostr/signer';
-import { adminFetch } from '@/lib/admin-fetch';
+import { adminFetch, setAdminReauth } from '@/lib/admin-fetch';
+
+/**
+ * refresh-by-url answers 202 when the feed was refreshed in the last few minutes:
+ * one more refresh is scheduled for the end of that window (per-feed window,
+ * lib/feeds/refresh-coalescer.ts). An admin with a stored secret skips the window.
+ */
+function queuedRefreshMessage(data: { runAt?: string }): string {
+  const at = data.runAt ? new Date(data.runAt).toLocaleTimeString() : 'shortly';
+  return `Refreshed recently. One more refresh is scheduled for ${at}.`;
+}
 import DiagnosticsPanel from '@/components/admin/DiagnosticsPanel';
 
 export default function AdminPanel() {
@@ -50,8 +61,13 @@ export default function AdminPanel() {
     resolvedInPI?: number;
     notInPI?: number;
     hiddenCount?: number;
-    wouldHide?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null }>;
-    hidden?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null }>;
+    wouldHide?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
+    hidden?: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; signals?: string[]; reason?: string }>;
+    // A confirmed-dead feed whose podcast:guid now lives at a verified new URL.
+    wouldRelocate?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; tracksRepointed?: number; httpStatus: number | null; reason?: string }>;
+    relocated?: Array<{ id: string; title: string; artist: string | null; url: string; to: string; tracksRepointed?: number; httpStatus: number | null; reason?: string }>;
+    relocatedCount?: number;
+    refreshedMoved?: number;
     needsReview: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; reason?: string }>;
     unconfirmed: Array<{ id: string; title: string; artist: string | null; url: string; piDead: number; httpStatus: number | null; reason?: string }>;
     message?: string;
@@ -199,28 +215,28 @@ export default function AdminPanel() {
   // Admin authentication state (separate from Nostr auth)
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
-  // Verify admin access - requires signing a challenge to prove key ownership
-  const verifyAdminAccess = useCallback(async (npub: string, pubkey: string) => {
+  // Admin sign-in with Nostr alone (lib/admin-session.ts): sign a NIP-98 event
+  // for /api/admin/verify and send it. The server checks the signature and the
+  // ADMIN_NPUBS list, then sets the `sk_admin` cookie every admin action accepts.
+  // This used to sign the event and send only the npub, so the server could not
+  // trust it and every action also asked for the ADMIN_SECRET.
+  const verifyAdminAccess = useCallback(async (npub: string, pubkey: string): Promise<boolean> => {
     setVerifying(true);
     try {
-      // Step 1: Verify key ownership by signing a challenge
       const signer = getUnifiedSigner();
       await signer.ensureInitialized();
 
       if (!signer.isAvailable()) {
         toast.error('No Nostr signer available. Please connect your extension or signer app.');
-        setVerifying(false);
-        setLoading(false);
-        return;
+        return false;
       }
 
-      // Create and sign a challenge event
-      const challenge = `stablekraft-admin-verify-${Date.now()}`;
+      // NIP-98 HTTP Auth: bound to this exact route and method, valid for 60 s.
       const eventTemplate = {
-        kind: 27235, // NIP-98 HTTP Auth kind
+        kind: 27235,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [['u', window.location.href], ['method', 'GET']],
-        content: challenge,
+        tags: [['u', `${window.location.origin}/api/admin/verify`], ['method', 'POST']],
+        content: '',
         pubkey: pubkey,
       };
 
@@ -228,18 +244,16 @@ export default function AdminPanel() {
 
       if (!signedEvent?.sig || signedEvent.pubkey !== pubkey) {
         toast.error('Key verification failed. Signature does not match.');
-        setVerifying(false);
-        setLoading(false);
-        return;
+        return false;
       }
 
-      // Step 2: Check admin whitelist
       const response = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ npub, pubkey }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ event: signedEvent }),
       });
 
       const data = await response.json();
@@ -248,6 +262,7 @@ export default function AdminPanel() {
         setIsAdminAuthenticated(true);
         localStorage.setItem('admin-authenticated', 'true');
         localStorage.setItem('admin-npub', npub);
+        return true;
       } else {
         setIsAdminAuthenticated(false);
         localStorage.removeItem('admin-authenticated');
@@ -261,6 +276,7 @@ export default function AdminPanel() {
         } else if (data.error) {
           toast.error(data.error);
         }
+        return false;
       }
     } catch (error) {
       console.error('Error verifying admin access:', error);
@@ -268,11 +284,35 @@ export default function AdminPanel() {
       localStorage.removeItem('admin-authenticated');
       localStorage.removeItem('admin-npub');
       toast.error('Failed to verify admin access. Please try again.');
+      return false;
     } finally {
       setVerifying(false);
       setLoading(false);
     }
   }, []);
+
+  // The old flow kept the bearer ADMIN_SECRET in localStorage. Nothing reads it
+  // now, so take it out of this browser rather than leave it lying there.
+  useEffect(() => {
+    try {
+      localStorage.removeItem('admin_secret');
+    } catch {
+      // storage unavailable — nothing stored either
+    }
+  }, []);
+
+  // When the admin cookie has expired, adminFetch asks for a fresh Nostr
+  // signature here and retries once, instead of prompting for a secret.
+  useEffect(() => {
+    if (!nostrUser) return;
+    const { nostrNpub, nostrPubkey } = nostrUser;
+    return setAdminReauth(() => verifyAdminAccess(nostrNpub, nostrPubkey));
+  }, [nostrUser, verifyAdminAccess]);
+
+  const endAdminSession = () => {
+    // Clears the httpOnly `sk_admin` cookie, which this page cannot touch itself.
+    fetch('/api/admin/verify', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+  };
 
   // When Nostr user logs in, automatically verify admin access
   useEffect(() => {
@@ -283,6 +323,7 @@ export default function AdminPanel() {
       setIsAdminAuthenticated(false);
       localStorage.removeItem('admin-authenticated');
       localStorage.removeItem('admin-npub');
+      endAdminSession();
       setLoading(false);
     } else {
       // User is logged in, verify admin access (includes key ownership check)
@@ -294,6 +335,7 @@ export default function AdminPanel() {
     setIsAdminAuthenticated(false);
     localStorage.removeItem('admin-authenticated');
     localStorage.removeItem('admin-npub');
+    endAdminSession();
   };
 
   const fetchRecentFeeds = async () => {
@@ -651,7 +693,7 @@ export default function AdminPanel() {
 
     try {
       // Use the refresh-by-url endpoint which will find the feed by URL and reparse it
-      const response = await fetch('/api/feeds/refresh-by-url', {
+      const response = await adminFetch('/api/feeds/refresh-by-url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -663,7 +705,9 @@ export default function AdminPanel() {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.status === 202) {
+        toast.info(queuedRefreshMessage(data));
+      } else if (response.ok) {
         // Check if this is the HGH playlist and clear its cache
         if (feedUrl.includes('HGH-music-playlist.xml') || feedUrl.includes('chadf-musicl-playlists')) {
           try {
@@ -915,7 +959,7 @@ export default function AdminPanel() {
         // Feed already exists - automatically reparse it
         toast.info('Feed exists, reparsing...');
 
-        const reparseResponse = await fetch('/api/feeds/refresh-by-url', {
+        const reparseResponse = await adminFetch('/api/feeds/refresh-by-url', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -927,7 +971,9 @@ export default function AdminPanel() {
 
         const reparseData = await reparseResponse.json();
 
-        if (reparseResponse.ok) {
+        if (reparseResponse.status === 202) {
+          toast.info(queuedRefreshMessage(reparseData));
+        } else if (reparseResponse.ok) {
           const messages = [];
           if (reparseData.newTracks > 0) messages.push(`Added ${reparseData.newTracks} new tracks`);
           if (reparseData.updatedTracks > 0) messages.push(`Updated ${reparseData.updatedTracks} existing tracks`);
@@ -1089,21 +1135,32 @@ export default function AdminPanel() {
       let resolvedInPI = 0;
       let notInPI = 0;
       const toHide: any[] = [];
+      const toMove: any[] = [];
+      let relocatedCount = 0;
       const needsReview: any[] = [];
       const unconfirmed: any[] = [];
 
+      // A failed page ends the SCAN, not the run: the feeds earlier pages already
+      // moved still get their refresh below, and the report says where it stopped.
+      let pageError: string | null = null;
+
       // Hard cap on pages as a runaway guard (1000 limit × 60 ≈ 60k feeds).
       for (let page = 0; page < 60; page++) {
-        const response = await adminFetch('/api/admin/check-dead-feeds', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dryRun, limit: 300, offset }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-          toast.error(data.error || 'Dead-feed check failed');
-          setDeadCheckBusy(false);
-          return;
+        let data: any = null;
+        try {
+          const response = await adminFetch('/api/admin/check-dead-feeds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dryRun, limit: 300, offset }),
+          });
+          data = await response.json().catch(() => null);
+          if (!response.ok || !data?.success) {
+            pageError = data?.error || `Dead-feed check failed (HTTP ${response.status})`;
+            break;
+          }
+        } catch {
+          pageError = 'Network error during the dead-feed check';
+          break;
         }
 
         totalActive = data.totalActive ?? totalActive;
@@ -1114,6 +1171,9 @@ export default function AdminPanel() {
         notInPI += data.notInPI ?? 0;
         if (Array.isArray(data.wouldHide)) toHide.push(...data.wouldHide);
         if (Array.isArray(data.hidden)) toHide.push(...data.hidden);
+        if (Array.isArray(data.wouldRelocate)) toMove.push(...data.wouldRelocate);
+        if (Array.isArray(data.relocated)) toMove.push(...data.relocated);
+        relocatedCount += data.relocatedCount ?? 0;
         if (Array.isArray(data.needsReview)) needsReview.push(...data.needsReview);
         if (Array.isArray(data.unconfirmed)) unconfirmed.push(...data.unconfirmed);
 
@@ -1125,7 +1185,7 @@ export default function AdminPanel() {
           totalActive,
           resolvedInPI,
           notInPI,
-          ...(dryRun ? { wouldHide: toHide } : { hidden: toHide, hiddenCount }),
+          ...(dryRun ? { wouldHide: toHide, wouldRelocate: toMove } : { hidden: toHide, hiddenCount, relocated: toMove, relocatedCount }),
           needsReview,
           unconfirmed,
           message: `Scanned ${checked} of ${totalActive} active feed(s)…`,
@@ -1135,6 +1195,36 @@ export default function AdminPanel() {
         offset = data.nextOffset;
       }
 
+      // The move already re-pointed every track's audio, in the same transaction as
+      // the URL, so a moved album plays now. This refresh brings the rest from the
+      // new feed — track artwork, titles, value splits. Nothing retries it: one that
+      // fails leaves the album playable and is reported in the count, not hidden.
+      // adminFetch, so the admin session skips refresh-by-url's coalescing window;
+      // a 202 (queued, not run) is still counted apart. Paced under its 30/min/IP limit.
+      let refreshedMoved = 0;
+      let queuedMoved = 0;
+      if (!dryRun) {
+        for (let i = 0; i < toMove.length; i++) {
+          const f = toMove[i];
+          setDeadCheckReport((r) => r && { ...r, message: `Refreshing moved feeds… ${i} of ${toMove.length}` });
+          try {
+            const res = await adminFetch('/api/feeds/refresh-by-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ originalUrl: f.to }),
+            });
+            if (res.status === 202) queuedMoved++;
+            else if (res.ok) refreshedMoved++;
+          } catch {
+            // Counted as not refreshed.
+          }
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+      }
+      const refreshNote = toMove.length
+        ? ` (refreshed ${refreshedMoved}${queuedMoved ? `, queued ${queuedMoved}` : ''} of ${toMove.length})`
+        : '';
+
       setDeadCheckReport({
         dryRun,
         checked,
@@ -1142,15 +1232,19 @@ export default function AdminPanel() {
         totalActive,
         resolvedInPI,
         notInPI,
-        ...(dryRun ? { wouldHide: toHide } : { hidden: toHide, hiddenCount }),
+        ...(dryRun ? { wouldHide: toHide, wouldRelocate: toMove } : { hidden: toHide, hiddenCount, relocated: toMove, relocatedCount, refreshedMoved }),
         needsReview,
         unconfirmed,
-        message: dryRun
-          ? `Scanned ${checked} active feed(s): ${toHide.length} confirmed dead, ${needsReview.length} need review.`
-          : `Scanned ${checked} active feed(s): hid ${hiddenCount}, ${needsReview.length} need review.`,
+        message:
+          (pageError ? `Stopped early — ${pageError}. ` : '') +
+          (dryRun
+            ? `Scanned ${checked} active feed(s): ${toMove.length} moved to a new home, ${toHide.length} confirmed dead, ${needsReview.length} need review.`
+            : `Scanned ${checked} active feed(s): moved ${relocatedCount}${refreshNote}, hid ${hiddenCount}, ${needsReview.length} need review.`),
       });
-      if (!dryRun) {
-        toast.success(`Hid ${hiddenCount} dead feed(s)`);
+      if (pageError) {
+        toast.error(pageError);
+      } else if (!dryRun) {
+        toast.success(`Moved ${relocatedCount} feed(s), hid ${hiddenCount}`);
       }
     } catch (error) {
       console.error('Error checking dead feeds:', error);
@@ -1361,7 +1455,7 @@ export default function AdminPanel() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <a
+              <Link
                 href="/"
                 className="px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center gap-2"
               >
@@ -1369,7 +1463,7 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 Back
-              </a>
+              </Link>
               <h1 className="text-4xl font-bold">RSS Feed Management</h1>
             </div>
             <button
@@ -2103,7 +2197,7 @@ export default function AdminPanel() {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-6 mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Check for Dead Feeds</h2>
           <p className="text-sm text-gray-400 mb-4">
-            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s). Asks Podcast Index which of our active feeds it has crawled as dead, then confirms each with a direct 404/410 fetch before hiding it. Confirmed-dead feeds are hidden via the same reversible flag as &quot;Hide Feed&quot; above. Preview first — nothing is hidden until you confirm.
+            Finds feeds whose URL has gone dead upstream (an artist pulled their catalog, a Wavlake mirror 404s, a host shut down). A feed is checked when Podcast Index crawled it as dead, when our own refresh got a 404/410, or when Podcast Index has its podcast:guid on another host. Each is confirmed with a direct 404/410 fetch. If the same guid now lives at a live URL that still lists every track under the same item guid, the feed and the audio of its tracks move there together, and the feed is then refreshed; otherwise, if none of its tracks still plays, it is hidden via the same reversible flag as &quot;Hide Feed&quot; above (one whose tracks still play goes to review instead). Preview first — nothing changes until you confirm.
           </p>
           <div className="flex gap-2">
             <button
@@ -2126,8 +2220,42 @@ export default function AdminPanel() {
           {deadCheckReport && (
             <div className="mt-4 space-y-4">
               <p className="text-sm text-gray-300">
-                Checked {deadCheckReport.checked} active feed(s) · {deadCheckReport.resolvedInPI ?? 0} resolved in Podcast Index ({deadCheckReport.notInPI ?? 0} not indexed) · {deadCheckReport.candidates} flagged dead.
+                Checked {deadCheckReport.checked} active feed(s) · {deadCheckReport.resolvedInPI ?? 0} resolved in Podcast Index ({deadCheckReport.notInPI ?? 0} not indexed) · {deadCheckReport.candidates} flagged.
               </p>
+              {deadCheckReport.message && (
+                // Progress while paging and while refreshing moved feeds (2.5 s each), then the summary.
+                <p className="text-sm text-gray-400" data-testid="dead-feed-message">{deadCheckReport.message}</p>
+              )}
+
+              {(() => {
+                const toMove = deadCheckReport.dryRun ? deadCheckReport.wouldRelocate : deadCheckReport.relocated;
+                if (!toMove || toMove.length === 0) return null;
+                return (
+                  <div className="rounded-lg p-4 border bg-blue-500/10 border-blue-500/30" data-testid="dead-feed-relocations">
+                    <h4 className="font-semibold text-blue-300 mb-2">
+                      {deadCheckReport.dryRun
+                        ? `${toMove.length} dead feed(s) would move to their new home (same podcast:guid and item guids, verified live)`
+                        : `${deadCheckReport.relocatedCount ?? toMove.length} feed(s) moved · ${deadCheckReport.refreshedMoved ?? 0} refreshed`}
+                    </h4>
+                    <ul className="space-y-1 text-sm">
+                      {toMove.map((f) => (
+                        <li key={f.id} className="text-gray-300">
+                          <span className="font-medium text-white">{f.title}</span>
+                          {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
+                          <span className="text-gray-500"> (HTTP {f.httpStatus ?? '—'})</span>
+                          {typeof f.tracksRepointed === 'number' ? (
+                            <span className="text-gray-500"> · {f.tracksRepointed} track(s) {deadCheckReport.dryRun ? 'to re-point' : 're-pointed'}</span>
+                          ) : null}
+                          <br />
+                          <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
+                          <span className="text-xs text-gray-500"> → </span>
+                          <span className="text-xs text-blue-300 font-mono break-all">{f.to}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {(() => {
                 const toHide = deadCheckReport.dryRun ? deadCheckReport.wouldHide : deadCheckReport.hidden;
@@ -2145,35 +2273,45 @@ export default function AdminPanel() {
                             <li key={f.id} className="text-gray-300">
                               <span className="font-medium text-white">{f.title}</span>
                               {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
-                              <span className="text-gray-500"> (PI dead={f.piDead}, HTTP {f.httpStatus ?? '—'})</span>
+                              <span className="text-gray-500"> ({f.signals?.join(', ') || `PI dead=${f.piDead}`}; HTTP {f.httpStatus ?? '—'})</span>
+                              {/* Why hidden rather than moved — a new home that is gone too, another feed, or blacklisted. */}
+                              {f.reason && f.reason !== `HTTP ${f.httpStatus}` ? (
+                                <span className="text-gray-500"> — {f.reason}</span>
+                              ) : null}
                               <br />
                               <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                             </li>
                           ))}
                         </ul>
-                        {deadCheckReport.dryRun && (
-                          <button
-                            type="button"
-                            onClick={() => runDeadFeedCheck(false)}
-                            disabled={deadCheckBusy}
-                            className="mt-3 w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
-                          >
-                            {deadCheckBusy ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                Hiding...
-                              </>
-                            ) : (
-                              <>🚫 Hide {toHide.length} confirmed-dead feed(s)</>
-                            )}
-                          </button>
-                        )}
                       </div>
                     )}
 
-                    {toHide && toHide.length === 0 && (
-                      <p className="text-sm text-green-400">No confirmed-dead feeds. Nothing to hide. ✅</p>
+                    {toHide && toHide.length === 0 && !(deadCheckReport.dryRun ? deadCheckReport.wouldRelocate : deadCheckReport.relocated)?.length && (
+                      <p className="text-sm text-green-400">No confirmed-dead feeds. Nothing to move or hide. ✅</p>
                     )}
+
+                    {(() => {
+                      const moveCount = deadCheckReport.wouldRelocate?.length ?? 0;
+                      const hideCount = toHide?.length ?? 0;
+                      if (!deadCheckReport.dryRun || (moveCount === 0 && hideCount === 0)) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => runDeadFeedCheck(false)}
+                          disabled={deadCheckBusy}
+                          className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                          {deadCheckBusy ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Applying...
+                            </>
+                          ) : (
+                            <>Apply: move {moveCount}, hide {hideCount}</>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </>
                 );
               })()}
@@ -2181,14 +2319,14 @@ export default function AdminPanel() {
               {deadCheckReport.needsReview.length > 0 && (
                 <div className="rounded-lg p-4 border bg-orange-500/10 border-orange-500/30">
                   <h4 className="font-semibold text-orange-300 mb-2">
-                    {deadCheckReport.needsReview.length} need review — Podcast Index says dead but the URL still responds
+                    {deadCheckReport.needsReview.length} need review
                   </h4>
                   <ul className="space-y-1 text-sm">
                     {deadCheckReport.needsReview.map((f) => (
                       <li key={f.id} className="text-gray-300">
                         <span className="font-medium text-white">{f.title}</span>
                         {f.artist ? <span className="text-gray-400"> — {f.artist}</span> : null}
-                        <span className="text-gray-500"> (PI dead={f.piDead}, HTTP {f.httpStatus ?? '—'})</span>
+                        <span className="text-gray-500"> — {f.reason || `PI dead=${f.piDead}, HTTP ${f.httpStatus ?? '—'}`}</span>
                         <br />
                         <span className="text-xs text-gray-500 font-mono break-all">{f.url}</span>
                       </li>
@@ -2593,7 +2731,7 @@ export default function AdminPanel() {
           <div className="space-y-3">
             {/* LNURL Test Feed */}
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-              <a
+              <Link
                 href="/album/lnurl-test-feed"
                 className="flex-1 inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
               >
@@ -2601,12 +2739,12 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 LNURL Test Feed
-              </a>
+              </Link>
               <button
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('lnurl-test-feed'));
                   try {
-                    const response = await fetch('/api/feeds/refresh-by-url', {
+                    const response = await adminFetch('/api/feeds/refresh-by-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2616,7 +2754,9 @@ export default function AdminPanel() {
                       })
                     });
                     const data = await response.json();
-                    if (response.ok) {
+                    if (response.status === 202) {
+                      toast.info(queuedRefreshMessage(data));
+                    } else if (response.ok) {
                       toast.success(`LNURL Test Feed parsed! ${data.totalTracks || 0} tracks`);
                     } else {
                       toast.error(data.error || 'Failed to parse feed');
@@ -2640,7 +2780,7 @@ export default function AdminPanel() {
 
             {/* Podtards Test Feed */}
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-              <a
+              <Link
                 href="/publisher/podtards-test"
                 className="flex-1 inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
               >
@@ -2648,12 +2788,12 @@ export default function AdminPanel() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 Podtards Test Feed
-              </a>
+              </Link>
               <button
                 onClick={async () => {
                   setReparsingFeeds(prev => new Set(prev).add('podtards-test'));
                   try {
-                    const response = await fetch('/api/feeds/refresh-by-url', {
+                    const response = await adminFetch('/api/feeds/refresh-by-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -2662,7 +2802,9 @@ export default function AdminPanel() {
                       })
                     });
                     const data = await response.json();
-                    if (response.ok) {
+                    if (response.status === 202) {
+                      toast.info(queuedRefreshMessage(data));
+                    } else if (response.ok) {
                       toast.success(`Podtards Test Feed parsed! ${data.totalTracks || 0} tracks`);
                     } else {
                       toast.error(data.error || 'Failed to parse feed');

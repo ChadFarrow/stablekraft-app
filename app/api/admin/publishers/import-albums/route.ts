@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       failed: results.reduce((s, r) => s + r.failed, 0)
     };
 
-    console.log(`\n✅ Complete: ${totals.imported} imported, ${totals.skipped} skipped, ${totals.failed} failed`);
+    console.warn(`\n✅ Complete: ${totals.imported} imported, ${totals.skipped} skipped, ${totals.failed} failed`);
 
     return NextResponse.json({
       success: true,

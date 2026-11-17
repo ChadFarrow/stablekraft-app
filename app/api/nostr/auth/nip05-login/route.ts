@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { NostrClient } from '@/lib/nostr/client';
+import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { publicKeyToNpub } from '@/lib/nostr/keys';
 import { normalizePubkey } from '@/lib/nostr/normalize';
@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
     let profile = null;
     let relayList: string[] = [];
     try {
-      const client = new NostrClient(getDefaultRelays());
-      await client.connect();
+      const client = await connectServerNostrClient(getDefaultRelays(), 'nip05-login');
       profile = await client.getProfile(hexPubkey);
       relayList = await client.getRelayList(hexPubkey) || [];
       await client.disconnect();

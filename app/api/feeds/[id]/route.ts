@@ -59,6 +59,9 @@ export async function GET(
         status: feed.status,
         v4vRecipient: feed.v4vRecipient,
         v4vValue: feed.v4vValue,
+        // The feed's npubs, for an album boost with no track to look up —
+        // BoostButton names them in the note. See app/api/music-tracks/[id].
+        persons: feed.persons || undefined,
         trackCount: feed._count.Track,
         createdAt: feed.createdAt,
         updatedAt: feed.updatedAt,

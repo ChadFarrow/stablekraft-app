@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { APP_NAME } from '@/lib/constants';
-import { clientTag, podcastIdentifierTags } from '@/lib/nostr/boost-note';
+import { boostNotifiedPubkeys, clientTag, collectPersonNpubs, podcastIdentifierTags } from '@/lib/nostr/boost-note';
 import { createPortal } from 'react-dom';
 import { useBitcoinConnect } from './BitcoinConnectProvider';
 import { useNostr } from '@/contexts/NostrContext';
@@ -12,6 +12,7 @@ import { looksLikeNostrIdentifier, resolveBoostSenderName } from '@/lib/lightnin
 import { LNURLService } from '@/lib/lightning/lnurl';
 import { BoostBoxService } from '@/lib/lightning/boostbox';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
+import { fundingFromJson } from '@/lib/podcast-funding';
 import { Zap, Send, X, Mail, Check, ChevronDown, ChevronUp, AlertCircle, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from '@/components/Toast';
@@ -46,6 +47,9 @@ interface BoostButtonProps {
   // + feed/album-level. Any entry with an `npub` gets a Nostr `p` tag on the
   // boost event so the person is notified.
   persons?: Array<{ name?: string; role?: string; group?: string; npub?: string }>;
+  // <podcast:funding> links (PayPal, Patreon…) — the track's own when it has
+  // any, else its feed's. Shown under the boost as other ways to support.
+  funding?: Array<{ url: string; message?: string }>;
 }
 
 export function BoostButton({
@@ -66,7 +70,11 @@ export function BoostButton({
   iconOnly = false,
   remoteStartTime,
   persons = [],
+  funding,
 }: BoostButtonProps) {
+  // Re-checked here as well as at the parse and read boundaries: every caller
+  // hands this prop in, and the value becomes an href.
+  const supportLinks = fundingFromJson(funding) ?? [];
   const [isClient, setIsClient] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isConnected, connect, sendKeysend, sendPayment, supportsKeysend, walletProviderType } = useBitcoinConnect();
@@ -516,6 +524,8 @@ export function BoostButton({
             console.log(`🔗 Signing boost event with ${signerType || 'unified'} signer...`);
             
             let trackData: any = null;
+            // Feed-level persons from /api/feeds/[id], for a boost with no track.
+            let feedPersons: unknown = null;
             let finalTrackTitle = trackTitle || albumName || 'track';
             let finalArtistName = artistName || '';
             let finalFeedId = feedId || '';
@@ -562,15 +572,19 @@ export function BoostButton({
               }
             }
 
-            // Always try feed API as fallback to get missing data (image, album name, guid)
-            if ((!trackImage || !actualAlbumName) && finalFeedId) {
+            // Always try feed API as fallback to get missing data (image, album name, guid).
+            // Also when nothing has supplied the feed's persons yet: the track lookup
+            // carries them, but an album boost has no track, and most callers pass none.
+            const havePersons = !!trackData || persons.some(p => p?.npub);
+            if ((!trackImage || !actualAlbumName || !havePersons) && finalFeedId) {
               try {
                 const feedResponse = await fetch(`/api/feeds/${finalFeedId}`);
                 if (feedResponse.ok) {
                   const feedResult = await feedResponse.json();
                   if (feedResult.success && feedResult.data) {
                     const feedData = feedResult.data;
-                    
+                    feedPersons = feedData.persons;
+
                     // Set image if not available
                     if (!trackImage) {
                       trackImage = feedData.image || null;
@@ -630,18 +644,30 @@ export function BoostButton({
             // For the 'r' tag, we'll use the URL with track parameter (no anchor needed)
             const urlWithAnchor = url;
             
+            // Everyone the note names: the <podcast:person>/<podcast:txt> npubs —
+            // from the caller, the track, its feed, or the feed alone — then the split
+            // recipients' pubkeys (resolved from their Lightning Addresses). Each
+            // becomes both an @mention in the text and a `p` tag — one list, so an
+            // artist can't be tagged yet invisible in the body.
+            const { nip19 } = await import('nostr-tools');
+            const notifiedPubkeys = boostNotifiedPubkeys(
+              musicianPubkeysForNostr.map(p => p.pubkey),
+              collectPersonNpubs(persons, trackData?.persons, trackData?.Feed?.persons, feedPersons),
+              (npub) => {
+                try {
+                  const decoded = nip19.decode(npub);
+                  return decoded.type === 'npub' && typeof decoded.data === 'string' ? decoded.data : null;
+                } catch (err) {
+                  console.warn(`⚠️ Could not decode person npub ${npub.slice(0, 20)}...:`, err);
+                  return null;
+                }
+              }
+            );
+
             // Build content (Fountain-style format)
-            // Include @npub mentions for musicians if we have their Nostr pubkeys
-            let musicianMentions = '';
-            if (musicianPubkeysForNostr.length > 0) {
-              // Deduplicate pubkeys and convert to npub format
-              const { nip19 } = await import('nostr-tools');
-              const uniquePubkeys = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
-              const npubMentions = uniquePubkeys
-                .map(({ pubkey }) => `nostr:${nip19.npubEncode(pubkey)}`)
-                .join(' ');
-              musicianMentions = `\n\n${npubMentions}`;
-            }
+            const musicianMentions = notifiedPubkeys.length > 0
+              ? `\n\n${notifiedPubkeys.map(hex => `nostr:${nip19.npubEncode(hex)}`).join(' ')}`
+              : '';
 
             // Only include message if user provided one
             const content = message
@@ -680,46 +706,12 @@ export function BoostButton({
               publisherGuid: finalPublisherGuid,
             }));
 
-            // Add p-tags for musician notifications (resolved from Lightning Address NIP-05/Nostr info)
-            // These pubkeys were extracted during Lightning Address resolution via resolveLightningAddressDetails()
-            // This notifies musicians on Nostr when they're boosted, enabling social discovery
-            // Note: p-tags use hex pubkeys per NIP-01 (not npub bech32 format)
-            // Self-tagging is allowed - musicians may be in their own splits and want to see the notification
-            if (musicianPubkeysForNostr.length > 0) {
-              // Deduplicate pubkeys to avoid duplicate p-tags
-              const uniquePubkeysForTags = [...new Map(musicianPubkeysForNostr.map(p => [p.pubkey, p])).values()];
-              for (const { address, pubkey } of uniquePubkeysForTags) {
-                tags.push(['p', pubkey]);
-                console.log(`🔔 Added p-tag for musician notification: ${address} → ${pubkey.slice(0, 16)}...`);
-              }
-            }
-
-            // Add p-tags for <podcast:person> entries with an npub attribute.
-            // MSP emits these for bands/hosts so they get notified on boost.
-            // Deduped against existing p-tags (musician keysend/lnaddress pubkeys)
-            // to avoid double-tagging when the same person is both a V4V recipient
-            // and a person-tag entry.
-            if (persons.length > 0) {
-              const existingPubkeys = new Set(
-                tags.filter(t => t[0] === 'p' && t[1]).map(t => t[1])
-              );
-              const { nip19: nip19Persons } = await import('nostr-tools');
-              const personNpubs = Array.from(new Set(
-                persons.map(p => p?.npub).filter((n): n is string => typeof n === 'string' && n.startsWith('npub1'))
-              ));
-              for (const npub of personNpubs) {
-                try {
-                  const decoded = nip19Persons.decode(npub);
-                  if (decoded.type !== 'npub' || typeof decoded.data !== 'string') continue;
-                  const hex = decoded.data;
-                  if (existingPubkeys.has(hex)) continue;
-                  existingPubkeys.add(hex);
-                  tags.push(['p', hex]);
-                  console.log(`🔔 Added p-tag for podcast:person npub: ${npub.slice(0, 16)}... → ${hex.slice(0, 16)}...`);
-                } catch (err) {
-                  console.warn(`⚠️ Could not decode person npub ${npub.slice(0, 20)}...:`, err);
-                }
-              }
+            // p-tags for everyone the text mentions, so each is notified.
+            // Hex pubkeys per NIP-01, not npub bech32. Self-tagging is allowed —
+            // musicians may be in their own splits and want to see the notification.
+            for (const hex of notifiedPubkeys) {
+              tags.push(['p', hex]);
+              console.log(`🔔 Added p-tag: ${hex.slice(0, 16)}...`);
             }
 
             // NIP-89 attribution, last because it takes part in nothing above.
@@ -1691,6 +1683,27 @@ export function BoostButton({
                 )}
               </button>
             </div>
+
+            {/* <podcast:funding> — the feed's non-Lightning support links. Under
+                the boost, never instead of it; placement is a first draft. */}
+            {supportLinks.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-700" data-testid="boost-funding-links">
+                <p className="text-xs text-gray-400 mb-2">Other ways to support</p>
+                <div className="flex flex-wrap gap-2">
+                  {supportLinks.map((link) => (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center min-h-[36px] px-3 py-1.5 rounded-full bg-gray-800 hover:bg-gray-700 text-sm text-white transition-colors"
+                    >
+                      💝 {link.message || 'Support'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body

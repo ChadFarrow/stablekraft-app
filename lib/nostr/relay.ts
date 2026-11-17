@@ -62,12 +62,23 @@ export class RelayManager {
 
     const timeoutMs = options.timeout ?? 5000;
 
+    // Losing the race abandons the connect, it does not cancel it. A relay
+    // that answers after the timeout used to stay open with nothing holding it
+    // — nothing ever closed it, since it never reached `this.relays` — which on
+    // a long-running server is one leaked socket per slow relay per request.
+    const pending = Relay.connect(url);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const relay = await Promise.race([
-      Relay.connect(url),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Connection timeout: ${url}`)), timeoutMs)
-      ),
-    ]);
+      pending,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Connection timeout: ${url}`)), timeoutMs);
+      }),
+    ])
+      .catch((error) => {
+        pending.then((late) => late.close()).catch(() => {});
+        throw error;
+      })
+      .finally(() => clearTimeout(timer));
 
     const config: RelayConfig = {
       url,

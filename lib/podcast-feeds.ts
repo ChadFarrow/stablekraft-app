@@ -73,3 +73,38 @@ export const PODCAST_CANONICAL_SLUGS: Record<string, string> = {
   'kevin-bae-sats-and-sounds': 'sats-and-sounds',
   'homegrown-hits-1768079163338': 'homegrown-hits',
 };
+
+/**
+ * Whether the album page treats a feed as a podcast: episodes newest first,
+ * their dates, "Episodes" and "About this podcast".
+ *
+ * The Feed row's own `type` decides first. The hand-kept lists above used to be
+ * the ONLY test, so a podcast the app had classified correctly but nobody had
+ * listed was sorted as a music album: Rollz Radio (2026-11-01) is `type =
+ * 'podcast'` and on the Podcasts tab, and its album page listed episodes by
+ * trackOrder — 008, 009, 001…007, 010…014, because 008 and 009 carry no
+ * <itunes:season> and trackOrder is season*1000 + episode. `type` is this
+ * app's classification, which is what local display behaviour should read
+ * (CLAUDE.md, "Feed.type is this app's classification").
+ *
+ * The lists still count: a curated podcast stays one whatever its row says.
+ */
+export function isPodcastFeed(feed: {
+  id: string;
+  guid?: string | null;
+  originalUrl?: string | null;
+  type?: string | null;
+}): boolean {
+  return (
+    feed.type === 'podcast' ||
+    PODCAST_FEED_IDS.includes(feed.id) ||
+    (!!feed.guid && PODCAST_FEED_IDS.includes(feed.guid)) ||
+    (!!feed.originalUrl && PODCAST_FEED_URLS.includes(feed.originalUrl))
+  );
+}
+
+/** A copy of `episodes`, newest `publishedAt` first; an undated episode goes last. */
+export function sortEpisodesNewestFirst<T extends { publishedAt?: Date | string | null }>(episodes: readonly T[]): T[] {
+  const time = (t: T) => (t.publishedAt ? new Date(t.publishedAt).getTime() : 0);
+  return [...episodes].sort((a, b) => time(b) - time(a));
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { PrismaClient } from '@prisma/client';
 import { parseSearchQuery, buildTsQuery, normalizeQuery, buildFieldFilters } from '@/lib/search-utils';
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
     // Check cache
     const cached = searchCache.get(cacheKey);
     if (cached) {
-      return NextResponse.json(cached, {
+      return compressedJson(request, cached, {
         headers: {
           'X-Cache': 'HIT',
           'Cache-Control': 'public, max-age=300'
@@ -440,7 +441,7 @@ export async function GET(request: NextRequest) {
       console.log(`✅ Search results: ${results.tracks.length} tracks, ${results.albums.length} albums, ${results.artists.length} artists, ${results.playlists.length} playlists (${queryTime}ms)`);
     }
 
-    return NextResponse.json(responseData, {
+    return compressedJson(request, responseData, {
       headers: {
         'X-Cache': 'MISS',
         'Cache-Control': 'public, max-age=300',

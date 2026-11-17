@@ -32,6 +32,16 @@
  * `the-northerns-the-northerns` for BOTH rows — byte-identical — and the code
  * read that collision as a naming inconvenience to be suffixed with a
  * timestamp, rather than as proof the album was already there.
+ *
+ * A THIRD LOOP WAS MISSED. The publisher step of `feeds/refresh-by-url`
+ * (`processRemoteItems`) mints from remoteItems too, and it still compared
+ * `originalUrl` exactly. On 2026-10-18 the Strange Love publisher feed named
+ * new.musicsideproject.com for two albums stored on msp.podtards.com, and that
+ * loop minted an empty `album-<ts>` copy of each — empty because every track
+ * guid already belonged to the real row — and would have again on every podping
+ * of the publisher. Both remoteItem loops now share `findFeedForRemoteItem`
+ * (lib/feed-lookup.ts): the ladder, plus the remoteItem's `feedGuid`, which is
+ * the identity that survives a change of host.
  */
 
 import { test } from 'node:test';
@@ -44,10 +54,20 @@ import { buildFeedUrlLooseVariants, buildFeedUrlVariants, normalizeUrl } from '.
 const STORED = 'https://music.behindthesch3m3s.com/wp-content/uploads/The Northerns/the_northerns.xml';
 const INCOMING = 'https://music.behindthesch3m3s.com/wp-content/uploads/The%20Northerns/the_northerns.xml';
 
-/** Every route that creates a Feed row from a URL it was handed. */
+/**
+ * Every route that creates a slug-id Feed row from a URL it was handed.
+ * refresh-by-url also mints, but with `album-<ts>` ids, so it has no slug to
+ * collide on and is checked through REMOTE_ITEM_PATHS instead.
+ */
 const MINTING_PATHS = [
   'app/api/feeds/route.ts',
   'app/api/feeds/[id]/process-remote-items/route.ts',
+];
+
+/** Every loop that mints a Feed row from a `<podcast:remoteItem>`. */
+const REMOTE_ITEM_PATHS = [
+  'app/api/feeds/[id]/process-remote-items/route.ts',
+  'app/api/feeds/refresh-by-url/route.ts',
 ];
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -80,10 +100,11 @@ test('and it works in the other direction too', () => {
 });
 
 test('every minting path resolves the URL through the shared ladder', () => {
-  for (const file of MINTING_PATHS) {
+  for (const file of [...MINTING_PATHS, ...REMOTE_ITEM_PATHS]) {
     const source = read(file);
     assert.ok(
-      source.includes('findFeedIdByUrl('),
+      // findFeedForRemoteItem is the ladder plus the remoteItem's feedGuid.
+      source.includes('findFeedIdByUrl(') || source.includes('findFeedForRemoteItem('),
       `${file} creates Feed rows but does not call findFeedIdByUrl — an exact ` +
         `originalUrl compare re-opens #247`
     );
@@ -106,6 +127,8 @@ test('the exact-originalUrl pre-existence clauses are gone for good', () => {
       '{ originalUrl: normalizedUrl },'],
     ['app/api/feeds/[id]/process-remote-items/route.ts',
       '{ originalUrl: remoteItem.feedUrl }'],
+    ['app/api/feeds/refresh-by-url/route.ts',
+      'where: { originalUrl: albumFeedUrl },'],
   ];
   for (const [file, gone] of REMOVED) {
     assert.ok(
@@ -139,4 +162,63 @@ test('an id collision is no longer silent', () => {
       `${file}: warn before minting the suffixed id, not after`
     );
   }
+});
+
+test('every remoteItem loop asks findFeedForRemoteItem, with the feedGuid', () => {
+  // The URL alone is not enough: a publisher feed can list an album under a host
+  // the row was never stored under, and only the guid survives that.
+  for (const file of REMOTE_ITEM_PATHS) {
+    const call = read(file).match(/findFeedForRemoteItem\(([^)]*)\)/);
+    assert.ok(call, `${file} mints from remoteItems without findFeedForRemoteItem — re-opens #247`);
+    assert.match(call[1], /,\s*\S/, `${file}: pass the remoteItem's feedGuid, not just its URL`);
+  }
+});
+
+test('the shared remoteItem lookup keeps both halves', () => {
+  const source = read('lib/feed-lookup.ts');
+  const start = source.indexOf('export async function findFeedForRemoteItem');
+  assert.notEqual(start, -1, 'findFeedForRemoteItem is gone from lib/feed-lookup.ts');
+  const body = source.slice(start);
+  assert.ok(body.includes('findFeedIdByUrl('), 'findFeedForRemoteItem must go through the URL ladder');
+  assert.ok(
+    body.includes('guid: feedGuid'),
+    'findFeedForRemoteItem must match the remoteItem feedGuid against Feed.guid'
+  );
+});
+
+/** `POST /api/feeds`, from its parse of the feed to the upsert that writes the row. */
+function postMintSection(): string {
+  const source = read('app/api/feeds/route.ts');
+  const post = source.slice(source.indexOf('export async function POST'));
+  const start = post.indexOf('parseRSSFeedWithSegments(resolvedUrl)');
+  const end = post.indexOf('prisma.feed.upsert(');
+  assert.ok(start !== -1 && end > start, 'POST /api/feeds changed shape — re-anchor this test');
+  return post.slice(start, end);
+}
+
+test('POST /api/feeds frees a taken slug before its upsert', () => {
+  // A self-titled publisher has its self-titled album's slug: "Strange Love" by
+  // "Strange Love" is `strange-love-strange-love` for both. The upsert is keyed on
+  // originalUrl, so its create threw on `id`, and the catch saved the publisher as a
+  // guid-less `feed-error-*` row titled with its own URL — on production 2026-05-02
+  // (lastError: "Unique constraint failed on the fields: (`id`)") and again 2026-10-18.
+  const section = postMintSection();
+  const check = section.indexOf('if (idExists');
+  assert.notEqual(check, -1, 'POST /api/feeds mints a slug id without checking that it is free');
+  const branch = section.slice(check);
+  assert.ok(branch.includes('console.warn'), 'the collision branch must console.warn — console.log is compiled out');
+  assert.ok(branch.indexOf('console.warn') < branch.indexOf('Date.now()'), 'warn before minting the suffixed id');
+});
+
+test('POST /api/feeds answers 409 for a feed it holds under another URL, before it frees a slug', () => {
+  // Suffixing a taken slug is safe only once the feed is known to be new. The URL
+  // ladder misses a feed that moved to a host with no UUID in its path; the guid the
+  // feed declares does not. Without this check the suffixed id would mint a second
+  // row, and the guid-collision retry would strip the guid to let it through.
+  const section = postMintSection();
+  const guidCheck = section.indexOf('where: { guid: parsedFeed.podcastGuid }');
+  const idCheck = section.indexOf('if (idExists');
+  assert.notEqual(guidCheck, -1, 'POST /api/feeds no longer looks up the parsed <podcast:guid> before minting');
+  assert.ok(guidCheck < idCheck, 'the guid check must come before the slug is freed');
+  assert.ok(section.slice(guidCheck, idCheck).includes('status: 409'), 'a held guid must answer 409');
 });

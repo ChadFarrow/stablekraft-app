@@ -223,8 +223,16 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    qualities: [75, 85, 90, 100], // Explicitly configure allowed quality values
-    minimumCacheTTL: 60 * 60 * 24 * 7, // 7 days for faster updates
+    // 50 is Data Saver's (lib/data-saver.ts). Next 15 REFUSES a quality that is
+    // not listed here, so the constant and this list have to move together.
+    // Adding a value changes no default: nothing asks for 50 unless the user
+    // turns Data Saver on.
+    qualities: [50, 75, 85, 90, 100],
+    // 1 day. This is how long the server keeps an optimized image AND the browser
+    // `max-age` it is sent with. At 7 days, an artist who replaced a cover file in
+    // place (Hip-Hop Taoist, 2026-09-26) kept showing the old art in every
+    // <ArtworkImage> for up to a week after the file had changed.
+    minimumCacheTTL: 60 * 60 * 24,
     // Improved loading state configuration
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
@@ -744,6 +752,19 @@ const nextConfig = {
             value: 'nosniff',
           },
         ],
+      },
+      // The two rocket wallpapers (app/layout.tsx via LayoutRocketBackground, app/page.tsx).
+      // public/ files go out with `max-age=0` and a Last-Modified that moves on every
+      // deploy, so a phone downloaded 203 KB + 112 KB again after each one (2026-11-01).
+      // 30 days. To change a picture, give the file a NEW NAME — as
+      // stablekraft-rocket-new.webp was — rather than replacing it in place.
+      {
+        source: '/stablekraft-rocket.webp',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
+      },
+      {
+        source: '/stablekraft-rocket-new.webp',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
       },
       // Performance headers
       {

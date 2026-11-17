@@ -12,6 +12,7 @@ import {
   setCatalogHostLoaderForTests,
   CATALOG_HOSTS_TTL_MS,
   CATALOG_HOSTS_RETRY_MS,
+  oversizeImageRedirect,
 } from './proxy-host-allowlist';
 
 test('parseProxyHostMode: enforce only when asked for, everything else logs', () => {
@@ -126,6 +127,52 @@ test('checkProxyTarget: a failed catalog load allows everything rather than brea
     host: 'attacker.example',
     reason: 'unavailable',
   });
+});
+
+/** The oversize redirect's inputs for a real catalog GIF, loaded by an <img>. */
+const BIG_GIF = 'https://media.example-artist.com/art/show%20art.gif';
+const oversize = (over: Partial<Parameters<typeof oversizeImageRedirect>[0]> = {}) =>
+  oversizeImageRedirect({
+    fetchUrl: BIG_GIF,
+    finalUrl: new URL(BIG_GIF),
+    fetchDest: 'image',
+    catalogHostsOverride: CATALOG,
+    ...over,
+  });
+
+test('oversizeImageRedirect: an <img> load of a catalog image is sent to the artist host', async () => {
+  // Pixel Palace: an 18 MB cover GIF, over MAX_IMAGE_BYTES, rendered as the placeholder.
+  assert.equal(await oversize(), BIG_GIF);
+  assert.equal(
+    await oversize({ fetchUrl: 'https://cdn.wavlake.com/big.gif', finalUrl: new URL('https://cdn.wavlake.com/big.gif') }),
+    'https://cdn.wavlake.com/big.gif',
+    'a static host counts as vouched for too'
+  );
+});
+
+test('oversizeImageRedirect: only an image load, never a navigation or a fetch', async () => {
+  // A link to /api/proxy-image?url=… is a top-level navigation. Redirecting it
+  // would make stablekraft.app an open redirect to whatever that host serves
+  // to a browser, and the catalog admits shared hosts (github.io, imgur.com)
+  // and any host an unauthenticated POST /api/feeds adds.
+  assert.equal(await oversize({ fetchDest: 'document' }), null);
+  assert.equal(await oversize({ fetchDest: 'iframe' }), null);
+  // fetch() — downloadImage in lib/downloads — keeps the placeholder it gets today.
+  assert.equal(await oversize({ fetchDest: 'empty' }), null);
+  // A browser without Fetch Metadata, or a server-side caller, sends nothing.
+  assert.equal(await oversize({ fetchDest: null }), null);
+});
+
+test('oversizeImageRedirect: never for a host the catalog does not vouch for', async () => {
+  const foreign = 'https://attacker.example/big.gif';
+  assert.equal(await oversize({ fetchUrl: foreign, finalUrl: new URL(foreign) }), null, 'log mode allows it, but does not vouch');
+  assert.equal(await oversize({ catalogHostsOverride: null }), null, 'nor when the catalog could not be read');
+});
+
+test('oversizeImageRedirect: HTTPS at both ends, or the image would be blocked as mixed content', async () => {
+  assert.equal(await oversize({ fetchUrl: 'http://media.example-artist.com/a.gif' }), null);
+  assert.equal(await oversize({ finalUrl: new URL('http://media.example-artist.com/a.gif') }), null);
+  assert.equal(await oversize({ fetchUrl: 'not a url' }), null);
 });
 
 test('guardProxyTarget: refusal only in enforce mode against a loaded catalog', async () => {

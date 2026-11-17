@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Download, Trash2, Play, WifiOff, HardDrive, ChevronDown, Volume2 } from 'lucide-react';
+import { Download, Trash2, Play, HardDrive, ChevronDown, Volume2 } from 'lucide-react';
 import { useDownloads } from '@/contexts/DownloadsContext';
 import { useAudio } from '@/contexts/AudioContext';
 import { primaryPlaybackKey } from '@/lib/downloads/playback-key';
@@ -49,8 +49,6 @@ function groupToAlbum(group: DownloadGroup): RSSAlbum {
 export default function DownloadsClient() {
   const {
     ready,
-    offlineMode,
-    setOfflineMode,
     listDownloads,
     removeByKey,
     removeAlbum,
@@ -262,38 +260,9 @@ export default function DownloadsClient() {
             </div>
           )}
 
-          {/* Offline mode — a manual switch; the app never flips this on its own. */}
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] border border-white/10 p-3">
-            <div className="min-w-0 flex items-center gap-3">
-              <WifiOff
-                className={`h-5 w-5 flex-shrink-0 ${offlineMode ? 'text-amber-400' : 'text-gray-500'}`}
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">Offline mode</p>
-                <p className="text-xs text-gray-400">
-                  {offlineMode
-                    ? 'On — only downloaded music plays; new downloads are paused.'
-                    : 'Off — browse and stream normally.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={offlineMode}
-              aria-label="Toggle offline mode"
-              onClick={() => setOfflineMode(!offlineMode)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                offlineMode ? 'bg-amber-500' : 'bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                  offlineMode ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
+          {/* Offline mode moved to Settings -> Data & Offline, beside Data Saver.
+              The two are the app's manual "use less network" switches and were in
+              different places; this page keeps the storage meter and the list. */}
         </header>
 
         {records.length === 0 ? (

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { albumFeedSelect, feedToAlbum } from '@/lib/catalog/album-shape';
 import { prisma } from '@/lib/prisma';
 import { getPlaylistUrls, getAllPlaylistIds } from '@/lib/playlist/configs';
@@ -152,7 +153,8 @@ export async function GET(request: Request) {
       // way it differed from albums-fast; that stays true.
       .map((feed) => feedToAlbum(feed));
 
-    return NextResponse.json(
+    return compressedJson(
+      request,
       { albums, count: albums.length, total, hasMore: offset + albums.length < total },
       {
         headers: {

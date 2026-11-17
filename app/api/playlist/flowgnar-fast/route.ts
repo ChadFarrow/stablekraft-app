@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 import { playlistCache } from '@/lib/playlist-cache';
 import { getPlaylistTrackCount } from '@/lib/playlist-track-counts';
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
       const cachedData = playlistCache.getCachedData('flowgnar-playlist');
       if (cachedData) {
         console.log('⚡ Returning cached Flowgnar playlist data');
-        return NextResponse.json(cachedData);
+        return compressedJson(request, cachedData);
       }
     }
 

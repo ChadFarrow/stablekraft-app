@@ -4,8 +4,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAudio } from '@/contexts/AudioContext';
 import RadioPlayer from '@/components/RadioPlayer';
 import { Play } from 'lucide-react';
+import { useDataSaver } from '@/hooks/useDataSaver';
 
 export default function RadioClient() {
+  const dataSaver = useDataSaver();
   const {
     currentPlayingAlbum,
     shuffleAllTracks,
@@ -79,7 +81,9 @@ export default function RadioClient() {
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url(/stablekraft-radio-bg.png)',
+          // 2.38 MB of decoration. The backgroundColor below is the whole
+          // fallback, and it is already here.
+          backgroundImage: dataSaver ? undefined : 'url(/stablekraft-radio-bg.png)',
           backgroundSize: 'contain',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',

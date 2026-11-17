@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { NostrClient } from '@/lib/nostr/client';
+import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { verifyEvent } from 'nostr-tools';
 import { normalizePubkey } from '@/lib/nostr/normalize';
@@ -128,8 +128,7 @@ export async function POST(request: NextRequest) {
     // --- PUBLISH TO NOSTR ---
     let published = false;
     try {
-      const client = new NostrClient(sanitizedRelays);
-      await client.connect();
+      const client = await connectServerNostrClient(sanitizedRelays, 'boost');
 
       const results = await client.publish(noteEvent, {
         relays: sanitizedRelays,

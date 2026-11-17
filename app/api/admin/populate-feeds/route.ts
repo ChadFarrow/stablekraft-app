@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         const feedData = await fetchFeedByGuid(feedGuid);
         
         if (!feedData || !feedData.originalUrl) {
-          console.log(`❌ Failed to fetch feed data for ${feedGuid}`);
+          console.warn(`❌ Failed to fetch feed data for ${feedGuid}`);
           results.failed++;
           results.details.push({
             feedGuid,
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ Populate feeds completed: ${results.created} created, ${results.skipped} skipped, ${results.failed} failed`);
+    console.warn(`✅ Populate feeds completed: ${results.created} created, ${results.skipped} skipped, ${results.failed} failed`);
 
     return NextResponse.json({
       success: true,

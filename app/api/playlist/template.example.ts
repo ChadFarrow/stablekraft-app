@@ -9,6 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isForceRefresh } from '@/lib/admin-route-policy';
 import { processPlaylistFeedDiscovery } from '@/lib/feed-discovery';
 import { 
   resolvePlaylistItems, 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     });
 
     // Check cache first (with refresh option)
-    const forceRefresh = new URL(request.url).searchParams.has('refresh');
+    const forceRefresh = isForceRefresh(new URL(request.url).searchParams);
     if (playlistCache && (Date.now() - playlistCache.timestamp) < CACHE_DURATION && !forceRefresh) {
       console.log('⚡ Using cached playlist data');
       return NextResponse.json(playlistCache.data);

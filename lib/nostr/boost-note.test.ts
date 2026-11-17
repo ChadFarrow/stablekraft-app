@@ -13,7 +13,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { clientTag, podcastIdentifierTags } from './boost-note';
+import { nip19 } from 'nostr-tools';
+
+import { boostNotifiedPubkeys, clientTag, collectPersonNpubs, podcastIdentifierTags } from './boost-note';
 import { identifierKind, itemId, publisherId, showId } from './pc20-identifiers';
 
 // The guids from the issue's own example note — a real 333-sat boost to
@@ -172,4 +174,97 @@ test('the id builders and the kinds table agree', () => {
   assert.equal(identifierKind(itemId('x')), 'podcast:item:guid');
   assert.equal(identifierKind(showId('x')), 'podcast:guid');
   assert.equal(identifierKind(publisherId('x')), 'podcast:publisher:guid');
+});
+
+// --- who the note names ------------------------------------------------------
+//
+// The keys from a real boost of "Kulture Collection" (2026-09-18). The feed
+// declares Matt Finlay's npub; the booster is also the MSP 2.0 split recipient.
+const ARTIST_NPUB = 'npub12znrejs4k94kp5efhyhk9rzr9jxpy6ymgrlf6py4awpkkhed7cmshs6yg6';
+const ARTIST_HEX = '50a63cca15b16b60d329b92f628c432c8c12689b40fe9d0495eb836b5f2df637';
+const BOOSTER_HEX = 'f7922a0adb3fa4dda5eecaa62f6f7ee6159f7f55e08036686c68e08382c34788';
+
+/** The decoder BoostButton passes in, minus its logging. */
+const decodeNpub = (npub: string): string | null => {
+  try {
+    const d = nip19.decode(npub);
+    return d.type === 'npub' && typeof d.data === 'string' ? d.data : null;
+  } catch {
+    return null;
+  }
+};
+
+test('the artist is named, and before the split recipients', () => {
+  // Before: mentions came from the splits only, so the text read "@ChadF" and
+  // Matt Finlay existed only in a p tag no client shows in the body.
+  assert.deepEqual(
+    boostNotifiedPubkeys([BOOSTER_HEX], [ARTIST_NPUB], decodeNpub),
+    [ARTIST_HEX, BOOSTER_HEX]
+  );
+});
+
+test('a person who is also a split recipient is named once', () => {
+  assert.deepEqual(boostNotifiedPubkeys([ARTIST_HEX], [ARTIST_NPUB], decodeNpub), [ARTIST_HEX]);
+  // And a band member listed under several roles is one person.
+  assert.deepEqual(
+    boostNotifiedPubkeys([], [ARTIST_NPUB, ARTIST_NPUB, ARTIST_NPUB], decodeNpub),
+    [ARTIST_HEX]
+  );
+  assert.deepEqual(boostNotifiedPubkeys([BOOSTER_HEX, BOOSTER_HEX], [], decodeNpub), [BOOSTER_HEX]);
+});
+
+test('anything that is not a decodable npub is skipped, never passed through', () => {
+  const seen: string[] = [];
+  const spy = (npub: string) => (seen.push(npub), decodeNpub(npub));
+  assert.deepEqual(
+    boostNotifiedPubkeys(
+      [],
+      [undefined, null, '', 'nsec1notthis', 'https://example.com', 'npub1broken', `  ${ARTIST_NPUB.toUpperCase()}  `],
+      spy
+    ),
+    [ARTIST_HEX]
+  );
+  // Only npub-prefixed values reach the decoder, normalised to lowercase.
+  assert.deepEqual(seen, ['npub1broken', ARTIST_NPUB]);
+});
+
+test('a note with nobody to name names nobody', () => {
+  assert.deepEqual(boostNotifiedPubkeys([], [], decodeNpub), []);
+});
+
+test('persons are gathered from every source, in order', () => {
+  // The prop, then the track, its feed, and the feed alone from the lookups.
+  assert.deepEqual(
+    collectPersonNpubs(
+      [{ name: 'Prop', npub: 'npub1a' }],
+      [{ name: 'Track', npub: 'npub1b' }],
+      [{ name: 'Feed', npub: 'npub1c' }, { name: 'No key' }],
+      [{ npub: 'npub1d' }]
+    ),
+    ['npub1a', 'npub1b', 'npub1c', 'npub1d']
+  );
+});
+
+test('a lookup of the wrong shape contributes nothing, and never throws', () => {
+  // These arrive as untyped JSON after the payment has gone out; a throw here
+  // would lose the note, not just the mention.
+  assert.deepEqual(
+    collectPersonNpubs(undefined, null, 'npub1x', { npub: 'npub1y' }, 42, [null, 7, 'npub1z', { npub: 5 }, {}]),
+    []
+  );
+  assert.deepEqual(collectPersonNpubs(), []);
+});
+
+test('the Kulture Collection boost from a surface with no persons prop', () => {
+  // A playlist, the favorites page or a track card passes no persons. The track
+  // lookup's Feed.persons is what names the artist.
+  const trackLookup = { persons: undefined, Feed: { persons: [{ name: 'Matt Finlay', npub: ARTIST_NPUB }] } };
+  assert.deepEqual(
+    boostNotifiedPubkeys(
+      [BOOSTER_HEX],
+      collectPersonNpubs([], trackLookup.persons, trackLookup.Feed.persons, null),
+      decodeNpub
+    ),
+    [ARTIST_HEX, BOOSTER_HEX]
+  );
 });

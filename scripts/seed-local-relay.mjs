@@ -28,8 +28,8 @@ import WebSocket from 'ws';
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool';
 import { nip19 } from 'nostr-tools';
 
-// Node 20 (this repo's .nvmrc) has no WebSocket global; nostr-tools captures it
-// at module load. See lib/nostr/node-websocket.ts for the full story.
+// Node 20 has no WebSocket global and Node 22's is undici's; nostr-tools captures
+// it at module load. See lib/nostr/node-websocket.ts for the full story.
 if (typeof globalThis.WebSocket === 'undefined') globalThis.WebSocket = WebSocket;
 useWebSocketImplementation(WebSocket);
 

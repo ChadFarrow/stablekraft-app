@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { NostrClient } from '@/lib/nostr/client';
+import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { requireUser } from '@/lib/auth/require-user';
 
@@ -41,8 +41,7 @@ export async function GET(request: NextRequest) {
     // Fetch user's profile metadata from Nostr relays FIRST (Nostr is source of truth)
     let profileMetadata: any = null;
     try {
-      const client = new NostrClient(getDefaultRelays());
-      await client.connect();
+      const client = await connectServerNostrClient(getDefaultRelays(), 'auth/me');
       profileMetadata = await client.getProfile(user.nostrPubkey);
       await client.disconnect();
     } catch (error) {

@@ -48,6 +48,9 @@ export default function OfflinePage() {
             Play your downloads
           </Link>
 
+          {/* A plain <a> on purpose: "Try Again" must be a full page load, which goes back
+              to the network. A <Link> navigates client-side and never asks. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"

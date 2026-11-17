@@ -1,44 +1,36 @@
 'use client';
 
-const STORAGE_KEY = 'admin_secret';
+/**
+ * fetch() for admin-gated API calls.
+ *
+ * The admin gate accepts the `sk_admin` cookie that `POST /api/admin/verify`
+ * sets after the operator signs in with Nostr (lib/admin-session.ts). The
+ * cookie is httpOnly and same-origin, so the browser sends it by itself.
+ *
+ * This used to attach a bearer ADMIN_SECRET from localStorage and, on a 401,
+ * `window.prompt('Admin secret required:')` for it — so an operator signed in
+ * with Nostr was still asked for a secret (2026-11-01). It no longer reads,
+ * asks for or stores a secret. On a 401 (the cookie expired, or was never set)
+ * it asks the admin page to sign in again with Nostr, once, and retries.
+ */
+
+let reauthenticate: (() => Promise<boolean>) | null = null;
 
 /**
- * fetch() wrapper for admin-gated API calls. Attaches the admin bearer secret
- * from localStorage; on a 401, prompts once for the secret, stores it, and
- * retries. While ADMIN_SECRET is unset on the server (fail-open), requests
- * succeed with or without a stored secret.
+ * AdminPanel registers its Nostr sign-in here. Returns the unregister function.
+ * Pages without it simply get the 401 back.
  */
-export async function adminFetch(
-  input: RequestInfo | URL,
-  init: RequestInit = {}
-): Promise<Response> {
-  const doFetch = (secret: string | null) =>
-    fetch(input, {
-      ...init,
-      headers: {
-        ...(init.headers || {}),
-        ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
-      },
-    });
+export function setAdminReauth(fn: () => Promise<boolean>): () => void {
+  reauthenticate = fn;
+  return () => {
+    if (reauthenticate === fn) reauthenticate = null;
+  };
+}
 
-  let secret: string | null = null;
-  try {
-    secret = localStorage.getItem(STORAGE_KEY);
-  } catch {
-    // localStorage unavailable (SSR/private mode) — proceed without secret
-  }
-
-  let res = await doFetch(secret);
-  if (res.status === 401 && typeof window !== 'undefined') {
-    const entered = window.prompt('Admin secret required:');
-    if (entered) {
-      try {
-        localStorage.setItem(STORAGE_KEY, entered);
-      } catch {
-        // Storage failed — still retry with the entered secret this once
-      }
-      res = await doFetch(entered);
-    }
-  }
-  return res;
+export async function adminFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const doFetch = () => fetch(input, { credentials: 'same-origin', ...init });
+  const res = await doFetch();
+  if (res.status !== 401 || !reauthenticate) return res;
+  const signedIn = await reauthenticate().catch(() => false);
+  return signedIn ? doFetch() : res;
 }

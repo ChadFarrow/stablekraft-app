@@ -111,6 +111,8 @@ model Feed {
   oldestItemPubdate DateTime?
   persons           Json?
   podcastImages     Json?
+  /// <podcast:funding> links at channel level: [{ url, message }], http(s) only.
+  funding           Json?
   musicShowOnly     Boolean   @default(false)
   medium            String?
   lastNewTrackAt    DateTime?
@@ -259,6 +261,8 @@ model Track {
   valueTimeSplits     Json?
   persons             Json?
   podcastImages       Json?
+  /// This item's own <podcast:funding> links; empty means it inherits the feed's.
+  funding             Json?
   SystemPlaylistTrack SystemPlaylistTrack[]
   Feed                Feed                  @relation(fields: [feedId], references: [id], onDelete: Cascade)
 

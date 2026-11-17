@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments } from '@/lib/rss-parser-db';
+import { channelPersonsFields } from '@/lib/feeds/channel-persons';
+import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { preserveImageVersion } from '@/lib/feeds/image-version-url';
+import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
 // POST /api/admin/refresh-all-feeds - Refresh all RSS feeds in the database
 export async function POST(request: NextRequest) {
@@ -19,6 +23,7 @@ export async function POST(request: NextRequest) {
         id: true,
         originalUrl: true,
         title: true,
+        image: true,
         _count: {
           select: { Track: true }
         }
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
               title: parsedFeed.title,
               description: parsedFeed.description,
               artist: parsedFeed.artist,
-              image: parsedFeed.image,
+              image: preserveImageVersion(parsedFeed.image, feed.image),
               language: parsedFeed.language,
               category: parsedFeed.category,
               podcastCategories: parsedFeed.podcastCategories || [],
@@ -64,6 +69,8 @@ export async function POST(request: NextRequest) {
               // Channel-level like the guid above, and backfilled the same way: a feed
               // that never declared a medium keeps NULL rather than being defaulted.
               ...(parsedFeed.medium && { medium: parsedFeed.medium.toLowerCase() }),
+              ...channelPersonsFields(parsedFeed),
+              ...channelFundingFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               lastError: null
@@ -96,7 +103,7 @@ export async function POST(request: NextRequest) {
               audioUrl: item.audioUrl,
               duration: item.duration,
               explicit: item.explicit,
-              image: item.image,
+              image: preserveImageVersion(item.image, feed.image),
               publishedAt: item.publishedAt,
               itunesAuthor: item.itunesAuthor,
               itunesSummary: item.itunesSummary,
@@ -136,15 +143,8 @@ export async function POST(request: NextRequest) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           errors.push({ feed: feed.title, error: errorMessage });
           
-          // Update feed with error status
-          await prisma.feed.update({
-            where: { id: feed.id },
-            data: {
-              status: 'error',
-              lastError: errorMessage,
-              lastFetched: new Date()
-            }
-          });
+          // Record the error; a feed with tracks stays visible (lib/feeds/refresh-failure.ts)
+          await recordRefreshFailure(prisma, feed.id, errorMessage);
           
           console.error(`❌ Failed to refresh ${feed.title}:`, errorMessage);
         }

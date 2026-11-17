@@ -12,6 +12,7 @@
  * playback needs zero network and never hits CORS.
  */
 import { audioUrlCandidates } from '../audio-url-utils';
+import { stripImageVersion } from '../feeds/image-version-url';
 
 // PERSISTENCE INVARIANT: this bucket name is load-bearing. Renaming it (e.g.
 // bumping `-v1` → `-v2`) orphans every downloaded track and forces limited-
@@ -200,6 +201,17 @@ export async function clearAllBytes(): Promise<void> {
 // Do not rename across releases; it would orphan cached cover art.
 export const DOWNLOADS_ART_CACHE = 'stablekraft-downloads-art-v1';
 
+/**
+ * The key a cover is stored under: its URL without our image version
+ * (lib/feeds/image-version-url.ts). The version changes when the artist replaces
+ * the file, and Now Playing looks covers up by the track's CURRENT URL, so a
+ * versioned key would lose the offline cover on the first change. Every cover
+ * stored before versioning existed is already under this key.
+ */
+export function coverCacheKey(url: string): string {
+  return stripImageVersion(url);
+}
+
 /** Fetch a cover image via the same-origin proxy and store it under `url`.
  *  Best-effort: throws on failure so the caller can swallow it. */
 export async function downloadImage(url: string): Promise<void> {
@@ -211,7 +223,7 @@ export async function downloadImage(url: string): Promise<void> {
   const blob = await res.blob();
   const cache = await caches.open(DOWNLOADS_ART_CACHE);
   await cache.put(
-    url,
+    coverCacheKey(url),
     new Response(blob, {
       headers: {
         'Content-Type': blob.type || 'image/jpeg',
@@ -225,7 +237,7 @@ export async function downloadImage(url: string): Promise<void> {
 export async function getImageObjectUrl(url: string): Promise<string | null> {
   if (!cacheApiAvailable() || !url) return null;
   const cache = await caches.open(DOWNLOADS_ART_CACHE);
-  const match = await cache.match(url);
+  const match = await cache.match(coverCacheKey(url));
   if (!match) return null;
   const blob = await match.blob();
   return URL.createObjectURL(blob);
@@ -235,7 +247,7 @@ export async function getImageObjectUrl(url: string): Promise<string | null> {
 export async function deleteImage(url: string): Promise<void> {
   if (!cacheApiAvailable() || !url) return;
   const cache = await caches.open(DOWNLOADS_ART_CACHE);
-  await cache.delete(url);
+  await cache.delete(coverCacheKey(url));
 }
 
 /** Drop the entire cover-art cache. */

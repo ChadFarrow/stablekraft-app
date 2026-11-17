@@ -9,6 +9,7 @@ import { RSSAlbum } from '@/lib/rss-parser';
 import { getAlbumArtworkUrl, getPlaceholderImageUrl } from '@/lib/cdn-utils';
 import { buildPageBackgroundStyle } from '@/lib/page-background-style';
 import { pickCanvasBackground } from '@/lib/podcast-images';
+import { artworkImageUrl } from '@/lib/artwork-image-url';
 import { generateAlbumHref, generateAlbumSlug, generatePublisherSlug, getPublisherInfo } from '@/lib/url-utils';
 import { useAudio, useAudioTime } from '@/contexts/AudioContext';
 import { useScrollDetectionContext } from '@/components/ScrollDetectionProvider';
@@ -17,11 +18,13 @@ import BackButton from '@/components/BackButton';
 import HomeButton from '@/components/HomeButton';
 import { useLightning } from '@/contexts/LightningContext';
 import { BoostButton } from '@/components/Lightning/BoostButton';
+import { FundingButton } from '@/components/FundingButton';
 import FavoriteButton from '@/components/favorites/FavoriteButton';
 import { singleTrackFavoriteData } from '@/lib/favorite-target';
 import DownloadButton from '@/components/downloads/DownloadButton';
 import ShareButton from '@/components/Nostr/ShareButton';
 import { hasV4V as checkHasV4V, formatValueSplitsForBoost, getPrimaryRecipient } from '@/lib/v4v-utils';
+import { useDataSaver } from '@/hooks/useDataSaver';
 // import CDNImage from '@/components/CDNImage'; // Replaced with Next.js Image for performance
 
 interface AlbumDetailClientProps {
@@ -37,8 +40,25 @@ interface AlbumDetailClientProps {
 // (the page passes initialAlbum=null and always fetches client-side). `backgroundCacheById` gives
 // an instantly-correct background on revisit; `lastShownBackground` holds the previous album's art
 // for a first visit until the new art resolves, avoiding the default-gradient flicker.
+// Both hold DISPLAY-READY URLs (what `buildPageBackgroundStyle` paints), so a held-over background
+// reuses the exact response the browser already has.
 const backgroundCacheById = new Map<string, string>();
 let lastShownBackground: string | null = null;
+
+// The hero cover's source and box. The page backdrop asks `artworkImageUrl` for the URL an
+// <ArtworkImage> with these same values requests, so hero and backdrop are one response and one
+// cache entry and cannot show two versions of one file — see lib/artwork-image-url.ts.
+const HERO_ART_SIZE = 280;
+const heroArtworkSrc = (coverArt: string) => getAlbumArtworkUrl(coverArt, 'medium', true);
+
+// A <podcast:image> canvas is its own image — nothing else on the page shows it — so it keeps the
+// full-size proxy route it always had.
+function canvasBackgroundUrl(canvas: string): string {
+  if (canvas.includes('stablekraft.app') || canvas.startsWith('/')) {
+    return getAlbumArtworkUrl(canvas, 'xl', false);
+  }
+  return `/api/proxy-image?url=${encodeURIComponent(canvas)}&enhance=true&minWidth=1920&minHeight=1080`;
+}
 
 export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, extraAlbumActions }: AlbumDetailClientProps) {
   const [album, setAlbum] = useState<RSSAlbum | null>(initialAlbum);
@@ -102,7 +122,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
   const [expandedTrackKey, setExpandedTrackKey] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-  const preloadAttemptedRef = useRef(false);
 
   // Detect desktop for background loading optimization
   useEffect(() => {
@@ -160,116 +179,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
       });
     }
   }, [album, trackParam, globalPlayAlbum, setFullscreenMode]);
-
-  // Early background loading for desktop - start immediately when component mounts
-  useEffect(() => {
-    if (!isClient || !isDesktop || preloadAttemptedRef.current) return;
-    
-    preloadAttemptedRef.current = true;
-    
-    // Try to preload background image from album title
-    const preloadBackgroundImage = async () => {
-      try {
-        // Use the new specific album API endpoint for much faster lookup
-        const cacheBuster = Date.now();
-        const response = await fetch(`/api/albums/${encodeURIComponent(albumId)}?cb=${cacheBuster}`);
-        if (response.ok) {
-          const data = await response.json();
-          const foundAlbum = data.album;
-          // Desktop preload: prefer the 16:9 <podcast:image> canvas, else album cover art.
-          const bgSource = (foundAlbum && (pickCanvasBackground(foundAlbum.podcastImages, 'landscape') || foundAlbum.coverArt)) || null;
-
-          if (bgSource) {
-            console.log('🎨 Preloading background image for desktop:', bgSource);
-            
-            // Add cache-busting parameter to prevent stale cache issues
-            const cacheBuster = Date.now();
-            const imageUrlWithCacheBuster = (typeof bgSource === 'string' && bgSource.includes('?')) 
-              ? `${bgSource}&cb=${cacheBuster}`
-              : `${bgSource}?cb=${cacheBuster}`;
-            
-            // Preload the image
-            const img = new window.Image();
-            img.onload = () => {
-              console.log('✅ Background image preloaded successfully:', bgSource);
-              setBackgroundImage(imageUrlWithCacheBuster);
-              setBackgroundLoaded(true);
-            };
-            img.onerror = (error) => {
-              // Only log if it's not a CORS/OpaqueResponseBlocking error (expected for some external images)
-              const isCorsError = typeof error !== 'string' && error?.target && (error.target as HTMLImageElement).complete === false;
-              if (!isCorsError) {
-                console.warn('⚠️ Background image preload failed, trying fallback:', bgSource);
-              }
-              
-              // Try image proxy for external URLs (but never for data URLs)
-              if (bgSource && 
-                  typeof bgSource === 'string' && 
-                  !bgSource.includes('stablekraft.app') &&
-                  !bgSource.startsWith('data:')) {
-                const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(bgSource)}`;
-                console.log('🔄 Trying image proxy for background:', proxyUrl);
-                
-                const proxyImg = new window.Image();
-                proxyImg.onload = () => {
-                  console.log('✅ Background image preloaded with proxy:', proxyUrl);
-                  setBackgroundImage(proxyUrl);
-                  setBackgroundLoaded(true);
-                };
-                proxyImg.onerror = (proxyError) => {
-                  // Silently fail - image will use placeholder
-                  // Final fallback - try original URL without cache buster
-                  const fallbackImg = new window.Image();
-                  fallbackImg.onload = () => {
-                    console.log('✅ Background image preloaded with fallback URL:', bgSource);
-                    setBackgroundImage(bgSource || null);
-                    setBackgroundLoaded(true);
-                  };
-                  fallbackImg.onerror = (fallbackError) => {
-                    // All attempts failed - will use placeholder, no need to log
-                    setBackgroundImage(null);
-                    setBackgroundLoaded(true);
-                  };
-                  fallbackImg.decoding = 'async';
-                  fallbackImg.src = bgSource;
-                };
-                proxyImg.decoding = 'async';
-                proxyImg.src = proxyUrl;
-              } else {
-                // For internal URLs, try without cache buster as fallback
-                const fallbackImg = new window.Image();
-                fallbackImg.onload = () => {
-                  console.log('✅ Background image preloaded with fallback URL:', bgSource);
-                  setBackgroundImage(bgSource || null);
-                  setBackgroundLoaded(true);
-                };
-                fallbackImg.onerror = (fallbackError) => {
-                  // All attempts failed - will use placeholder, no need to log
-                  setBackgroundImage(null);
-                  setBackgroundLoaded(true);
-                };
-                fallbackImg.decoding = 'async';
-                fallbackImg.src = bgSource;
-              }
-            };
-            
-            img.decoding = 'async';
-            img.src = imageUrlWithCacheBuster;
-          } else {
-            console.log('🚫 No album found for preloading, using gradient background');
-            setBackgroundImage(null);
-            setBackgroundLoaded(true);
-          }
-        }
-      } catch (error) {
-        // Silently handle preload errors - will use placeholder
-        setBackgroundImage(null);
-        setBackgroundLoaded(true);
-      }
-    };
-    
-    preloadBackgroundImage();
-  }, [isClient, isDesktop, albumTitle]); // Fixed dependencies to prevent infinite loops
 
   // Update Media Session API for iOS lock screen controls
   const updateMediaSession = (track: any) => {
@@ -484,38 +393,42 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
   }, []);
 
 
-  // Update background when album data changes - simplified version
+  // Update background when album data changes. This is the ONLY writer of `backgroundImage` besides
+  // the module-cache seed. A desktop-only preload used to race it with a cache-busted URL
+  // (a `cb` query of the current time), which is how the backdrop came to show newer art than the
+  // hero beside it.
   useEffect(() => {
     // Don't run background effect while loading or if album is null
-    if (isLoading || !album?.coverArt) {
+    if (isLoading || !album) {
       return;
     }
-    
-    // Reset loading states when album changes
-    setBackgroundLoaded(false);
-    setAlbumArtLoaded(false);
-    
+
+    if (album.coverArt) {
+      // Reset loading states when album changes
+      setBackgroundLoaded(false);
+      setAlbumArtLoaded(false);
+    }
+
     // Prefer a Podcasting 2.0 <podcast:image> canvas background sized for the current
     // viewport (16:9 on desktop, 9:16 on mobile); fall back to the album cover art.
-    if (album?.coverArt) {
-      const canvasBg = pickCanvasBackground(
-        (album as any).podcastImages,
-        isDesktop ? 'landscape' : 'portrait'
-      );
-      const bgUrl = canvasBg || album.coverArt;
-      console.log('🖼️ Loading background image:', bgUrl, canvasBg ? '(podcast:image canvas)' : '(album art)');
-      console.log('🖼️ Album found:', album.title);
-      setBackgroundImage(bgUrl);
-      setBackgroundLoaded(true);
+    const canvasBg = album.coverArt && pickCanvasBackground(
+      (album as any).podcastImages,
+      isDesktop ? 'landscape' : 'portrait'
+    );
+
+    if (canvasBg) {
+      setBackgroundImage(canvasBackgroundUrl(canvasBg));
+    } else if (album.coverArt) {
+      setBackgroundImage(artworkImageUrl({
+        src: heroArtworkSrc(album.coverArt),
+        width: HERO_ART_SIZE,
+        height: HERO_ART_SIZE,
+      }));
     } else {
-      console.log('🚫 No cover art available, using gradient background');
-      console.log('🚫 Album data:', album ? 'Album exists but no coverArt' : 'No album found');
-      if (album) {
-        console.log('🚫 Album title:', album.title);
-      }
+      // No art at all: clear any background held over from the previous album.
       setBackgroundImage(null);
-      setBackgroundLoaded(true);
     }
+    setBackgroundLoaded(true);
   }, [album?.coverArt, (album as any)?.podcastImages, isDesktop, isLoading]); // re-pick canvas on viewport orientation change
 
   // Remember every resolved background so future navigations can seed their initial background from
@@ -531,25 +444,29 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
     }
   }, [backgroundImage, album, isLoading, albumId]);
 
+  const dataSaver = useDataSaver();
+
   // Optimized background style calculation - memoized to prevent repeated logs
   const backgroundStyle = useMemo(() => {
-    // For backgrounds, use enhanced proxy for better quality and upscaling
-    // This ensures high-resolution backgrounds even from low-res sources
-    const highResBackgroundUrl = backgroundImage && isClient
-      ? (() => {
-          // Use proxy with enhancement for external images, direct URL for internal
-          if (backgroundImage.includes('stablekraft.app') || backgroundImage.startsWith('/')) {
-            return getAlbumArtworkUrl(backgroundImage, 'xl', false);
-          }
-          // For external images, use enhanced proxy
-          return `/api/proxy-image?url=${encodeURIComponent(backgroundImage)}&enhance=true&minWidth=1920&minHeight=1080`;
-        })()
-      : null;
+    /**
+     * `backgroundImage` is already display-ready (see the effect above): for a
+     * cover it is the hero's own `/_next/image` URL, so the backdrop costs no
+     * second download; for a <podcast:image> canvas it is the full-size proxy.
+     *
+     * Data Saver drops the backdrop entirely. Under Data Saver the hero asks for
+     * a lower quality, so a cover backdrop would no longer share its response.
+     *
+     * Passing null is a fully supported state, not a degraded one: it is the
+     * branch used during SSR and before `isClient`, it paints the opaque base
+     * gradient, and lib/page-background-style.test.ts covers it. It cannot
+     * reopen #201.
+     */
+    const highResBackgroundUrl = backgroundImage && isClient && !dataSaver ? backgroundImage : null;
 
     // Shared with the playlist pages, and opaque underneath the artwork so the
     // global rocket wallpaper cannot show through while it loads — see #201.
     return buildPageBackgroundStyle(highResBackgroundUrl);
-  }, [backgroundImage, isClient]);
+  }, [backgroundImage, isClient, dataSaver]);
 
   // Load album data if not provided initially
   useEffect(() => {
@@ -601,10 +518,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               if (foundAlbum.podroll && foundAlbum.podroll.length > 0) {
                 loadPodrollAlbums(foundAlbum.podroll);
               }
-              // Load Publisher feed albums if publisher exists
-              if (foundAlbum.publisher && foundAlbum.publisher.feedUrl && typeof foundAlbum.publisher.feedUrl === 'string') {
-                loadPublisherAlbums(foundAlbum.publisher.feedUrl);
-              }
             } else {
               setError('Album not found');
             }
@@ -637,13 +550,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
       if (initialAlbum.podroll && initialAlbum.podroll.length > 0) {
         loadPodrollAlbums(initialAlbum.podroll);
       }
-      // Load Publisher feed albums if publisher exists
-      if (initialAlbum.publisher && initialAlbum.publisher.feedUrl && typeof initialAlbum.publisher.feedUrl === 'string') {
-        loadPublisherAlbums(initialAlbum.publisher.feedUrl);
-      }
     }
   }, [albumTitle, initialAlbum, loadingStarted]);
 
+  // A `loadPublisherAlbums` used to run here on every album page: it fetched the whole
+  // of /api/albums and added its matches only when podrollAlbums was non-empty — which
+  // it never is, since `podroll` arrives as `{ enabled: true }` or null, never an array.
+  // So each view paid a ~5 MB database read for nothing (#272).
   const loadPodrollAlbums = async (podrollItems: { url: string; title?: string; description?: string }[]) => {
     try {
       // Load pre-parsed album data and filter for podroll items
@@ -667,63 +580,6 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
       setPodrollAlbums(podrollAlbumsData);
     } catch (err) {
       console.error('Error loading PodRoll albums:', err);
-    }
-  };
-
-  const loadPublisherAlbums = async (publisherFeedUrl: string) => {
-    try {
-      // Validate input
-      if (!publisherFeedUrl || typeof publisherFeedUrl !== 'string') {
-        console.warn('⚠️ Invalid publisher feed URL:', publisherFeedUrl);
-        return;
-      }
-      
-      console.log(`🏢 Loading albums from publisher feed: ${publisherFeedUrl}`);
-      
-      // Load pre-parsed album data and filter for publisher albums
-      const response = await fetch('/api/albums');
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch albums: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const allAlbums = data.albums || [];
-      
-      // Filter albums that belong to the publisher
-      const publisherAlbumsData = allAlbums.filter((album: any) => {
-        return album.publisher && 
-               album.publisher.feedUrl && 
-               typeof album.publisher.feedUrl === 'string' &&
-               album.publisher.feedUrl === publisherFeedUrl;
-      });
-      
-      // Only add publisher albums to recommendations if there are already podroll albums
-      // (This prevents "You Might Also Like" from appearing for albums without podrolls)
-      setPodrollAlbums(prevAlbums => {
-        // Only show publisher albums if there are existing podroll recommendations
-        if (prevAlbums.length === 0) {
-          console.log(`🎶 No podroll albums found, not showing publisher recommendations for this album`);
-          return prevAlbums;
-        }
-        
-        // Combine and deduplicate based on title+artist
-        const combined = [...prevAlbums];
-        const existingKeys = new Set(prevAlbums.map(album => `${album.title.toLowerCase()}|${album.artist.toLowerCase()}`));
-        
-        publisherAlbumsData.forEach((album: any) => {
-          const key = `${album.title.toLowerCase()}|${album.artist.toLowerCase()}`;
-          if (!existingKeys.has(key)) {
-            combined.push(album);
-            existingKeys.add(key);
-          }
-        });
-        
-        console.log(`🎶 Added ${publisherAlbumsData.length} albums from publisher to existing podroll, total recommendations: ${combined.length}`);
-        return combined;
-      });
-    } catch (err) {
-      console.error('Error loading Publisher albums:', err);
     }
   };
 
@@ -841,6 +697,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
     albumName: album.title,
     publisherGuid: album.publisher?.feedGuid,
     persons: (album as any).persons || [],
+    funding: album.funding,
   };
 
   return (
@@ -865,7 +722,14 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             Safe-Area Insets rule, the inset comes from `var(--sk-safe-*)`, never bare
             `env()`. The 24px base preserves the compact spacing on devices that report
             no inset (Android browser, desktop), where the var resolves to 0. */}
-        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-8 lg:h-full lg:flex lg:flex-col">
+        {/* Desktop bottom padding must carry `--sk-player-reserve`. At lg+ this page is
+            `fixed inset-0`, and a fixed box ignores the layout wrapper's
+            `pb-[var(--sk-player-reserve)]` (app/layout.tsx) — so with a flat `lg:pb-8`
+            both columns ran ~49px under GlobalNowPlayingBar, and on a 909px-tall
+            window it covered the album card's Boost button. The track list hid this
+            with its own `lg:pb-28`; the album card had nothing. The reserve is 0
+            with nothing playing, so that case keeps the old 2rem. */}
+        <div className="container mx-auto px-4 lg:px-6 pt-[calc(var(--sk-safe-top)+24px)] md:pt-[calc(var(--sk-safe-top)+48px)] pb-40 lg:pb-[calc(var(--sk-player-reserve)+2rem)] lg:h-full lg:flex lg:flex-col">
         {/* Back / Home buttons */}
         <div className="mb-3 lg:mb-6 lg:flex-shrink-0 flex items-center gap-1">
           <BackButton label="Back" />
@@ -876,13 +740,21 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-8 mb-8 lg:mb-0 lg:flex-1 lg:min-h-0">
           {/* Left Column: Album Art and Info (2/5 width) */}
           <div className="flex flex-col gap-3 lg:gap-4 lg:col-span-2 lg:min-h-0">
-            {/* Album Art with Play Button Overlay */}
-            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[320px] lg:flex-shrink-0">
+            {/* Album Art with Play Button Overlay.
+                Desktop size: 320px, shrinking on a short window so the album card below
+                keeps ~90px for its text (title + artist) above its Boost footer. A fixed
+                320px left the card nothing on a 1366x768 laptop (~657px of window) with
+                the player showing — the footer took the card's whole height and the
+                title was not visible at all. 366px is everything else in the column:
+                116px above the cover, the 16px gap, the card's 48px padding and 64px
+                footer, the 32px below the card, and the ~90px of text. Windows of
+                ~830px and up with the player (~750px without) keep the full 320px. */}
+            <div className="relative group mx-auto lg:mx-0 w-[260px] h-[260px] lg:w-full lg:h-auto lg:aspect-square lg:max-w-[clamp(160px,calc(100dvh-var(--sk-player-reserve)-366px),320px)] lg:flex-shrink-0">
             <ArtworkImage
-              src={albumArtError || !album?.coverArt ? getPlaceholderImageUrl('medium') : getAlbumArtworkUrl(album.coverArt, 'medium', true)} 
+              src={albumArtError || !album?.coverArt ? getPlaceholderImageUrl('medium') : heroArtworkSrc(album.coverArt)}
               alt={album.title}
-              width={280}
-              height={280}
+              width={HERO_ART_SIZE}
+              height={HERO_ART_SIZE}
               className={`rounded-lg object-cover shadow-2xl transition-opacity duration-500 w-full h-full ${
                 albumArtLoaded ? 'opacity-100' : 'opacity-0'
               }`}
@@ -959,9 +831,13 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
             )}
           </div>
           
-            {/* Album Info */}
-            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-            <div className="text-center lg:text-left space-y-3 lg:space-y-4">
+            {/* Album Info. At lg+ the card is a column: the text scrolls, and the
+                desktop action row below it is a footer that never scrolls away. The
+                card used to scroll as one block with the row last, so on any window
+                too short for the description the Boost button sat below the card's
+                visible edge (1440x900, 1280x720, 1024x768 all measured that way). */}
+            <div className="lg:bg-black/50 lg:backdrop-blur-sm rounded-lg p-0 lg:p-6 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+            <div className="text-center lg:text-left space-y-3 lg:space-y-4 lg:min-h-0 lg:overflow-y-auto">
             <h1 className="text-2xl md:text-4xl font-bold leading-tight">{album.title}</h1>
             {album.publisher ? (
               <Link
@@ -1075,7 +951,10 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                 rem-based, so at 1.3x the rem-sized circles inflated until shuffle ran
                 off the left edge and share off the right — justify-center spills both
                 ways. Only text should grow. Same rule as the Now Playing transport row. */}
-            <div className="lg:hidden flex items-center justify-center" style={{ gap: 12 }}>
+            {/* `flex-wrap`: with the $ the row is six circles (324px), which fits from
+                ~356px wide; on a narrower phone the last circle wraps instead of
+                running off both edges. */}
+            <div className="lg:hidden flex flex-wrap items-center justify-center" style={{ gap: 12 }}>
               <button
                 onClick={shuffleAllTracks}
                 className="flex items-center justify-center rounded-full bg-black/45 ring-1 ring-white/25 backdrop-blur-md shadow-lg text-white active:scale-95 transition-transform flex-shrink-0"
@@ -1093,6 +972,9 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   className="!w-[44px] !h-[44px] !p-0 !rounded-full flex-shrink-0"
                 />
               )}
+
+              {/* <podcast:funding>: the green $ beside the ⚡ — the non-Lightning way to pay. */}
+              <FundingButton funding={album.funding} variant="icon" />
 
               {album.feedId && (
                 <div className="flex items-center flex-shrink-0" style={{ gap: 12 }}>
@@ -1125,8 +1007,15 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
               </div>
             </div>
 
-            {/* Lightning Boost and Funding Information */}
-            <div className="space-y-4">
+            </div>
+
+            {/* Lightning Boost, with the funding $ beside it (FundingButton) — the card's
+                desktop footer, outside the scrolling text so it stays on screen.
+                `lg:flex-shrink-0` holds it at full height while the text above shrinks.
+                `pt-3` keeps the 12px the old `space-y-3` margin gave this block on
+                mobile, where its children are all hidden; `lg:pt-4` is the old
+                `lg:space-y-4` gap above the row. */}
+            <div className="pt-3 lg:pt-4 lg:flex-shrink-0">
               {/* Lightning Boost Button - only show if v4v data exists.
                   Desktop only: mobile carries Boost in the action row above. */}
               {checkHasV4V(album) ? (
@@ -1135,6 +1024,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                     {...albumBoostProps}
                     className="flex items-center gap-2 px-6 py-3 text-base"
                   />
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               ) : (
@@ -1142,31 +1032,12 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   <div className="px-6 py-3 bg-gray-800/50 rounded-lg text-gray-400 text-sm">
                     No Lightning payment info available for this album
                   </div>
+                  <FundingButton funding={album.funding} variant="button" />
                   {extraAlbumActions}
                 </div>
               )}
 
-              {/* Traditional Funding Information */}
-              {album.funding && album.funding.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-white text-center lg:text-left">More Ways to Support</h3>
-                  <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                    {album.funding.map((funding, index) => (
-                      <a
-                        key={index}
-                        href={funding.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
-                      >
-                        💝 {funding.message || 'Support'}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
           </div>
 
           {/* Doerfels Publisher Information */}
@@ -1256,11 +1127,11 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                   onShuffle={shuffleAllTracks}
                   showShuffle={true}
                   resultCount={filteredTracks.length}
-                  resultLabel={filterParam === 'videos' ? 'video tracks' : 'tracks'}
+                  resultLabel={filterParam === 'videos' ? 'video tracks' : (album as any)?.isPodcast ? 'episodes' : 'tracks'}
                   className="flex-shrink-0 hidden lg:flex"
                 />
               </div>
-              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-28">
+              <div className="space-y-0 lg:space-y-2 divide-y divide-white/5 lg:divide-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                 {filteredTracks.map((track, displayIndex) => {
                   // Find the original index in album.tracks for correct playback
                   const originalIndex = album.tracks.findIndex(t => t === track);
@@ -1456,6 +1327,7 @@ export default function AlbumDetailClient({ albumTitle, albumId, initialAlbum, e
                               ...((track as any).persons || []),
                               ...((album as any).persons || []),
                             ]}
+                            funding={(track as any).funding?.length ? (track as any).funding : album.funding}
                             className="text-xs px-2 py-1"
                           />
                         </div>

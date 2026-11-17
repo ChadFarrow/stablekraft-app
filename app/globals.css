@@ -85,7 +85,7 @@
   
   /* Background image fallback */
   .bg-stablekraft-rocket {
-    background: url('/stablekraft-rocket.png') center/contain fixed;
+    background: url('/stablekraft-rocket.webp') center/contain fixed;
     background-attachment: fixed;
   }
   

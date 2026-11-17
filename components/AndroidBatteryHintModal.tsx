@@ -52,25 +52,37 @@ export default function AndroidBatteryHintModal() {
   if (!isOpen) return null;
 
   return (
+    // The card is height-bounded in `dvh`, not `vh`, and carries its own
+    // scroll: this backdrop centres it without scrolling itself, so an
+    // unbounded card clips at *both* ends and no gesture reaches the "Got it"
+    // button — reported from a Pixel 4a with Android's Display size turned up,
+    // where the four steps alone outgrow the viewport. `vh` would not do,
+    // since it is the viewport with the browser toolbar hidden. The safe-area
+    // insets are in the padding and the bound so the card clears the status
+    // and gesture bars in the native app.
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center px-4 pt-[calc(1rem+var(--sk-safe-top))] pb-[calc(1rem+var(--sk-safe-bottom))]"
       onClick={dismiss}
     >
       <div
-        className="bg-gray-900 rounded-xl max-w-md w-full p-6 relative"
+        className="bg-gray-900 rounded-xl max-w-md w-full p-6 max-h-[calc(100dvh-2rem-var(--sk-safe-top)-var(--sk-safe-bottom))] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={dismiss}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-          aria-label="Close"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
-        <h2 className="text-2xl font-bold text-white mb-4">
-          Keep audio playing when your screen locks
-        </h2>
+        {/* The close button sits in flow beside the heading rather than
+            absolutely over it: the heading has no reserved gutter, so at a
+            2x OS font scale its first line runs underneath an overlaid X. */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <h2 className="text-2xl font-bold text-white">
+            Keep audio playing when your screen locks
+          </h2>
+          <button
+            onClick={dismiss}
+            className="text-gray-400 hover:text-white transition-colors shrink-0 -mr-1 -mt-1 p-1"
+            aria-label="Close"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
         <p className="text-gray-300 text-sm mb-4">
           On some Android phones (GrapheneOS, or phones with aggressive battery

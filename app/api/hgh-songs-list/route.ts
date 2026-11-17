@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { compressedJson } from '@/lib/compressed-json';
 
 // Interface for parsed track data
 interface ParsedTrack {
@@ -7,7 +8,7 @@ interface ParsedTrack {
   index: number;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Fetch the HGH playlist XML from GitHub
     const response = await fetch(
@@ -50,7 +51,7 @@ export async function GET() {
       lastUpdated: new Date().toISOString()
     };
 
-    return NextResponse.json({
+    return compressedJson(request, {
       success: true,
       metadata,
       tracks

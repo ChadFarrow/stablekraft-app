@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { findFeedIdByUrl } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl } from '@/lib/feed-exclusions';
+import { guidExistsBody } from '@/lib/feeds/exists-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +25,11 @@ export async function GET(request: NextRequest) {
   if (guid) {
     const match = await prisma.feed.findFirst({
       where: { guid },
-      select: { id: true },
+      select: { id: true, originalUrl: true },
     });
-    return NextResponse.json({ exists: Boolean(match) });
+    // Includes the stored URL: the podping service needs one to call
+    // refresh-by-url for a podping that named the feed by guid.
+    return NextResponse.json(guidExistsBody(match));
   }
 
   // Shared lookup ladder (exact URL variants → case-insensitive → uuid-in-URL) lives in

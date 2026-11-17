@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         // Fetch the RSS feed
         const response = await fetch(feed.originalUrl);
         if (!response.ok) {
-          console.log(`⚠️ Failed to fetch feed ${feed.id}: ${response.status}`);
+          console.warn(`⚠️ Failed to fetch feed ${feed.id}: ${response.status}`);
           errors++;
           continue;
         }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
               updatedTracks++;
             } catch (trackError) {
-              console.log(`⚠️ Error updating track ${track.id}: ${trackError}`);
+              console.warn(`⚠️ Error updating track ${track.id}: ${trackError}`);
               errors++;
             }
           }
@@ -82,13 +82,13 @@ export async function POST(request: NextRequest) {
           console.log(`ℹ️ No V4V data found for feed ${feed.id}`);
         }
       } catch (feedError) {
-        console.log(`❌ Error processing feed ${feed.id}: ${feedError}`);
+        console.warn(`❌ Error processing feed ${feed.id}: ${feedError}`);
         errors++;
       }
     }
 
       console.log('✅ Comprehensive V4V update completed');
-      console.log(`📊 Results: ${updatedFeeds} feeds updated, ${updatedTracks} tracks updated, ${errors} errors`);
+      console.warn(`📊 Results: ${updatedFeeds} feeds updated, ${updatedTracks} tracks updated, ${errors} errors`);
     };
 
     // Start background processing (don't await)
