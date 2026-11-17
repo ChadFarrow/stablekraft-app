@@ -7,6 +7,7 @@
 
 import { Event, getEventHash, Filter, EventTemplate, finalizeEvent } from 'nostr-tools';
 import { nip44 } from 'nostr-tools';
+import { paceRequest } from './nip46-pacing';
 import { NostrClient } from './client';
 import { RelayManager } from './relay';
 import { saveNIP46Connection, loadNIP46Connection, getOrCreateAppKeyPair, clearNIP46Connection, NIP46Connection, getAppKeyPairHistory, AppKeyPair } from './nip46-storage';
@@ -2960,20 +2961,24 @@ export class NIP46Client {
       note: 'This ID will be used to match the response. Make sure response.id matches exactly.',
     });
 
-    // Adaptive rate limiting: uses tracked signer response times
-    // SKIP rate limiting for 'connect' method - it's critical for initial connection
-    const lastTime = this.lastRequestTime.get(method);
-    const now = Date.now();
+    // Adaptive pacing: requests of one method go at least one window apart
+    // (500–2000ms, from the signer's measured response time). A request that
+    // comes too soon WAITS for its slot — it used to throw, which failed the
+    // list publish of every heart tap and every Private-mode sync. The slot is
+    // reserved before the wait, so callers that queue up go in order. `connect`
+    // is never paced. See lib/nostr/nip46-pacing.ts.
     const currentRateLimit = Math.max(this.MIN_RATE_LIMIT_MS, Math.min(this.MAX_RATE_LIMIT_MS, this.avgResponseTimeMs));
-    if (method !== 'connect' && lastTime && (now - lastTime) < currentRateLimit) {
-      const waitTime = currentRateLimit - (now - lastTime);
-      const errorMsg = `Rate limit: Please wait ${Math.ceil(waitTime / 1000)} seconds before sending another ${method} request.`;
-      console.warn(`⚠️ NIP-46: Rate limit - ${method} request too soon. Adaptive limit: ${currentRateLimit}ms`);
-      throw new Error(errorMsg);
+    const { sendAt, waitMs } = paceRequest({
+      method,
+      now: Date.now(),
+      last: this.lastRequestTime.get(method),
+      limitMs: currentRateLimit,
+    });
+    this.lastRequestTime.set(method, sendAt);
+    if (waitMs > 0) {
+      this.debugLog(`⏳ NIP-46: ${method} waits ${waitMs}ms for its slot (adaptive limit ${currentRateLimit}ms)`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
-    
-    // Update last request time
-    this.lastRequestTime.set(method, now);
 
     // For relay-based requests, we need to wait for the response event
     // This is a simplified implementation - in production, you'd want to
