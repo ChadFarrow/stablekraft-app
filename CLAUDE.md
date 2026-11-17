@@ -42,6 +42,8 @@ npm run relay                    # ws://127.0.0.1:7777, in-memory, replaceable-e
 npm run seed:relay -- <npub>     # copies the real kind:10333 in — read-only against production
 npm run dev:isolated -- -p 3001  # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key, with real NIP-44
+npm run e2e:signers              # the same loop in a real browser through REAL signers (nos2x, nak bunker),
+                                 # public and private, on a LOCAL database — starts and stops everything itself
 
 # Reading PRODUCTION. `railway login` needs a real TTY — it fails in any non-interactive
 # shell, Claude Code's `!` prefix included ("Cannot login in non-interactive mode"), so run
@@ -103,6 +105,7 @@ Per-subsystem test commands live in the skill that owns the subsystem — each s
   production, deliberately, because testing a mode switch needs real favorites to move. The reconcile
   can only ADD, but a heart you tap is a real favorite — snapshot with `scripts/backup-favorites.ts`
   first, or override `DATABASE_URL` from `.env` on the command line. Never edit `.env.local`.
+  `npm run e2e:signers` does the override itself and refuses a database that is not on loopback.
 - Run `npm run build` before committing — but **stop `npm run dev` first**, *or* build into a
   different directory with `NEXT_DIST_DIR=.next-build npm run build`, which is what to do when a dev
   server is running. Changing the dev PORT does not help; the collision is the directory. Next

@@ -36,8 +36,31 @@ npm run seed:relay -- <npub>     # copies the real kind:10333 in — read-only a
 npm run seed:relay -- <npub> --content 'AkQB…'   # force a private half to test the carry against
 npm run dev:isolated             # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key: read → merge → publish → assert
+npm run e2e:signers              # the same, in Chrome, through nos2x (NIP-07) and `nak bunker` (NIP-46)
 npx tsx lib/nostr/favorites.relay-probe.ts --relay ws://127.0.0.1:7777
 ```
+
+**`e2e:signers` is the only test that goes through a REAL signer.** Everything else stands in for one:
+`e2e:favorites` signs with a raw key, and the earlier browser runs defined `window.nostr` themselves. It
+loads the published nos2x into a headless Chrome over a CDP pipe (`--load-extension` is gone from branded
+Chrome; `Extensions.loadUnpacked` answers only on `--remote-debugging-pipe`), pastes a throwaway key into
+nos2x's own options page and answers its permission prompts; then it runs `nak bunker` on the same key and
+signs in through the "Bunker URI" card. Each signer favorites an album and a track, unfavorites the album,
+reloads, switches to Private and does it again, and every step is read off the relay (decrypting the
+private half with the key) and the rows. It builds its own local database, relay, TLS front and dev
+server, and stops and deletes all of them. nak and nos2x are fetched once into `~/.cache/stablekraft-e2e`,
+pinned by sha256.
+
+- **The relay is behind a TLS front because the NIP-46 client accepts only `wss://`.** The app is pointed
+  at `wss://127.0.0.1:7792` only; `RelayManager.connect` allows it because it is the configured relay.
+- **It found a NIP-46 bug that every stand-in hid** (2026-11-17, on `main` too): `NIP46Client`'s
+  per-method rate limit THROWS when a second request of the same method comes within its window
+  (500–2000ms). One heart tap asks for two signatures ~100ms apart (the kind 30001 item and this list),
+  so the list publish fails and waits for the next page load; in Private mode every load decrypts the
+  private half twice, the second throws, and the sync stops on "the private half is unreadable" — a
+  NIP-46 user on Private gets no automatic update at all. Waiting for the slot instead of throwing
+  made every check pass. Until that ships, the script reports these as failures and reloads the page
+  so the merge checks still run.
 
 **`NEXT_PUBLIC_NOSTR_RELAYS` alone is NOT isolation, and that is why `dev:isolated` exists.** Setting
 it points `getDefaultRelays()` at the local relay, and the publish path used to union the user's real
