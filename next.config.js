@@ -152,8 +152,22 @@ const withPWA = require('next-pwa')({
   // CTA reaches it even if /downloads was never visited online (it would otherwise
   // fall back to /offline). Data is fetched client-side, so a static shell is fine.
   additionalManifestEntries: [{ url: '/downloads', revision: null }],
-  cacheOnFrontEndNav: true,
-  reloadOnOnline: true,
+  // next-pwa's client script (`next-pwa/register.js`) NEVER RUNS in this app.
+  // next-pwa 5.6 adds it to the Pages Router entry, `main.js`, whatever
+  // `register` says, and every page here is App Router: pages load
+  // `main-app.js`, so `window.workbox` is undefined, and the worker is
+  // registered by `components/ServiceWorkerRegistration.tsx`. Measured
+  // 2026-11-17 on stablekraft.app: no reload when the network came back, and no
+  // `others` cache after client-side navigation. These two options belong to
+  // that script, and both are OFF so neither starts if it ever does run (a Pages
+  // Router page, or a next-pwa that knows App Router):
+  //   - reloadOnOnline (next-pwa's default is TRUE) calls location.reload() on
+  //     every `online` event, which would stop whatever is playing;
+  //   - cacheOnFrontEndNav fetches every page a second time after a client-side
+  //     navigation and stores it in a cache named `others`, which no route in
+  //     `runtimeCaching` above reads and nothing expires.
+  cacheOnFrontEndNav: false,
+  reloadOnOnline: false,
 });
 
 // Read package.json to get version for build

@@ -306,7 +306,11 @@ line holds the full story.
   requests, and the page rule only navigations: the old page regex matched every host, so a direct-played song or an
   HLS segment would have gone through a NetworkFirst cache. **Audio is matched by no rule**, so the worker never
   answers for it. Check a change here on a production build (`.next/standalone`, port 3009): `public/sw.js`'s
-  precache list must be all-200, and `navigator.serviceWorker.controller` set → `downloads`, `catalog-display`.
+  precache list must be all-200, and `navigator.serviceWorker.controller` set. **next-pwa only builds the worker
+  here; it does not run in the page.** Its client script `register.js` goes into the Pages Router entry, which no
+  page loads, so `components/ServiceWorkerRegistration.tsx` registers the worker and next-pwa's client options
+  (`reloadOnOnline`, `cacheOnFrontEndNav`) do nothing — both are set to `false` anyway → `downloads`,
+  `catalog-display`.
 - **`/_next/image` answers HTTP 400 for a host not in `remotePatterns` — it does not return a bigger image, it
   returns none.** So lifting `unoptimized` on an unlisted host *deletes* the artwork rather than merely leaving
   it large, and the 30-byte JSON error body is easy to mistake for a very small image. Measured 2026-09-20 against
