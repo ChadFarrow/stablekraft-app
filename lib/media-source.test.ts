@@ -70,21 +70,22 @@ test('AudioContext compares no media src with a raw === any more', () => {
   assert.deepEqual(raw, [], 'use holdsSource() from lib/media-source.ts');
 });
 
-test("the media-listener effect's cleanup does not drop the 15s warm-up", () => {
-  // That effect re-runs on every `timeupdate` (one of its deps depends on
-  // `currentTime`), so a drop in its cleanup rebuilt the warm-up four times a
-  // second. Fixing only the URL compare above changed nothing: measured on
-  // 2026-11-17, still 53 rebuilds per song change. Both had to go.
+test("the per-render cleanup does not drop the 15s warm-up", () => {
+  // The media handlers are refreshed after every render — about four a second
+  // while a song plays, one per `timeupdate`. A drop of the warm-up in that
+  // cleanup rebuilt it four times a second. Fixing only the URL compare above
+  // changed nothing: measured on 2026-11-17, still 53 rebuilds per song change.
+  // Both had to go.
   const source = readFileSync(
     fileURLToPath(new URL('../contexts/AudioContext.tsx', import.meta.url)),
     'utf8'
   );
-  const start = source.indexOf('// Media event listeners');
-  const end = source.indexOf('}, [isVideoMode, currentPlayingAlbum', start);
-  assert.ok(start > 0 && end > start, 'found the media-listener effect');
+  const start = source.indexOf('// Media event handlers.');
+  const end = source.indexOf('// Media event listeners:', start);
+  assert.ok(start > 0 && end > start, 'found the media-handler effect');
   const effect = source.slice(start, end);
-  const cleanup = effect.slice(effect.lastIndexOf('// Cleanup'));
-  assert.ok(cleanup.includes('removeEventListener'), 'found its cleanup');
+  const cleanup = effect.slice(effect.lastIndexOf('return () => {'));
+  assert.ok(cleanup.includes('iosAdvanceTimerRef'), 'found its cleanup');
   assert.doesNotMatch(cleanup, /preloadAudioRef\.current\s*=\s*null/);
   assert.match(source, /useEffect\(\s*\(\) => dropPreloader,/, 'the warm-up has an effect of its own');
 });

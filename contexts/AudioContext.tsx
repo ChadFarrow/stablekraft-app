@@ -247,6 +247,21 @@ function useStableFn<A extends unknown[], R>(fn: (...args: A) => R): (...args: A
   return useCallback((...args: A) => ref.current(...args), []);
 }
 
+// The media events AudioProvider handles, on both audio elements and the video
+// element. The listeners for them are bound once (see "Media event listeners").
+const MEDIA_EVENTS = [
+  'play',
+  'pause',
+  'ended',
+  'timeupdate',
+  'loadedmetadata',
+  'durationchange',
+  'error',
+  'stalled',
+  'waiting',
+] as const;
+type MediaHandlers = Record<(typeof MEDIA_EVENTS)[number], (e: Event) => void>;
+
 interface AudioProviderProps {
   children: ReactNode;
   radioMode?: boolean;
@@ -2611,16 +2626,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
   };
 
   // The 15-second warm-up element (`preloadAudioRef`) lives as long as the song
-  // change it warms up for — NOT as long as one run of the media-listener effect
-  // below. That effect lists `publishNip38StatusDebounced`, which depends on
-  // `currentTime`, so React tears it down and rebuilds it on every `timeupdate`
-  // (measured 2026-11-17: ~3.7 runs a second). Its cleanup used to drop this
+  // change it warms up for — NOT as long as one render. The media-handler effect
+  // below runs after every render (~3.7 a second while playing), and until
+  // 2026-11-17 the cleanup of the effect that held those handlers dropped this
   // element, so for the last 15 seconds of every song the warm-up was rebuilt
   // four times a second — ~55 aborted `/api/proxy-audio` requests per song
-  // change, and a warm-up that never finished. These deps are that effect's own
-  // minus the one that changes every tick; `handlePlay` still drops the element
-  // when the next song starts, and the 15s branch replaces it when the next
-  // song's URL changes.
+  // change, and a warm-up that never finished. These deps are the track, album,
+  // mode and queue; `handlePlay` still drops the element when the next song
+  // starts, and the 15s branch replaces it when the next song's URL changes.
   const dropPreloader = useCallback(() => {
     const el = preloadAudioRef.current;
     if (!el) return;
@@ -2633,7 +2646,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
     [dropPreloader, isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode]
   );
 
-  // Media event listeners
+  // Media event handlers. This effect has NO dependency list, on purpose: it runs
+  // after every render, so each handler reads that render's state — the album and
+  // index, `chapters`, `isPlaying`, `radioMode`, and `publishNip38StatusDebounced`,
+  // which changes with `currentTime`. It binds nothing. It only refreshes
+  // `mediaHandlersRef`, and the listeners bound ONCE below call through it.
+  //
+  // Until 2026-11-17 the handlers were bound right here, in an effect whose deps
+  // included `publishNip38StatusDebounced`. So on every `timeupdate` React removed
+  // and re-added all 27 listeners (9 events × 3 elements): ~100 removes and ~100
+  // adds a second while playing. That cleanup also ran the HLS teardown on every
+  // tick: pausing an HLS video re-rendered once more, found the video paused, and
+  // destroyed its stream (src emptied, position back to 0, Play did nothing).
+  // Both measured on a production build, before and after.
+  const mediaHandlersRef = useRef<MediaHandlers | null>(null);
   useEffect(() => {
     const audio = audioRef.current;
     const audioB = audioRefB.current;
@@ -3156,57 +3182,72 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, radioMod
       }, 1000);
     };
 
-    // Add event listeners to both audio elements (ping-pong) and the video element
-    const elements = [audio, audioB, video];
-    elements.forEach(element => {
-      element.addEventListener('play', handlePlay);
-      element.addEventListener('pause', handlePause);
-      element.addEventListener('ended', handleEnded);
-      element.addEventListener('timeupdate', handleTimeUpdate);
-      element.addEventListener('loadedmetadata', handleLoadedMetadata);
-      element.addEventListener('durationchange', handleDurationChange);
-      element.addEventListener('error', handleError);
-      element.addEventListener('stalled', handleStalled);
-      element.addEventListener('waiting', handleWaiting);
-    });
+    mediaHandlersRef.current = {
+      play: handlePlay,
+      pause: handlePause,
+      ended: handleEnded,
+      timeupdate: handleTimeUpdate,
+      loadedmetadata: handleLoadedMetadata,
+      durationchange: handleDurationChange,
+      error: handleError,
+      stalled: handleStalled,
+      waiting: handleWaiting,
+    };
 
-    // Cleanup
+    // KEPT AS IT WAS: the iOS proactive advance timer is cleared after every
+    // render, as the old effect's cleanup cleared it on every tick. So while the
+    // page renders, the timer set at one `timeupdate` is cleared soon after; it
+    // can fire only when rendering stops, which is the iOS background case it
+    // was written for. #162 (`fireEarlyOnIOS`) was tuned on an iPhone with
+    // exactly this in place. Letting the timer survive would change iOS
+    // background playback, and only a real iPhone can test that.
     return () => {
-      elements.forEach(element => {
-        element.removeEventListener('play', handlePlay);
-        element.removeEventListener('pause', handlePause);
-        element.removeEventListener('ended', handleEnded);
-        element.removeEventListener('timeupdate', handleTimeUpdate);
-        element.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        element.removeEventListener('durationchange', handleDurationChange);
-        element.removeEventListener('error', handleError);
-        element.removeEventListener('stalled', handleStalled);
-        element.removeEventListener('waiting', handleWaiting);
-      });
-
-      // Clean up iOS background advance timer
       if (iosAdvanceTimerRef.current) {
         clearTimeout(iosAdvanceTimerRef.current);
         iosAdvanceTimerRef.current = null;
       }
-
-      // The preload Audio element is NOT dropped here: this cleanup runs on
-      // every tick. See `dropPreloader` above this effect.
-
-      // Clean up HLS instance - but NOT if:
-      // 1. We're in the middle of initializing HLS
-      // 2. Video is currently playing (don't destroy active HLS stream)
-      const videoElement = videoRef.current;
-      const isVideoPlaying = videoElement && !videoElement.paused && !videoElement.ended;
-
-      if (hlsRef.current && !isInitializingHlsRef.current && !isVideoPlaying) {
-        console.log('🧹 Cleaning up HLS instance in useEffect cleanup');
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-      // Skip cleanup silently if HLS is initializing or video is playing
     };
-  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode, publishNip38StatusDebounced]); // Add necessary dependencies for preloading logic
+  });
+
+  // Media event listeners: bound ONCE, on both audio elements (ping-pong) and the
+  // video element. All three are rendered unconditionally below and never
+  // replaced. Each listener calls the handler from the latest render (above).
+  useEffect(() => {
+    const audio = audioRef.current;
+    const audioB = audioRefB.current;
+    const video = videoRef.current;
+    if (!audio || !audioB || !video) return;
+    const elements = [audio, audioB, video];
+    const listeners = MEDIA_EVENTS.map(
+      (type) => [type, (e: Event) => mediaHandlersRef.current?.[type](e)] as const
+    );
+    elements.forEach((element) => {
+      listeners.forEach(([type, listener]) => element.addEventListener(type, listener));
+    });
+    return () => {
+      elements.forEach((element) => {
+        listeners.forEach(([type, listener]) => element.removeEventListener(type, listener));
+      });
+    };
+  }, []);
+
+  // HLS teardown when the track, album, mode or queue changes, and on unmount —
+  // not on every tick (see "Media event handlers"). The 15s warm-up element has
+  // its own effect, `dropPreloader`.
+  useEffect(() => () => {
+    // Clean up HLS instance - but NOT if:
+    // 1. We're in the middle of initializing HLS
+    // 2. Video is currently playing (don't destroy active HLS stream)
+    const videoElement = videoRef.current;
+    const isVideoPlaying = videoElement && !videoElement.paused && !videoElement.ended;
+
+    if (hlsRef.current && !isInitializingHlsRef.current && !isVideoPlaying) {
+      console.log('🧹 Cleaning up HLS instance in useEffect cleanup');
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    // Skip cleanup silently if HLS is initializing or video is playing
+  }, [isVideoMode, currentPlayingAlbum, currentTrackIndex, isShuffleMode, shuffledPlaylist, currentShuffleIndex, repeatMode]);
 
   // Silent stall detection and recovery
   // Detects when audio element says "playing" but currentTime stops advancing
