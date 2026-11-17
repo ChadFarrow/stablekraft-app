@@ -296,6 +296,17 @@ line holds the full story.
   would take `stablekraft-downloads-v1` with it — and `legacy-audio-cache.test.ts` fails if anything but the
   downloads layer opens a bucket. A new automatic cache needs a reader, a byte limit and eviction, or it is this
   bug again → `downloads`, `audio-playback`.
+- **The service worker installs only since 2026-11-17, so everything it does is new in production.** Every install
+  before then failed: `next.config.js` passed next-pwa an `exclude`, and next-pwa spreads options it does not know
+  OVER its own config, so that list replaced the default that drops `server/*` and `build-manifest.json` — nine
+  manifests went into the precache and 404'd, and one 404 throws the worker away. No offline start page, no offline
+  `/downloads`, and a failed install attempt on every page load (the registration added `?v=${Date.now()}`, a new
+  worker per visit). It is `buildExcludes` now, with a REGEX for "only `static/`" — Workbox 6.6 returns the result
+  of the FIRST function in that list and checks nothing after it. Every runtime rule matches only same-origin
+  requests, and the page rule only navigations: the old page regex matched every host, so a direct-played song or an
+  HLS segment would have gone through a NetworkFirst cache. **Audio is matched by no rule**, so the worker never
+  answers for it. Check a change here on a production build (`.next/standalone`, port 3009): `public/sw.js`'s
+  precache list must be all-200, and `navigator.serviceWorker.controller` set → `downloads`, `catalog-display`.
 - **`/_next/image` answers HTTP 400 for a host not in `remotePatterns` — it does not return a bigger image, it
   returns none.** So lifting `unoptimized` on an unlisted host *deletes* the artwork rather than merely leaving
   it large, and the 30-byte JSON error body is easy to mistake for a very small image. Measured 2026-09-20 against
