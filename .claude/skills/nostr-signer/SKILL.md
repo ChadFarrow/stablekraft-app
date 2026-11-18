@@ -11,6 +11,8 @@ Signing in with Nostr and getting events signed and published. Wallet/Lightning 
 
 ```
 npx tsx --test lib/nostr/nwc-backup.test.ts         # NWC backup pure helpers
+npx tsx --test lib/nostr/nip46-pacing.test.ts       # NIP-46 pacing: a request too soon waits, never throws
+E2E_ONLY=nip46 npm run e2e:signers                  # a real `nak bunker` through the login modal, public + private
 node lib/nostr/nwc-backup.browser-probe.mjs         # wallet picker + backup flows (needs `npm run dev`)
 ```
 
@@ -28,6 +30,15 @@ Invariants (do not revert):
 - **`NostrProvider` has its own `visibilitychange` handler** (`contexts/NostrContext.tsx`), in addition to `useNip46Connection`'s modal-scoped one. The provider-scoped handler keeps boost/favorite working on `/favorites`, NowPlaying, etc. while the modal is unmounted. Do **not** delete as "redundant".
 - **NIP-44 works over NIP-46 and needs no router changes** (added 2026-07-26 for the NWC backup). `NIP46Client.nip44Encrypt/nip44Decrypt` → `sendRequest('nip44_encrypt'|'nip44_decrypt')`, surfaced as `UnifiedSigner.supportsNip44()`/`nip44Encrypt`/`nip44Decrypt` and confirmed against real Amber. Replies resolve on the **id path** (`pendingRequests.get(content.id)`); the shape-based fallbacks further down only fire when the id does *not* match and are each gated on the pending request's method being `get_public_key` or `sign_event`, so a base64 NIP-44 result can neither be stolen by them nor satisfied by a stray hex reply. A signer that mangles ids fails by timing out, which is correct. **Do not widen those hex heuristics** to "handle" nip44 — add an explicit pending-op type if it ever proves necessary.
 - **`supportsNip44()` is capability, not connectivity — but for NIP-46 it's answered by `isAvailable()`**, i.e. "is the client connected". So it reads `false` for seconds after a post-login reload while the client rebuilds. Callers must go through `ensureSignerAvailable()` and retry before concluding a signer can't encrypt (see the NWC Backup section).
+- **Pacing WAITS, it never throws** (`lib/nostr/nip46-pacing.ts`, 2026-11-17). Requests of one method go at
+  least one adaptive window apart (500–2000ms, from the signer's measured response time) so a burst does not
+  flood a phone signer, and a request that comes too soon waits for its slot, reserved before the wait so a
+  queue keeps its order. It used to throw `Rate limit: Please wait…`, and two normal paths send one method
+  twice inside the window: a heart tap (`sign_event` for the kind 30001 item, then for the kind 10333 list,
+  ~100ms apart) and a Private-mode page load (`nip44_decrypt` for the pull, then for the push). Both lost
+  their second request, silently: the list never updated on a tap, and on Private never updated at all.
+  `nip46-pacing.test.ts` fails if the throw comes back; `E2E_ONLY=nip46 npm run e2e:signers` proves it
+  against a real `nak bunker`.
 - **NIP-55 has no nip44.** It's intent-based and implements only `sign_event`; `supportsNip44()` is `false` and dependent features must hide rather than fail.
 
 ---
