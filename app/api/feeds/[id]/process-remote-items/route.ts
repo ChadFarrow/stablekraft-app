@@ -6,6 +6,7 @@ import { findFeedForRemoteItem } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl, isPlaylistSourceFeedUrl } from '@/lib/feed-exclusions';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { isListMedium } from '@/lib/playlist/musicl-feed';
 
 interface RemoteItem {
   feedGuid?: string;
@@ -92,6 +93,10 @@ export async function POST(
       const feedUrlMatch = match.match(/feedUrl="([^"]+)"/);
       const feedGuidMatch = match.match(/feedGuid="([^"]+)"/);
       const mediumMatch = match.match(/medium="([^"]+)"/);
+
+      // A list-medium child (musicL, podcastL, …) is a playlist, not an album;
+      // creating it as type:'album' gives an empty, unloadable tile (#309).
+      if (isListMedium(mediumMatch?.[1])) continue;
 
       if (feedUrlMatch) {
         remoteItems.push({

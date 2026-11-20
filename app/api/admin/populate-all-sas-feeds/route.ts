@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -32,16 +33,11 @@ async function fetchPlaylistXML(url: string) {
 
 function parseRemoteItems(xmlText: string) {
   const remoteItems: Array<{feedGuid: string, itemGuid: string}> = [];
-  const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-  
-  let match;
-  while ((match = remoteItemRegex.exec(xmlText)) !== null) {
-    remoteItems.push({
-      feedGuid: match[1],
-      itemGuid: match[2]
-    });
+  // Attributes are read by name, in any order and with either quote (#309).
+  // A remoteItem with no itemGuid (a <podcast:publisher> back-link) is not a track.
+  for (const { feedGuid, itemGuid } of remoteItemTracks(xmlText)) {
+    remoteItems.push({ feedGuid, itemGuid });
   }
-  
   return remoteItems;
 }
 

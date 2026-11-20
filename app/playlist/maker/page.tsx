@@ -12,46 +12,44 @@ export default function PlaylistMakerPage() {
     link: 'https://homegrownhits.xyz',
     imageUrl: 'https://bowlafterbowl.com/wp-content/uploads/2023/09/HomegrownHitsArt.png',
     guid: '',
+    publisherFeedGuid: '',
+    publisherFeedUrl: '',
     descriptionHtml: 'Every music reference from Homegrown Hits podcast',
   });
   const [autoLoading, setAutoLoading] = useState(false);
   const [autoError, setAutoError] = useState<string | null>(null);
   const stripTags = (input: string) => input.replace(/<[^>]*>/g, '').trim();
   const toFeedDescription = (input: string) => (input || '').trim();
+  // Any UUID version: a v7 guid was refused before and silently replaced.
   const isUuid = (s: unknown): s is string =>
-    typeof s === 'string' && /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(s);
+    typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+  // The playlist's guid is kept per source feed in this browser, so the same
+  // playlist keeps one identity across visits. It is never the source show's
+  // own guid: that would make the playlist claim the show's identity (#309).
+  const guidKey = (feedUrl: string) => `sk_playlist_guid:${feedUrl.trim()}`;
+  const storedGuid = (feedUrl: string): string | null => {
+    try { const g = localStorage.getItem(guidKey(feedUrl)); return isUuid(g) ? g : null; } catch { return null; }
+  };
+  const storeGuid = (feedUrl: string, guid: string) => {
+    try { if (isUuid(guid)) localStorage.setItem(guidKey(feedUrl), guid.trim()); } catch {}
+  };
   const genUuid = (): string =>
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
       ? (crypto as any).randomUUID()
       : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r=(Math.random()*16)|0; const v=c==='x'?r:(r&0x3)|0x8; return v.toString(16); });
 
-  // Ensure a valid GUID on first render; prefer feed GUID for default HGH
+  // On first render, use the guid this browser stored for the source feed, or
+  // make one and store it. Never the source feed's own guid (#309).
   const autoRunRef = useRef(false);
   useEffect(() => {
     if (autoRunRef.current) return;
-    const isDefaultHGH = form.feedUrl === 'https://feed.homegrownhits.xyz/feed.xml';
-    if (isDefaultHGH) {
-      autoRunRef.current = true;
-      // Try to load feed GUID; fallback to generating UUID
-      (async () => {
-        try {
-          const res = await fetch(`/api/fetch-feed-metadata?feedUrl=${encodeURIComponent(form.feedUrl)}`, { cache: 'no-store' });
-          if (res.ok) {
-            const json = await res.json();
-            const m = json.metadata || {};
-            const feedGuid = m.guid;
-            if (isUuid(feedGuid)) {
-              setForm(f => ({ ...f, guid: feedGuid }));
-              return;
-            }
-          }
-        } catch {}
-        setForm(f => (isUuid(f.guid) && f.guid ? f : { ...f, guid: genUuid() }));
-      })();
-    } else if (!isUuid(form.guid)) {
-      autoRunRef.current = true;
-      setForm(f => (isUuid(f.guid) && f.guid ? f : { ...f, guid: genUuid() }));
-    }
+    autoRunRef.current = true;
+    setForm(f => {
+      if (isUuid(f.guid)) return f;
+      const guid = storedGuid(f.feedUrl) || genUuid();
+      storeGuid(f.feedUrl, guid);
+      return { ...f, guid };
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -72,8 +70,9 @@ export default function PlaylistMakerPage() {
           author: m.author || f.author,
           link: m.link || f.link,
           imageUrl: m.imageUrl || f.imageUrl,
-          // Only accept feed GUID if it is a UUID; otherwise keep current UUID
-          guid: isUuid(m.guid) ? m.guid : f.guid,
+          // The playlist keeps its own guid: the one stored for this source
+          // feed, else a new one, stored. Never m.guid, the source show's (#309).
+          guid: (() => { const g = storedGuid(f.feedUrl) || genUuid(); storeGuid(f.feedUrl, g); return g; })(),
           descriptionHtml: f.descriptionHtml || (m.description ? stripTags(m.description) : f.descriptionHtml)
         }));
       } else {
@@ -91,7 +90,21 @@ export default function PlaylistMakerPage() {
 
   const [previewXml, setPreviewXml] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  // `field` is the input the route refused ('guid' | 'publisherFeedGuid'), so
+  // that input can show the error too, not only the preview.
+  const [previewError, setPreviewError] = useState<{ message: string; field?: string } | null>(null);
+
+  // Copy XML and Download give the preview only when its podcast:guid is the
+  // one in the field. A preview built before the guid changed (or before a
+  // refused build) would publish a feed under an identity the user replaced.
+  const normGuid = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+  const previewGuid = previewXml.match(/<podcast:guid>([^<]*)<\/podcast:guid>/)?.[1] ?? null;
+  const previewIsCurrent = !!previewXml && previewGuid !== null && normGuid(previewGuid) === normGuid(form.guid);
+
+  const guidInvalid = (form.guid.trim() !== '' || previewError?.field === 'guid') && !isUuid(form.guid);
+  const pubGuidInvalid = !!form.publisherFeedGuid && !isUuid(form.publisherFeedGuid);
+  const fieldError = (field: string, local: string) =>
+    previewError?.field === field ? previewError.message : local;
 
   const refreshPreview = async () => {
     setPreviewLoading(true);
@@ -112,11 +125,24 @@ export default function PlaylistMakerPage() {
         cache: 'no-store',
       });
       clearTimeout(t);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Show the route's own reason (a 400 says which value it refused), and
+        // drop the old preview: it was built from values the route just refused.
+        const body = await res.json().catch(() => null);
+        setPreviewXml('');
+        setPreviewError({
+          message: typeof body?.error === 'string' && body.error
+            ? body.error
+            : `Failed to load preview (HTTP ${res.status})`,
+          field: typeof body?.field === 'string' ? body.field : undefined,
+        });
+        return;
+      }
       const xml = await res.text();
       setPreviewXml(xml);
-    } catch (e) {
-      setPreviewError('Failed to load preview');
+    } catch {
+      setPreviewXml('');
+      setPreviewError({ message: 'Failed to load preview' });
     } finally {
       setPreviewLoading(false);
     }
@@ -178,17 +204,19 @@ export default function PlaylistMakerPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
               <div>
-                <label htmlFor="pm-guid" className="block text-sm text-gray-400 mb-1">GUID <span className="text-xs text-gray-500 ml-2">if this is a new playlist click Auto or enter your own new GUID</span></label>
+                <label htmlFor="pm-guid" className="block text-sm text-gray-400 mb-1">GUID <span className="text-xs text-gray-500 ml-2">this playlist&apos;s own identity: keep it for every build (Auto makes a new playlist)</span></label>
                 <div className="flex gap-2">
                   <input id="pm-guid"
-                    className="flex-1 px-3 py-2 rounded bg-black/40 border border-white/10"
+                    className={`flex-1 px-3 py-2 rounded bg-black/40 border ${guidInvalid ? 'border-red-500' : 'border-white/10'}`}
                     value={form.guid}
-                    onChange={e=>setForm(f=>({...f, guid:e.target.value}))}
+                    onChange={e=>{ const guid = e.target.value; storeGuid(form.feedUrl, guid); setForm(f=>({...f, guid})); }}
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    aria-invalid={guidInvalid}
+                    aria-describedby={guidInvalid ? 'pm-guid-error' : undefined}
                   />
                   <button
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, guid: (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r=(Math.random()*16)|0; const v=c==='x'?r:(r&0x3)|0x8; return v.toString(16); }) }))}
+                    onClick={() => { const guid = genUuid(); storeGuid(form.feedUrl, guid); setForm(f => ({ ...f, guid })); }}
                     className="px-3 py-2 rounded bg-white/10 hover:bg-white/20 whitespace-nowrap"
                     title="Auto-generate GUID"
                   >Auto</button>
@@ -200,6 +228,26 @@ export default function PlaylistMakerPage() {
                     title="Open GUID Generator"
                   >Open</a>
                 </div>
+                {guidInvalid && (
+                  <p id="pm-guid-error" className="mt-1 text-sm text-red-400">
+                    {fieldError('guid', 'The GUID must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).')}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="pm-pub-guid" className="block text-sm text-gray-400 mb-1">Publisher feed GUID <span className="text-xs text-gray-500 ml-2">(optional back-link)</span></label>
+                <input id="pm-pub-guid" className={`w-full px-3 py-2 rounded bg-black/40 border ${pubGuidInvalid ? 'border-red-500' : 'border-white/10'}`} value={form.publisherFeedGuid} onChange={e=>setForm(f=>({...f, publisherFeedGuid:e.target.value.trim()}))} placeholder="UUID of your medium=publisher feed" aria-invalid={pubGuidInvalid} aria-describedby={pubGuidInvalid ? 'pm-pub-guid-error' : undefined}/>
+                {pubGuidInvalid && (
+                  <p id="pm-pub-guid-error" className="mt-1 text-sm text-red-400">
+                    {fieldError('publisherFeedGuid', 'The publisher feed GUID must be a UUID, or empty.')}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="pm-pub-url" className="block text-sm text-gray-400 mb-1">Publisher feed URL</label>
+                <input id="pm-pub-url" className="w-full px-3 py-2 rounded bg-black/40 border border-white/10" value={form.publisherFeedUrl} onChange={e=>setForm(f=>({...f, publisherFeedUrl:e.target.value.trim()}))}/>
               </div>
             </div>
           </div>
@@ -219,18 +267,23 @@ export default function PlaylistMakerPage() {
                 {previewLoading ? 'Generating…' : 'Refresh Preview'}
               </button>
               <button
-                onClick={async()=>{ if(!previewXml) return; await navigator.clipboard.writeText(previewXml); setPreviewCopied(true); setTimeout(()=>setPreviewCopied(false),1500); }}
-                disabled={!previewXml}
+                onClick={async()=>{ if(!previewIsCurrent) return; await navigator.clipboard.writeText(previewXml); setPreviewCopied(true); setTimeout(()=>setPreviewCopied(false),1500); }}
+                disabled={!previewIsCurrent}
                 className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
               >{previewCopied ? 'Copied!' : 'Copy XML'}</button>
               <button
-                onClick={()=>{ if(!previewXml) return; const blob = new Blob([previewXml], {type:'application/rss+xml;charset=utf-8'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='playlist.xml'; a.click(); URL.revokeObjectURL(url); }}
-                disabled={!previewXml}
+                onClick={()=>{ if(!previewIsCurrent) return; const blob = new Blob([previewXml], {type:'application/rss+xml;charset=utf-8'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='playlist.xml'; a.click(); URL.revokeObjectURL(url); }}
+                disabled={!previewIsCurrent}
                 className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
               >Download</button>
             </div>
           </div>
-          {previewError && <p className="text-sm text-red-400">{previewError}</p>}
+          {previewError && <p role="alert" className="text-sm text-red-400">{previewError.message}</p>}
+          {previewXml && !previewIsCurrent && (
+            <p className="text-sm text-amber-400">
+              This preview was built with a different GUID. Refresh Preview to build it with the GUID in the field.
+            </p>
+          )}
           <div className="rounded bg-black/40 border border-white/10 overflow-hidden">
             <pre className="whitespace-pre-wrap break-words p-3 font-mono text-xs text-gray-200 min-h-[200px] max-h-[400px] overflow-auto">
 {previewXml || 'No preview yet. Click “Refresh Preview”.'}

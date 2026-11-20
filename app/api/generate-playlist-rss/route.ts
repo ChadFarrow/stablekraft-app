@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch, readCappedText, MAX_FEED_BYTES } from '@/lib/safe-fetch';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { XMLParser } from 'fast-xml-parser';
+import { PODCAST_NS, buildMinimalPlaylistXml, escapeXml } from '@/lib/playlist/musicl-feed';
+import { checkMinimalPlaylistIds, podcastGuidFromUrl, type CheckedPlaylistIds } from '@/lib/playlist/musicl-guid';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +18,17 @@ export async function GET(request: NextRequest) {
     const overrideImageUrl = searchParams.get('imageUrl');
     const overrideAuthor = searchParams.get('author');
     const overrideGuid = searchParams.get('guid');
-    
+    const overridePlaylistFeedUrl = searchParams.get('playlistFeedUrl');
+
+    // The guid check needs nothing from the source feed, so it runs before the
+    // parse (which takes ~23 s for a large show): a refusal is immediate.
+    let ids: CheckedPlaylistIds | null = null;
+    if (template === 'minimal') {
+      const checked = checkMinimalPlaylistIds({ guid: overrideGuid, playlistFeedUrl: overridePlaylistFeedUrl });
+      if (!checked.ok) return NextResponse.json({ error: checked.error, field: checked.field }, { status: 400 });
+      ids = checked;
+    }
+
     // Extract music tracks from the feed
     const result = await MusicTrackParser.extractMusicTracks(feedUrl);
     
@@ -37,16 +49,19 @@ export async function GET(request: NextRequest) {
     }, {} as Record<string, typeof v4vTracks>);
     
     // Generate RSS XML
-    const rssXml = template === 'minimal'
-      ? generateMinimalPlaylistRSS(v4vTracks, {
-          title: overrideTitle,
-          description: overrideDescription,
-          link: overrideLink,
-          imageUrl: overrideImageUrl,
-          author: overrideAuthor,
-          guid: overrideGuid,
-        })
-      : generatePlaylistRSS(tracksByEpisode, feedUrl);
+    let rssXml: string;
+    if (ids) {
+      rssXml = generateMinimalPlaylistRSS(v4vTracks, {
+        title: overrideTitle,
+        description: overrideDescription,
+        link: overrideLink,
+        imageUrl: overrideImageUrl,
+        author: overrideAuthor,
+        guid: ids.guid,
+      });
+    } else {
+      rssXml = generatePlaylistRSS(tracksByEpisode, feedUrl);
+    }
     
     if (format === 'json') {
       return NextResponse.json({
@@ -84,6 +99,15 @@ export async function POST(request: NextRequest) {
     const overrides = body.overrides || {};
     const fast: boolean = !!body.fast;
 
+    // Before any fetch: a bad guid or publisher guid is the caller's mistake,
+    // a 400 naming the field, and needs nothing from the source feed.
+    let ids: CheckedPlaylistIds | null = null;
+    if (template === 'minimal') {
+      const checked = checkMinimalPlaylistIds(overrides);
+      if (!checked.ok) return NextResponse.json({ error: checked.error, field: checked.field }, { status: 400 });
+      ids = checked;
+    }
+
     let v4vTracks: any[];
     if (fast) {
       v4vTracks = await quickExtractRemoteItems(feedUrl);
@@ -96,7 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const xml = template === 'minimal'
+    const xml = ids
       ? generateMinimalPlaylistRSS(v4vTracks, {
           title: overrides.title ?? null,
           description: overrides.description ?? null,
@@ -104,8 +128,9 @@ export async function POST(request: NextRequest) {
           link: overrides.link ?? null,
           imageUrl: overrides.imageUrl ?? null,
           author: overrides.author ?? null,
-          guid: overrides.guid ?? null,
+          guid: ids.guid,
           medium: overrides.medium ?? 'musicL',
+          publisher: ids.publisher,
         })
       : (() => {
           const tracksByEpisode = v4vTracks.reduce((acc: Record<string, any[]>, track: any) => {
@@ -200,14 +225,15 @@ async function quickExtractRemoteItems(feedUrl: string): Promise<any[]> {
 function generatePlaylistRSS(tracksByEpisode: Record<string, any[]>, sourceFeedUrl: string): string {
   const now = new Date().toUTCString();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  
+  const selfUrl = `${baseUrl}/api/generate-playlist-rss?feedUrl=${encodeURIComponent(sourceFeedUrl)}`;
+
   // Calculate total tracks
   const totalTracks = Object.values(tracksByEpisode).reduce((sum, tracks) => sum + tracks.length, 0);
   
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" 
   xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
-  xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md"
+  xmlns:podcast="${PODCAST_NS}"
   xmlns:content="http://purl.org/rss/1.0/modules/content/"
   xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
@@ -219,7 +245,7 @@ function generatePlaylistRSS(tracksByEpisode: Record<string, any[]>, sourceFeedU
     <lastBuildDate>${now}</lastBuildDate>
     <pubDate>${now}</pubDate>
     <generator>StableKraft Music Extractor</generator>
-    <atom:link href="${baseUrl}/api/generate-playlist-rss?feedUrl=${encodeURIComponent(sourceFeedUrl)}" rel="self" type="application/rss+xml"/>
+    <atom:link href="${escapeXml(selfUrl)}" rel="self" type="application/rss+xml"/>
     
     <itunes:author>The Doerfels</itunes:author>
     <itunes:summary>Music playlist from Into The Doerfel Verse podcast</itunes:summary>
@@ -227,12 +253,12 @@ function generatePlaylistRSS(tracksByEpisode: Record<string, any[]>, sourceFeedU
       <itunes:name>The Doerfels</itunes:name>
       <itunes:email>thedoerfels@example.com</itunes:email>
     </itunes:owner>
-    <itunes:explicit>no</itunes:explicit>
+    <itunes:explicit>false</itunes:explicit>
     <itunes:category text="Music"/>
     <itunes:image href="https://www.doerfelverse.com/images/podcast-cover.jpg"/>
     
     <podcast:medium>musicL</podcast:medium>
-    <podcast:guid>playlist-${generateGuid(sourceFeedUrl)}</podcast:guid>
+    <podcast:guid>${podcastGuidFromUrl(selfUrl)}</podcast:guid>
     
     ${generateTrackItems(tracksByEpisode, baseUrl)}
   </channel>
@@ -248,39 +274,27 @@ function generateMinimalPlaylistRSS(v4vTracks: any[], overrides: {
   link?: string | null;
   imageUrl?: string | null;
   author?: string | null;
-  guid?: string | null;
+  guid: string;
   medium?: string | undefined;
+  publisher?: { feedGuid?: string | null; feedUrl?: string | null } | null;
 }): string {
-  const isUuid = (s: unknown): s is string =>
-    typeof s === 'string' && /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(s);
-  const generateUuid = (): string =>
-    (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-      ? (crypto as any).randomUUID()
-      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-          const r = (Math.random() * 16) | 0;
-          const v = c === 'x' ? r : (r & 0x3) | 0x8;
-          return v.toString(16);
-        });
-  const now = new Date().toUTCString();
-  const title = overrides.title || 'Music playlist';
-  const description = overrides.description || 'Every music reference from the source podcast';
-  const descriptionHtml = overrides.descriptionHtml || null;
-  const link = overrides.link || 'https://example.com';
-  const imageUrl = overrides.imageUrl || '';
-  const author = overrides.author || 'Playlist';
-  const guid = isUuid(overrides.guid) ? overrides.guid! : generateUuid();
-  const medium = overrides.medium || 'musicL';
-
-  const remoteItems = v4vTracks
-    .filter(t => t?.valueForValue?.feedGuid && t?.valueForValue?.itemGuid)
-    .map(t => `  <podcast:remoteItem feedGuid="${escapeXml(t.valueForValue.feedGuid)}" itemGuid="${escapeXml(t.valueForValue.itemGuid)}"/>`)
-    .join('\n');
-
-  const imageBlock = imageUrl
-    ? `<image>\n<url>\n${escapeXml(imageUrl)}\n</url>\n</image>`
-    : '';
-
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md" xmlns:content="http://purl.org/rss/1.0/modules/content/">\n<channel>\n<author>${escapeXml(author)}</author>\n<title>${escapeXml(title)}</title>\n<description>\n${descriptionHtml ? descriptionHtml : escapeXml(description)}\n</description>\n<link>${escapeXml(link)}</link>\n<language>en</language>\n<pubDate>${now}</pubDate>\n<lastBuildDate>${now}</lastBuildDate>\n${imageBlock}\n<podcast:medium>${escapeXml(medium)}</podcast:medium>\n<podcast:guid>${escapeXml(guid)}</podcast:guid>\n${remoteItems}\n</channel>\n</rss>`;
+  // One writer for the maker's feed (lib/playlist/musicl-feed.ts): the
+  // namespace, the escaping, the CDATA description and the guid rule live
+  // there, with tests (#309).
+  return buildMinimalPlaylistXml({
+    guid: overrides.guid,
+    title: overrides.title || 'Music playlist',
+    author: overrides.author || 'Playlist',
+    description: overrides.description || 'Every music reference from the source podcast',
+    descriptionHtml: overrides.descriptionHtml || null,
+    link: overrides.link || 'https://example.com',
+    imageUrl: overrides.imageUrl || '',
+    medium: overrides.medium || 'musicL',
+    publisher: overrides.publisher ?? null,
+    tracks: v4vTracks
+      .filter(t => t?.valueForValue?.feedGuid && t?.valueForValue?.itemGuid)
+      .map(t => ({ feedGuid: t.valueForValue.feedGuid, itemGuid: t.valueForValue.itemGuid })),
+  });
 }
 
 function generateTrackItems(tracksByEpisode: Record<string, any[]>, baseUrl: string): string {
@@ -324,24 +338,4 @@ function formatDuration(seconds: number): string {
 
 function formatTime(seconds: number): string {
   return formatDuration(seconds);
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function generateGuid(input: string): string {
-  // Simple hash function to generate a consistent GUID from the input
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
 }
