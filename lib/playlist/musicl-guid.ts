@@ -39,3 +39,49 @@ export function playlistGuid(guid: string | null | undefined, playlistFeedUrl?: 
   return fromUrl || null;
 }
 
+export const NO_GUID_ERROR =
+  'The playlist needs its own podcast:guid: pass guid (a UUID) or playlistFeedUrl (where the playlist is hosted).';
+
+export const BAD_PUBLISHER_GUID_ERROR =
+  'The publisher feed GUID must be a UUID: the podcast:guid of your medium="publisher" feed. Leave it empty for no back-link.';
+
+export interface CheckedPlaylistIds {
+  ok: true;
+  guid: string;
+  publisher: { feedGuid: string; feedUrl: string | null } | null;
+}
+
+export type MinimalPlaylistIds =
+  | CheckedPlaylistIds
+  | { ok: false; field: 'guid' | 'publisherFeedGuid'; error: string };
+
+const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+
+/**
+ * The identity checks of a minimal-template build: the playlist's own guid and
+ * the optional publisher back-link. No I/O, so the route runs it BEFORE it
+ * fetches the source feed — run after the parse, a refused guid waited ~23 s
+ * for its 400. A refusal names the field, so the maker can mark that input.
+ *
+ * A bad publisher guid is a 400 here; left to buildMinimalPlaylistXml, whose
+ * throw is only a backstop, it was a 500 "Failed to generate playlist RSS".
+ * An empty publisher guid means no back-link, as before.
+ */
+export function checkMinimalPlaylistIds(o: {
+  guid?: unknown;
+  playlistFeedUrl?: unknown;
+  publisherFeedGuid?: unknown;
+  publisherFeedUrl?: unknown;
+}): MinimalPlaylistIds {
+  const guid = playlistGuid(str(o.guid), str(o.playlistFeedUrl));
+  if (!guid) return { ok: false, field: 'guid', error: NO_GUID_ERROR };
+
+  const rawPub = o.publisherFeedGuid;
+  if (!rawPub || (typeof rawPub === 'string' && !rawPub.trim())) {
+    return { ok: true, guid, publisher: null };
+  }
+  if (!isUuid(rawPub)) return { ok: false, field: 'publisherFeedGuid', error: BAD_PUBLISHER_GUID_ERROR };
+  const pubUrl = (str(o.publisherFeedUrl) || '').trim();
+  return { ok: true, guid, publisher: { feedGuid: rawPub.trim(), feedUrl: pubUrl || null } };
+}
+

@@ -3,10 +3,7 @@ import { safeFetch, readCappedText, MAX_FEED_BYTES } from '@/lib/safe-fetch';
 import { MusicTrackParser } from '@/lib/music-track-parser';
 import { XMLParser } from 'fast-xml-parser';
 import { PODCAST_NS, buildMinimalPlaylistXml, escapeXml } from '@/lib/playlist/musicl-feed';
-import { playlistGuid, podcastGuidFromUrl } from '@/lib/playlist/musicl-guid';
-
-const NO_GUID_ERROR =
-  'The playlist needs its own podcast:guid: pass guid (a UUID) or playlistFeedUrl (where the playlist is hosted).';
+import { checkMinimalPlaylistIds, podcastGuidFromUrl, type CheckedPlaylistIds } from '@/lib/playlist/musicl-guid';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +19,16 @@ export async function GET(request: NextRequest) {
     const overrideAuthor = searchParams.get('author');
     const overrideGuid = searchParams.get('guid');
     const overridePlaylistFeedUrl = searchParams.get('playlistFeedUrl');
-    
+
+    // The guid check needs nothing from the source feed, so it runs before the
+    // parse (which takes ~23 s for a large show): a refusal is immediate.
+    let ids: CheckedPlaylistIds | null = null;
+    if (template === 'minimal') {
+      const checked = checkMinimalPlaylistIds({ guid: overrideGuid, playlistFeedUrl: overridePlaylistFeedUrl });
+      if (!checked.ok) return NextResponse.json({ error: checked.error, field: checked.field }, { status: 400 });
+      ids = checked;
+    }
+
     // Extract music tracks from the feed
     const result = await MusicTrackParser.extractMusicTracks(feedUrl);
     
@@ -44,16 +50,14 @@ export async function GET(request: NextRequest) {
     
     // Generate RSS XML
     let rssXml: string;
-    if (template === 'minimal') {
-      const guid = playlistGuid(overrideGuid, overridePlaylistFeedUrl);
-      if (!guid) return NextResponse.json({ error: NO_GUID_ERROR }, { status: 400 });
+    if (ids) {
       rssXml = generateMinimalPlaylistRSS(v4vTracks, {
         title: overrideTitle,
         description: overrideDescription,
         link: overrideLink,
         imageUrl: overrideImageUrl,
         author: overrideAuthor,
-        guid,
+        guid: ids.guid,
       });
     } else {
       rssXml = generatePlaylistRSS(tracksByEpisode, feedUrl);
@@ -95,6 +99,15 @@ export async function POST(request: NextRequest) {
     const overrides = body.overrides || {};
     const fast: boolean = !!body.fast;
 
+    // Before any fetch: a bad guid or publisher guid is the caller's mistake,
+    // a 400 naming the field, and needs nothing from the source feed.
+    let ids: CheckedPlaylistIds | null = null;
+    if (template === 'minimal') {
+      const checked = checkMinimalPlaylistIds(overrides);
+      if (!checked.ok) return NextResponse.json({ error: checked.error, field: checked.field }, { status: 400 });
+      ids = checked;
+    }
+
     let v4vTracks: any[];
     if (fast) {
       v4vTracks = await quickExtractRemoteItems(feedUrl);
@@ -107,13 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let guid: string | null = null;
-    if (template === 'minimal') {
-      guid = playlistGuid(overrides.guid, overrides.playlistFeedUrl);
-      if (!guid) return NextResponse.json({ error: NO_GUID_ERROR }, { status: 400 });
-    }
-
-    const xml = template === 'minimal'
+    const xml = ids
       ? generateMinimalPlaylistRSS(v4vTracks, {
           title: overrides.title ?? null,
           description: overrides.description ?? null,
@@ -121,11 +128,9 @@ export async function POST(request: NextRequest) {
           link: overrides.link ?? null,
           imageUrl: overrides.imageUrl ?? null,
           author: overrides.author ?? null,
-          guid: guid!,
+          guid: ids.guid,
           medium: overrides.medium ?? 'musicL',
-          publisher: overrides.publisherFeedGuid
-            ? { feedGuid: overrides.publisherFeedGuid, feedUrl: overrides.publisherFeedUrl ?? null }
-            : null,
+          publisher: ids.publisher,
         })
       : (() => {
           const tracksByEpisode = v4vTracks.reduce((acc: Record<string, any[]>, track: any) => {
