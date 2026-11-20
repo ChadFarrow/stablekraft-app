@@ -90,7 +90,21 @@ export default function PlaylistMakerPage() {
 
   const [previewXml, setPreviewXml] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  // `field` is the input the route refused ('guid' | 'publisherFeedGuid'), so
+  // that input can show the error too, not only the preview.
+  const [previewError, setPreviewError] = useState<{ message: string; field?: string } | null>(null);
+
+  // Copy XML and Download give the preview only when its podcast:guid is the
+  // one in the field. A preview built before the guid changed (or before a
+  // refused build) would publish a feed under an identity the user replaced.
+  const normGuid = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+  const previewGuid = previewXml.match(/<podcast:guid>([^<]*)<\/podcast:guid>/)?.[1] ?? null;
+  const previewIsCurrent = !!previewXml && previewGuid !== null && normGuid(previewGuid) === normGuid(form.guid);
+
+  const guidInvalid = (form.guid.trim() !== '' || previewError?.field === 'guid') && !isUuid(form.guid);
+  const pubGuidInvalid = !!form.publisherFeedGuid && !isUuid(form.publisherFeedGuid);
+  const fieldError = (field: string, local: string) =>
+    previewError?.field === field ? previewError.message : local;
 
   const refreshPreview = async () => {
     setPreviewLoading(true);
@@ -111,11 +125,24 @@ export default function PlaylistMakerPage() {
         cache: 'no-store',
       });
       clearTimeout(t);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Show the route's own reason (a 400 says which value it refused), and
+        // drop the old preview: it was built from values the route just refused.
+        const body = await res.json().catch(() => null);
+        setPreviewXml('');
+        setPreviewError({
+          message: typeof body?.error === 'string' && body.error
+            ? body.error
+            : `Failed to load preview (HTTP ${res.status})`,
+          field: typeof body?.field === 'string' ? body.field : undefined,
+        });
+        return;
+      }
       const xml = await res.text();
       setPreviewXml(xml);
-    } catch (e) {
-      setPreviewError('Failed to load preview');
+    } catch {
+      setPreviewXml('');
+      setPreviewError({ message: 'Failed to load preview' });
     } finally {
       setPreviewLoading(false);
     }
@@ -180,10 +207,12 @@ export default function PlaylistMakerPage() {
                 <label htmlFor="pm-guid" className="block text-sm text-gray-400 mb-1">GUID <span className="text-xs text-gray-500 ml-2">this playlist&apos;s own identity: keep it for every build (Auto makes a new playlist)</span></label>
                 <div className="flex gap-2">
                   <input id="pm-guid"
-                    className="flex-1 px-3 py-2 rounded bg-black/40 border border-white/10"
+                    className={`flex-1 px-3 py-2 rounded bg-black/40 border ${guidInvalid ? 'border-red-500' : 'border-white/10'}`}
                     value={form.guid}
                     onChange={e=>{ const guid = e.target.value; storeGuid(form.feedUrl, guid); setForm(f=>({...f, guid})); }}
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    aria-invalid={guidInvalid}
+                    aria-describedby={guidInvalid ? 'pm-guid-error' : undefined}
                   />
                   <button
                     type="button"
@@ -199,12 +228,22 @@ export default function PlaylistMakerPage() {
                     title="Open GUID Generator"
                   >Open</a>
                 </div>
+                {guidInvalid && (
+                  <p id="pm-guid-error" className="mt-1 text-sm text-red-400">
+                    {fieldError('guid', 'The GUID must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).')}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="pm-pub-guid" className="block text-sm text-gray-400 mb-1">Publisher feed GUID <span className="text-xs text-gray-500 ml-2">(optional back-link)</span></label>
-                <input id="pm-pub-guid" className="w-full px-3 py-2 rounded bg-black/40 border border-white/10" value={form.publisherFeedGuid} onChange={e=>setForm(f=>({...f, publisherFeedGuid:e.target.value.trim()}))} placeholder="UUID of your medium=publisher feed"/>
+                <input id="pm-pub-guid" className={`w-full px-3 py-2 rounded bg-black/40 border ${pubGuidInvalid ? 'border-red-500' : 'border-white/10'}`} value={form.publisherFeedGuid} onChange={e=>setForm(f=>({...f, publisherFeedGuid:e.target.value.trim()}))} placeholder="UUID of your medium=publisher feed" aria-invalid={pubGuidInvalid} aria-describedby={pubGuidInvalid ? 'pm-pub-guid-error' : undefined}/>
+                {pubGuidInvalid && (
+                  <p id="pm-pub-guid-error" className="mt-1 text-sm text-red-400">
+                    {fieldError('publisherFeedGuid', 'The publisher feed GUID must be a UUID, or empty.')}
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="pm-pub-url" className="block text-sm text-gray-400 mb-1">Publisher feed URL</label>
@@ -228,18 +267,23 @@ export default function PlaylistMakerPage() {
                 {previewLoading ? 'Generating…' : 'Refresh Preview'}
               </button>
               <button
-                onClick={async()=>{ if(!previewXml) return; await navigator.clipboard.writeText(previewXml); setPreviewCopied(true); setTimeout(()=>setPreviewCopied(false),1500); }}
-                disabled={!previewXml}
+                onClick={async()=>{ if(!previewIsCurrent) return; await navigator.clipboard.writeText(previewXml); setPreviewCopied(true); setTimeout(()=>setPreviewCopied(false),1500); }}
+                disabled={!previewIsCurrent}
                 className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
               >{previewCopied ? 'Copied!' : 'Copy XML'}</button>
               <button
-                onClick={()=>{ if(!previewXml) return; const blob = new Blob([previewXml], {type:'application/rss+xml;charset=utf-8'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='playlist.xml'; a.click(); URL.revokeObjectURL(url); }}
-                disabled={!previewXml}
+                onClick={()=>{ if(!previewIsCurrent) return; const blob = new Blob([previewXml], {type:'application/rss+xml;charset=utf-8'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='playlist.xml'; a.click(); URL.revokeObjectURL(url); }}
+                disabled={!previewIsCurrent}
                 className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
               >Download</button>
             </div>
           </div>
-          {previewError && <p className="text-sm text-red-400">{previewError}</p>}
+          {previewError && <p role="alert" className="text-sm text-red-400">{previewError.message}</p>}
+          {previewXml && !previewIsCurrent && (
+            <p className="text-sm text-amber-400">
+              This preview was built with a different GUID. Refresh Preview to build it with the GUID in the field.
+            </p>
+          )}
           <div className="rounded bg-black/40 border border-white/10 overflow-hidden">
             <pre className="whitespace-pre-wrap break-words p-3 font-mono text-xs text-gray-200 min-h-[200px] max-h-[400px] overflow-auto">
 {previewXml || 'No preview yet. Click “Refresh Preview”.'}
