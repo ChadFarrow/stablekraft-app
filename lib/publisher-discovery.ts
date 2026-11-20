@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { parsePublisherFeedFromXML, parsePodcastMediumFromXML } from '@/lib/rss-parser-db';
+import { isListMedium } from '@/lib/playlist/musicl-feed';
 
 export interface PublisherReference {
   feedGuid: string;
@@ -43,6 +44,9 @@ function extractRemoteItemsFromXML(xml: string): RemoteItem[] {
     // Only include music/album references (not publisher references)
     const medium = mediumMatch?.[1] || '';
     if (medium === 'publisher') continue;
+    // A musicL (or other list-medium) child is a playlist, not an album: it
+    // has no tracks of its own and would be an empty, unloadable tile (#309).
+    if (isListMedium(medium)) continue;
 
     if (feedGuidMatch || feedUrlMatch) {
       items.push({

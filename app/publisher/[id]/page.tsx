@@ -3,6 +3,7 @@ import PublisherDetailClient from './PublisherDetailClient';
 import { getPublisherInfo, generateAlbumSlug } from '@/lib/url-utils';
 import { prisma } from '@/lib/prisma';
 import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
+import { isListMedium } from '@/lib/playlist/musicl-feed';
 
 // Blacklisted feeds (e.g. Henrik Flyman's dead Wavlake mirrors — he self-hosts
 // at henrikflyman.com now) are banned from import/grid/search, but the publisher
@@ -513,8 +514,9 @@ async function loadPublisherData(publisherId: string) {
 
             const medium = mediumMatch?.[1] || 'music';
 
-            // Only collect album/music remote items, not publisher references
-            if (medium === 'publisher') {
+            // Only collect album/music remote items, not publisher references,
+            // and not playlists (musicL and the other list mediums, #309).
+            if (medium === 'publisher' || isListMedium(medium)) {
               continue;
             }
 

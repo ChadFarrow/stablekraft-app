@@ -12,46 +12,44 @@ export default function PlaylistMakerPage() {
     link: 'https://homegrownhits.xyz',
     imageUrl: 'https://bowlafterbowl.com/wp-content/uploads/2023/09/HomegrownHitsArt.png',
     guid: '',
+    publisherFeedGuid: '',
+    publisherFeedUrl: '',
     descriptionHtml: 'Every music reference from Homegrown Hits podcast',
   });
   const [autoLoading, setAutoLoading] = useState(false);
   const [autoError, setAutoError] = useState<string | null>(null);
   const stripTags = (input: string) => input.replace(/<[^>]*>/g, '').trim();
   const toFeedDescription = (input: string) => (input || '').trim();
+  // Any UUID version: a v7 guid was refused before and silently replaced.
   const isUuid = (s: unknown): s is string =>
-    typeof s === 'string' && /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/.test(s);
+    typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+  // The playlist's guid is kept per source feed in this browser, so the same
+  // playlist keeps one identity across visits. It is never the source show's
+  // own guid: that would make the playlist claim the show's identity (#309).
+  const guidKey = (feedUrl: string) => `sk_playlist_guid:${feedUrl.trim()}`;
+  const storedGuid = (feedUrl: string): string | null => {
+    try { const g = localStorage.getItem(guidKey(feedUrl)); return isUuid(g) ? g : null; } catch { return null; }
+  };
+  const storeGuid = (feedUrl: string, guid: string) => {
+    try { if (isUuid(guid)) localStorage.setItem(guidKey(feedUrl), guid.trim()); } catch {}
+  };
   const genUuid = (): string =>
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
       ? (crypto as any).randomUUID()
       : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r=(Math.random()*16)|0; const v=c==='x'?r:(r&0x3)|0x8; return v.toString(16); });
 
-  // Ensure a valid GUID on first render; prefer feed GUID for default HGH
+  // On first render, use the guid this browser stored for the source feed, or
+  // make one and store it. Never the source feed's own guid (#309).
   const autoRunRef = useRef(false);
   useEffect(() => {
     if (autoRunRef.current) return;
-    const isDefaultHGH = form.feedUrl === 'https://feed.homegrownhits.xyz/feed.xml';
-    if (isDefaultHGH) {
-      autoRunRef.current = true;
-      // Try to load feed GUID; fallback to generating UUID
-      (async () => {
-        try {
-          const res = await fetch(`/api/fetch-feed-metadata?feedUrl=${encodeURIComponent(form.feedUrl)}`, { cache: 'no-store' });
-          if (res.ok) {
-            const json = await res.json();
-            const m = json.metadata || {};
-            const feedGuid = m.guid;
-            if (isUuid(feedGuid)) {
-              setForm(f => ({ ...f, guid: feedGuid }));
-              return;
-            }
-          }
-        } catch {}
-        setForm(f => (isUuid(f.guid) && f.guid ? f : { ...f, guid: genUuid() }));
-      })();
-    } else if (!isUuid(form.guid)) {
-      autoRunRef.current = true;
-      setForm(f => (isUuid(f.guid) && f.guid ? f : { ...f, guid: genUuid() }));
-    }
+    autoRunRef.current = true;
+    setForm(f => {
+      if (isUuid(f.guid)) return f;
+      const guid = storedGuid(f.feedUrl) || genUuid();
+      storeGuid(f.feedUrl, guid);
+      return { ...f, guid };
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -72,8 +70,9 @@ export default function PlaylistMakerPage() {
           author: m.author || f.author,
           link: m.link || f.link,
           imageUrl: m.imageUrl || f.imageUrl,
-          // Only accept feed GUID if it is a UUID; otherwise keep current UUID
-          guid: isUuid(m.guid) ? m.guid : f.guid,
+          // The playlist keeps its own guid: the one stored for this source
+          // feed, else a new one, stored. Never m.guid, the source show's (#309).
+          guid: (() => { const g = storedGuid(f.feedUrl) || genUuid(); storeGuid(f.feedUrl, g); return g; })(),
           descriptionHtml: f.descriptionHtml || (m.description ? stripTags(m.description) : f.descriptionHtml)
         }));
       } else {
@@ -178,17 +177,17 @@ export default function PlaylistMakerPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
               <div>
-                <label htmlFor="pm-guid" className="block text-sm text-gray-400 mb-1">GUID <span className="text-xs text-gray-500 ml-2">if this is a new playlist click Auto or enter your own new GUID</span></label>
+                <label htmlFor="pm-guid" className="block text-sm text-gray-400 mb-1">GUID <span className="text-xs text-gray-500 ml-2">this playlist&apos;s own identity: keep it for every build (Auto makes a new playlist)</span></label>
                 <div className="flex gap-2">
                   <input id="pm-guid"
                     className="flex-1 px-3 py-2 rounded bg-black/40 border border-white/10"
                     value={form.guid}
-                    onChange={e=>setForm(f=>({...f, guid:e.target.value}))}
+                    onChange={e=>{ const guid = e.target.value; storeGuid(form.feedUrl, guid); setForm(f=>({...f, guid})); }}
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   />
                   <button
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, guid: (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r=(Math.random()*16)|0; const v=c==='x'?r:(r&0x3)|0x8; return v.toString(16); }) }))}
+                    onClick={() => { const guid = genUuid(); storeGuid(form.feedUrl, guid); setForm(f => ({ ...f, guid })); }}
                     className="px-3 py-2 rounded bg-white/10 hover:bg-white/20 whitespace-nowrap"
                     title="Auto-generate GUID"
                   >Auto</button>
@@ -200,6 +199,16 @@ export default function PlaylistMakerPage() {
                     title="Open GUID Generator"
                   >Open</a>
                 </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="pm-pub-guid" className="block text-sm text-gray-400 mb-1">Publisher feed GUID <span className="text-xs text-gray-500 ml-2">(optional back-link)</span></label>
+                <input id="pm-pub-guid" className="w-full px-3 py-2 rounded bg-black/40 border border-white/10" value={form.publisherFeedGuid} onChange={e=>setForm(f=>({...f, publisherFeedGuid:e.target.value.trim()}))} placeholder="UUID of your medium=publisher feed"/>
+              </div>
+              <div>
+                <label htmlFor="pm-pub-url" className="block text-sm text-gray-400 mb-1">Publisher feed URL</label>
+                <input id="pm-pub-url" className="w-full px-3 py-2 rounded bg-black/40 border border-white/10" value={form.publisherFeedUrl} onChange={e=>setForm(f=>({...f, publisherFeedUrl:e.target.value.trim()}))}/>
               </div>
             </div>
           </div>

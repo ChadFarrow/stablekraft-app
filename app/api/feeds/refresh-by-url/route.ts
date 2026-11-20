@@ -12,6 +12,7 @@ import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 import type { Feed } from '@prisma/client';
+import { isListMedium } from '@/lib/playlist/musicl-feed';
 
 // Public endpoint (podping consumer) that triggers expensive RSS reparses —
 // cap per-IP request rate. In-memory, so the cap is per Railway instance;
@@ -101,6 +102,8 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
 
       const albumFeedUrl = feedUrlMatch[1];
       const feedGuid = match.match(/feedGuid="([^"]+)"/)?.[1];
+      // A list-medium child (musicL, podcastL, …) is a playlist, not an album (#309).
+      if (isListMedium(match.match(/medium="([^"]+)"/)?.[1])) continue;
 
       try {
         // Check if album feed already exists — by URL through the shared ladder and

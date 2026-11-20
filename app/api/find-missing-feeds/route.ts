@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -12,21 +13,11 @@ interface RemoteItem {
 function parseRemoteItems(xmlText: string): RemoteItem[] {
   const remoteItems: RemoteItem[] = [];
   
-  const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-  
-  let match;
-  while ((match = remoteItemRegex.exec(xmlText)) !== null) {
-    const feedGuid = match[1];
-    const itemGuid = match[2];
-    
-    if (feedGuid && itemGuid) {
-      remoteItems.push({
-        feedGuid,
-        itemGuid
-      });
-    }
+  // Attributes are read by name, in any order and with either quote (#309).
+  // A remoteItem with no itemGuid (a <podcast:publisher> back-link) is not a track.
+  for (const { feedGuid, itemGuid } of remoteItemTracks(xmlText)) {
+    remoteItems.push({ feedGuid, itemGuid });
   }
-  
   return remoteItems;
 }
 

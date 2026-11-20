@@ -1,3 +1,4 @@
+import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 /**
  * Utility for dynamically fetching playlist track counts from XML files
  * Counts <podcast:remoteItem> tags in each playlist XML
@@ -45,11 +46,11 @@ let trackCountCache: TrackCountCache | null = null;
 const CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 hours
 
 /**
- * Count <podcast:remoteItem> tags in an XML string
+ * Count the tracks in a playlist: <podcast:remoteItem> tags with an itemGuid.
+ * A <podcast:publisher> back-link has none and is not a track (#309).
  */
 function countRemoteItems(xml: string): number {
-  const matches = xml.match(/<podcast:remoteItem[^>]*>/g);
-  return matches ? matches.length : 0;
+  return remoteItemTracks(xml).length;
 }
 
 /**

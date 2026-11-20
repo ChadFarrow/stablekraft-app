@@ -16,6 +16,7 @@ import type {
   MusicTrackExtractionResult,
   EpisodeContext
 } from './types';
+import { escapeXml } from '@/lib/playlist/musicl-feed';
 
 export * from './types';
 
@@ -157,9 +158,9 @@ export class MusicTrackParser {
     try {
       // Create a mock RSS feed structure for the single item
       const mockRssXml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md">
+<rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
   <channel>
-    <title>${channelTitle}</title>
+    <title>${escapeXml(String(channelTitle ?? ''))}</title>
     <item>
       ${ParserUtils.itemToXmlString(item)}
     </item>

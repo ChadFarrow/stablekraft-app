@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { compressedJson } from '@/lib/compressed-json';
+import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 
 // Interface for parsed track data
 interface ParsedTrack {
@@ -25,18 +26,12 @@ export async function GET(request: Request) {
     const xmlText = await response.text();
     
     // Parse the XML to extract podcast:remoteItem elements
-    const remoteItemRegex = /<podcast:remoteItem\s+feedGuid="([^"]+)"\s+itemGuid="([^"]+)"\/>/g;
-    const tracks: ParsedTrack[] = [];
-    let match;
-    let index = 0;
-
-    while ((match = remoteItemRegex.exec(xmlText)) !== null) {
-      tracks.push({
-        feedGuid: match[1],
-        itemGuid: match[2],
-        index: index++
-      });
-    }
+    // Attributes read by name, any order and quote; back-links skipped (#309).
+    const tracks: ParsedTrack[] = remoteItemTracks(xmlText).map(({ feedGuid, itemGuid }, index) => ({
+      feedGuid,
+      itemGuid,
+      index,
+    }));
 
     // Also extract channel metadata
     const titleMatch = xmlText.match(/<title>([^<]+)<\/title>/);

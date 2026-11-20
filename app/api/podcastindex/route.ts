@@ -155,7 +155,7 @@ function convertPodcastIndexToRSS(data: any): string {
 
   // Build RSS XML from PodcastIndex data with V4V support
   const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md">
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
   <channel>
     <title>${escapeXml(feed.title || 'Unknown Title')}</title>
     <description>${escapeXml(feed.description || '')}</description>
@@ -172,7 +172,7 @@ function convertPodcastIndexToRSS(data: any): string {
 function convertPodcastIndexEpisodeToRSS(episode: any, feed: any): string {
   // Create a minimal RSS feed with just the requested episode
   const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md">
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
   <channel>
     <title>${escapeXml(feed?.title || 'Episode')}</title>
     <description>${escapeXml(feed?.description || '')}</description>

@@ -3,6 +3,7 @@
  */
 
 import type { RemoteItem, ParsedPlaylistItem, GroupedItems } from './types';
+import { readXmlAttr, remoteItemTracks } from '@/lib/playlist/musicl-feed';
 
 /**
  * Decode XML entities to their character equivalents
@@ -52,21 +53,11 @@ export function parsePlaylistLink(xmlText: string): string | null {
 export function parseRemoteItems(xmlText: string): RemoteItem[] {
   const remoteItems: RemoteItem[] = [];
 
-  const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-
-  let match;
-  while ((match = remoteItemRegex.exec(xmlText)) !== null) {
-    const feedGuid = match[1];
-    const itemGuid = match[2];
-
-    if (feedGuid && itemGuid) {
-      remoteItems.push({
-        feedGuid,
-        itemGuid
-      });
-    }
+  // Attributes are read by name, in any order and with either quote (#309).
+  // A remoteItem with no itemGuid (a <podcast:publisher> back-link) is not a track.
+  for (const { feedGuid, itemGuid } of remoteItemTracks(xmlText)) {
+    remoteItems.push({ feedGuid, itemGuid });
   }
-
   return remoteItems;
 }
 
@@ -77,7 +68,9 @@ export function parsePlaylistWithEpisodes(xmlText: string): ParsedPlaylistItem[]
   const items: ParsedPlaylistItem[] = [];
 
   // Combined regex to match episode markers, playcount markers, and remote items in document order
-  const combinedRegex = /<podcast:txt\s+purpose="(episode|playcount)">([^<]*)<\/podcast:txt>|<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*\/?>/g;
+  // A remoteItem's attributes are read by name (readXmlAttr), so any order and
+  // either quote is read; one with no itemGuid (a publisher back-link) is skipped (#309).
+  const combinedRegex = /<podcast:txt\s+purpose="(episode|playcount)">([^<]*)<\/podcast:txt>|(<podcast:remoteItem\b[^>]*>)/g;
 
   let match;
   while ((match = combinedRegex.exec(xmlText)) !== null) {
@@ -88,13 +81,12 @@ export function parsePlaylistWithEpisodes(xmlText: string): ParsedPlaylistItem[]
         type: purpose,
         title: decodeXmlEntities(match[2].trim())
       });
-    } else if (match[3] && match[4]) {
-      // Remote item - match[3] is feedGuid, match[4] is itemGuid
-      items.push({
-        type: 'remoteItem',
-        feedGuid: match[3],
-        itemGuid: match[4]
-      });
+    } else if (match[3]) {
+      const feedGuid = readXmlAttr(match[3], 'feedGuid');
+      const itemGuid = readXmlAttr(match[3], 'itemGuid');
+      if (feedGuid && itemGuid) {
+        items.push({ type: 'remoteItem', feedGuid, itemGuid });
+      }
     }
   }
 

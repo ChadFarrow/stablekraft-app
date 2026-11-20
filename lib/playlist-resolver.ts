@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { resolveItemGuid } from './feed-discovery';
+import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 
 const prisma = new PrismaClient();
 
@@ -204,20 +205,10 @@ export function parseRemoteItems(xmlText: string): RemoteItem[] {
   const remoteItems: RemoteItem[] = [];
 
   // Simple regex parsing for podcast:remoteItem tags
-  const remoteItemRegex = /<podcast:remoteItem[^>]*feedGuid="([^"]*)"[^>]*itemGuid="([^"]*)"[^>]*>/g;
-
-  let match;
-  while ((match = remoteItemRegex.exec(xmlText)) !== null) {
-    const feedGuid = match[1];
-    const itemGuid = match[2];
-
-    if (feedGuid && itemGuid) {
-      remoteItems.push({
-        feedGuid,
-        itemGuid
-      });
-    }
+  // Attributes are read by name, in any order and with either quote (#309).
+  // A remoteItem with no itemGuid (a <podcast:publisher> back-link) is not a track.
+  for (const { feedGuid, itemGuid } of remoteItemTracks(xmlText)) {
+    remoteItems.push({ feedGuid, itemGuid });
   }
-
   return remoteItems;
 }
