@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { ValueTagParser } from '@/lib/lightning/value-parser';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
-import { calculateTrackOrder } from '@/lib/rss-parser-db';
+import { calculateTrackOrder, parsePodcastBlocksFromXML } from '@/lib/rss-parser-db';
+import { isBlockedFor, podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
@@ -186,7 +187,9 @@ async function importFeedToDatabase(feedData: any, episodes: any[], xmlText?: st
         lastFetched: new Date(),
         updatedAt: new Date(),
         ...(feedV4vData && { v4vValue: feedV4vData }),
-        ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient })
+        ...(feedV4vRecipient && { v4vRecipient: feedV4vRecipient }),
+        // <podcast:block>, from the XML only: no XML, nothing read, nothing written.
+        ...podcastBlockFields({ blocked: xmlText ? isBlockedFor(parsePodcastBlocksFromXML(xmlText)) : undefined })
       }
     });
 

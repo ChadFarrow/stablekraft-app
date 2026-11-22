@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
       where: {
         type: 'publisher',
         status: 'active',
-        markedDead: false
+        markedDead: false,
+        blocked: false
       },
       select: {
         id: true,
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
       where: {
         type: { in: ['album', 'music'] },
         status: 'active',
-        markedDead: false
+        markedDead: false,
+        blocked: false
       },
       select: {
         id: true,

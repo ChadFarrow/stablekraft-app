@@ -133,7 +133,7 @@ const limiter = createRouteLimiter(120);
  */
 async function loadCatalog(): Promise<CachedData> {
   const feeds = await prisma.feed.findMany({
-    where: { status: 'active', markedDead: false },
+    where: { status: 'active', markedDead: false, blocked: false },
     // Shared shape — this select was written out twice in this file and a
     // third time in /api/feeds/recent. See lib/catalog/album-shape.ts.
     select: albumFeedSelect(ALBUM_TRACK_LIMIT),
@@ -356,6 +356,7 @@ export async function GET(request: Request) {
               status: 'active',
               type: 'podcast',
               markedDead: false,
+              blocked: false,
             },
             // Ordered in the database, bounded in the response. This select
             // used to omit `take` entirely, so it returned every episode of

@@ -17,6 +17,7 @@
     "seed:relay": "node scripts/seed-local-relay.mjs",
     "e2e:favorites": "tsx scripts/e2e-favorites.ts",
     "e2e:signers": "tsx scripts/e2e-signers.ts",
+    "e2e:block": "node scripts/e2e-podcast-block.mjs",
     "check-env": "node scripts/check-env.js",
     "test:blob-cache": "node --experimental-strip-types --test scripts/test-audio-blob-cache.ts",
     "test:downloads": "tsx --test lib/downloads/*.test.ts",

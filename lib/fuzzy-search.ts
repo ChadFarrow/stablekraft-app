@@ -96,6 +96,8 @@ export async function fuzzySearchTracks(options: FuzzySearchOptions): Promise<Fu
     FROM "Track" t
     LEFT JOIN "Feed" f ON t."feedId" = f.id
     WHERE t."audioUrl" IS NOT NULL
+      -- <podcast:block>: the feed keeps StableKraft from showing it, tracks included.
+      AND (f.id IS NULL OR f."blocked" = false)
       AND t."feedId" NOT IN ('lnurl-testing-podcast', 'lnurl-test-feed', 'podtards-test')
       AND (
         similarity(t.title, ${query}) > ${threshold}
@@ -143,6 +145,7 @@ export async function fuzzySearchAlbums(options: FuzzySearchOptions): Promise<Fu
     FROM "Feed" f
     WHERE f.status = 'active'
       AND f."markedDead" = false
+      AND f."blocked" = false
       AND f.type != 'publisher'
       AND (
         similarity(f.title, ${query}) > ${threshold}
@@ -186,6 +189,7 @@ export async function fuzzySearchArtists(options: FuzzySearchOptions): Promise<F
     ) tc ON tc."feedId" = f.id
     WHERE f.status = 'active'
       AND f."markedDead" = false
+      AND f."blocked" = false
       AND f.artist IS NOT NULL
       AND similarity(f.artist, ${query}) > ${threshold}
     GROUP BY LOWER(f.artist)

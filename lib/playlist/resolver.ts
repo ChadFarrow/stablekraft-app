@@ -40,7 +40,10 @@ export async function resolvePlaylistItems(
     const tracks = await prisma.track.findMany({
       where: {
         guid: { in: itemGuids },
-        status: 'active'
+        status: 'active',
+        // A feed whose <podcast:block> keeps it off StableKraft is not shown in a
+        // playlist either (lib/feeds/podcast-block.ts): its tracks stay unresolved.
+        Feed: { blocked: false }
       },
       select: {
         id: true,
@@ -278,7 +281,8 @@ export async function getPlaylistFromDatabase(config: PlaylistConfig): Promise<{
                     guid: true,
                     title: true,
                     artist: true,
-                    image: true
+                    image: true,
+                    blocked: true
                   }
                 }
               }
@@ -296,7 +300,11 @@ export async function getPlaylistFromDatabase(config: PlaylistConfig): Promise<{
 
     // Transform to expected response format. The mapping lives in ./db-track.ts
     // so it can be tested without a database.
-    const tracks = dbPlaylist.SystemPlaylistTrack.map(playlistTrackFromRow);
+    // A stored playlist was saved before its feed may have added <podcast:block>,
+    // so the fast path drops those tracks too, not only the next resolve.
+    const tracks = dbPlaylist.SystemPlaylistTrack
+      .filter(row => !row.Track?.Feed?.blocked)
+      .map(playlistTrackFromRow);
 
     // Build episode groups from database data using O(n) pre-indexing
     const tracksByEpisode = new Map<string, typeof tracks>();

@@ -328,6 +328,7 @@ async function loadPublisherData(publisherId: string) {
           type: { in: ['album', 'music', 'podcast'] },
           status: 'active',
           markedDead: false,
+          blocked: false,
           OR: artistSearchVariants.map(variant => ({
             artist: { equals: variant, mode: 'insensitive' as const }
           }))
@@ -350,6 +351,7 @@ async function loadPublisherData(publisherId: string) {
             type: { in: ['album', 'music', 'podcast'] },
             status: 'active',
             markedDead: false,
+            blocked: false,
             id: { startsWith: `-${publisherId}`, mode: 'insensitive' } // Match IDs like "-2-holla-album-name"
           },
           select: {
@@ -593,7 +595,8 @@ async function loadPublisherData(publisherId: string) {
           OR: allConditions,
           type: { in: ['album', 'music', 'podcast'] },
           status: 'active',
-          markedDead: false
+          markedDead: false,
+          blocked: false
         },
           select: {
             id: true,
@@ -662,7 +665,8 @@ async function loadPublisherData(publisherId: string) {
         publisherId: { in: allPublisherFeedIds },
         type: { in: ['album', 'music', 'podcast'] },
         status: 'active',
-        markedDead: false
+        markedDead: false,
+        blocked: false
       },
       select: {
         id: true,
@@ -893,7 +897,8 @@ async function loadPublisherData(publisherId: string) {
           })),
           type: { in: ['album', 'music', 'podcast'] },
           status: 'active',
-          markedDead: false
+          markedDead: false,
+          blocked: false
         },
           select: {
             id: true,

@@ -32,7 +32,7 @@ function buildOutline(feed: OpmlFeed): string {
 
 async function loadFilteredFeeds(): Promise<OpmlFeed[]> {
   const feeds = await prisma.feed.findMany({
-    where: { status: 'active', markedDead: false },
+    where: { status: 'active', markedDead: false, blocked: false },
     select: {
       id: true,
       title: true,

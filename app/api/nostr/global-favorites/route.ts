@@ -84,9 +84,12 @@ function isHiddenFeed(feed: {
   id: string;
   originalUrl: string;
   markedDead: boolean;
+  blocked: boolean;
   artist: string | null;
 }): boolean {
   if (feed.markedDead) return true;
+  // The feed's own <podcast:block> keeps it off StableKraft (lib/feeds/podcast-block.ts).
+  if (feed.blocked) return true;
   if (isBlacklistedFeedId(feed.id)) return true;
   if (isBlacklistedFeedUrl(feed.originalUrl)) return true;
   if (isHenrikFlymanWavlakeMirror({ artist: feed.artist, feedUrl: feed.originalUrl })) return true;

@@ -87,7 +87,8 @@ export async function GET(request: Request) {
     // Build where clause for feeds based on filter
     const feedWhere: any = {
       status: 'active',
-      markedDead: false
+      markedDead: false,
+      blocked: false
     };
 
     // Apply type filtering based on filter parameter

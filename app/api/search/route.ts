@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
           where: {
             AND: [
               { status: 'active' },
-              { markedDead: false },
+              { markedDead: false, blocked: false },
               { type: { not: 'publisher' } },
               { originalUrl: { notIn: [...playlistUrls, ...BLACKLISTED_FEED_URLS] } },
               { id: { notIn: [...playlistIds, ...blacklistedIds] } },
@@ -342,6 +342,7 @@ export async function GET(request: NextRequest) {
           ) tc ON tc."feedId" = f.id
           WHERE f.status = 'active'
             AND f."markedDead" = false
+            AND f."blocked" = false
             AND f.artist IS NOT NULL
             AND f.artist ILIKE ${searchPattern}
           GROUP BY LOWER(f.artist)
@@ -378,6 +379,7 @@ export async function GET(request: NextRequest) {
           status: 'active',
           type: 'podcast',
           markedDead: false,
+          blocked: false,
           OR: [
             { title: { contains: query, mode: 'insensitive' } },
             { artist: { contains: query, mode: 'insensitive' } },

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, detectTrackMediaType } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 
 export async function GET() {
   try {
@@ -167,6 +168,7 @@ export async function POST(request: NextRequest) {
           v4vValue: parsedFeed.v4vValue,
           ...channelPersonsFields(parsedFeed),
           ...channelFundingFields(parsedFeed),
+          ...podcastBlockFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null

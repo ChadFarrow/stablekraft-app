@@ -4,6 +4,7 @@ import { parseRSSFeedWithSegments, calculateTrackOrder, applyParsedItemFields, d
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -84,6 +85,7 @@ export async function POST(
           ...(parsedFeed.podcastImages && { podcastImages: parsedFeed.podcastImages as any }),
           ...channelPersonsFields(parsedFeed),
           ...channelFundingFields(parsedFeed),
+          ...podcastBlockFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null,

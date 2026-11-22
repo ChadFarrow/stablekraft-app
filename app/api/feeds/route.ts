@@ -11,6 +11,7 @@ import { invalidateSearchCache } from '@/lib/caches/search-cache';
 import { BLACKLISTED_FEED_IDS, BLACKLISTED_FEED_URLS, isBlacklistedFeedUrl } from '@/lib/feed-exclusions';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 
 function invalidateFeedListCaches(): void {
   invalidateAlbumsFastCache();
@@ -233,6 +234,7 @@ async function importMissingAlbums(
           publisherId: publisherId,
           ...channelPersonsFields(parsedFeed),
           ...channelFundingFields(parsedFeed),
+          ...podcastBlockFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           createdAt: new Date(),
@@ -480,6 +482,22 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // The feed's own <podcast:block> keeps StableKraft from showing it (by our
+      // slug, or a bare yes — lib/feeds/podcast-block.ts). Mint nothing: this is the
+      // "add" door (admin paste and the MSP podping), so say no plainly instead of
+      // creating a row nobody can see. A row that already exists is hidden or shown
+      // by every refresh path through podcastBlockFields.
+      if (parsedFeed.blocked) {
+        console.warn(`🚫 podcast:block: refusing to add ${resolvedUrl}; the feed blocks StableKraft`);
+        return NextResponse.json(
+          {
+            error: 'This feed blocks StableKraft with <podcast:block>, so it is not added.',
+            blocked: true,
+          },
+          { status: 403 }
+        );
+      }
+
       // Override type based on podcast:medium from RSS if the frontend sent default 'album'
       // Skip for Wavlake feeds — they use medium=podcast for music content
       let resolvedType = type;
@@ -576,6 +594,7 @@ export async function POST(request: NextRequest) {
             podcastImages: (parsedFeed.podcastImages as any) || undefined,
             ...channelPersonsFields(parsedFeed),
             ...channelFundingFields(parsedFeed),
+            ...podcastBlockFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),
@@ -616,6 +635,7 @@ export async function POST(request: NextRequest) {
               podcastImages: (parsedFeed.podcastImages as any) || undefined,
               ...channelPersonsFields(parsedFeed),
               ...channelFundingFields(parsedFeed),
+              ...podcastBlockFields(parsedFeed),
               lastFetched: new Date(),
               status: 'active',
               createdAt: new Date(),
@@ -821,6 +841,7 @@ export async function POST(request: NextRequest) {
                   v4vValue: publisherParsedFeed.v4vValue || null,
                   ...channelPersonsFields(publisherParsedFeed),
                   ...channelFundingFields(publisherParsedFeed),
+                  ...podcastBlockFields(publisherParsedFeed),
                   lastFetched: new Date(),
                   status: 'active',
                   updatedAt: new Date()

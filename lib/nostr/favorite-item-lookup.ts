@@ -34,6 +34,7 @@ export interface TrackRow {
     image: string | null;
     originalUrl: string;
     markedDead: boolean;
+    blocked: boolean;
   } | null;
 }
 
@@ -45,6 +46,7 @@ export interface FeedRow {
   type: string | null;
   originalUrl: string;
   markedDead: boolean;
+  blocked: boolean;
   _count: { Track: number };
   Track: Array<{ id: string; title: string }>;
 }
@@ -68,6 +70,7 @@ const TRACK_SELECT = {
       image: true,
       originalUrl: true,
       markedDead: true,
+      blocked: true,
     },
   },
 } as const;
@@ -80,6 +83,7 @@ const FEED_SELECT = {
   type: true,
   originalUrl: true,
   markedDead: true,
+  blocked: true,
   _count: { select: { Track: true } },
   Track: {
     take: 1,

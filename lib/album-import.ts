@@ -113,10 +113,14 @@ export async function mintAlbumFromPiFeed(
   const existing = await prisma.feed.findFirst({ where: { OR: conditions } });
 
   if (existing) {
-    // Manually flagged dead (e.g. taken down upstream) — leave it
-    // untouched. The row stays put, so no fresh copy is minted.
-    if (existing.markedDead) {
-      return { status: 'skipped', detail: `dead:${existing.id}|${existing.title}` };
+    // Manually flagged dead (e.g. taken down upstream), or blocked by the
+    // feed's own <podcast:block> — leave it untouched. The row stays put, so no
+    // fresh copy is minted. A block lifts at the feed's next parse, never here.
+    if (existing.markedDead || existing.blocked) {
+      return {
+        status: 'skipped',
+        detail: `${existing.markedDead ? 'dead' : 'blocked'}:${existing.id}|${existing.title}`,
+      };
     }
     if (publisherId && !existing.publisherId && !dryRun) {
       await prisma.feed.update({

@@ -44,6 +44,8 @@ npm run dev:isolated -- -p 3001  # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key, with real NIP-44
 npm run e2e:signers              # the same loop in a real browser through REAL signers (nos2x, nak bunker),
                                  # public and private, on a LOCAL database — starts and stops everything itself
+npm run e2e:block                # <podcast:block> in a real browser: refuse, hide on refresh, manual hide survives
+                                 # an unblock — LOCAL database and feed server, starts and stops everything itself
 
 # Reading PRODUCTION. `railway login` needs a real TTY — it fails in any non-interactive
 # shell, Claude Code's `!` prefix included ("Cannot login in non-interactive mode"), so run
@@ -359,6 +361,19 @@ line holds the full story.
   `podcast:guid:<item guid>`, a feed that does not exist, on a note that cannot be edited (#264). Fix a wrong guid at
   its source (`lib/playlist/db-track.ts` for playlists), never by reordering the button's fallbacks →
   `lightning-boost`.
+- **A feed's own `<podcast:block>` hides it through `Feed.blocked`, a column of its own — never `markedDead`.**
+  `markedDead` is Chad's manual hide; a feed that drops its block must come back without undoing a hide he set
+  by hand, and one column cannot remember both. The rule (`isBlockedFor`, `lib/feeds/podcast-block.ts`) is the
+  spec's: a `no` naming our slug wins, then a `yes` naming it, then a bare `yes`. Our slug is
+  `STABLEKRAFT_SERVICE_SLUG` (`stablekraft`), which is NOT yet in the namespace's `serviceslugs.txt`, so today only
+  a bare `yes` reaches us. Every parse writes it — `false` as readily as `true` — through `podcastBlockFields`, and
+  `podcast-block.test.ts` fails when a parse-fed feed write omits it, or when a file filters `markedDead: false`
+  without `blocked: false` beside it. Beyond that pairing: the album page never resolves a blocked feed (even as its
+  only match), `POST /api/feeds` answers 403 and mints nothing, and playlists and track search skip its tracks.
+  Paths that create a row from Podcast Index data alone (Step 5b, `import-from-pi`) cannot see the tag; Step 5c's
+  reparse hides it minutes later. The column needs migration `20261121000000_add_blocked_to_feed` **before** the
+  deploy: Prisma selects every scalar, so the new code against a database without the column 500s every feed
+  query → `feed-curation` (for `markedDead`).
 - **`Feed.type` is this app's classification; `Feed.medium` is what the feed declared.** They are not
   interchangeable and the difference is load-bearing. `type` defaults to `"album"`, so it always has a value and
   that value is often a guess; `medium` is NULL until a feed actually says, and **nothing may default it**. Only

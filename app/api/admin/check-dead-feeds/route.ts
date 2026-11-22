@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
 
     // --- Step 1: discover candidates via PodcastIndex `dead` flag ------------
     // Stable `id asc` ordering so offset paging is consistent across calls.
-    const where = { status: 'active', markedDead: false } as const;
+    const where = { status: 'active', markedDead: false, blocked: false } as const;
     const totalActive = await prisma.feed.count({ where });
     const feeds: FeedRow[] = await prisma.feed.findMany({
       where,
