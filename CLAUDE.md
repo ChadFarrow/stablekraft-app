@@ -44,6 +44,8 @@ npm run dev:isolated -- -p 3001  # dev, publishing ONLY to the local relay
 npm run e2e:favorites            # the whole loop on a throwaway key, with real NIP-44
 npm run e2e:signers              # the same loop in a real browser through REAL signers (nos2x, nak bunker),
                                  # public and private, on a LOCAL database — starts and stops everything itself
+npm run e2e:block                # <podcast:block> in a real browser: refuse, hide on refresh, manual hide survives
+                                 # an unblock — LOCAL database and feed server, starts and stops everything itself
 
 # Reading PRODUCTION. `railway login` needs a real TTY — it fails in any non-interactive
 # shell, Claude Code's `!` prefix included ("Cannot login in non-interactive mode"), so run
