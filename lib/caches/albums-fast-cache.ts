@@ -43,11 +43,11 @@ export async function catalogFingerprint(): Promise<string> {
   const [row] = await prisma.$queryRaw<Array<{ fp: string }>>`
     SELECT md5(
       coalesce((SELECT string_agg(md5(f::text), '' ORDER BY f.id) FROM "Feed" f
-                WHERE f.status = 'active' AND f."markedDead" = false), '')
+                WHERE f.status = 'active' AND f."markedDead" = false AND f."blocked" = false), '')
       || '|' ||
       coalesce((SELECT string_agg(md5(t::text), '' ORDER BY t.id) FROM "Track" t
                 JOIN "Feed" f ON f.id = t."feedId"
-                WHERE f.status = 'active' AND f."markedDead" = false), '')
+                WHERE f.status = 'active' AND f."markedDead" = false AND f."blocked" = false), '')
     ) AS fp`;
   return row.fp;
 }

@@ -15,6 +15,7 @@ const feed = (id: string): FeedRow => ({
   type: 'album',
   originalUrl: `https://example.com/${id}`,
   markedDead: false,
+  blocked: false,
   _count: { Track: 3 },
   Track: [],
 });

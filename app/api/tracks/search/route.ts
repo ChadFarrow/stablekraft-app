@@ -80,7 +80,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Combine conditions
-    const whereConditions: any[] = [searchConditions, typeFilter];
+    // A feed whose <podcast:block> keeps it off StableKraft: its tracks are not shown.
+    const whereConditions: any[] = [searchConditions, typeFilter, { Feed: { blocked: false } }];
     if (Object.keys(fieldFilters).length > 0) {
       whereConditions.push(fieldFilters);
     }
@@ -174,7 +175,8 @@ export async function POST(request: NextRequest) {
     } = body;
     
     // Build complex search query
-    const where: any = {};
+    // A feed whose <podcast:block> keeps it off StableKraft: its tracks are not shown.
+    const where: any = { Feed: { blocked: false } };
     
     // Text search
     if (query) {

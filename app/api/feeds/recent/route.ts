@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     let lightFeeds: LightFeed[];
     try {
       lightFeeds = await prisma.feed.findMany({
-        where: { status: 'active', type: 'album', markedDead: false },
+        where: { status: 'active', type: 'album', markedDead: false, blocked: false },
         select: {
           id: true,
           createdAt: true,
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     } catch (e) {
       console.warn('[lastNewTrackAt] read failed — migration may be pending, falling back to createdAt-only sort:', e instanceof Error ? e.message : e);
       const feeds = await prisma.feed.findMany({
-        where: { status: 'active', type: 'album', markedDead: false },
+        where: { status: 'active', type: 'album', markedDead: false, blocked: false },
         select: { id: true, createdAt: true, originalUrl: true, title: true, artist: true },
         orderBy: { createdAt: 'desc' },
       });

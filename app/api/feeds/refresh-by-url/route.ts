@@ -7,6 +7,9 @@ import { findFeedForRemoteItem, findFeedIdByUrl } from '@/lib/feed-lookup';
 import { RateLimiter, clientIp } from '@/lib/rate-limit';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
+import { invalidateAlbumsFastCache } from '@/lib/caches/albums-fast-cache';
+import { invalidateSearchCache } from '@/lib/caches/search-cache';
 import { checkAdminAuth } from '@/lib/admin-auth';
 import { resolveImageUrls } from '@/lib/feeds/image-version';
 import { RefreshCoalescer } from '@/lib/feeds/refresh-coalescer';
@@ -180,6 +183,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
             publisherId: publisherFeedId,
             ...channelPersonsFields(parsedAlbum),
             ...channelFundingFields(parsedAlbum),
+            ...podcastBlockFields(parsedAlbum),
             lastFetched: new Date(),
             status: 'active',
             updatedAt: new Date()
@@ -414,6 +418,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
           explicit: parsedFeed.explicit,
           ...channelPersonsFields(parsedFeed),
           ...channelFundingFields(parsedFeed),
+          ...podcastBlockFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           updatedAt: new Date()
@@ -605,12 +610,21 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
         type: customType || feed.type, // Allow updating type too
         ...channelPersonsFields(parsedFeed),
         ...channelFundingFields(parsedFeed),
+        ...podcastBlockFields(parsedFeed),
         lastFetched: new Date(),
         status: 'active',
         lastError: null,
         updatedAt: new Date()
       }
     });
+
+    // <podcast:block> changed: show or hide the album now, rather than at the next
+    // 15-minute catalog check (CACHE_CHECK_INTERVAL) and the 5-minute search TTL.
+    if (parsedFeed.blocked !== feed.blocked) {
+      console.warn(`🚫 podcast:block: ${feed.id} is now ${parsedFeed.blocked ? 'blocked (hidden)' : 'unblocked'}`);
+      invalidateAlbumsFastCache();
+      invalidateSearchCache();
+    }
     
     
     const existingGuids = new Set(existingTracks.map(t => t.guid).filter(Boolean));

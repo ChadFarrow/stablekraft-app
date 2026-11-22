@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { validateDuration } from './duration-validation';
 import { PodcastImage, pickSquareArtwork, pickCanvasBackground } from './podcast-images';
 import { FundingLink, parseChannelFundingFromXML, parseFundingFromBlock } from './podcast-funding';
+import { isBlockedFor, type PodcastBlock } from './feeds/podcast-block';
 
 // Re-export so existing import sites (e.g. lib/feed-parsing.ts) keep resolving these
 // from rss-parser-db; the canonical, dependency-free home is lib/podcast-images.ts.
@@ -101,6 +102,13 @@ export interface ParsedFeed {
   explicit: boolean;
   podcastGuid?: string;
   medium?: string;
+  /**
+   * The channel's `<podcast:block>` keeps StableKraft from showing this feed
+   * (`isBlockedFor`, lib/feeds/podcast-block.ts). Always set by `parseRSSFeed` —
+   * `false` is an answer too, because a feed that drops its block comes back at
+   * the next parse. Written to `Feed.blocked` through `podcastBlockFields`.
+   */
+  blocked: boolean;
   items: ParsedItem[];
   /**
    * Channel-level `<podcast:person>` / `<podcast:txt>` entries — the band or
@@ -793,6 +801,40 @@ export function parsePodcastMediumFromXML(xmlText: string): string | null {
 }
 
 /**
+ * Every channel-level `<podcast:block>`, as `{ id?, value }`. The decision —
+ * does it block US — is `isBlockedFor` in lib/feeds/podcast-block.ts.
+ *
+ * Channel metadata may sit before OR after the items (see channelMetadataXml),
+ * and block tags in particular are often written last. The spec allows the tag
+ * on `<channel>` only, so one inside an item is ignored with the item. A value
+ * other than yes/no, or an empty tag, is dropped: an unreadable tag blocks
+ * nothing, which is what the spec's "no" and an absent tag both mean.
+ */
+export function parsePodcastBlocksFromXML(xmlText: string): PodcastBlock[] {
+  const blocks: PodcastBlock[] = [];
+  try {
+    const channel = channelMetadataXml(xmlText);
+    if (!channel) return blocks;
+    // A self-closing tag is matched on its own first, so it cannot swallow the
+    // next tag's value: `<podcast:block id="x"/>` has no value and blocks nothing.
+    const tag = /<podcast:block(?:\s[^>]*?)?\/>|<podcast:block(\s[^>]*)?>([\s\S]*?)<\/podcast:block>/gi;
+    let match;
+    while ((match = tag.exec(channel)) !== null) {
+      if (match[2] === undefined) continue;
+      const attrs = match[1] || '';
+      const value = match[2].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1').trim().toLowerCase();
+      if (value !== 'yes' && value !== 'no') continue;
+      const idMatch = attrs.match(/\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+      const id = (idMatch?.[1] ?? idMatch?.[2])?.trim().toLowerCase();
+      blocks.push(id ? { id, value } : { value });
+    }
+  } catch (error) {
+    console.error('Error extracting podcast:block from XML:', error);
+  }
+  return blocks;
+}
+
+/**
  * The channel's own metadata, with every `<item>` block removed.
  *
  * **Channel-level tags are NOT required to precede the items.** Element order
@@ -1184,6 +1226,10 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
     // Extract podcast:guid and podcast:medium from channel level
     const podcastGuid = parsePodcastGuidFromXML(xmlText);
     const podcastMedium = parsePodcastMediumFromXML(xmlText);
+
+    // Channel-level <podcast:block>: does the feed keep StableKraft from showing it?
+    const blocked = isBlockedFor(parsePodcastBlocksFromXML(xmlText));
+    if (blocked) console.warn(`🚫 podcast:block: ${feedUrl} blocks StableKraft`);
 
     // Extract podcast:publisher remoteItem from channel level
     const publisherFeed = parsePublisherFeedFromXML(xmlText);
@@ -1585,6 +1631,7 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
       explicit: feedExplicit,
       podcastGuid: podcastGuid || undefined,
       medium: podcastMedium || undefined,
+      blocked,
       items,
       persons: channelPersons.length > 0 ? channelPersons : undefined,
       podcastImages: channelPodcastImages.length > 0 ? channelPodcastImages : undefined,

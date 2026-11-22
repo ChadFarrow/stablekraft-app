@@ -10,10 +10,11 @@ import { prisma } from '@/lib/prisma';
 import { ValueTagParser } from '@/lib/lightning/value-parser';
 import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
-import { calculateTrackOrder, parsePodcastGuidFromXML, parsePodcastMediumFromXML, fetchChapters, parseChannelPersonsFromXML, parseChannelPodcastImagesFromXML, pickSquareArtwork } from '@/lib/rss-parser-db';
+import { calculateTrackOrder, parsePodcastGuidFromXML, parsePodcastMediumFromXML, parsePodcastBlocksFromXML, fetchChapters, parseChannelPersonsFromXML, parseChannelPodcastImagesFromXML, pickSquareArtwork } from '@/lib/rss-parser-db';
 import { decodeHtmlEntities } from '@/lib/decode-entities';
 import { parseChannelFundingFromXML } from '@/lib/podcast-funding';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { isBlockedFor, podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
@@ -275,6 +276,14 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
     // refresh route uses through parseRSSFeed.
     const channelFunding = xmlText ? parseChannelFundingFromXML(xmlText) : [];
 
+    // Channel-level <podcast:block>. Only from the XML: without it (a Podcast
+    // Index shape alone) nothing was read, so nothing is written — `undefined`
+    // makes podcastBlockFields a no-op rather than an un-hide.
+    const channelBlocked = xmlText ? isBlockedFor(parsePodcastBlocksFromXML(xmlText)) : undefined;
+    if (channelBlocked) {
+      console.warn(`🚫 podcast:block: feed ${feedId} blocks StableKraft; it is written hidden`);
+    }
+
     // Fall back to a square podcast:image only when no other image source exists.
     const feedImage = feedData.image || pickSquareArtwork(channelPodcastImagesData) || null;
 
@@ -307,7 +316,8 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
         ...(podcastMedium && { medium: podcastMedium }),
         ...(channelPersonsData && { persons: channelPersonsData }),
         ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData }),
-        ...channelFundingFields({ funding: channelFunding })
+        ...channelFundingFields({ funding: channelFunding }),
+        ...podcastBlockFields({ blocked: channelBlocked })
       },
       update: {
         // Update existing feed metadata
@@ -327,7 +337,8 @@ export async function importFeedToDatabase(feedData: any, episodes: ParsedEpisod
         ...(podcastMedium && { medium: podcastMedium }),
         ...(channelPersonsData && { persons: channelPersonsData }),
         ...(channelPodcastImagesData && { podcastImages: channelPodcastImagesData }),
-        ...channelFundingFields({ funding: channelFunding })
+        ...channelFundingFields({ funding: channelFunding }),
+        ...podcastBlockFields({ blocked: channelBlocked })
       }
     });
 

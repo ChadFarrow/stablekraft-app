@@ -5,6 +5,7 @@ import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
 
@@ -47,6 +48,7 @@ export async function POST(
           v4vValue: parsedFeed.v4vValue ? JSON.parse(JSON.stringify(parsedFeed.v4vValue)) : undefined,
           ...channelPersonsFields(parsedFeed),
           ...channelFundingFields(parsedFeed),
+          ...podcastBlockFields(parsedFeed),
           lastFetched: new Date(),
           status: 'active',
           lastError: null

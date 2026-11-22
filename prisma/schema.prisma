@@ -117,6 +117,10 @@ model Feed {
   medium            String?
   lastNewTrackAt    DateTime?
   markedDead        Boolean   @default(false)
+  /// The feed's own <podcast:block> keeps StableKraft from showing it (lib/feeds/podcast-block.ts).
+  /// Written by every parse, false as well as true. Separate from markedDead (Chad's manual hide),
+  /// so a feed that drops its block comes back without undoing a hide set by hand.
+  blocked           Boolean   @default(false)
   Feed              Feed?     @relation("FeedToFeed", fields: [publisherId], references: [id])
   other_Feed        Feed[]    @relation("FeedToFeed")
   Track             Track[]

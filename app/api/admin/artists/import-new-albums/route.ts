@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         type: { in: ['album', 'music'] },
         status: 'active',
         markedDead: false,
+        blocked: false,
         artist: { not: null },
       },
       select: { artist: true, originalUrl: true },

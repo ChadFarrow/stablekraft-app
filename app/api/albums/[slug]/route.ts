@@ -680,6 +680,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     // Also allow test and publisher feeds via exact ID match
     const exactMatch = await prisma.feed.findFirst({
       where: {
+        blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
         OR: [
           { status: 'active', id: { equals: slug, mode: 'insensitive' } },
           { type: 'test', id: { equals: slug, mode: 'insensitive' } },
@@ -711,6 +712,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     if (!exactMatch) {
       const publisherMatch = await prisma.feed.findFirst({
         where: {
+          blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
           type: { in: ['publisher', 'test'] },
           id: { contains: slug, mode: 'insensitive' }
         },
@@ -760,6 +762,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       const candidateFeeds = await prisma.feed.findMany({
         where: {
+          blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
           status: 'active',
           OR: orConditions
         },
@@ -816,6 +819,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       const containsMatches = await prisma.feed.findMany({
         where: {
+          blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
           status: 'active',
           OR: orConditions
         },
@@ -837,6 +841,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
       const titleMatches = await prisma.feed.findMany({
         where: {
+          blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
           status: 'active',
           title: { contains: titleSearch, mode: 'insensitive' }
         },
@@ -1002,6 +1007,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       if (feed.type === 'publisher' || feed.type === 'test') {
         const linkedAlbums = await prisma.feed.findMany({
           where: {
+            blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
             publisherId: feed.id,
             status: 'active'
           },
@@ -1030,6 +1036,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           if (publisherAlbums.length > 0) {
             const linkedAlbumsWithTracks = await prisma.feed.findMany({
               where: {
+                blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
                 publisherId: feed.id,
                 status: 'active'
               },
@@ -1198,6 +1205,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           // Look up actual publisher feed by artist name
           const publisherFeed = await prisma.feed.findFirst({
             where: {
+              blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
               type: 'publisher',
               OR: [
                 { artist: { equals: feed.artist, mode: 'insensitive' } },
@@ -1246,7 +1254,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       // This used to read every active feed WITH all its tracks — 33 MB per miss,
       // and every slug that matches nothing lands here (see flexible-slug-match.ts).
       const candidates = await prisma.feed.findMany({
-        where: { status: 'active' },
+        where: { status: 'active', blocked: false },
         select: {
           id: true,
           title: true,
@@ -1352,6 +1360,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
             // Look up actual publisher feed by artist name
             const publisherFeed = await prisma.feed.findFirst({
               where: {
+                blocked: false, // <podcast:block>: the artist keeps this feed off StableKraft
                 type: 'publisher',
                 OR: [
                   { artist: { equals: feed.artist, mode: 'insensitive' } },

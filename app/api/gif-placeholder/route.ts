@@ -18,7 +18,7 @@ async function catalogGifCovers(): Promise<Set<string>> {
   if (coversCache && Date.now() - coversCache.at < COVERS_TTL_MS) return coversCache.covers;
   coversLoad ??= prisma.feed
     .findMany({
-      where: { status: 'active', markedDead: false, image: { contains: '.gif', mode: 'insensitive' } },
+      where: { status: 'active', markedDead: false, blocked: false, image: { contains: '.gif', mode: 'insensitive' } },
       select: { image: true },
     })
     .then((rows) => {

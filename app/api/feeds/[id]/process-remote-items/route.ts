@@ -6,6 +6,7 @@ import { findFeedForRemoteItem } from '@/lib/feed-lookup';
 import { isBlacklistedFeedUrl, isPlaylistSourceFeedUrl } from '@/lib/feed-exclusions';
 import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
+import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { isListMedium } from '@/lib/playlist/musicl-feed';
 
 interface RemoteItem {
@@ -235,6 +236,7 @@ export async function POST(
             publisherId: id,
             ...channelPersonsFields(parsedFeed),
             ...channelFundingFields(parsedFeed),
+            ...podcastBlockFields(parsedFeed),
             lastFetched: new Date(),
             status: 'active',
             createdAt: new Date(),
