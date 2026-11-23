@@ -131,6 +131,17 @@ const staticPlaylists: PlaylistItem[] = [
     medium: 'musicL'
   },
   {
+    id: 'obsh',
+    title: 'The OnlyBoosts Social Hour Music Playlist',
+    description: 'Every music reference from The OnlyBoosts Social Hour',
+    trackCount: 10,
+    episodes: '10 remote items',
+    href: '/playlist/obsh',
+    type: 'rss',
+    color: 'bg-rose-600',
+    medium: 'musicL'
+  },
+  {
     id: 'greatest-hits',
     title: "ChadF's Greatest Hits Music Playlist",
     description: 'Most frequently played tracks across all ChadF musicL playlists - songs appearing 2+ times, organized by play count',
@@ -387,6 +398,12 @@ function PlaylistContent() {
               className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open LT Player
+            </Link>
+            <Link
+              href="/playlist/obsh"
+              className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open OBSH Player
             </Link>
             <Link
               href="/playlist/greatest-hits"

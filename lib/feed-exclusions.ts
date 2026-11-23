@@ -59,6 +59,7 @@ export const PLAYLIST_SOURCE_FEED_URLS = [
   'https://itsamood.org/itsamoodrss.xml',  // IAM
   'https://www.doerfelverse.com/feeds/intothedoerfelverse.xml',  // ITDV
   'https://serve.podhome.fm/rss/fafd2bfc-98ac-5010-9fcb-7403abfd420a',  // Two For Tunestr
+  'https://serve.podhome.fm/rss/de0bcde8-964b-4d71-9280-85d0ca2682c8',  // The OnlyBoosts Social Hour
 ];
 
 // Henrik Flyman pulled ALL his music off Wavlake and self-hosts at

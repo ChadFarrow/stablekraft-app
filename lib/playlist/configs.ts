@@ -159,6 +159,19 @@ export const PLAYLIST_CONFIGS: Record<string, PlaylistConfig> = {
     albumUrl: '/album/tft-playlist',
   },
 
+  obsh: {
+    id: 'obsh',
+    url: `${GITHUB_BASE}/OBSH-music-playlist.xml`,
+    name: 'The OnlyBoosts Social Hour Music Playlist',
+    shortName: 'OBSH',
+    author: 'ChadF',
+    description: 'Every music reference from The OnlyBoosts Social Hour',
+    cacheDuration: CACHE_6_HOURS,
+    maxDuration: TIMEOUT_STANDARD,
+    playlistUrl: '/playlist/obsh',
+    albumUrl: '/album/obsh-playlist',
+  },
+
   greatestHits: {
     id: 'greatestHits',
     url: `${GITHUB_BASE}/Greatest-Hits-music-playlist.xml`,

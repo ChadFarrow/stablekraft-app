@@ -255,7 +255,7 @@ function FavoritesPageContent() {
       if (albumsData.success) {
         const allAlbums = albumsData.data || [];
         // Separate publishers, playlists, and regular albums
-        const playlistTitles = ['hgh', 'mmm', 'sas', 'iam', 'itdv', 'mmt', 'b4ts', 'upbeats', 'flowgnar', 'greatesthits', 'lt', 'tft'];
+        const playlistTitles = ['hgh', 'mmm', 'sas', 'iam', 'itdv', 'mmt', 'b4ts', 'upbeats', 'flowgnar', 'greatesthits', 'lt', 'tft', 'obsh'];
 
         const isPlaylist = (album: any) => {
           if (album.type === 'playlist') return true;
@@ -278,7 +278,8 @@ function FavoritesPageContent() {
           'flowgnar': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-playlist-art.webp',
           'greatesthits': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Greatest-Hits-music-playlist.png',
           'lt': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/LT-music-playlist.png',
-          'tft': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/TFT-playlist-art.png'
+          'tft': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/TFT-playlist-art.png',
+          'obsh': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-playlist-art.jpg'
         };
 
         const getPlaylistImageFallback = (album: any) => {
