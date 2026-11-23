@@ -97,3 +97,49 @@ test('/api/albums/[slug] gzips every album it returns', () => {
     'an album is returned with NextResponse.json — use compressedJson, or it ships uncompressed'
   );
 });
+
+/**
+ * Next sends a route handler's Response through its own `sendResponse`, and that
+ * function decides which headers reach the wire. Next 15.5.29 started dropping
+ * `content-encoding`, `content-length` and `transfer-encoding` from every route
+ * response (its fix for GHSA-pc58-hwjq-p385), so the gzipped body went out with
+ * no Content-Encoding: browsers read gzip bytes as JSON, and the catalog, album
+ * page, search and every playlist broke — under a green build, typecheck and
+ * this file's other tests, which all stop at the Response object. Found on a
+ * production build of the upgrade, 2026-11-22. This drives Next's real
+ * sendResponse over a real socket, so an upgrade that strips the header fails
+ * here instead of on stablekraft.app.
+ */
+test("Next's sendResponse keeps compressedJson's Content-Encoding on the wire", async () => {
+  const { createServer, get } = await import('node:http');
+  const { sendResponse } = await import('next/dist/server/send-response.js');
+  const { NodeNextRequest, NodeNextResponse } = await import('next/dist/server/base-http/node.js');
+
+  const server = createServer(async (rawReq, rawRes) => {
+    const response = await compressedJson(req('gzip, deflate, br'), big);
+    await sendResponse(new NodeNextRequest(rawReq as never), new NodeNextResponse(rawRes), response);
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { port } = server.address() as { port: number };
+    // node:http, not fetch: fetch would decode the body and hide a missing header.
+    const { headers, body } = await new Promise<{ headers: Record<string, unknown>; body: Buffer }>(
+      (resolve, reject) => {
+        get({ host: '127.0.0.1', port, path: '/', headers: { 'accept-encoding': 'gzip' } }, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
+          res.on('error', reject);
+        }).on('error', reject);
+      }
+    );
+    assert.equal(
+      headers['content-encoding'],
+      'gzip',
+      'Next dropped Content-Encoding from a route response: compressedJson now ships gzip bytes as plain JSON (see CLAUDE.md, "Next is pinned to 15.5.28")'
+    );
+    assert.deepEqual(JSON.parse(gunzipSync(body).toString('utf8')), big);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

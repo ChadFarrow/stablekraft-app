@@ -3,6 +3,7 @@ import { guardProxyTarget } from '@/lib/proxy-host-allowlist';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, declaredLengthExceeds, MAX_AUDIO_BYTES } from '@/lib/safe-fetch';
+import { forwardableContentLength } from '@/lib/forwarded-framing';
 
 /**
  * Per-IP ceiling on this route. Module scope so the buckets survive between
@@ -155,8 +156,10 @@ export async function GET(request: NextRequest) {
     // This significantly improves repeat playback performance
     headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
 
-    // Content length handling
-    const contentLength = response.headers.get('content-length');
+    // Content length handling. Never the upstream length of a body fetch() decoded:
+    // it describes the encoded bytes, and a wrong length desynchronises the
+    // connection for the next client (GHSA-pc58-hwjq-p385; lib/forwarded-framing.ts).
+    const contentLength = forwardableContentLength(response.headers);
     if (contentLength) {
       headers.set('Content-Length', contentLength);
       console.log(`📦 [Audio Proxy] Content-Length: ${contentLength} bytes`);

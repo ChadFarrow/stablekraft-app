@@ -277,6 +277,17 @@ line holds the full story.
   CDN in front of Railway, so `s-maxage` saves nothing. `lib/compressed-json.ts` gzips when the caller accepts it;
   use it for any success body over a few KB. Check with `curl -D - -o /dev/null -H 'Accept-Encoding: gzip'`, never
   a bare `curl`, which asks for no encoding and so always gets the raw body.
+- **Next is pinned to exactly `15.5.28`, because 15.5.29 breaks `compressedJson()` in every browser.** 15.5.29's
+  `sendResponse` drops `content-encoding`, `content-length` and `transfer-encoding` from every route response (its
+  fix for GHSA-pc58-hwjq-p385), so the gzipped body goes out with no `Content-Encoding` and the catalog, album page,
+  search and every playlist read gzip bytes as JSON. A green build, typecheck and unit run all missed it; a
+  production build caught it (2026-11-22). The last test in `lib/compressed-json.test.ts` drives Next's real
+  `sendResponse` over a socket and fails on any Next that strips the header — do not "fix" that test by loosening it.
+  It also drops `Content-Length` from `/api/proxy-audio`, so every 206 goes out chunked: test Safari audio before
+  moving. Moving past 15.5.28 means replacing route-level gzip first (Next's own `compress` skips route handlers,
+  above), and that is Chad's call because the alternative is raw JSON egress. The advisory 15.5.29 fixes is the
+  proxies copying an upstream `Content-Length` beside a body `fetch()` decoded; `lib/forwarded-framing.ts` closes it
+  in our two proxies, and its test fails if a route streams a fetched body without it → `auth-and-security`.
 - **There is a Data Saver mode, and OFF must stay byte-for-byte what it is today.** A manual switch
   (`sk_data_saver`, Settings → Data & Offline), never auto-enabled — `navigator.connection.saveData` is
   deliberately not consulted, for the reason Offline mode ignores `navigator.onLine`. It spans artwork, audio

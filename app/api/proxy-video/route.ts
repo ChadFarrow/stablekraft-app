@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
+import { forwardableContentLength } from '@/lib/forwarded-framing';
 
 /**
  * Per-IP ceiling on this route. Module scope so the buckets survive between
@@ -60,7 +61,9 @@ export async function GET(request: NextRequest) {
       contentType = 'application/vnd.apple.mpegurl';
     }
     
-    const contentLength = response.headers.get('Content-Length');
+    // Never the upstream length of a body fetch() decoded (GHSA-pc58-hwjq-p385;
+    // lib/forwarded-framing.ts).
+    const contentLength = forwardableContentLength(response.headers);
     
     // Create response with proper headers for video streaming
     const proxyResponse = new NextResponse(response.body, {
