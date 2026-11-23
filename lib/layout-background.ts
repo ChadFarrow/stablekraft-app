@@ -29,6 +29,7 @@ export const PLAYLIST_TEMPLATE_PAGES = [
   'lt',
   'mmm',
   'mmt',
+  'obsh',
   'sas',
   'tft',
   'upbeats',

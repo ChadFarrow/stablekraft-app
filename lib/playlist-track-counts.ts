@@ -17,6 +17,7 @@ const FALLBACK_COUNTS: Record<string, number> = {
   'flowgnar': 188,
   'lt': 1290,
   'tft': 173,
+  'obsh': 10,
   'greatestHits': 1247,
 };
 
@@ -33,6 +34,7 @@ const PLAYLIST_URLS: Record<string, string> = {
   'flowgnar': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/flowgnar-music-playlist.xml',
   'lt': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/LT-music-playlist.xml',
   'tft': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/TFT-music-playlist.xml',
+  'obsh': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-music-playlist.xml',
   'greatestHits': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/Greatest-Hits-music-playlist.xml',
 };
 

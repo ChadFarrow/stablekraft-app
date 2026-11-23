@@ -285,6 +285,30 @@ export async function GET() {
         }
       },
       {
+        id: 'obsh-playlist',
+        title: 'The OnlyBoosts Social Hour Music Playlist',
+        artist: 'Various Artists',
+        album: 'The OnlyBoosts Social Hour Music Playlist',
+        description: 'Every music reference from The OnlyBoosts Social Hour',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-playlist-art.jpg',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-playlist-art.jpg',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-music-playlist.xml',
+        feedId: 'obsh-playlist',
+        type: 'playlist',
+        totalTracks: trackCounts['obsh'] || 0,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/obsh',
+        albumUrl: '/playlist/obsh',
+        isLoading: true,
+        fullDataUrl: '/api/playlist/obsh',
+        playlistContext: {
+          source: 'obsh-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/OBSH-music-playlist.xml'
+        }
+      },
+      {
         id: 'lt-playlist',
         title: 'Lightning Thrashes Music Playlist',
         artist: 'Various Artists',

@@ -848,7 +848,7 @@ function HomePageContent() {
           // 15s timeout per playlist so one unreachable upstream can't hang the
           // whole fallback; a timeout rejects that entry in allSettled.
           const playlistFetch = (path: string) => fetch(path, { signal: AbortSignal.timeout(15000) });
-          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, greatestHitsResponse] = await Promise.allSettled([
+          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, obshResponse, greatestHitsResponse] = await Promise.allSettled([
             playlistFetch('/api/playlist/upbeats'),
             playlistFetch('/api/playlist/b4ts'),
             playlistFetch('/api/playlist/itdv'),
@@ -860,6 +860,7 @@ function HomePageContent() {
             playlistFetch('/api/playlist/flowgnar'),
             playlistFetch('/api/playlist/lt'),
             playlistFetch('/api/playlist/tft'),
+            playlistFetch('/api/playlist/obsh'),
             playlistFetch('/api/playlist/greatest-hits')
           ]);
 
@@ -984,6 +985,17 @@ function HomePageContent() {
             }
           } else {
             console.warn('⚠️ Failed to load TFT playlist');
+          }
+
+          // Process OBSH playlist
+          if (obshResponse.status === 'fulfilled' && obshResponse.value.ok) {
+            const obshData = await obshResponse.value.json();
+            if (obshData.success && obshData.albums) {
+              allAlbums.push(...obshData.albums);
+              console.log(`✅ Loaded ${obshData.albums.length} OBSH playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load OBSH playlist');
           }
 
           // Process Greatest Hits playlist
