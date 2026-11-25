@@ -67,11 +67,18 @@ export interface FeedFetchOptions {
   env?: Record<string, string | undefined>;
 }
 
+/**
+ * The timeout text. It must contain "timeout": `categorizeReparseError`
+ * (lib/feeds/reparse-plan.ts) files a run's failures by their text, and "timed out" would
+ * land in PARSE_ERROR (the parser's wrapper says "Failed to parse RSS feed: …").
+ */
+const timeoutMessage = (ms: number) => `Feed fetch timeout after ${ms} ms`;
+
 /** Reject when `signal` fires first. `dns.lookup` itself cannot be aborted. */
-function beforeDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(new FeedFetchError('Feed fetch timed out'));
+function beforeDeadline<T>(work: Promise<T>, signal: AbortSignal, ms: number): Promise<T> {
+  if (signal.aborted) return Promise.reject(new FeedFetchError(timeoutMessage(ms)));
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(new FeedFetchError('Feed fetch timed out'));
+    const onAbort = () => reject(new FeedFetchError(timeoutMessage(ms)));
     signal.addEventListener('abort', onAbort, { once: true });
     work.then(
       (v) => { signal.removeEventListener('abort', onAbort); resolve(v); },
@@ -94,8 +101,11 @@ export async function checkResolvedHost(
   let addrs: string[];
   try {
     addrs = await lookup(host);
-  } catch {
-    return `${host} does not resolve`;
+  } catch (err) {
+    // Keep the resolver's code (ENOTFOUND, EAI_AGAIN): categorizeReparseError files
+    // "enotfound" as DNS_LOOKUP_FAILED, which is what a dead host is.
+    const code = (err as { code?: unknown })?.code;
+    return `${host} does not resolve${typeof code === 'string' ? ` (${code})` : ''}`;
   }
   if (addrs.length === 0) return `${host} does not resolve`;
   const bad = addrs.find((a) => isPrivateIp(a));
@@ -171,7 +181,7 @@ export async function fetchFeed(url: string, opts: FeedFetchOptions = {}): Promi
     try {
       response = await withDeadline(url, { headers, redirect: 'manual' });
     } catch {
-      throw new FeedFetchError(deadline.aborted ? 'Feed fetch timed out' : 'Upstream request failed');
+      throw new FeedFetchError(deadline.aborted ? timeoutMessage(timeoutMs) : 'Upstream request failed');
     }
   } else {
     // safeFetch runs isSafePublicUrl on each hop and then calls this, so the DNS check
@@ -179,7 +189,7 @@ export async function fetchFeed(url: string, opts: FeedFetchOptions = {}): Promi
     // reason is kept here for the log.
     let refusal: string | null = null;
     const guarded: FetchLike = async (u, init) => {
-      const reason = await beforeDeadline(checkResolvedHost(new URL(u).hostname, lookup), deadline);
+      const reason = await beforeDeadline(checkResolvedHost(new URL(u).hostname, lookup), deadline, timeoutMs);
       if (reason) {
         refusal = reason;
         throw new FeedFetchError(reason);
@@ -194,7 +204,7 @@ export async function fetchFeed(url: string, opts: FeedFetchOptions = {}): Promi
       fetchImpl: guarded,
     });
     if (!got.ok) {
-      const why = refusal ? `Refused: ${refusal}` : deadline.aborted ? 'Feed fetch timed out' : got.error;
+      const why = refusal ? `Refused: ${refusal}` : deadline.aborted ? timeoutMessage(timeoutMs) : got.error;
       console.warn(`⚠️ Feed fetch refused or failed: ${url} — ${why}`);
       throw new FeedFetchError(why);
     }

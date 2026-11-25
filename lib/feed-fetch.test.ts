@@ -11,6 +11,7 @@ import {
   type LookupAll,
 } from './feed-fetch';
 import { parseRSSFeed } from './rss-parser-db';
+import { categorizeReparseError } from './feeds/reparse-plan';
 import type { FetchLike } from './safe-fetch';
 
 // The attack cases from the 2026-11-24 survey, plus the encodings the old string
@@ -263,7 +264,7 @@ test('fetchFeed times out a DNS lookup that never answers', BOUNDED, async () =>
   const { impl, calls } = stubFetch({});
   const hang: LookupAll = () => new Promise(() => {});
   const t0 = Date.now();
-  await assert.rejects(fetchFeed('http://slow-dns.example/feed.xml', { fetchImpl: impl, lookup: hang, timeoutMs: 200 }), /timed out/);
+  await assert.rejects(fetchFeed('http://slow-dns.example/feed.xml', { fetchImpl: impl, lookup: hang, timeoutMs: 200 }), /timeout after \d+ ms/);
   assert.ok(Date.now() - t0 < 2000);
   assert.deepEqual(calls, []);
 });
@@ -296,7 +297,7 @@ const slowLookup = stubLookup({ 'slow.example': [PUBLIC_IP] });
 test('fetchFeed times out a server that never sends headers', BOUNDED, async () => {
   await withServer(() => { /* never answer */ }, async (impl) => {
     const t0 = Date.now();
-    await assert.rejects(fetchFeed('http://slow.example/feed.xml', { fetchImpl: impl, lookup: slowLookup, timeoutMs: 300 }), /timed out/);
+    await assert.rejects(fetchFeed('http://slow.example/feed.xml', { fetchImpl: impl, lookup: slowLookup, timeoutMs: 300 }), /timeout after \d+ ms/);
     assert.ok(Date.now() - t0 < 3000, 'gave up near the deadline');
   });
 });
@@ -458,4 +459,18 @@ test('MusicTrackParser.extractMusicTracks never requests a private feedUrl (GET 
     globalThis.fetch = real;
   }
   assert.deepEqual(calls, []);
+});
+
+// --- the nightly run files failures by their text ---------------------------
+
+test('a timeout and a dead host keep their reparse category (TIMEOUT, DNS_LOOKUP_FAILED)', BOUNDED, async () => {
+  const hang: LookupAll = () => new Promise(() => {});
+  const dead: LookupAll = async () => { throw Object.assign(new Error('getaddrinfo ENOTFOUND gone.example'), { code: 'ENOTFOUND' }); };
+  const { impl } = stubFetch({});
+  const msg = async (p: Promise<unknown>) => p.then(() => '', (e: Error) => `Failed to parse RSS feed: ${e.message}`);
+  assert.equal(categorizeReparseError(await msg(fetchFeed('http://slow.example/f.xml', { fetchImpl: impl, lookup: hang, timeoutMs: 100 }))), 'TIMEOUT');
+  assert.equal(categorizeReparseError(await msg(fetchFeed('http://gone.example/f.xml', { fetchImpl: impl, lookup: dead }))), 'DNS_LOOKUP_FAILED');
+  await withServer(() => { /* never answer */ }, async (fi) => {
+    assert.equal(categorizeReparseError(await msg(fetchFeed('http://slow.example/f.xml', { fetchImpl: fi, lookup: slowLookup, timeoutMs: 200 }))), 'TIMEOUT');
+  });
 });
