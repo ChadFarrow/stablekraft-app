@@ -9,6 +9,7 @@ import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror 
 import { compressedJson } from '@/lib/compressed-json';
 import { pickFlexibleSlugMatch } from '@/lib/catalog/flexible-slug-match';
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { fetchFeed } from '@/lib/feed-fetch';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -1086,9 +1087,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
           if (tracks.length === 0 && feed.originalUrl) {
             try {
               console.log(`📡 Fetching publisher feed XML to resolve remoteItems: ${feed.originalUrl}`);
-              const feedResponse = await fetch(feed.originalUrl, {
-                signal: AbortSignal.timeout(10000)
-              });
+              // A stored URL that anyone could have added via POST /api/feeds: guarded.
+              const feedResponse = await fetchFeed(feed.originalUrl, { timeoutMs: 10000 });
 
               if (feedResponse.ok) {
                 const xmlText = await feedResponse.text();

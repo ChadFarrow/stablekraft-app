@@ -134,6 +134,9 @@ async function main() {
       DATABASE_URL: DB_URL,
       ADMIN_SECRET: ADMIN,
       NEXT_PUBLIC_NOSTR_RELAYS: 'ws://127.0.0.1:7777',
+      // The feeds below are served from 127.0.0.1, which the feed fetch guard refuses.
+      // lib/feed-fetch.ts honours this for a loopback literal only, and never in production.
+      FEED_FETCH_ALLOW_LOOPBACK: '1',
     },
   });
   cleanups.push(['stop next dev', () => { try { process.kill(-next.pid, 'SIGTERM'); } catch {} }]);
@@ -189,7 +192,8 @@ async function main() {
     executablePath: CHROME,
     headless: 'new',
     // MacAppCodeSignClone: without it each start clones Chrome.app (1.4 GB) into the temp folder.
-    args: ['--disable-features=MacAppCodeSignClone', `--user-data-dir=${PROFILE}`, '--no-first-run'],
+    // --mute-audio: every Chrome an agent starts (vibe-kit global rule, 2026-11-22).
+    args: ['--mute-audio', '--disable-features=MacAppCodeSignClone', `--user-data-dir=${PROFILE}`, '--no-first-run'],
   });
   cleanups.push(['close Chrome', async () => {
     await browser.close();

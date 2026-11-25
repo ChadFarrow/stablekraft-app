@@ -5,6 +5,11 @@ import { validateDuration } from './duration-validation';
 import { PodcastImage, pickSquareArtwork, pickCanvasBackground } from './podcast-images';
 import { FundingLink, parseChannelFundingFromXML, parseFundingFromBlock } from './podcast-funding';
 import { isBlockedFor, type PodcastBlock } from './feeds/podcast-block';
+import { fetchFeed, FEED_FETCH_TIMEOUT_MS } from './feed-fetch';
+import { MAX_JSON_BYTES } from './safe-fetch';
+
+/** Chapters JSON cap: the same 1 MiB as /api/chapters. */
+const MAX_CHAPTERS_BYTES = MAX_JSON_BYTES;
 
 // Re-export so existing import sites (e.g. lib/feed-parsing.ts) keep resolving these
 // from rss-parser-db; the canonical, dependency-free home is lib/podcast-images.ts.
@@ -226,9 +231,11 @@ export async function fetchChapters(
   chaptersUrl: string
 ): Promise<ParsedChapter[] | null> {
   try {
-    const response = await fetch(chaptersUrl, {
+    // A URL the feed names, so through the same guard as the feed itself.
+    const response = await fetchFeed(chaptersUrl, {
       headers: { 'User-Agent': 'StableKraft/1.0' },
-      signal: AbortSignal.timeout(10000),
+      timeoutMs: 10000,
+      maxBytes: MAX_CHAPTERS_BYTES,
     });
     if (!response.ok) {
       // If reflex proxy fails, try extracting the direct URL from the proxy path
@@ -236,9 +243,10 @@ export async function fetchChapters(
       const directUrlMatch = chaptersUrl.match(/\/chapters\/(https?:\/\/.+)$/);
       if (directUrlMatch) {
         console.log(`🔄 Reflex proxy failed, trying direct chapters URL`);
-        const directResponse = await fetch(directUrlMatch[1], {
+        const directResponse = await fetchFeed(directUrlMatch[1], {
           headers: { 'User-Agent': 'StableKraft/1.0' },
-          signal: AbortSignal.timeout(10000),
+          timeoutMs: 10000,
+          maxBytes: MAX_CHAPTERS_BYTES,
         });
         if (directResponse.ok) {
           const data = await directResponse.json();
@@ -1198,11 +1206,16 @@ function parseKeywords(keywords: string | undefined): string[] {
  * 30 s timeout: a host that accepts the connection and never answers held the whole
  * batch — and the nightly reparse's time budget — until Railway cut the request at
  * 300 s. The largest catalog feeds download in a few seconds.
+ *
+ * Through `fetchFeed` (lib/feed-fetch.ts) since 2026-11-24: a private address, a
+ * public name that resolves to one, or a redirect to one is refused, and the body is
+ * capped at 12 MiB. The 30 s budget is unchanged and now also spans the DNS checks.
+ * A caller that passes the XML in (`parseRSSFeed(url, xml)`) fetched it itself.
  */
-export const FEED_FETCH_TIMEOUT_MS = 30000;
+export { FEED_FETCH_TIMEOUT_MS };
 
 async function fetchFeedXml(feedUrl: string): Promise<string> {
-  const response = await fetch(feedUrl, { signal: AbortSignal.timeout(FEED_FETCH_TIMEOUT_MS) });
+  const response = await fetchFeed(feedUrl, { timeoutMs: FEED_FETCH_TIMEOUT_MS });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`);
   }
@@ -1246,20 +1259,13 @@ export async function parseRSSFeed(feedUrl: string, fetchedXml?: string): Promis
     // cut out first, so a track's own link never reads as the album's.
     const channelFunding = parseChannelFundingFromXML(xmlText);
 
-    // Now parse with the RSS parser
-    // Since rss-parser doesn't support parseString in Node.js, we'll use parseURL
-    // The XML typo fix above helps, but parseURL will fetch again
-    // So we need to ensure the typo is fixed server-side or use a workaround
+    // Now parse with the RSS parser, on the XML already fetched (with the typo fix above)
     let feed;
     try {
-      // Try to use parseString if available (some versions support it)
-      if (typeof (parser as any).parseString === 'function') {
-        feed = await (parser as any).parseString(xmlText);
-      } else {
-        // Use parseURL - it will fetch the original URL which still has the typo
-        // But many XML parsers are lenient and will handle "endcoding" as "encoding"
-        feed = await parser.parseURL(feedUrl);
-      }
+      // parseString only. A `parser.parseURL(feedUrl)` fallback used to sit here for
+      // versions without parseString; rss-parser 3.13 has it, and parseURL is a second,
+      // unguarded fetch that follows redirects itself.
+      feed = await parser.parseString(xmlText);
     } catch (parseError) {
       // If parsing fails, the error is likely due to the $ property access issue
       // which we've fixed in the code above, but the server needs to reload
