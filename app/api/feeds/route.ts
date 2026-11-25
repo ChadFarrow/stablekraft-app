@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
+import { fetchFeed } from '@/lib/feed-fetch';
 import { syncOldestItemPubdate } from '@/lib/feed-pubdate';
 import { findPublisherFeed } from '@/lib/publisher-detector';
 import { generateAlbumSlug, isValidFeedUrl, normalizeUrl, normalizeArtistName } from '@/lib/url-utils';
@@ -510,7 +511,7 @@ export async function POST(request: NextRequest) {
       // Auto-detect publisher feeds: 0 items + has remoteItem album references
       if (resolvedType === 'album' && parsedFeed.items.length === 0) {
         try {
-          const xmlCheck = await fetch(resolvedUrl, { signal: AbortSignal.timeout(15000) });
+          const xmlCheck = await fetchFeed(resolvedUrl, { timeoutMs: 15000 });
           if (xmlCheck.ok) {
             const xmlText = await xmlCheck.text();
             const remoteItems = extractRemoteItemsFromXML(xmlText);
@@ -736,9 +737,7 @@ export async function POST(request: NextRequest) {
 
         try {
           // Re-fetch the XML to extract remoteItems (we already have parsedFeed but need raw XML)
-          const xmlResponse = await fetch(resolvedUrl, {
-            signal: AbortSignal.timeout(15000)
-          });
+          const xmlResponse = await fetchFeed(resolvedUrl, { timeoutMs: 15000 });
 
           if (xmlResponse.ok) {
             const xmlText = await xmlResponse.text();

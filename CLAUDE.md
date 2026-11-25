@@ -253,6 +253,19 @@ line holds the full story.
   `MAX_IMAGE_BYTES` (12 MB, #229), as every larger cover had been since August; over the cap an `<img>` now gets a
   302 to the artist's host (#290). The redirect is gated on `Sec-Fetch-Dest: image` because a host check alone
   would make it an open redirect, for the reason in the bullet above → `auth-and-security`.
+- **A feed URL is fetched with `fetchFeed` (`lib/feed-fetch.ts`), never a bare `fetch`.** The URL is not ours:
+  `POST /api/feeds`, `refresh-by-url`, `GET /api/music-tracks?feedUrl=` and `GET /api/generate-playlist-rss?feedUrl=`
+  are open, and a feed names further URLs (`remoteItem`, `chapters`). `parseRSSFeed` used a bare `fetch` with an
+  uncapped `text()` until 2026-11-24. `fetchFeed` is `safeFetch` (every redirect hop re-checked) plus a DNS check on
+  every hop — a public name that resolves to a private address (`127.0.0.1.nip.io`) is refused, and so is one that
+  does not resolve — plus ONE deadline over the lookups, the hops and the body (`safeFetch`'s own timer stops at the
+  headers) and a 12 MiB body cap. A refusal throws `FeedFetchError`, as a network failure makes `fetch` throw, so a
+  swap is one line. `isSafePublicUrl` and the DNS check share one address list (`isPrivateIp`), which since the same
+  day also refuses `[::ffff:7f00:1]`, `[::]`, `0/8`, `100.64/10` and `localhost.` for every route that uses the
+  guard. It does not pin the checked address, so DNS rebinding still passes. About 25 older bare feed
+  fetches remain, nearly all behind the admin gate — the list is in the PR that added `fetchFeed`. `next dev` honours
+  `FEED_FETCH_ALLOW_LOOPBACK=1` (set by `npm run e2e:block`) for a loopback literal only; production never does →
+  `auth-and-security`.
 - **`isSafePublicUrl()` returns `{ ok, ... }`, not a boolean.** `if (!isSafePublicUrl(u))` negates an object, is
   always `false`, and silently turns the SSRF guard into dead code — and `tsc --noEmit` stays clean. Always
   `const c = isSafePublicUrl(u); if (!c.ok)`. Verify empirically, never by reading it → `auth-and-security`.

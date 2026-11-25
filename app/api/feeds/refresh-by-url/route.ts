@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseRSSFeedWithSegments, calculateTrackOrder, detectTrackMediaType, applyParsedItemFields } from '@/lib/rss-parser-db';
+import { fetchFeed } from '@/lib/feed-fetch';
 import { resolvePodcastIndexUrl } from '@/lib/podcast-index-api';
 import { normalizeUrl } from '@/lib/url-utils';
 import { findFeedForRemoteItem, findFeedIdByUrl } from '@/lib/feed-lookup';
@@ -63,7 +64,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
 
   try {
     // Fetch the raw XML to extract remoteItems
-    const response = await fetch(feedUrl);
+    const response = await fetchFeed(feedUrl);
     if (!response.ok) {
       return results;
     }
@@ -139,7 +140,7 @@ async function processRemoteItems(feedUrl: string, publisherFeedId: string): Pro
         // Detect feed type from <podcast:medium>
         let albumType = 'album';
         try {
-          const xmlResp = await fetch(albumFeedUrl);
+          const xmlResp = await fetchFeed(albumFeedUrl);
           if (xmlResp.ok) {
             const xml = await xmlResp.text();
             const mediumMatch = xml.match(/<podcast:medium>([^<]+)<\/podcast:medium>/);
@@ -374,7 +375,7 @@ async function refreshFeed(ctx: RefreshContext): Promise<NextResponse> {
       if (!feedType) {
         try {
           // Fetch raw XML to get podcast:medium
-          const xmlResponse = await fetch(resolvedUrl);
+          const xmlResponse = await fetchFeed(resolvedUrl);
           if (xmlResponse.ok) {
             const xmlText = await xmlResponse.text();
             const mediumMatch = xmlText.match(/<podcast:medium>([^<]+)<\/podcast:medium>/);

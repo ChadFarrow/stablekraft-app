@@ -4,6 +4,7 @@
  */
 import { AppError, ErrorCodes, createErrorLogger } from '../error-utils';
 import * as xml2js from 'xml2js';
+import { fetchFeed } from '../feed-fetch';
 import { RSSParser } from '../rss-parser';
 import { ParserUtils } from './utils';
 import { TrackDeduplicator } from './deduplication';
@@ -32,8 +33,9 @@ export class MusicTrackParser {
     try {
       this.logger.info('Starting music track extraction', { feedUrl });
 
-      // Fetch and parse the RSS feed
-      const response = await fetch(feedUrl);
+      // Fetch and parse the RSS feed. Through the guard: GET /api/music-tracks and
+      // GET /api/generate-playlist-rss are open and pass a caller's `feedUrl` here.
+      const response = await fetchFeed(feedUrl);
       if (!response.ok) {
         throw new AppError(`Failed to fetch RSS feed: ${response.statusText}`, ErrorCodes.RSS_FETCH_ERROR);
       }
