@@ -41,10 +41,11 @@ export async function GET(request: NextRequest) {
   try {
     // Our own User-Agent, not a browser imitation. The Chrome 120 string that was
     // here (2025-11-29, "servers that block obvious proxies") did not help any
-    // host on 2026-11-27: of 81 audio hosts probed with this header set, none
-    // served the Chrome name and refused ours, and thebearsnare.com dropped the
-    // connection for every `Mozilla/5.0` name while it served ours. The other
-    // browser-style headers stay as they were.
+    // host on 2026-11-27: of 81 audio hosts probed with this header set (from a
+    // home IP address, not Railway), none served the Chrome name and refused
+    // ours, and thebearsnare.com dropped the connection for every `Mozilla/5.0`
+    // name while it served ours. The other browser-style headers stay as they
+    // were.
     const fetchHeaders: Record<string, string> = {
       'User-Agent': USER_AGENT,
       'Accept': '*/*',

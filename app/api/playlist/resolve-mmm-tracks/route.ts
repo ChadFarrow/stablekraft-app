@@ -4,7 +4,7 @@ import { resolveItemGuid } from '@/lib/feed-discovery';
 import Parser from 'rss-parser';
 import { USER_AGENT } from '@/lib/user-agent';
 
-const parser = new Parser();
+const parser = new Parser({ headers: { 'User-Agent': USER_AGENT } });
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
 
 interface RemoteItem {

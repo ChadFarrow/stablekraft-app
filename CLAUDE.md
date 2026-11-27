@@ -275,7 +275,7 @@ line holds the full story.
   PodtardsImageProxy, HGH-Resolver) and two browser strings, and most `fetchFeed` callers sent Node's default
   `node` — which `feeds.podcastindex.org` answers with **403** (it serves any named client; so does
   `stats.podcastindex.org`). The Chrome string in `proxy-audio` (2025-11-29, "servers that block obvious
-  proxies") helped no host when 81 audio hosts were probed, and `thebearsnare.com` drops the connection for
+  proxies") helped no host when 81 audio hosts were probed from a home IP address (not Railway), and `thebearsnare.com` drops the connection for
   every `Mozilla/5.0` name. The file is **CommonJS on purpose**: plain `node scripts/*.js`, `tsx` and webpack all
   load it, and a `.ts` cannot be required by plain node. `next.config.js` inlines `NEXT_PUBLIC_APP_VERSION`, so
   webpack drops its `require('../package.json')` — package.json reaches no bundle, not even the browser chunk
