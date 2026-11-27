@@ -23,6 +23,7 @@ export const PLAYLIST_TEMPLATE_PAGES = [
   'hgh',
   'hgh-hitsgiving-2024',
   'hgh-hitsgiving-2025',
+  'hgh-hitsgiving-2026',
   'hgh-rss',
   'iam',
   'itdv',

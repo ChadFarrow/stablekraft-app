@@ -269,6 +269,7 @@ function FavoritesPageContent() {
         const playlistImageFallbacks: Record<string, string> = {
           'hitsgiving 2024': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist-art.jpg',
           'hitsgiving 2025': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist-art.jpg',
+          'hitsgiving 2026': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2026-playlist-art.jpg',
           'hgh': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-playlist-art.webp',
           'mmm': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-playlist-art.webp',
           'sas': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-playlist-art%20.webp',
@@ -1502,6 +1503,7 @@ function FavoritesPageContent() {
                       'greatestHits-playlist': 'greatest-hits',
                       'hghHitsgiving2024-playlist': 'hgh-hitsgiving-2024',
                       'hghHitsgiving2025-playlist': 'hgh-hitsgiving-2025',
+                      'hghHitsgiving2026-playlist': 'hgh-hitsgiving-2026',
                     };
                     const playlistSlug = playlistSlugOverrides[playlist.id]
                       || playlist.id.replace('-playlist', '').toLowerCase();

@@ -215,6 +215,30 @@ export async function GET() {
         }
       },
       {
+        id: 'hghHitsgiving2026-playlist',
+        title: 'Homegrown Hits Hitsgiving 2026 Playlist',
+        artist: 'Various Artists',
+        album: 'Homegrown Hits Hitsgiving 2026 Playlist',
+        description: 'The songs of Homegrown Hits Episode 160, the Hitsgiving 2026 special, in play order',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2026-playlist-art.jpg',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2026-playlist-art.jpg',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2026-playlist.xml',
+        feedId: 'hghHitsgiving2026-playlist',
+        type: 'playlist',
+        totalTracks: trackCounts['hghHitsgiving2026'] || 0,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/hgh-hitsgiving-2026',
+        albumUrl: '/playlist/hgh-hitsgiving-2026',
+        isLoading: true,
+        fullDataUrl: '/api/playlist/hgh-hitsgiving-2026',
+        playlistContext: {
+          source: 'hghHitsgiving2026-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2026-playlist.xml'
+        }
+      },
+      {
         id: 'mmm-playlist',
         title: 'Mutton, Mead & Music Playlist',
         artist: 'Various Artists',

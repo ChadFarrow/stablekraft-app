@@ -57,8 +57,8 @@ const staticPlaylists: PlaylistItem[] = [
     id: 'hgh-hitsgiving-2024',
     title: 'Homegrown Hits Hitsgiving 2024 Playlist',
     description: 'The songs of Homegrown Hits Episode 62, the Hitsgiving 2024 special, in play order',
-    trackCount: 36,
-    episodes: '36 remote items',
+    trackCount: 37,
+    episodes: '37 remote items',
     href: '/playlist/hgh-hitsgiving-2024',
     type: 'rss',
     color: 'bg-orange-600',
@@ -68,11 +68,22 @@ const staticPlaylists: PlaylistItem[] = [
     id: 'hgh-hitsgiving-2025',
     title: 'Homegrown Hits Hitsgiving 2025 Playlist',
     description: 'The songs of Homegrown Hits Episode 112, the Hitsgiving 2025 special, in play order',
-    trackCount: 30,
-    episodes: '30 remote items',
+    trackCount: 34,
+    episodes: '34 remote items',
     href: '/playlist/hgh-hitsgiving-2025',
     type: 'rss',
     color: 'bg-amber-600',
+    medium: 'musicL'
+  },
+  {
+    id: 'hgh-hitsgiving-2026',
+    title: 'Homegrown Hits Hitsgiving 2026 Playlist',
+    description: 'The songs of Homegrown Hits Episode 160, the Hitsgiving 2026 special, in play order',
+    trackCount: 33,
+    episodes: '33 remote items',
+    href: '/playlist/hgh-hitsgiving-2026',
+    type: 'rss',
+    color: 'bg-fuchsia-600',
     medium: 'musicL'
   },
   {
@@ -402,6 +413,12 @@ function PlaylistContent() {
               className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open HGH Hitsgiving 2025
+            </Link>
+            <Link
+              href="/playlist/hgh-hitsgiving-2026"
+              className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open HGH Hitsgiving 2026
             </Link>
             <Link
               href="/playlist/iam"

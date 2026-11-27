@@ -848,13 +848,14 @@ function HomePageContent() {
           // 15s timeout per playlist so one unreachable upstream can't hang the
           // whole fallback; a timeout rejects that entry in allSettled.
           const playlistFetch = (path: string) => fetch(path, { signal: AbortSignal.timeout(15000) });
-          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, hghHitsgiving2024Response, hghHitsgiving2025Response, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, obshResponse, greatestHitsResponse] = await Promise.allSettled([
+          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, hghHitsgiving2024Response, hghHitsgiving2025Response, hghHitsgiving2026Response, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, obshResponse, greatestHitsResponse] = await Promise.allSettled([
             playlistFetch('/api/playlist/upbeats'),
             playlistFetch('/api/playlist/b4ts'),
             playlistFetch('/api/playlist/itdv'),
             playlistFetch('/api/playlist/hgh'),
             playlistFetch('/api/playlist/hgh-hitsgiving-2024'),
             playlistFetch('/api/playlist/hgh-hitsgiving-2025'),
+            playlistFetch('/api/playlist/hgh-hitsgiving-2026'),
             playlistFetch('/api/playlist/iam'),
             playlistFetch('/api/playlist/mmm'),
             playlistFetch('/api/playlist/mmt'),
@@ -932,6 +933,17 @@ function HomePageContent() {
             }
           } else {
             console.warn('⚠️ Failed to load HGH Hitsgiving 2025 playlist');
+          }
+
+          // Process HGH Hitsgiving 2026 playlist
+          if (hghHitsgiving2026Response.status === 'fulfilled' && hghHitsgiving2026Response.value.ok) {
+            const hghHitsgiving2026Data = await hghHitsgiving2026Response.value.json();
+            if (hghHitsgiving2026Data.success && hghHitsgiving2026Data.albums) {
+              allAlbums.push(...hghHitsgiving2026Data.albums);
+              console.log(`✅ Loaded ${hghHitsgiving2026Data.albums.length} HGH Hitsgiving 2026 playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load HGH Hitsgiving 2026 playlist');
           }
 
           // Process IAM playlist
