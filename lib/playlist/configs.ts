@@ -41,6 +41,32 @@ export const PLAYLIST_CONFIGS: Record<string, PlaylistConfig> = {
     playlistUrl: '/playlist/hgh',
     albumUrl: '/album/high-grade-hits-playlist',
   },
+  // A supplement to hgh: the songs of one Hitsgiving episode (Homegrown Hits' Thanksgiving special).
+  hghHitsgiving2024: {
+    id: 'hghHitsgiving2024',
+    url: `${GITHUB_BASE}/HGH-hitsgiving-2024-playlist.xml`,
+    name: 'Homegrown Hits Hitsgiving 2024 Playlist',
+    shortName: 'HGH Hitsgiving 2024',
+    author: 'ChadF',
+    description: 'The songs of Homegrown Hits Episode 62, the Hitsgiving 2024 special, in play order',
+    cacheDuration: CACHE_6_HOURS,
+    maxDuration: TIMEOUT_STANDARD,
+    playlistUrl: '/playlist/hgh-hitsgiving-2024',
+    albumUrl: '/playlist/hgh-hitsgiving-2024',
+  },
+  // A supplement to hgh: the songs of one Hitsgiving episode (Homegrown Hits' Thanksgiving special).
+  hghHitsgiving2025: {
+    id: 'hghHitsgiving2025',
+    url: `${GITHUB_BASE}/HGH-hitsgiving-2025-playlist.xml`,
+    name: 'Homegrown Hits Hitsgiving 2025 Playlist',
+    shortName: 'HGH Hitsgiving 2025',
+    author: 'ChadF',
+    description: 'The songs of Homegrown Hits Episode 112, the Hitsgiving 2025 special, in play order',
+    cacheDuration: CACHE_6_HOURS,
+    maxDuration: TIMEOUT_STANDARD,
+    playlistUrl: '/playlist/hgh-hitsgiving-2025',
+    albumUrl: '/playlist/hgh-hitsgiving-2025',
+  },
 
   sas: {
     id: 'sas',

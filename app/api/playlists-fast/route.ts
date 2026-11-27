@@ -167,6 +167,54 @@ export async function GET() {
         }
       },
       {
+        id: 'hghHitsgiving2024-playlist',
+        title: 'Homegrown Hits Hitsgiving 2024 Playlist',
+        artist: 'Various Artists',
+        album: 'Homegrown Hits Hitsgiving 2024 Playlist',
+        description: 'The songs of Homegrown Hits Episode 62, the Hitsgiving 2024 special, in play order',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist-art.jpg',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist-art.jpg',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist.xml',
+        feedId: 'hghHitsgiving2024-playlist',
+        type: 'playlist',
+        totalTracks: trackCounts['hghHitsgiving2024'] || 0,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/hgh-hitsgiving-2024',
+        albumUrl: '/playlist/hgh-hitsgiving-2024',
+        isLoading: true,
+        fullDataUrl: '/api/playlist/hgh-hitsgiving-2024',
+        playlistContext: {
+          source: 'hghHitsgiving2024-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist.xml'
+        }
+      },
+      {
+        id: 'hghHitsgiving2025-playlist',
+        title: 'Homegrown Hits Hitsgiving 2025 Playlist',
+        artist: 'Various Artists',
+        album: 'Homegrown Hits Hitsgiving 2025 Playlist',
+        description: 'The songs of Homegrown Hits Episode 112, the Hitsgiving 2025 special, in play order',
+        image: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist-art.jpg',
+        coverArt: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist-art.jpg',
+        url: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist.xml',
+        feedId: 'hghHitsgiving2025-playlist',
+        type: 'playlist',
+        totalTracks: trackCounts['hghHitsgiving2025'] || 0,
+        tracks: [],
+        publishedAt: new Date().toISOString(),
+        isPlaylistCard: true,
+        playlistUrl: '/playlist/hgh-hitsgiving-2025',
+        albumUrl: '/playlist/hgh-hitsgiving-2025',
+        isLoading: true,
+        fullDataUrl: '/api/playlist/hgh-hitsgiving-2025',
+        playlistContext: {
+          source: 'hghHitsgiving2025-playlist',
+          originalUrl: 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist.xml'
+        }
+      },
+      {
         id: 'mmm-playlist',
         title: 'Mutton, Mead & Music Playlist',
         artist: 'Various Artists',

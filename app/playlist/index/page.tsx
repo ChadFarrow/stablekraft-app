@@ -54,6 +54,28 @@ const staticPlaylists: PlaylistItem[] = [
     medium: 'musicL'
   },
   {
+    id: 'hgh-hitsgiving-2024',
+    title: 'Homegrown Hits Hitsgiving 2024 Playlist',
+    description: 'The songs of Homegrown Hits Episode 62, the Hitsgiving 2024 special, in play order',
+    trackCount: 36,
+    episodes: '36 remote items',
+    href: '/playlist/hgh-hitsgiving-2024',
+    type: 'rss',
+    color: 'bg-orange-600',
+    medium: 'musicL'
+  },
+  {
+    id: 'hgh-hitsgiving-2025',
+    title: 'Homegrown Hits Hitsgiving 2025 Playlist',
+    description: 'The songs of Homegrown Hits Episode 112, the Hitsgiving 2025 special, in play order',
+    trackCount: 30,
+    episodes: '30 remote items',
+    href: '/playlist/hgh-hitsgiving-2025',
+    type: 'rss',
+    color: 'bg-amber-600',
+    medium: 'musicL'
+  },
+  {
     id: 'iam',
     title: 'It\'s A Mood Music Playlist',
     description: 'Every music reference from It\'s A Mood podcast',
@@ -368,6 +390,18 @@ function PlaylistContent() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               🎵 Open HGH Player
+            </Link>
+            <Link
+              href="/playlist/hgh-hitsgiving-2024"
+              className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open HGH Hitsgiving 2024
+            </Link>
+            <Link
+              href="/playlist/hgh-hitsgiving-2025"
+              className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              🎵 Open HGH Hitsgiving 2025
             </Link>
             <Link
               href="/playlist/iam"

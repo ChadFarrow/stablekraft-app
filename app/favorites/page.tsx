@@ -267,6 +267,8 @@ function FavoritesPageContent() {
 
         // Fallback playlist images when not in database (playlists are hardcoded, not in Feed table)
         const playlistImageFallbacks: Record<string, string> = {
+          'hitsgiving 2024': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2024-playlist-art.jpg',
+          'hitsgiving 2025': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-hitsgiving-2025-playlist-art.jpg',
           'hgh': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-playlist-art.webp',
           'mmm': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-playlist-art.webp',
           'sas': 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/SAS-playlist-art%20.webp',
@@ -1498,6 +1500,8 @@ function FavoritesPageContent() {
                     // Extract playlist slug from ID (e.g., 'hgh-playlist' -> 'hgh')
                     const playlistSlugOverrides: Record<string, string> = {
                       'greatestHits-playlist': 'greatest-hits',
+                      'hghHitsgiving2024-playlist': 'hgh-hitsgiving-2024',
+                      'hghHitsgiving2025-playlist': 'hgh-hitsgiving-2025',
                     };
                     const playlistSlug = playlistSlugOverrides[playlist.id]
                       || playlist.id.replace('-playlist', '').toLowerCase();
