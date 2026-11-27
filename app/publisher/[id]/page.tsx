@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import PublisherDetailClient from './PublisherDetailClient';
 import { getPublisherInfo, generateAlbumSlug } from '@/lib/url-utils';
+import { USER_AGENT } from '@/lib/user-agent';
 import { prisma } from '@/lib/prisma';
 import { isBlacklistedFeedId, isBlacklistedFeedUrl, isHenrikFlymanWavlakeMirror } from '@/lib/feed-exclusions';
 import { isListMedium } from '@/lib/playlist/musicl-feed';
@@ -462,6 +463,7 @@ async function loadPublisherData(publisherId: string) {
       try {
         console.log(`📡 Fetching publisher feed XML to extract remote items: ${pubFeed.originalUrl}`);
         const feedResponse = await fetch(pubFeed.originalUrl, {
+          headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(10000), // 10 second timeout (increased from 5)
         });
 

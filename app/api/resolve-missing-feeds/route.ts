@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -16,7 +17,7 @@ function generateAuthHeaders() {
   const hash4Header = sha1Algorithm.update(data4Hash).digest('hex');
 
   return {
-    'User-Agent': 'StableKraft-Podcast-Resolver/1.0',
+    'User-Agent': USER_AGENT,
     'X-Auth-Date': apiHeaderTime.toString(),
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'Authorization': hash4Header,

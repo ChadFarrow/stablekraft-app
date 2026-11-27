@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { parseV4VFromXML, parseItemV4VFromXML } from '../../../../lib/rss-parser-db';
 import { Prisma } from '@prisma/client';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the RSS feed
-    const response = await fetch(feed.originalUrl);
+    const response = await fetch(feed.originalUrl, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) {
       return NextResponse.json({
         success: false,

@@ -7,13 +7,14 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
+const { USER_AGENT } = require('../lib/user-agent');
 const prisma = new PrismaClient();
 
 async function extractEpisodeNumbers(feedUrl) {
   try {
     const response = await fetch(feedUrl, {
       signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'StableKraft-Feed-Parser/1.0' }
+      headers: { 'User-Agent': USER_AGENT }
     });
     const xml = await response.text();
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { resolveItemGuid } from '@/lib/feed-discovery';
 import Parser from 'rss-parser';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const parser = new Parser();
 const MMM_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/MMM-music-playlist.xml';
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
 
     // Fetch and parse MMM playlist RSS feed
     const feed = await parser.parseURL(MMM_PLAYLIST_URL);
-    const xmlResponse = await fetch(MMM_PLAYLIST_URL);
+    const xmlResponse = await fetch(MMM_PLAYLIST_URL, { headers: { 'User-Agent': USER_AGENT } });
     const xmlText = await xmlResponse.text();
 
     // Extract podcast:remoteItem elements

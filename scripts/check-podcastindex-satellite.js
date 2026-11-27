@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { USER_AGENT } = require('../lib/user-agent');
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -14,7 +15,7 @@ function getPodcastIndexHeaders() {
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'X-Auth-Date': apiHeaderTime.toString(),
     'Authorization': hashString,
-    'User-Agent': 'StableKraft/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

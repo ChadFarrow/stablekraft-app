@@ -4,6 +4,7 @@ import { connectServerNostrClient } from '@/lib/nostr/server-client';
 import { getDefaultRelays } from '@/lib/nostr/relay';
 import { publicKeyToNpub } from '@/lib/nostr/keys';
 import { normalizePubkey } from '@/lib/nostr/normalize';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * POST /api/nostr/auth/nip05-login
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     let nip05Data;
     try {
       const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(10000)
       });
       if (!res.ok) {

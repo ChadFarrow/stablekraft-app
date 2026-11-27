@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const GITHUB_FEED_URL = 'https://chadfarrow.github.io/ITDV-music-playlist/doerfel-verse-music.xml';
 
@@ -13,7 +14,7 @@ export async function GET() {
     const response = await fetch(GITHUB_FEED_URL, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'StableKraft-Music-Site/1.0',
+        'User-Agent': USER_AGENT,
       },
     });
     

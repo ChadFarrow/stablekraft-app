@@ -18,6 +18,7 @@ import type {
   EpisodeContext
 } from './types';
 import { escapeXml } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '../user-agent';
 
 export * from './types';
 
@@ -216,7 +217,7 @@ export class MusicTrackParser {
 
     try {
       // Fetch and parse the chapters JSON file
-      const response = await fetch(chaptersUrl);
+      const response = await fetch(chaptersUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         this.logger.warn('Failed to fetch chapters file', { url: chaptersUrl });
         return tracks;

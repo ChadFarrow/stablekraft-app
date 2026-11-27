@@ -8,6 +8,7 @@ import { channelPersonsFields } from '@/lib/feeds/channel-persons';
 import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { isListMedium } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '@/lib/user-agent';
 
 interface RemoteItem {
   feedGuid?: string;
@@ -72,7 +73,7 @@ export async function POST(
     console.log(`📡 Fetching publisher feed: ${publisherFeed.originalUrl}`);
 
     // Fetch the publisher feed XML
-    const response = await fetch(publisherFeed.originalUrl);
+    const response = await fetch(publisherFeed.originalUrl, { headers: { 'User-Agent': USER_AGENT } });
     if (!response.ok) {
       return NextResponse.json(
         { error: `Failed to fetch publisher feed: HTTP ${response.status}` },

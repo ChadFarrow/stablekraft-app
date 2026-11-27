@@ -6,6 +6,7 @@ const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
 const fs = require('fs').promises;
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Configuration
 const HGH_REMOTE_ITEMS_FILE = 'data/hgh-analysis/hgh-remote-items.json';
@@ -26,7 +27,7 @@ function generateAuthHeaders() {
     'X-Auth-Date': unixTime.toString(),
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

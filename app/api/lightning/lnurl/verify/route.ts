@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch, readCappedText, MAX_JSON_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
       timeoutMs: 10000,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'StableKraft-Lightning/1.0',
+        'User-Agent': USER_AGENT,
       },
     });
 

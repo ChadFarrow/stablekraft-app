@@ -4,6 +4,7 @@
  */
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
+const { USER_AGENT } = require('../lib/user-agent');
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,7 @@ function generateAuthHeaders() {
     'X-Auth-Key': API_KEY,
     'X-Auth-Date': authTime.toString(),
     'Authorization': authHeader,
-    'User-Agent': 'StableKraft-Debug/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 
@@ -81,7 +82,7 @@ async function debugFeed(feedId) {
     console.log('\n--- Direct RSS Fetch ---');
     try {
       const rssResponse = await fetch(feed.originalUrl, {
-        headers: { 'User-Agent': 'StableKraft-Debug/1.0' }
+        headers: { 'User-Agent': USER_AGENT }
       });
 
       if (rssResponse.ok) {

@@ -6,6 +6,7 @@ import { isValidFeedUrl, normalizeUrl } from '@/lib/url-utils';
 import { calculateTrackOrder, parsePodcastBlocksFromXML } from '@/lib/rss-parser-db';
 import { isBlockedFor, podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -22,7 +23,7 @@ function generateAuthHeaders() {
   const hash4Header = sha1Algorithm.update(data4Hash).digest('hex');
 
   return {
-    'User-Agent': 'StableKraft-Feed-Parser/1.0',
+    'User-Agent': USER_AGENT,
     'X-Auth-Date': apiHeaderTime.toString(),
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'Authorization': hash4Header,
@@ -57,7 +58,7 @@ async function parseFeedXML(feedUrl: string): Promise<{ episodes: any[]; xmlText
   try {
     const response = await fetch(feedUrl, {
       headers: {
-        'User-Agent': 'StableKraft-Feed-Parser/1.0'
+        'User-Agent': USER_AGENT
       },
       signal: AbortSignal.timeout(15000)
     });
@@ -433,7 +434,7 @@ export async function GET() {
                     let xmlText = '';
                     if (feedUrl) {
                       try {
-                        const rssResponse = await fetch(feedUrl, { signal: AbortSignal.timeout(10000) });
+                        const rssResponse = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(10000) });
                         if (rssResponse.ok) {
                           xmlText = await rssResponse.text();
                         }

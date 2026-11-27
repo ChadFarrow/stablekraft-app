@@ -1,3 +1,4 @@
+import { USER_AGENT } from './user-agent';
 // V4V Track Resolution Service
 // Resolves V4V remoteItem references to actual track metadata
 
@@ -211,7 +212,7 @@ export class V4VResolver {
 
     try {
       console.log(`📡 Fetching feed: ${feedUrl}`);
-      const response = await fetch(feedUrl);
+      const response = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -320,7 +321,7 @@ export class V4VResolver {
         'X-Auth-Key': apiKey,
         'X-Auth-Date': apiHeaderTime.toString(),
         'Authorization': hashString,
-        'User-Agent': 'stablekraft.app'
+        'User-Agent': USER_AGENT
       };
 
       const url = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;
@@ -381,7 +382,7 @@ export class V4VResolver {
       const authHash = crypto.createHash('sha1').update(authString).digest('hex');
 
       const headers = {
-        'User-Agent': 'stablekraft.app',
+        'User-Agent': USER_AGENT,
         'X-Auth-Key': apiKey,
         'X-Auth-Date': timestamp.toString(),
         'Authorization': authHash

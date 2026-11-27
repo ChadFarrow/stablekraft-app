@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { USER_AGENT } = require('../lib/user-agent');
 
 /**
  * Refresh all playlist feeds by fetching raw XML from GitHub and triggering API refresh
@@ -59,7 +60,7 @@ async function verifyFeedExists(name, rawUrl) {
   try {
     const response = await fetch(rawUrl, {
       headers: {
-        'User-Agent': 'StableKraft-Playlist-Refresher/1.0'
+        'User-Agent': USER_AGENT
       }
     });
     
@@ -101,7 +102,7 @@ async function refreshPlaylistFeed(name, endpoint, rawUrl) {
     
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'StableKraft-Playlist-Refresher/1.0'
+        'User-Agent': USER_AGENT
       }
     });
 

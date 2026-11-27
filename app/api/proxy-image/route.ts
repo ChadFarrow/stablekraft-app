@@ -3,6 +3,7 @@ import { guardProxyTarget, oversizeImageRedirect } from '@/lib/proxy-host-allowl
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedArrayBuffer, MAX_IMAGE_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // Dynamic import sharp with fallback for serverless environments
 let sharp: typeof import('sharp').default | null = null;
@@ -229,7 +230,7 @@ export async function GET(request: NextRequest) {
       allowHttp: true, // the HTTPS upgrade above is best-effort, not a guarantee
       timeoutMs: fetchTimeoutMs,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; PodtardsImageProxy/1.0)',
+        'User-Agent': USER_AGENT,
         'Accept': 'image/*',
         'Accept-Encoding': 'gzip, deflate, br',
       },

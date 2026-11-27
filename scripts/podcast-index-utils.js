@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Load API credentials from .env.local
 function loadEnvCredentials() {
@@ -32,7 +33,7 @@ function generateAuthHeaders() {
     const hash = crypto.createHash('sha1').update(apiKey + apiSecret + timestamp).digest('hex');
     
     return {
-        'User-Agent': 'ITDV-Music-Parser/1.0',
+        'User-Agent': USER_AGENT,
         'X-Auth-Key': apiKey,
         'X-Auth-Date': timestamp.toString(),
         'Authorization': hash

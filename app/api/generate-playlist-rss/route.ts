@@ -4,6 +4,7 @@ import { MusicTrackParser } from '@/lib/music-track-parser';
 import { XMLParser } from 'fast-xml-parser';
 import { PODCAST_NS, buildMinimalPlaylistXml, escapeXml } from '@/lib/playlist/musicl-feed';
 import { checkMinimalPlaylistIds, podcastGuidFromUrl, type CheckedPlaylistIds } from '@/lib/playlist/musicl-guid';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -166,7 +167,7 @@ async function quickExtractRemoteItems(feedUrl: string): Promise<any[]> {
     const fetched = await safeFetch(feedUrl, {
       allowHttp: true,
       timeoutMs: 10000,
-      headers: { 'user-agent': 'ITDV-PlaylistMaker/preview' },
+      headers: { 'user-agent': USER_AGENT },
     });
     if (!fetched.ok) {
       console.warn(`⚠️ Playlist preview refused ${feedUrl}: ${fetched.error}`);

@@ -1,6 +1,7 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { safeFetch, declaredLengthExceeds, MAX_FEED_BYTES, type FetchLike } from './safe-fetch';
 import { isPrivateIp, normalizeHost } from './url-security';
+import { withUserAgent } from './user-agent';
 
 /**
  * The guarded fetch for feed XML (and the chapters JSON a feed points at).
@@ -179,7 +180,8 @@ export async function fetchFeed(url: string, opts: FeedFetchOptions = {}): Promi
   let response: Response;
   if (loopbackEscapeAllowed(url, env)) {
     try {
-      response = await withDeadline(url, { headers, redirect: 'manual' });
+      // The loopback escape skips safeFetch, so it adds the User-Agent itself.
+      response = await withDeadline(url, { headers: withUserAgent(headers), redirect: 'manual' });
     } catch {
       throw new FeedFetchError(deadline.aborted ? timeoutMessage(timeoutMs) : 'Upstream request failed');
     }

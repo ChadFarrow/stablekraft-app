@@ -5,6 +5,7 @@ import { parseFeedByGuid } from '@/lib/feed-parsing';
 import { discoverAndStorePublisher } from '@/lib/publisher-discovery';
 import { parsePublisherFeedFromXML } from '@/lib/rss-parser-db';
 import { findPublisherFeed } from '@/lib/publisher-detector';
+import { USER_AGENT } from './user-agent';
 
 interface PodcastIndexResponse {
   status: string;
@@ -449,6 +450,7 @@ export async function discoverAndParsePublishers(albumFeedIds: string[]): Promis
     try {
       // Fetch album feed XML
       const response = await fetch(album.originalUrl, {
+        headers: { 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(10000)
       });
 

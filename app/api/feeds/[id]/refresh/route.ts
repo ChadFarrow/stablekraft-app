@@ -8,6 +8,7 @@ import { channelFundingFields } from '@/lib/feeds/channel-funding';
 import { podcastBlockFields } from '@/lib/feeds/podcast-block';
 import { preserveImageVersion } from '@/lib/feeds/image-version-url';
 import { recordRefreshFailure } from '@/lib/feeds/refresh-failure';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // POST /api/feeds/[id]/refresh - Refresh a specific feed (Railway fix)
 export async function POST(
@@ -59,6 +60,7 @@ export async function POST(
       if (feed.type === 'album' || feed.type === 'music') {
         try {
           const feedResponse = await fetch(feed.originalUrl, {
+            headers: { 'User-Agent': USER_AGENT },
             signal: AbortSignal.timeout(10000)
           });
           if (feedResponse.ok) {

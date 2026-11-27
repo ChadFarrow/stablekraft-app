@@ -1,4 +1,5 @@
 import { bech32 } from 'bech32';
+import { USER_AGENT } from '../user-agent';
 
 export interface LNURLPayParams {
   callback: string;
@@ -122,7 +123,7 @@ export class LNURLService {
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'StableKraft-Lightning/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 
@@ -201,7 +202,7 @@ export class LNURLService {
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'StableKraft-Lightning/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 
@@ -255,7 +256,7 @@ export class LNURLService {
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'StableKraft-Lightning/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 
@@ -342,7 +343,7 @@ export class LNURLService {
       const response = await fetch(callbackUrl.toString(), {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'StableKraft-Lightning/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 
@@ -455,7 +456,7 @@ export class LNURLService {
       const response = await fetch(verifyUrl, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'StableKraft-Lightning/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 

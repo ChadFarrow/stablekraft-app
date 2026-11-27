@@ -5,6 +5,7 @@
 
 import { prisma } from '../lib/prisma';
 import crypto from 'crypto';
+import { USER_AGENT } from '../lib/user-agent';
 
 interface PodcastIndexFeed {
   id: number;
@@ -47,7 +48,7 @@ class PodcastIndexAPI {
       'X-Auth-Date': apiHeaderTime,
       'X-Auth-Key': this.apiKey,
       'Authorization': hash,
-      'User-Agent': 'StableKraft/1.0'
+      'User-Agent': USER_AGENT
     };
   }
 

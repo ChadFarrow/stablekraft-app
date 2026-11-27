@@ -4,6 +4,7 @@
 
 import type { RemoteItem, ParsedPlaylistItem, GroupedItems } from './types';
 import { readXmlAttr, remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '../user-agent';
 
 /**
  * Decode XML entities to their character equivalents
@@ -163,7 +164,7 @@ export async function fetchAndParsePlaylist(url: string): Promise<{
 }> {
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+      'User-Agent': USER_AGENT
     }
   });
 

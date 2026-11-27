@@ -11,6 +11,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { resolveArtworkSource, artworkBaseUrl } from '@/lib/artwork-image-source';
 import { safeFetch, readCappedArrayBuffer, MAX_IMAGE_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * The image bytes for `imageUrl`, or null if they cannot be had.
@@ -56,7 +57,7 @@ async function loadArtworkBytes(imageUrl: string): Promise<Buffer | null> {
       // Our own asset over loopback. safeFetch CANNOT be used: isSafePublicUrl
       // rejects localhost, so it would refuse every local placeholder.
       const response = await fetch(source.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ColorExtractor/1.0)' },
+        headers: { 'User-Agent': USER_AGENT },
       });
       if (!response.ok) {
         // Logged, like the remote branches. Returning null silently here cost a

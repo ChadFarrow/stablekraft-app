@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { USER_AGENT } = require('../../lib/user-agent');
 
 // Use environment variables for API credentials
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY || 'MV5XQPRMUX3SCTXMGNVG';
@@ -17,7 +18,7 @@ async function lookupFeedGuid(feedGuid) {
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'X-Auth-Date': apiHeaderTime.toString(),
     'Authorization': hashString,
-    'User-Agent': 'stablekraft.app'
+    'User-Agent': USER_AGENT
   };
 
   const url = `https://api.podcastindex.org/api/1.0/podcasts/byguid?guid=${feedGuid}`;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseChaptersJSON } from '@/lib/rss-parser-db';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedText, MAX_JSON_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * GET /api/chapters?url=<chaptersUrl>
@@ -78,7 +79,7 @@ async function fetchAndParse(url: string) {
     // past with a 302. It also caps the body.
     const fetched = await safeFetch(url, {
       timeoutMs: 10000,
-      headers: { 'User-Agent': 'StableKraft/1.0' },
+      headers: { 'User-Agent': USER_AGENT },
     });
     if (!fetched.ok) {
       console.warn(`⚠️ Chapters fetch refused for ${url}: ${fetched.error}`);

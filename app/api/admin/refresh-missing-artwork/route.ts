@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function POST(request: Request) {
   try {
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
 
         // Fetch the RSS feed XML
         const response = await fetch(feed.originalUrl, {
+          headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(10000) // 10 second timeout
         });
 

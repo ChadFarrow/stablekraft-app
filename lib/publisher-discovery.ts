@@ -8,6 +8,7 @@
 import { prisma } from '@/lib/prisma';
 import { parsePublisherFeedFromXML, parsePodcastMediumFromXML } from '@/lib/rss-parser-db';
 import { isListMedium } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from './user-agent';
 
 export interface PublisherReference {
   feedGuid: string;
@@ -176,6 +177,7 @@ export async function discoverAndStorePublisher(publisherRef: PublisherReference
     // Fetch the publisher feed XML
     console.log(`🔍 Discovering publisher from: ${publisherRef.feedUrl}`);
     const response = await fetch(publisherRef.feedUrl, {
+      headers: { 'User-Agent': USER_AGENT },
       signal: AbortSignal.timeout(10000)
     });
 
@@ -272,6 +274,7 @@ export async function discoverAllPublishers(): Promise<{
     try {
       // Fetch album feed XML
       const response = await fetch(feed.originalUrl, {
+        headers: { 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(10000)
       });
 
@@ -353,6 +356,7 @@ export async function parseExistingPublishers(): Promise<{
 
       // Fetch publisher feed XML
       const response = await fetch(publisher.originalUrl, {
+        headers: { 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(15000)
       });
 

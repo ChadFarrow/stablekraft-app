@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 async function fixBirdfeederEP() {
     try {
@@ -17,7 +18,7 @@ async function fixBirdfeederEP() {
         // Fetch the RSS feed
         const response = await fetch(feedUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; MusicSiteParser/1.0)'
+                'User-Agent': USER_AGENT
             }
         });
         

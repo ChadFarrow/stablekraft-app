@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
+const { USER_AGENT } = require('../lib/user-agent');
 
 require('dotenv').config({ path: '.env.local' });
 
@@ -30,7 +31,7 @@ async function generateHeaders(apiKey, apiSecret) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft-Database-Populator/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

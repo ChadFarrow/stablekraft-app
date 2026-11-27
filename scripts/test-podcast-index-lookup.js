@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { USER_AGENT } = require('../lib/user-agent');
 
 require('dotenv').config({ path: '.env.local' });
 
@@ -18,7 +19,7 @@ function generateAuthHeaders() {
     'X-Auth-Date': unixTime.toString(),
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'FUCKIT/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

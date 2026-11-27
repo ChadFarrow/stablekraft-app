@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { USER_AGENT } from './user-agent';
 
 interface PodcastIndexFeed {
   id: number;
@@ -129,7 +130,7 @@ class PodcastIndexAPI {
       'X-Auth-Date': apiHeaderTime,
       'X-Auth-Key': this.apiKey,
       'Authorization': hash,
-      'User-Agent': 'StableKraft/1.0'
+      'User-Agent': USER_AGENT
     };
   }
 
@@ -445,7 +446,7 @@ export async function generatePodcastIndexHeaders(): Promise<Record<string, stri
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

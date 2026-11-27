@@ -1,4 +1,5 @@
 import { isSafePublicUrl } from './url-security';
+import { withUserAgent } from './user-agent';
 
 /**
  * The one outbound fetch for every route that retrieves a caller-supplied URL.
@@ -33,6 +34,7 @@ export interface SafeFetchOptions {
   /** Abort after this many milliseconds. Default 15000. */
   timeoutMs?: number;
   method?: string;
+  /** Sent on every hop. Gets our User-Agent (lib/user-agent.js) unless it sets one. */
   headers?: Record<string, string>;
   /** Caller-supplied abort signal, combined with the timeout. */
   signal?: AbortSignal;
@@ -75,6 +77,9 @@ export async function safeFetch(
   if (!first.ok) return { ok: false, error: first.error };
 
   let current: URL = first.url;
+  // Never Node's default `node`: a host that logs or filters on the name sees who
+  // is calling and where to read about it. A caller's own User-Agent wins.
+  const sendHeaders = withUserAgent(headers);
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
     const timeout = new AbortController();
@@ -86,7 +91,7 @@ export async function safeFetch(
     try {
       response = await fetchImpl(current.toString(), {
         method,
-        headers,
+        headers: sendHeaders,
         // The whole point: never let the platform follow a redirect for us.
         redirect: 'manual',
         signal: timeout.signal,

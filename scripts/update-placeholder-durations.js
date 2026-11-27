@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 async function updatePlaceholderDurations() {
     console.log('🔄 Updating placeholder durations with real data...\n');
@@ -44,7 +45,7 @@ async function updatePlaceholderDurations() {
             const response = await fetch(feedUrl, { 
                 timeout: 15000,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (compatible; MusicSiteParser/1.0)'
+                    'User-Agent': USER_AGENT
                 }
             });
             

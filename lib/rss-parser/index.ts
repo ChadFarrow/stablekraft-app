@@ -6,6 +6,7 @@ import { AppError, ErrorCodes, withRetry, createErrorLogger } from '../error-uti
 import { RSSUtils, verboseLog } from './utils';
 import type { RSSAlbum, RSSTrack, RSSValue4Value, RSSPublisher } from './types';
 import crypto from 'crypto';
+import { USER_AGENT } from '../user-agent';
 
 export * from './types';
 
@@ -43,7 +44,7 @@ export class RSSParser {
           'X-Auth-Key': PODCAST_INDEX_API_KEY,
           'X-Auth-Date': apiHeaderTime.toString(),
           'Authorization': hashString,
-          'User-Agent': 'stablekraft.app'
+          'User-Agent': USER_AGENT
         }
       });
 
@@ -195,7 +196,7 @@ export class RSSParser {
           // from the original RSS feed since PodcastIndex API doesn't include remoteItem elements
           // Do a lightweight RSS fetch just to extract publisher info
           try {
-            const rssResponse = await fetch(feedUrl);
+            const rssResponse = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
             if (rssResponse.ok) {
               const xmlText = await rssResponse.text();
               if (RSSUtils.isValidRSSContent(xmlText)) {
@@ -236,7 +237,7 @@ export class RSSParser {
       try {
         if (isServer) {
           // Server-side: fetch directly
-          response = await fetch(feedUrl);
+          response = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
         } else {
           // Client-side: use proxy or direct API routes
           const isApiRoute = feedUrl.startsWith('/api/');
@@ -696,7 +697,7 @@ export class RSSParser {
       this.logger.info('Parsing publisher feed', { feedUrl });
 
       // Fetch the feed
-      const response = await fetch(feedUrl);
+      const response = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         throw new AppError(
           `Failed to fetch publisher feed: ${response.status}`,

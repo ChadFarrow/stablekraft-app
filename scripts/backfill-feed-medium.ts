@@ -35,6 +35,7 @@
 import { PrismaClient } from '@prisma/client';
 import { generatePodcastIndexHeaders } from '../lib/podcast-index-api';
 import { parsePodcastMediumFromXML } from '../lib/rss-parser-db';
+import { USER_AGENT } from '../lib/user-agent';
 
 const prisma = new PrismaClient();
 
@@ -178,7 +179,7 @@ async function lookupFromFeed(row: Row, attempt = 0): Promise<Outcome> {
   }
   await paceHost(host);
   const res = await fetch(row.originalUrl, {
-    headers: { 'User-Agent': 'StableKraft/1.0' },
+    headers: { 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(20_000),
     redirect: 'follow',
   });

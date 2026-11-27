@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { USER_AGENT } from '../lib/user-agent';
 
 async function checkPodcastIndexAPI() {
   const apiKey = process.env.PODCAST_INDEX_API_KEY || '';
@@ -13,7 +14,7 @@ async function checkPodcastIndexAPI() {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft-Check/1.0'
+    'User-Agent': USER_AGENT
   };
 
   const feedGuid = '699fdb4b-7ceb-5687-ac19-940e4613aae0';

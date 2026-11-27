@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { USER_AGENT } from '../lib/user-agent';
 
 async function generateHeaders(apiKey: string, apiSecret: string) {
   const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
@@ -10,7 +11,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft-Test/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

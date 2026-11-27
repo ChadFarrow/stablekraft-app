@@ -266,6 +266,23 @@ line holds the full story.
   fetches remain, nearly all behind the admin gate — the list is in the PR that added `fetchFeed`. `next dev` honours
   `FEED_FETCH_ALLOW_LOOPBACK=1` (set by `npm run e2e:block`) for a loopback literal only; production never does →
   `auth-and-security`.
+- **Every server-side HTTP request sends ONE User-Agent: `USER_AGENT` from `lib/user-agent.js`,
+  `StableKraft/<major.minor> (+https://stablekraft.app)`.** No email, no browser imitation, no other app's name.
+  (The relay WebSockets that `ws` opens send none; that was not changed.)
+  `safeFetch` and `fetchFeed` add it when a caller sets none (a caller's own wins, under any capitalisation —
+  two spellings make `fetch` send `a, b`); a bare `fetch` must pass it itself. Until 2026-11-27 there were about
+  50 private names, `ITDV-PlaylistMaker/1.0 (+https://example.com)`, other apps' names (DoerfelVerse,
+  PodtardsImageProxy, HGH-Resolver) and two browser strings, and most `fetchFeed` callers sent Node's default
+  `node` — which `feeds.podcastindex.org` answers with **403** (it serves any named client; so does
+  `stats.podcastindex.org`). The Chrome string in `proxy-audio` (2025-11-29, "servers that block obvious
+  proxies") helped no host when 81 audio hosts were probed, and `thebearsnare.com` drops the connection for
+  every `Mozilla/5.0` name. The file is **CommonJS on purpose**: plain `node scripts/*.js`, `tsx` and webpack all
+  load it, and a `.ts` cannot be required by plain node. `next.config.js` inlines `NEXT_PUBLIC_APP_VERSION`, so
+  webpack drops its `require('../package.json')` — package.json reaches no bundle, not even the browser chunk
+  `lnurl.ts` pulls it into; check `.next/static` for `podcast-music-site` after touching it. `user-agent.test.ts`
+  fails on any User-Agent written as a string literal in `app/`, `lib/`, `components/`, `contexts/`, `hooks/` or
+  `scripts/`. A literal may come back only for a host a probe showed refusing ours, with the host and the date
+  beside it and the file in the test's `KEEP` → `auth-and-security`.
 - **`isSafePublicUrl()` returns `{ ok, ... }`, not a boolean.** `if (!isSafePublicUrl(u))` negates an object, is
   always `false`, and silently turns the SSRF guard into dead code — and `tsc --noEmit` stays clean. Always
   `const c = isSafePublicUrl(u); if (!c.ok)`. Verify empirically, never by reading it → `auth-and-security`.
