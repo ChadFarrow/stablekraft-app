@@ -1,4 +1,5 @@
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from './user-agent';
 /**
  * Utility for dynamically fetching playlist track counts from XML files
  * Counts <podcast:remoteItem> tags in each playlist XML
@@ -73,6 +74,7 @@ async function fetchPlaylistTrackCount(playlistId: string): Promise<number> {
 
   try {
     const response = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT },
       next: { revalidate: 3600 }, // Cache for 1 hour at fetch level
     });
 

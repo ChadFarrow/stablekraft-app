@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch, readCappedText, MAX_FEED_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 interface ResolvedAudioTrack {
   feedGuid: string;
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
             allowHttp: true, // some podcast feeds are still plain HTTP
             timeoutMs: 15000,
             headers: {
-              'User-Agent': 'StableKraft-Music-Resolver/1.0',
+              'User-Agent': USER_AGENT,
               'Accept': 'application/rss+xml, application/xml, text/xml',
             },
           });

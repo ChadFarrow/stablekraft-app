@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedText, MAX_FEED_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const fetched = await safeFetch(feedUrl, {
       timeoutMs: 10000,
       headers: {
-        'user-agent': 'ITDV-PlaylistMaker/1.0 (+https://example.com)'
+        'user-agent': USER_AGENT
       },
     });
 

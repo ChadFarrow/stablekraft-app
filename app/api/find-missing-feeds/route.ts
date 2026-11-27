@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     // Fetch the playlist XML
     const response = await fetch(playlistUrl, {
       headers: {
-        'User-Agent': 'StableKraft-Missing-Feed-Finder/1.0'
+        'User-Agent': USER_AGENT
       }
     });
     

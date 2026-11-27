@@ -6,6 +6,7 @@ import { RSSValueRecipient } from '../rss-parser';
 import { ParserUtils } from './utils';
 import { V4VResolver } from '../v4v-resolver';
 import type { MusicTrack, EpisodeContext, ChapterData } from './types';
+import { USER_AGENT } from '../user-agent';
 
 export class TrackExtractors {
   private static readonly logger = createErrorLogger('TrackExtractors');
@@ -353,7 +354,7 @@ export class TrackExtractors {
 
     try {
       // Fetch and parse the chapters JSON file
-      const response = await fetch(chaptersUrl);
+      const response = await fetch(chaptersUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         this.logger.warn('Failed to fetch chapters file for V4V extraction', { url: chaptersUrl });
         return tracks;
@@ -453,7 +454,7 @@ export class TrackExtractors {
 
     try {
       // Fetch and parse the chapters JSON file
-      const response = await fetch(chaptersUrl);
+      const response = await fetch(chaptersUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         this.logger.warn('Failed to fetch chapters file for V4V enhancement', { url: chaptersUrl });
         return tracks;

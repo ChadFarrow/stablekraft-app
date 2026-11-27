@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // Load environment variables
 const API_KEY = process.env.PODCAST_INDEX_API_KEY;
@@ -35,7 +36,7 @@ function createAuthHeaders() {
     'X-Auth-Key': API_KEY,
     'X-Auth-Date': apiHeaderTime.toString(),
     'Authorization': hash4Header,
-    'User-Agent': 'HGH-Resolver/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

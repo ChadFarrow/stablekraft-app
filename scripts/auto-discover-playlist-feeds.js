@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Configuration - All 9 playlist XML files from https://github.com/ChadFarrow/chadf-musicl-playlists
 const PLAYLISTS = [
@@ -93,7 +94,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'StableKraft-Auto-Playlist-Discovery/1.0'
+        'User-Agent': USER_AGENT
     };
 }
 

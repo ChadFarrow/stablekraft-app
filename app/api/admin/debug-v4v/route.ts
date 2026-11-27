@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { USER_AGENT } from '@/lib/user-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
     const feedUrl = 'https://www.sirtjthewrathful.com/wp-content/uploads/2023/07/Beware-of-Banjo.xml';
     
     // Fetch the raw XML
-    const response = await fetch(feedUrl);
+    const response = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
     const xmlText = await response.text();
     
     console.log('📄 Fetched XML, length:', xmlText.length);

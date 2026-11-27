@@ -6,6 +6,7 @@ import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { createReadStream } from 'fs';
 import { isGifBuffer, isLargeGif, convertGifBufferToVideo, checkFfmpegAvailability, GIF_SIZE_THRESHOLD } from './gif-to-video';
+import { USER_AGENT } from './user-agent';
 
 export interface CacheItem {
   id: string;
@@ -194,7 +195,7 @@ export class FeedCache {
       }
 
       // Download and process image
-      const response = await fetch(originalUrl);
+      const response = await fetch(originalUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -294,7 +295,7 @@ export class FeedCache {
       }
 
       // Download audio file
-      const response = await fetch(originalUrl);
+      const response = await fetch(originalUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

@@ -5,6 +5,7 @@ import { createErrorLogger } from '../error-utils';
 import { ParserUtils } from './utils';
 import { V4VResolver } from '../v4v-resolver';
 import type { MusicTrack, MusicFeed, MusicTrackExtractionResult } from './types';
+import { USER_AGENT } from '../user-agent';
 
 export class PlaylistParser {
   private static readonly logger = createErrorLogger('PlaylistParser');
@@ -204,7 +205,7 @@ export class PlaylistParser {
    */
   private static async getFeedBasicInfo(feedUrl: string): Promise<{ title?: string; description?: string }> {
     try {
-      const response = await fetch(feedUrl);
+      const response = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!response.ok) return {};
 
       const xmlText = await response.text();

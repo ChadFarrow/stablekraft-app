@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Load environment variables for Podcast Index API
 require('dotenv').config({ path: '.env.local' });
@@ -28,7 +29,7 @@ function createPodcastIndexAuthHeaders() {
     const authHeader = crypto.createHash('sha1').update(authString).digest('hex');
     
     return {
-        'User-Agent': 'StableKraft-MusicPlaylist/1.0',
+        'User-Agent': USER_AGENT,
         'X-Auth-Date': apiTime.toString(),
         'X-Auth-Key': PODCAST_INDEX_API_KEY,
         'Authorization': authHeader

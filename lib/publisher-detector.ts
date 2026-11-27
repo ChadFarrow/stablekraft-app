@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { USER_AGENT } from './user-agent';
 
 const API_KEY = process.env.PODCAST_INDEX_API_KEY!;
 const API_SECRET = process.env.PODCAST_INDEX_API_SECRET!;
@@ -38,7 +39,7 @@ export async function findPublisherFeed(artistName: string): Promise<PublisherFe
       'X-Auth-Date': apiHeaderTime.toString(),
       'X-Auth-Key': API_KEY,
       'Authorization': hash,
-      'User-Agent': 'StableKraft/1.0'
+      'User-Agent': USER_AGENT
     };
 
     // Search for feeds by author name

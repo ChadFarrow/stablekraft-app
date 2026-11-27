@@ -4,6 +4,7 @@ import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, readCappedArrayBuffer, MAX_IMAGE_BYTES } from '@/lib/safe-fetch';
 import { prisma } from '@/lib/prisma';
 import { gifByteCap, parseStillWidth } from '@/lib/gif-still';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * The GIF covers of the active catalogue — the only URLs this route may read
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
           const fetched = await safeFetch(gifUrl, {
             timeoutMs: cap > MAX_IMAGE_BYTES ? 30000 : 10000,
             headers: {
-              'User-Agent': 'Mozilla/5.0 (compatible; PodtardsImageProxy/1.0)',
+              'User-Agent': USER_AGENT,
               'Accept': 'image/*',
             },
           });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -17,7 +18,7 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft-Feed-Populator/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

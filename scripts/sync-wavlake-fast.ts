@@ -12,6 +12,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { USER_AGENT } from '../lib/user-agent';
 
 const prisma = new PrismaClient();
 
@@ -69,7 +70,7 @@ function getPodcastIndexHeaders(): Record<string, string> {
     'X-Auth-Date': apiHeaderTime.toString(),
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'Authorization': hash,
-    'User-Agent': 'StableKraft/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

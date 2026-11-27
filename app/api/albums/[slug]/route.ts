@@ -10,6 +10,7 @@ import { compressedJson } from '@/lib/compressed-json';
 import { pickFlexibleSlugMatch } from '@/lib/catalog/flexible-slug-match';
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
 import { fetchFeed } from '@/lib/feed-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const ITDV_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/ITDV-music-playlist.xml';
 const HGH_PLAYLIST_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml';
@@ -209,7 +210,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       // Fetch the playlist XML
       const response = await fetch(ITDV_PLAYLIST_URL, {
         headers: {
-          'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+          'User-Agent': USER_AGENT
         }
       });
 
@@ -324,7 +325,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       // Fetch the playlist XML
       const response = await fetch(HGH_PLAYLIST_URL, {
         headers: {
-          'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+          'User-Agent': USER_AGENT
         }
       });
 
@@ -439,7 +440,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       // Fetch the playlist XML
       const response = await fetch(IAM_PLAYLIST_URL, {
         headers: {
-          'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+          'User-Agent': USER_AGENT
         }
       });
 
@@ -554,7 +555,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       // Fetch the playlist XML
       const response = await fetch(MMM_PLAYLIST_URL, {
         headers: {
-          'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+          'User-Agent': USER_AGENT
         }
       });
 

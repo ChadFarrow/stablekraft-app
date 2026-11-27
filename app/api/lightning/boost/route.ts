@@ -4,6 +4,7 @@ import { LNURLService } from '@/lib/lightning/lnurl';
 import { valueTagParser } from '@/lib/lightning/value-parser';
 import { ValueSplitsService } from '@/lib/lightning/value-splits';
 import axios from 'axios';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // Get track details and value4value config from database or RSS feed
 async function getTrackValue4ValueConfig(trackId: string) {
@@ -44,7 +45,7 @@ async function getTrackValue4ValueConfig(trackId: string) {
 
     // Fallback to RSS feed parsing
     const testFeedUrl = 'https://raw.githubusercontent.com/ChadFarrow/lnurl-test-feed/main/public/lnurl-test-feed.xml';
-    const { data: xmlString } = await axios.get(testFeedUrl);
+    const { data: xmlString } = await axios.get(testFeedUrl, { headers: { 'User-Agent': USER_AGENT } });
     const parsedData = valueTagParser.parseValueTags(xmlString);
     
     return parsedData.channelValue;

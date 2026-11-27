@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { USER_AGENT } from './user-agent';
 
 interface ColorFrequency {
   [hex: string]: number;
@@ -485,7 +486,7 @@ export const extractDominantColorFromUrl = async (imageUrl: string): Promise<str
     // Fetch the image
     const response = await fetch(imageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; ColorExtractor/1.0)',
+        'User-Agent': USER_AGENT,
       },
     });
 

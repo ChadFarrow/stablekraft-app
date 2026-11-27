@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { playlistCache } from '@/lib/playlist-cache';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PLAYLIST_BASE_URL = 'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs';
 
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
         // Fetch the XML file
         const response = await fetch(playlist.url, {
           headers: {
-            'User-Agent': 'StableKraft-Playlist-Checker/1.0'
+            'User-Agent': USER_AGENT
           }
         });
         

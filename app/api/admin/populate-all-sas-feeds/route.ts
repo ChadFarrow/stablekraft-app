@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -19,12 +20,12 @@ async function generateHeaders(apiKey: string, apiSecret: string) {
     'X-Auth-Date': apiHeaderTime,
     'X-Auth-Key': apiKey,
     'Authorization': hash,
-    'User-Agent': 'StableKraft-SAS-Feed-Populator/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 
 async function fetchPlaylistXML(url: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!response.ok) {
     throw new Error(`Failed to fetch playlist: ${response.status}`);
   }

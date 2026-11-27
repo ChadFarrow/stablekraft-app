@@ -189,6 +189,7 @@ function createConsolidatedScript(category, scripts) {
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { USER_AGENT } = require('../../lib/user-agent');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
@@ -222,7 +223,7 @@ class UnifiedTool {
       'X-Auth-Key': API_KEY,
       'X-Auth-Date': apiHeaderTime.toString(),
       'Authorization': hash4Header,
-      'User-Agent': 'StableKraft-Universal-Tool/1.0'
+      'User-Agent': USER_AGENT
     };
   }
 

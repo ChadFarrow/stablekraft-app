@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { forwardableContentLength } from '@/lib/forwarded-framing';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * Per-IP ceiling on this route. Module scope so the buckets survive between
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Fetch the video/manifest file
     const response = await fetch(videoUrl, {
       headers: {
-        'User-Agent': 'DoerfelVerse/1.0 (Video Proxy)',
+        'User-Agent': USER_AGENT,
         'Accept': 'application/vnd.apple.mpegurl, video/*, */*',
         'Origin': 'https://stablekraft.app',
         'Referer': 'https://stablekraft.app/',

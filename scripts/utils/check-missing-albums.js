@@ -1,5 +1,6 @@
 const axios = require('axios');
 const xml2js = require('xml2js');
+const { USER_AGENT } = require('../../lib/user-agent');
 
 // Extract titleToFeedMap from AlbumDetailClient.tsx (lines 263-320)
 const titleToFeedMap = {
@@ -164,7 +165,7 @@ async function fetchFeed(url) {
     const response = await axios.get(url, {
       timeout: 10000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        'User-Agent': USER_AGENT
       }
     });
     

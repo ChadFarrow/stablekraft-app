@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { USER_AGENT } from '../lib/user-agent';
 
 const API_KEY = process.env.PODCAST_INDEX_API_KEY || '';
 const API_SECRET = process.env.PODCAST_INDEX_API_SECRET || '';
@@ -18,7 +19,7 @@ async function checkFeedEpisodes(feedId: number) {
         'X-Auth-Date': apiHeaderTime.toString(),
         'X-Auth-Key': API_KEY,
         'Authorization': hash,
-        'User-Agent': 'StableKraft-App/1.0'
+        'User-Agent': USER_AGENT
       }
     });
 

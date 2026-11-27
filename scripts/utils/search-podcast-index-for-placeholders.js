@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../../lib/user-agent');
 
 // Load environment variables from .env.local
 function loadEnvLocal() {
@@ -45,7 +46,7 @@ async function searchPodcastIndex(query, maxResults = 10) {
       'X-Auth-Key': apiKey,
       'X-Auth-Date': apiHeaderTime.toString(),
       'Authorization': hashString,
-      'User-Agent': 'stablekraft.app'
+      'User-Agent': USER_AGENT
     };
 
     // Search for episodes by term

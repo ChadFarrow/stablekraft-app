@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Known problematic feeds to refresh
 const PRIORITY_FEEDS = [
@@ -26,7 +27,7 @@ async function parseRSSFeed(feedUrl, retries = 3) {
             const response = await fetch(feedUrl, {
                 timeout: 15000,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (compatible; MusicSiteParser/1.0)'
+                    'User-Agent': USER_AGENT
                 }
             });
             

@@ -21,6 +21,7 @@ import {
   type DeadFeedSignal,
   type NewHomeCheck,
 } from '@/lib/feeds/dead-feed-decision';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * POST /api/admin/check-dead-feeds
@@ -136,7 +137,7 @@ async function fetchStatus(
     const got = await safeFetch(url, {
       allowHttp: true,
       timeoutMs: CONFIRM_TIMEOUT_MS,
-      headers: { 'User-Agent': 'StableKraft-Feed-Parser/1.0' },
+      headers: { 'User-Agent': USER_AGENT },
       fetchImpl: withDeadline,
     });
     if (!got.ok) return { status: 'error', reason: got.error };
@@ -213,7 +214,7 @@ async function probeAudio(url: string): Promise<AudioProbe> {
       allowHttp: true,
       maxRedirects: AUDIO_PROBE_MAX_REDIRECTS,
       timeoutMs: AUDIO_PROBE_TIMEOUT_MS,
-      headers: { 'User-Agent': 'StableKraft-Feed-Parser/1.0', Range: 'bytes=0-1' },
+      headers: { 'User-Agent': USER_AGENT, Range: 'bytes=0-1' },
       fetchImpl: withDeadline,
     });
     if (!got.ok) return { status: 'error' };

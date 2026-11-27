@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Load environment variables
 function loadEnvFile() {
@@ -85,7 +86,7 @@ async function parseHghFeedsToDatabase() {
 
                 // Fetch the RSS feed
                 const response = await fetch(feedData.originalUrl, {
-                    headers: { 'User-Agent': 'StableKraft-HGH-Parser/1.0' },
+                    headers: { 'User-Agent': USER_AGENT },
                     timeout: 15000
                 });
 

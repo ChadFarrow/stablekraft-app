@@ -17,6 +17,7 @@ import {
   parseRemoteItems,
   type RemoteItem 
 } from '@/lib/playlist-resolver';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // TODO: Update this URL to your playlist
 const PLAYLIST_URL = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/YOUR_PLAYLIST.xml';
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     // Fetch the playlist XML
     const response = await fetch(PLAYLIST_URL, {
       headers: {
-        'User-Agent': 'StableKraft-Playlist-Parser/1.0'
+        'User-Agent': USER_AGENT
       }
     });
 

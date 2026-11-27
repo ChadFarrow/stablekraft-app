@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch, readCappedText, MAX_FEED_BYTES } from '@/lib/safe-fetch';
 import { RateLimiter, clientIp, rateLimitHeaders } from '@/lib/rate-limit';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // In-memory cache for RSS feeds
 const cache = new Map<string, { data: string; timestamp: number; ttl: number }>();
@@ -107,7 +108,7 @@ async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
         allowHttp: true, // some podcast feeds are still plain HTTP
         timeoutMs: 10000,
         headers: {
-          'User-Agent': 'DoerfelVerse/1.0 (Music RSS Reader)',
+          'User-Agent': USER_AGENT,
         },
       });
 

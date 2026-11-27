@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * POST /api/admin/publishers/link-albums
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       try {
         // Fetch publisher's XML feed
         const response = await fetch(publisher.originalUrl, {
+          headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(10000)
         });
 

@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { USER_AGENT } = require('../lib/user-agent');
 
 // Load environment variables
 function loadEnvFile() {
@@ -43,7 +44,7 @@ function generateAuthHeaders() {
         'X-Auth-Key': API_KEY,
         'X-Auth-Date': authTime,
         'Authorization': authHeader,
-        'User-Agent': 'StableKraft-HGH-Playlist-Import/1.0'
+        'User-Agent': USER_AGENT
     };
 }
 

@@ -4,6 +4,7 @@ import { createRouteLimiter, enforceRateLimit } from '@/lib/rate-limit-guard';
 import { isSafePublicUrl } from '@/lib/url-security';
 import { safeFetch, declaredLengthExceeds, MAX_AUDIO_BYTES } from '@/lib/safe-fetch';
 import { forwardableContentLength } from '@/lib/forwarded-framing';
+import { USER_AGENT } from '@/lib/user-agent';
 
 /**
  * Per-IP ceiling on this route. Module scope so the buckets survive between
@@ -38,9 +39,15 @@ export async function GET(request: NextRequest) {
   if (refusal) return NextResponse.json({ error: refusal.error }, { status: refusal.status });
 
   try {
-    // Fetch the audio file with browser-like headers to bypass bot detection
+    // Our own User-Agent, not a browser imitation. The Chrome 120 string that was
+    // here (2025-11-29, "servers that block obvious proxies") did not help any
+    // host on 2026-11-27: of 81 audio hosts probed with this header set (from a
+    // home IP address, not Railway), none served the Chrome name and refused
+    // ours, and thebearsnare.com dropped the connection for every `Mozilla/5.0`
+    // name while it served ours. The other browser-style headers stay as they
+    // were.
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': USER_AGENT,
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
       'Accept-Encoding': 'identity', // Don't compress audio streams

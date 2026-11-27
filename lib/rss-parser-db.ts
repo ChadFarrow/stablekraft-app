@@ -198,6 +198,7 @@ export interface ParsedPerson {
 }
 
 import { PodcastChapter, ValueTimeSplit } from '@/lib/podcast-types';
+import { USER_AGENT } from './user-agent';
 
 export type ParsedChapter = PodcastChapter;
 
@@ -233,7 +234,7 @@ export async function fetchChapters(
   try {
     // A URL the feed names, so through the same guard as the feed itself.
     const response = await fetchFeed(chaptersUrl, {
-      headers: { 'User-Agent': 'StableKraft/1.0' },
+      headers: { 'User-Agent': USER_AGENT },
       timeoutMs: 10000,
       maxBytes: MAX_CHAPTERS_BYTES,
     });
@@ -244,7 +245,7 @@ export async function fetchChapters(
       if (directUrlMatch) {
         console.log(`🔄 Reflex proxy failed, trying direct chapters URL`);
         const directResponse = await fetchFeed(directUrlMatch[1], {
-          headers: { 'User-Agent': 'StableKraft/1.0' },
+          headers: { 'User-Agent': USER_AGENT },
           timeoutMs: 10000,
           maxBytes: MAX_CHAPTERS_BYTES,
         });

@@ -3,12 +3,13 @@
  * Directly parse feeds that have no tracks via RSS (bypass Podcast Index API)
  */
 const { PrismaClient } = require('@prisma/client');
+const { USER_AGENT } = require('../lib/user-agent');
 const prisma = new PrismaClient();
 
 async function parseFeedXML(feedUrl) {
   try {
     const response = await fetch(feedUrl, {
-      headers: { 'User-Agent': 'StableKraft-Direct-Parser/1.0' }
+      headers: { 'User-Agent': USER_AGENT }
     });
 
     if (!response.ok) {

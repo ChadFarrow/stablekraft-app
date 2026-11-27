@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { compressedJson } from '@/lib/compressed-json';
 import { remoteItemTracks } from '@/lib/playlist/musicl-feed';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // Interface for parsed track data
 interface ParsedTrack {
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
     const response = await fetch(
       'https://raw.githubusercontent.com/ChadFarrow/chadf-musicl-playlists/refs/heads/main/docs/HGH-music-playlist.xml',
       {
+        headers: { 'User-Agent': USER_AGENT },
         next: { revalidate: 3600 }, // Cache for 1 hour
       }
     );

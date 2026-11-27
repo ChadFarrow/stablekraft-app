@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
 const fs = require('fs');
+const { USER_AGENT } = require('../lib/user-agent');
 
 const prisma = new PrismaClient();
 
@@ -18,7 +19,7 @@ function getPodcastIndexHeaders() {
     'X-Auth-Key': PODCAST_INDEX_API_KEY,
     'X-Auth-Date': apiHeaderTime.toString(),
     'Authorization': hashString,
-    'User-Agent': 'StableKraft/1.0'
+    'User-Agent': USER_AGENT
   };
 }
 

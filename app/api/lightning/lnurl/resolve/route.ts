@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bech32 } from 'bech32';
 import { safeFetch, readCappedText, MAX_JSON_BYTES } from '@/lib/safe-fetch';
+import { USER_AGENT } from '@/lib/user-agent';
 
 interface LNURLPayParams {
   callback: string;
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       timeoutMs: 15000,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'StableKraft-Lightning/1.0',
+        'User-Agent': USER_AGENT,
       },
     });
 

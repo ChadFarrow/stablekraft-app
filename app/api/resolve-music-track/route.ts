@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { USER_AGENT } from '@/lib/user-agent';
 
 // This endpoint resolves V4V remoteItem references to actual music tracks
 // by looking up the feedGuid and itemGuid from the Podcast Index API
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       
       try {
         // Fetch the known feed directly
-        const feedResponse = await fetch(knownFeeds[feedGuid]);
+        const feedResponse = await fetch(knownFeeds[feedGuid], { headers: { 'User-Agent': USER_AGENT } });
         if (feedResponse.ok) {
           const feedXml = await feedResponse.text();
           

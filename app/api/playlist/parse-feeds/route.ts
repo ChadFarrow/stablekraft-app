@@ -8,6 +8,7 @@ import {
   getEpisodesFromAPI
 } from '@/lib/feed-parsing';
 import { discoverAndParsePublishers } from '@/lib/feed-discovery';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const PODCAST_INDEX_API_KEY = process.env.PODCAST_INDEX_API_KEY;
 const PODCAST_INDEX_API_SECRET = process.env.PODCAST_INDEX_API_SECRET;
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
             let xmlText = '';
             if (feedUrl) {
               try {
-                const rssResponse = await fetch(feedUrl, { signal: AbortSignal.timeout(10000) });
+                const rssResponse = await fetch(feedUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(10000) });
                 if (rssResponse.ok) {
                   xmlText = await rssResponse.text();
                 }

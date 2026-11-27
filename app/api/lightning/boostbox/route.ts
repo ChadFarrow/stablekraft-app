@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { USER_AGENT } from '@/lib/user-agent';
 
 const BOOSTBOX_URL = process.env.BOOSTBOX_URL || 'https://tardbox.com';
 const BOOSTBOX_API_KEY = process.env.BOOSTBOX_API_KEY || 'v4v4me';
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'X-Api-Key': BOOSTBOX_API_KEY,
+        'User-Agent': USER_AGENT,
       },
       body: JSON.stringify(payload),
     });
