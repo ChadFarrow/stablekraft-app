@@ -38,7 +38,7 @@ jobs:
         fi
 
         # Playlist names used throughout
-        PLAYLISTS=("hgh" "mmt" "sas" "mmm" "iam" "itdv" "b4ts" "upbeats" "flowgnar" "lt" "tft" "obsh" "greatest-hits")
+        PLAYLISTS=("hgh" "hgh-hitsgiving-2024" "hgh-hitsgiving-2025" "mmt" "sas" "mmm" "iam" "itdv" "b4ts" "upbeats" "flowgnar" "lt" "tft" "obsh" "greatest-hits")
 
         # Step 2: Reparse ALL music feeds to detect new tracks FIRST
         # This must run BEFORE playlist refresh to catch new tracks

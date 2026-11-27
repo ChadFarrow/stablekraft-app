@@ -848,11 +848,13 @@ function HomePageContent() {
           // 15s timeout per playlist so one unreachable upstream can't hang the
           // whole fallback; a timeout rejects that entry in allSettled.
           const playlistFetch = (path: string) => fetch(path, { signal: AbortSignal.timeout(15000) });
-          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, obshResponse, greatestHitsResponse] = await Promise.allSettled([
+          const [upbeatsResponse, b4tsResponse, itdvResponse, hghResponse, hghHitsgiving2024Response, hghHitsgiving2025Response, iamResponse, mmmResponse, mmtResponse, sasResponse, flowgnarResponse, ltResponse, tftResponse, obshResponse, greatestHitsResponse] = await Promise.allSettled([
             playlistFetch('/api/playlist/upbeats'),
             playlistFetch('/api/playlist/b4ts'),
             playlistFetch('/api/playlist/itdv'),
             playlistFetch('/api/playlist/hgh'),
+            playlistFetch('/api/playlist/hgh-hitsgiving-2024'),
+            playlistFetch('/api/playlist/hgh-hitsgiving-2025'),
             playlistFetch('/api/playlist/iam'),
             playlistFetch('/api/playlist/mmm'),
             playlistFetch('/api/playlist/mmt'),
@@ -908,6 +910,28 @@ function HomePageContent() {
             }
           } else {
             console.warn('⚠️ Failed to load HGH playlist');
+          }
+
+          // Process HGH Hitsgiving 2024 playlist
+          if (hghHitsgiving2024Response.status === 'fulfilled' && hghHitsgiving2024Response.value.ok) {
+            const hghHitsgiving2024Data = await hghHitsgiving2024Response.value.json();
+            if (hghHitsgiving2024Data.success && hghHitsgiving2024Data.albums) {
+              allAlbums.push(...hghHitsgiving2024Data.albums);
+              console.log(`✅ Loaded ${hghHitsgiving2024Data.albums.length} HGH Hitsgiving 2024 playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load HGH Hitsgiving 2024 playlist');
+          }
+
+          // Process HGH Hitsgiving 2025 playlist
+          if (hghHitsgiving2025Response.status === 'fulfilled' && hghHitsgiving2025Response.value.ok) {
+            const hghHitsgiving2025Data = await hghHitsgiving2025Response.value.json();
+            if (hghHitsgiving2025Data.success && hghHitsgiving2025Data.albums) {
+              allAlbums.push(...hghHitsgiving2025Data.albums);
+              console.log(`✅ Loaded ${hghHitsgiving2025Data.albums.length} HGH Hitsgiving 2025 playlist albums`);
+            }
+          } else {
+            console.warn('⚠️ Failed to load HGH Hitsgiving 2025 playlist');
           }
 
           // Process IAM playlist

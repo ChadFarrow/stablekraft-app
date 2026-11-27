@@ -21,6 +21,8 @@ export const PLAYLIST_TEMPLATE_PAGES = [
   'flowgnar',
   'greatest-hits',
   'hgh',
+  'hgh-hitsgiving-2024',
+  'hgh-hitsgiving-2025',
   'hgh-rss',
   'iam',
   'itdv',
